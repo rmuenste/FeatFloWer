@@ -32,6 +32,7 @@ MODULE CHI_EXCHANGE
   PUBLIC :: CHI_EXCHANGE_RANK
   PUBLIC :: CHI_EXCHANGE_SIZE
   PUBLIC :: CHI_EXCHANGE_MAX_INT
+  PUBLIC :: CHI_EXCHANGE_ALLSUM
   PUBLIC :: CHI_BG_NVAL
 
   ! value layout per point: u(3), grad u (3x3, column-major: (a,b) at
@@ -142,5 +143,16 @@ CONTAINS
     CALL MPI_ALLREDUCE(val, res, 1, MPI_INTEGER, MPI_MAX, comm, ierr)
     CHI_EXCHANGE_MAX_INT = res
   END FUNCTION CHI_EXCHANGE_MAX_INT
+
+  !-----------------------------------------------------------------------
+  ! In-place communicator-wide sum of a real vector (CG scalar products).
+  !-----------------------------------------------------------------------
+  SUBROUTINE CHI_EXCHANGE_ALLSUM(comm, vals, n)
+    INTEGER, INTENT(IN) :: comm, n
+    REAL*8, INTENT(INOUT) :: vals(*)
+    INTEGER :: ierr
+    IF (n .LE. 0) RETURN
+    CALL MPI_ALLREDUCE(MPI_IN_PLACE, vals, n, MPI_DOUBLE_PRECISION, MPI_SUM, comm, ierr)
+  END SUBROUTINE CHI_EXCHANGE_ALLSUM
 
 END MODULE CHI_EXCHANGE

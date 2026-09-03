@@ -1,7 +1,8 @@
 # Chimera Overlapping-Mesh Component — Usage
 
-Status: Phases 0–3 implemented — milestone 1 (static steady Chimera-S on
-the DFG cylinder) is runnable with `q2p1_chimera`. Design document:
+Status: Phases 0–4 implemented — milestone 1 (static steady Chimera-S on
+the DFG cylinder) and the static weak variant (Chimera-W, Phase 4) are
+runnable with `q2p1_chimera`; restart of the submesh states is supported. Design document:
 `chimera-integration-design.md` (repo root, v3). Modeled on
 `fbm_acceleration_usage.md`, including its verification protocol.
 
@@ -54,7 +55,8 @@ Component", for the full key table (`ChimeraVariant`, `ChimeraOuterBC`,
    (`chi-kernels-serial`, `chi-submesh-couette`) and the Phase-3 tests
    (`chi-markers-cutcell`: two-partition cut-cell marker test;
    `chi-exchange-np{1,2,3}`: collective background evaluation on 1/2/3
-   ranks — registered when `mpirun` is found next to the MPI compiler).
+   ranks — registered when `mpirun` is found next to the MPI compiler)
+   and the Phase-4 penalty-algebra test (`chi-algebra-serial`).
 3. **Physics acceptance**: `q2p1_chimera_cylinder` (featflower_test):
    steady DFG 2D-1 flow around a cylinder with the cylinder represented
    by the Chimera atmosphere on a uniform channel background mesh;
@@ -94,12 +96,52 @@ time. What happens per time step (workers only, `Chimera_BeginStep`):
    converged coupled steady state;
 4. force/torque from the atmosphere surface stress (`ChimeraForce<k>:`).
 
-Milestone-1 restrictions: static bodies (rigid velocity 0), `strong`
-variant, no FBM particles in the same run, non-overlapping atmospheres,
-cylinders treated as infinite along z (the slab case). `ChimeraOuterBC =
-dirichlet` is a diagnostic mode (interpolated background velocity on the
-outer surface, pressure gauge). Set `ChimeraWriteVTK = Yes` to dump the
-atmosphere solution per step to `_vtk/chimera_body<k>_<step>.vtk`.
+Restrictions: static bodies (rigid velocity 0), no FBM particles in the
+same run, non-overlapping atmospheres, cylinders treated as infinite
+along z (the slab case). `ChimeraOuterBC = dirichlet` is a diagnostic
+mode (interpolated background velocity on the outer surface, pressure
+gauge). Set `ChimeraWriteVTK = Yes` to dump the atmosphere solution per
+step to `_vtk/chimera_body<k>_<step>.vtk`.
+
+## Weak variant (Chimera-W, Phase 4)
+
+`SimPar@ChimeraVariant = weak` replaces the nodal hole/fringe constraints
+by the paper's distributed interior penalty (eq. (7)): the momentum
+matrix gets `dt*D_L` on every multigrid level (hook H8), the right-hand
+side `dt*g` (H10) with `g_i = D_L(i) * uhat(x_i)` from the replicated
+atmosphere solutions, and the velocity correction/pressure operator use
+the (optionally capped) penalised lumped mass (H11/H15). Deck:
+`applications/q2p1_chimera/_data/q2p1_param_weak.dat` (steady FAC) and
+`q2p1_param_unsteady.dat` (Re 100 via `Prop@Viscosity = 2e-4`,
+dt 0.025 — an open case: on the L2 background both variants diverge
+after the impulsive start, see the M1 RUNBOOK). Key choices that matter on coarse backgrounds (all
+documented in `parameter_reference.md`):
+
+- `ChimeraGammaMax` — `dt*gamma >> 1` (1e3 at dt 0.05 on the FAC case);
+  the forces are insensitive to gamma between 1e3 and 1e5.
+- `ChimeraPenaltyLumped = Yes` (default) — nodal lumped penalty; the
+  consistent matrix (`No`) is a diagnostic that the Jacobi-type velocity
+  solvers cannot take at large `dt*gamma`.
+- `ChimeraProjCap = 0` (default) — plain projection; the corrected
+  velocity is exactly discretely divergence-free.
+- `ChimeraBetaFull/Zero` — keep at least one background cell free
+  between the last penalised node and the atmosphere boundary where the
+  Robin data are sampled (0.25/0.5 on the vendored L2 case; the paper's
+  0.5/0.75 are for h << H). With the paper's values the L2 case develops
+  a slowly growing coupling mode from t ~ 4 for every gamma.
+- `ChimeraCouplingRelax` — optional under-relaxation of the Dirichlet
+  data handed to the background (both variants), default off.
+- The weak variant requires a constant `TimeStep` (the projection
+  operator freezes `dt`; a change aborts with a message).
+
+## Restart (hook H12)
+
+`q2p1_chimera` writes the replicated submesh states next to every flow
+dump (`_dump/<idx>/chimera.dmp`, same cyclic index as the flow dump,
+plus the final one) and reads them back when `SimPar@StartingProc = 1`
+with `SimPar@StartFile = "<idx>"`. Markers, donor caches, g and the
+penalty operator are rebuilt at initialisation, never restored. The
+provenance dump path (`UseProvDump`) is not covered.
 
 ## Component layout
 

@@ -107,13 +107,86 @@ Raw logs (build dir, not tracked): `run_L2pin.log`/`prot_L2pin_t6.txt`,
   limit shared with the production discretisation); surface-traction
   torque sub-quadratic, 1.0 % at L3.
 
+## Weak variant (Chimera-W, Phase 4, 2026-09-03)
+
+Same background/atmosphere; deck `_data/q2p1_param_weak.dat` (nodal
+lumped penalty gamma_max 1e3, plain projection `ChimeraProjCap 0`,
+damping support `ChimeraBetaFull/Zero 0.25/0.5`), 3 partitions / 4
+ranks, dt 0.05, t = 6.05. Regression anchor `q2p1_chimera_cylinder_weak`.
+
+| Run | gamma | beta support (fractions of H) | projection | C_D (t = 6.05) | C_L | outcome |
+|---|---|---|---|---|---|---|
+| consistent Q2 penalty, CG correction | 1e3 | 0.5 / 0.75 (paper) | paper (plain Poisson, damped correction) | 5.567 at t = 5 | +0.050 at t = 5 | growing mode from t ≈ 5.3 (×1.4/step), NaN at t = 6 |
+| consistent Q2 penalty | 1e4 | 0.5 / 0.75 | paper | — | — | Jacobi coarse solver diverges in step 1 |
+| consistent, atmosphere H = 0.10 | 1e3 | 0.5 / 0.75 | paper | — | — | blow-up at t = 0.5 |
+| nodal lumped, penalised Poisson operator | 1e3 | 0.5 / 0.75 | cap 50 (uncapped) / cap 10 | — | — | NaN in step 2 (interior pressure gradient steepened; ramp edge cannot hold it) |
+| nodal lumped, plain projection | 1e3 | 0.5 / 0.75 | cap 0 | 5.5128 at t = 5 | +0.0025 at t = 5 | growing mode from t ≈ 4 (×1.2/step), lift 0.68 at t = 6 |
+| nodal lumped, plain projection | 1e4 | 0.5 / 0.75 | cap 0 | 5.5127 at t = 5 | +0.0082 at t = 5 | same mode, onset t ≈ 4.5 |
+| nodal lumped, plain projection | 1e5 | 0.5 / 0.75 | cap 0 | 5.5129 at t = 5 | +0.0099 at t = 5 | same mode, onset t ≈ 5.3 |
+| **nodal lumped, plain projection, narrow support** | 1e3 | **0.25 / 0.5** | cap 0 | **5.5224849** | **+1.4286e-3** (still creeping: −0.027 at t = 3, −0.005 at t = 5) | **stable**: submesh Picard update settles at 4e-6; 2 partitions: C_D identical, C_L 1.4285933e-3 |
+
+Reading: before the instability sets in, the wide-support weak runs give
+lift +0.003..+0.010 (body-fitted L2 0.0099), i.e. the distributed
+penalty removes most of the strong variant's staircase error at the same
+resolution; the price of the narrow support that stabilises the
+step-iterated Robin ↔ penalty loop at h = D/4 is a lift that is again
+staircase-dominated early on (−0.03 at t = 3) and converges slowly.
+Growth of the unstable mode is independent of gamma (1e3..1e5) and of
+the projection variant; it disappears when at least one background cell
+is free between the last penalised node and the atmosphere boundary
+where the Robin data are sampled (the paper's beta support assumes
+h << H). The strong variant is stable with the same layout. Under-
+relaxation of the Dirichlet data (`ChimeraCouplingRelax`) is available
+but was not needed for the anchor.
+
+Raw logs (build dir): `run_W_L2_g1e3.log` (consistent), `run_W_L2_g1e4.log`,
+`run_W_L2_g1e3_H010.log`, `run_WL_L2_g1e3.log`/`_cap10.log`,
+`run_WL_L2_g1e3_cap0.log`, `run_WL_L2_g1d4_cap0.log`, `run_WL_L2_g1d5_cap0.log`,
+`run_WL_L2_g1e3_b25.log`, `run_WS_np3.log`, `run_WS_np2.log`.
+
+## Restart round trip (hook H12, 2026-09-03)
+
+Unsteady weak deck (`q2p1_param_unsteady.dat`, Re 100, dt 0.025, α = 0)
+run to t = 1.0 with dumps at t = 0.5 (index 1) and 1.0 (index 2), then
+restarted with `StartingProc = 1`, `StartFile = "1"`: all 21 restarted
+steps reproduce the uninterrupted run's `ChimeraForce1` lines to every
+printed digit (`prot_RS_full.txt` vs `prot_RS_restart.txt`). Note: a
+restart from a dump written by a *diverged* run (NaN abort still writes
+the final dump) fails in the base solver's coarse assembly (`detj = 0`).
+
+## Unsteady Re 100 attempt (DFG 2D-2 regime, 2026-09-03) — NOT achieved at L2
+
+Deck `q2p1_param_unsteady.dat` (`Prop@Viscosity 2e-4`, dt 0.025, impulsive
+start, weak variant, α = 0 because α = 1 makes the atmosphere Picard
+iteration diverge within three steps at this viscosity). Every variant
+diverges on the L2 background (h = D/4, background cell Re ≈ 25):
+
+| Variant | dt | outcome |
+|---|---|---|
+| weak, α = 1 | 0.025 | atmosphere Picard divergence at t = 0.1 |
+| weak, α = 0 | 0.025 | lift oscillation growing from t ≈ 1.6, NaN at t = 2.4 |
+| weak, α = 0, `ChimeraCouplingRelax 0.5` | 0.025 | NaN at t = 3.2 |
+| weak, α = 0 | 0.0125 | NaN at t = 2.0 |
+| **strong**, α = 0 | 0.025 | lift grows monotonically from t ≈ 1 (0.08 → 1.43 at t = 3.5), NaN at t = 4 |
+
+The strong variant fails the same way, so this is not a weak-variant
+defect but the coupled Chimera scheme at this resolution/Reynolds number
+with an impulsive start. Routes: L3/L3 background (≈ 70 s per step on one
+core here — needs the cluster), a ramped inflow, or the in-step outer
+iterations (design H13, milestone M4). Logs: `run_U_a0_long.log`,
+`run_U_strong.log`, `run_U_relax.log`, `run_U_dt.log`, `run_U_a01.log`,
+`run_U_nl10.log`.
+
 ## Open rungs / to do
 
+- [ ] Unsteady Re 100 (DFG 2D-2) at L3/L3, S and W (see the attempt above).
 - [ ] L4/L4 (D/h = 16) — needs cluster time (L3 ≈ 70 s/step on one core;
   expect ≳ 10× per step at L4); gives the first measured coupled order.
 - [ ] L3/L3 continued to t ≈ 10 for a settled C_L.
 - [ ] Split ladders: atmosphere refined at fixed background and vice
   versa, to attribute the error.
-- [ ] Chimera-W on the same ladder (Phase 4 deliverable: W vs S table).
+- [x] Chimera-W at L2 (table above); [ ] W at L3/L3 and with the paper's
+  beta support on a background with h << H (expected to remove the
+  narrow-support compromise).
 - [ ] Variationally consistent force evaluation (removes the
   sub-quadratic traction-integral error).

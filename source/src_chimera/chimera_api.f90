@@ -24,7 +24,11 @@ MODULE CHIMERA_API
     CHIMERA_VALIDATE_CONFIG
   USE CHI_COUPLING, ONLY: CHI_COUPLING_INIT, CHI_COUPLING_BEGIN_STEP, &
     CHI_COUPLING_APPLY_DEF, CHI_COUPLING_APPLY_VAL, CHI_COUPLING_FILTER_MAT, &
-    CHI_COUPLING_FILTER_MAT_9, CHI_COUPLING_FINALIZE
+    CHI_COUPLING_FILTER_MAT_9, CHI_COUPLING_FINALIZE, &
+    CHI_COUPLING_ADD_MAT, CHI_COUPLING_ADD_DEFECT, CHI_COUPLING_ADD_RHS, &
+    CHI_COUPLING_CORRECT, CHI_COUPLING_WRITE_RESTART, CHI_COUPLING_READ_RESTART, &
+    CHI_COUPLING_ADD_PRESSURE_MASS
+  USE CHI_PENALTY, ONLY: chi_filter3_iface
 
   IMPLICIT NONE
 
@@ -39,6 +43,14 @@ MODULE CHIMERA_API
   PUBLIC :: Chimera_FilterMatrixRows
   PUBLIC :: Chimera_FilterMatrixRows9
   PUBLIC :: Chimera_Finalize
+  PUBLIC :: Chimera_AddMomentumMatrix
+  PUBLIC :: Chimera_AddMomentumDefect
+  PUBLIC :: Chimera_AddMomentumRHS
+  PUBLIC :: Chimera_CorrectVelocity
+  PUBLIC :: Chimera_AddPressureMass
+  PUBLIC :: Chimera_WriteRestart
+  PUBLIC :: Chimera_ReadRestart
+  PUBLIC :: chi_filter3_iface
 
   ! Lifecycle state of the component (private; set by Chimera_Initialize,
   ! cleared by Chimera_Finalize).
@@ -75,11 +87,6 @@ CONTAINS
 
     CALL CHIMERA_VALIDATE_CONFIG()
 
-    IF (bChimeraW) THEN
-      WRITE(*,'(A)') 'CHIMERA_API error: ChimeraVariant = weak is not ' // &
-        'implemented yet (arrives with design phase 4).'
-      STOP 1
-    END IF
     IF (myFBM%nParticles .GT. 0) THEN
       WRITE(*,'(A)') 'CHIMERA_API error: ChimeraEnable = Yes cannot be ' // &
         'combined with FBM particles (milestone-1 restriction).'
@@ -164,6 +171,99 @@ CONTAINS
   ! Application-local finalization (hook H6).  Idempotent and safe on
   ! partial initialization.
   !-----------------------------------------------------------------------
+  !-----------------------------------------------------------------------
+  ! Hook H8: A11/A22/A33 += coef * D on multigrid level ilev (weak variant
+  ! only; coef = tstep, design section 5).  No-op otherwise.
+  !-----------------------------------------------------------------------
+  SUBROUTINE Chimera_AddMomentumMatrix(DA11, DA22, DA33, KLD, nu, ilev, coef)
+    REAL*8, INTENT(INOUT) :: DA11(*), DA22(*), DA33(*)
+    INTEGER, INTENT(IN) :: KLD(*), nu, ilev
+    REAL*8, INTENT(IN) :: coef
+    IF (.NOT. Chimera_VariantIsWeak()) RETURN
+    IF (.NOT. chi_initialized) RETURN
+    CALL CHI_COUPLING_ADD_MAT(DA11, DA22, DA33, KLD, nu, ilev, coef)
+  END SUBROUTINE Chimera_AddMomentumMatrix
+
+  !-----------------------------------------------------------------------
+  ! Defect term def += coef * D u (finest level) for the branches of the
+  ! momentum defect that are rebuilt from operator parts.
+  !-----------------------------------------------------------------------
+  SUBROUTINE Chimera_AddMomentumDefect(valU, valV, valW, defU, defV, defW, &
+                                       KLD, KCOL, nu, coef)
+    REAL*8, INTENT(IN) :: valU(*), valV(*), valW(*)
+    REAL*8, INTENT(INOUT) :: defU(*), defV(*), defW(*)
+    INTEGER, INTENT(IN) :: KLD(*), KCOL(*), nu
+    REAL*8, INTENT(IN) :: coef
+    IF (.NOT. Chimera_VariantIsWeak()) RETURN
+    IF (.NOT. chi_initialized) RETURN
+    CALL CHI_COUPLING_ADD_DEFECT(valU, valV, valW, defU, defV, defW, KLD, KCOL, nu, coef)
+  END SUBROUTINE Chimera_AddMomentumDefect
+
+  !-----------------------------------------------------------------------
+  ! Hook H10: rhs += coef * g (weak variant only; coef = tstep).
+  !-----------------------------------------------------------------------
+  SUBROUTINE Chimera_AddMomentumRHS(defU, defV, defW, ndof, coef)
+    REAL*8, INTENT(INOUT) :: defU(*), defV(*), defW(*)
+    INTEGER, INTENT(IN) :: ndof
+    REAL*8, INTENT(IN) :: coef
+    IF (.NOT. Chimera_VariantIsWeak()) RETURN
+    IF (.NOT. chi_initialized) RETURN
+    CALL CHI_COUPLING_ADD_RHS(defU, defV, defW, ndof, coef)
+  END SUBROUTINE Chimera_AddMomentumRHS
+
+  !-----------------------------------------------------------------------
+  ! Hook H11: penalised velocity correction (paper eq. (12)).  Reports
+  ! applied = .FALSE. whenever the weak variant is inactive so that the
+  ! caller runs its existing diagonal loop verbatim (bit-identity fast
+  ! path, design section 5).
+  !-----------------------------------------------------------------------
+  SUBROUTINE Chimera_CorrectVelocity(valU, valV, valW, defU, defV, defW, ml, ndof, &
+                                     filter3, applied)
+    REAL*8, INTENT(INOUT) :: valU(*), valV(*), valW(*)
+    REAL*8, INTENT(IN) :: defU(*), defV(*), defW(*), ml(*)
+    INTEGER, INTENT(IN) :: ndof
+    PROCEDURE(chi_filter3_iface) :: filter3
+    LOGICAL, INTENT(OUT) :: applied
+    applied = .FALSE.
+    IF (.NOT. Chimera_VariantIsWeak()) RETURN
+    IF (.NOT. chi_initialized) RETURN
+    CALL CHI_COUPLING_CORRECT(valU, valV, valW, defU, defV, defW, ml, ndof, filter3, applied)
+  END SUBROUTINE Chimera_CorrectVelocity
+
+  !-----------------------------------------------------------------------
+  ! Hook H15: penalised lumped mass for the pressure Poisson operator
+  ! (weak, lumped variant only): meff += coef * D_L on level ilev, so that
+  ! B^T [M_L + dt D_L]^-1 B matches the correction of eq. (12).
+  !-----------------------------------------------------------------------
+  SUBROUTINE Chimera_AddPressureMass(meff, nu, ilev, coef)
+    REAL*8, INTENT(INOUT) :: meff(*)
+    INTEGER, INTENT(IN) :: nu, ilev
+    REAL*8, INTENT(IN) :: coef
+    IF (.NOT. Chimera_VariantIsWeak()) RETURN
+    IF (.NOT. chi_initialized) RETURN
+    CALL CHI_COUPLING_ADD_PRESSURE_MASS(meff, nu, ilev, coef)
+  END SUBROUTINE Chimera_AddPressureMass
+
+  !-----------------------------------------------------------------------
+  ! Hook H12 (app-driven): restart state beside the flow dump.
+  !-----------------------------------------------------------------------
+  SUBROUTINE Chimera_WriteRestart(idx)
+    INTEGER, INTENT(IN) :: idx
+    IF (.NOT. chimera_enable) RETURN
+    IF (.NOT. chi_initialized) RETURN
+    CALL CHI_COUPLING_WRITE_RESTART(idx)
+  END SUBROUTINE Chimera_WriteRestart
+
+  SUBROUTINE Chimera_ReadRestart(name)
+    CHARACTER(LEN=*), INTENT(IN) :: name
+    IF (.NOT. chimera_enable) RETURN
+    IF (.NOT. chi_initialized) THEN
+      WRITE(*,'(A)') 'CHIMERA_API error: Chimera_ReadRestart before Chimera_Initialize.'
+      STOP 1
+    END IF
+    CALL CHI_COUPLING_READ_RESTART(name)
+  END SUBROUTINE Chimera_ReadRestart
+
   SUBROUTINE Chimera_Finalize()
     IF (.NOT. chi_initialized) RETURN
     CALL CHI_COUPLING_FINALIZE()

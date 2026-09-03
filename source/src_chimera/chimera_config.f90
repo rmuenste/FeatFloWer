@@ -75,6 +75,58 @@ MODULE CHIMERA_CONFIG
   ! for the weak variant.
   !-----------------------------------------------------------------------
   REAL*8, PUBLIC :: chimera_gamma_max = 0d0
+  !-----------------------------------------------------------------------
+  ! SimPar@ChimeraPenaltyLumped (Yes/No, default Yes)
+  ! Yes: row-sum lumped penalty D_L (positive for Lagrange Q2).  The
+  !      momentum matrix stays diagonally dominant for the Jacobi-type
+  !      multigrid solvers, the correction of paper eq. (12) is diagonal,
+  !      and the pressure Poisson operator uses the same penalised lumped
+  !      mass (variable-density mechanism), so the corrected velocity is
+  !      exactly discretely divergence-free.
+  ! No:  consistent penalty matrix with the CG correction and the plain
+  !      lumped mass in the Poisson operator (the paper's eqs. (10)-(12)
+  !      literally; Remark 2 there).  Diagnostic only: the Jacobi coarse
+  !      solver is not guaranteed to converge for mass-dominated rows.
+  !-----------------------------------------------------------------------
+  LOGICAL, PUBLIC :: chimera_penalty_lumped = .TRUE.
+  !-----------------------------------------------------------------------
+  ! SimPar@ChimeraProjCap (real >= 0, default 0)
+  ! Cap kappa of the penalised mass in the projection: the pressure
+  ! Poisson operator and the velocity correction both use
+  !   M_eff = M_L + min(dt D_L, kappa M_L),
+  ! so the corrected velocity is always exactly discretely divergence-
+  ! free.  The momentum step always carries the full dt D_L.
+  ! Default 0 = plain projection (momentum-only penalty; the fixed point
+  ! is the penalised steady state with an O(1/gamma) interior leak).
+  ! kappa > 0 is experimental: it steepens the pressure gradient inside
+  ! the bodies by up to 1+kappa, which the weakly penalised ramp edge
+  ! cannot hold on coarse backgrounds (observed: kappa = 10 diverges at
+  ! h = D/4).  The paper's damped correction with the plain Poisson
+  ! operator (eqs. (11)/(12)) leaves the divergence in the penalised
+  ! zone uncorrected and was observed to drift; it is not offered.
+  !-----------------------------------------------------------------------
+  REAL*8, PUBLIC :: chimera_proj_cap = 0d0
+  !-----------------------------------------------------------------------
+  ! SimPar@ChimeraBetaFull / SimPar@ChimeraBetaZero (fractions of H;
+  ! defaults 0.5 / 0.75 = the paper's damping function: beta = 1 up to
+  ! R + 0.5 H, linear to 0 at R + 0.75 H, 0 in the outer quarter).  On
+  ! coarse backgrounds the free band between the last penalised node and
+  ! the atmosphere boundary Gamma (where the Robin data are sampled) must
+  ! stay at least one or two background cells wide; shrink the support
+  ! (e.g. 0.25 / 0.5) when h is not << H.
+  !-----------------------------------------------------------------------
+  REAL*8, PUBLIC :: chimera_beta_full = 0.5d0
+  REAL*8, PUBLIC :: chimera_beta_zero = 0.75d0
+  !-----------------------------------------------------------------------
+  ! SimPar@ChimeraCouplingRelax (real in (0,1], default 1)
+  ! Under-relaxation of the Dirichlet data handed to the background
+  ! (fringe values in the strong variant, g in the weak variant):
+  ! data = theta*new + (1-theta)*previous.  1 = no relaxation.  A
+  ! partitioned-coupling damping knob for the step-iterated scheme; it
+  ! leaves the steady fixed point unchanged and adds an O(dt) lag in
+  ! time-dependent runs.
+  !-----------------------------------------------------------------------
+  REAL*8, PUBLIC :: chimera_coupling_relax = 1d0
 
   !-----------------------------------------------------------------------
   ! SimPar@ChimeraOuterIters (integer >= 1, default 1)
@@ -150,6 +202,19 @@ CONTAINS
       STOP 1
     END IF
 
+    IF (chimera_beta_full .LT. 0d0 .OR. chimera_beta_zero .GT. 1d0 .OR. &
+        chimera_beta_zero .LE. chimera_beta_full) THEN
+      WRITE(*,'(A)') 'CHIMERA_CONFIG error: need 0 <= ChimeraBetaFull < ChimeraBetaZero <= 1'
+      STOP 1
+    END IF
+    IF (chimera_coupling_relax .LE. 0d0 .OR. chimera_coupling_relax .GT. 1d0) THEN
+      WRITE(*,'(A)') 'CHIMERA_CONFIG error: ChimeraCouplingRelax must be in (0,1]'
+      STOP 1
+    END IF
+    IF (chimera_proj_cap .LT. 0d0) THEN
+      WRITE(*,'(A)') 'CHIMERA_CONFIG error: ChimeraProjCap must be >= 0'
+      STOP 1
+    END IF
     IF (chimera_robin_alpha .LT. 0d0) THEN
       WRITE(*,'(A)') 'CHIMERA_CONFIG error: ChimeraRobinAlpha must be >= 0'
       STOP 1

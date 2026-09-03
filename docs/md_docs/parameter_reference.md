@@ -712,19 +712,23 @@ parser, so decks stay portable. Values land in
 | `SimPar@ChimeraParticleFile` | quoted path | — | Body table (format below) |
 | `SimPar@ChimeraSubmeshFile` | quoted path | — | Coarse body-fitted shell mesh (.tri, `tools/chimera_meshgen`), fitted to each body's radii at load time |
 | `SimPar@ChimeraSubmeshLev` | integer | `3` | Submesh refinement levels (choose so that the atmosphere resolution matches the background: 2 for `MaxMeshLevel` 2 on the vendored FAC case, 3 for level 3) |
-| `SimPar@ChimeraRobinAlpha` | real | `1.0` | Robin coefficient alpha (>= 0) |
-| `SimPar@ChimeraGammaMax` | real | `0.0` | Interior-penalty parameter (required > 0 for `weak`) |
+| `SimPar@ChimeraRobinAlpha` | real | `1.0` | Robin coefficient alpha (>= 0) of paper eq. (5d). The nonlinear term `-alpha (u.n) u` is Picard-linearised in the atmosphere solve; when it exceeds the viscous stress (Re 100 on the vendored case: `U^2 ~ 0.09` vs `mu U/h ~ 0.01`) the 3-sweep Picard iteration diverges — use `0` (pure Neumann/stress coupling) or `0.1` there; at Re 20 `1` is fine |
+| `SimPar@ChimeraGammaMax` | real | `0.0` | Interior-penalty parameter gamma_max (required > 0 for `weak`; the penalty enters the momentum rows as `dt*gamma_max*beta`, so `dt*gamma_max >> 1` is the stiff regime) |
 | `SimPar@ChimeraOuterIters` | integer | `1` | In-step outer coupling iterations (>= 2 for time-accurate Chimera-S) |
 | `SimPar@ChimeraSubNL` | integer | `3` | Picard iterations per submesh solve |
 | `SimPar@ChimeraWriteVTK` | Yes/No | `No` | Dump submesh solutions for visualization |
+| `SimPar@ChimeraPenaltyLumped` | Yes/No | `Yes` | `weak` only. `Yes`: nodal-quadrature (Lobatto) lumped penalty `D_L` (positive, diagonal; the Jacobi-type velocity solvers stay convergent; correction of paper eq. (12) is diagonal). `No`: consistent Q2 penalty matrix with a CG correction and the paper's plain-mass Poisson operator (diagnostic only: the Jacobi coarse solver diverges for mass-dominated rows at large `dt*gamma`) |
+| `SimPar@ChimeraProjCap` | real | `0` | `weak` only. Cap kappa of the penalised mass used in **both** the pressure Poisson operator and the velocity correction (`M_eff = M_L + min(dt D_L, kappa M_L)`), keeping the corrected velocity exactly discretely divergence-free. `0` = plain projection (momentum-only penalty; recommended). `kappa > 0` is experimental: it steepens the pressure inside the bodies by up to `1+kappa` (observed to diverge at `h = D/4` with kappa = 10) |
+| `SimPar@ChimeraBetaFull` / `ChimeraBetaZero` | real | `0.5` / `0.75` | `weak` only. Damping function `beta = 1` up to `R + BetaFull*H`, linear to 0 at `R + BetaZero*H`, 0 beyond (defaults = paper eq. (7)). The free band between the last penalised node and the atmosphere boundary (where the Robin data are sampled) should be at least 1-2 background cells wide; shrink the support on coarse backgrounds |
 
 `ChimeraEnable = Yes` requires an application that initializes the component
 (`q2p1_chimera`); any other application aborts with a clear message at the
 first time step. Echo lines in the protocol file are emitted only when the
 component is enabled, so a disabled run's `prot.txt` stays byte-identical.
 Both file keys take a **quoted** path (list-directed read, like
-`SimPar@ProjectFile`). Milestone-1 restrictions (checked in
-`Chimera_Initialize`): `strong` variant only; no FBM particles in the same run.
+`SimPar@ProjectFile`). Restrictions (checked in `Chimera_Initialize`): no FBM
+particles in the same run; the `weak` variant requires a constant
+`TimeStep` (the projection operator freezes `dt`; a change aborts).
 
 **Body table (`ChimeraParticleFile`)** — `#` comment lines, then the body
 count, then one line per body (`H` = atmosphere width, outer radius =

@@ -49,6 +49,9 @@ MODULE QuadSc_assembly
   USE var_QuadScalar
   USE QuadSc_struct, ONLY: Create_LinMatStruct, Create_QuadLinMatStruct
   USE QuadSc_solver_coarse, ONLY: Setup_UMFPACK_CoarseSolver
+  ! Chimera weak coupling (hook H15): penalised lumped mass in the
+  ! projection operator; no-op unless ChimeraVariant = weak.
+  USE CHIMERA_API, ONLY: Chimera_VariantIsWeak, Chimera_AddPressureMass
 
   IMPLICIT NONE
   PRIVATE
@@ -633,6 +636,7 @@ SUBROUTINE Create_CMat(knprU,knprV,knprW,knprP,coarse_lev,coarse_solver) !(C)
 INTEGER coarse_lev,coarse_solver
 TYPE(mg_kVector) :: knprU(*),knprV(*),knprW(*),knprP(*)
 INTEGER i,j,iEntry,jCol
+REAL*8, ALLOCATABLE :: chiMeff(:)
 
  if (.not.bMasterTurnedOn) return
 
@@ -657,10 +661,23 @@ INTEGER i,j,iEntry,jCol
 
   IF (.NOT.ALLOCATED(mg_CMat(ILEV)%a)) ALLOCATE(mg_CMat(ILEV)%a(lMat%na))
   mg_CMat(ILEV)%a=0d0
+  IF (Chimera_VariantIsWeak()) THEN
+   ! Chimera weak coupling (hook H15): C = B^T [M_L + dt D_L]^-1 B, the
+   ! same operator as the penalised velocity correction (eq. (12)).
+   ALLOCATE(chiMeff(qMat%nu))
+   chiMeff = MlRhoPmat(1:qMat%nu)
+   CALL Chimera_AddPressureMass(chiMeff,qMat%nu,ILEV,tstep)
+   CALL Get_CMat(chiMeff,mg_CMat(ILEV)%a,lMat%LdA,lMat%ColA,&
+        BXMat,BYMat,BZMat,qlMat%LdA,qlMat%ColA,&
+        BTXMat,BTYMat,BTZMat,lqMat%LdA,lqMat%ColA, &
+        knprU(ILEV)%x,knprV(ILEV)%x,knprW(ILEV)%x,lMat%nu,qMat%nu)
+   DEALLOCATE(chiMeff)
+  ELSE
   CALL Get_CMat(MlRhoPmat,mg_CMat(ILEV)%a,lMat%LdA,lMat%ColA,&
        BXMat,BYMat,BZMat,qlMat%LdA,qlMat%ColA,&
        BTXMat,BTYMat,BTZMat,lqMat%LdA,lqMat%ColA, &
        knprU(ILEV)%x,knprV(ILEV)%x,knprW(ILEV)%x,lMat%nu,qMat%nu)
+  END IF
 
   IF (myid.eq.showID) THEN
    IF (ILEV.EQ.NLMIN) THEN

@@ -26,7 +26,9 @@ USE var_QuadScalar, ONLY: bApplyFAC3DMeshDeformation
 USE CHIMERA_CONFIG, ONLY: chimera_enable, chimera_variant, chimera_outer_bc, &
   chimera_particle_file, chimera_submesh_file, chimera_submesh_nlmax, &
   chimera_robin_alpha, chimera_gamma_max, chimera_outer_iters, &
-  chimera_sub_nl, chimera_write_vtk, CHIMERA_VALIDATE_CONFIG
+  chimera_sub_nl, chimera_write_vtk, chimera_penalty_lumped, chimera_proj_cap, &
+  chimera_beta_full, chimera_beta_zero, chimera_coupling_relax, &
+  CHIMERA_VALIDATE_CONFIG
 USE types, ONLY: tParamV, tParamP, tProperties
 
 IMPLICIT NONE
@@ -1131,6 +1133,16 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         READ(string(iEq+1:),*) chimera_sub_nl
       CASE ("ChimeraWriteVTK")
         chimera_write_vtk = read_yes_no_param(string, iEq)
+      CASE ("ChimeraPenaltyLumped")
+        chimera_penalty_lumped = read_yes_no_param(string, iEq)
+      CASE ("ChimeraProjCap")
+        READ(string(iEq+1:),*) chimera_proj_cap
+      CASE ("ChimeraBetaFull")
+        READ(string(iEq+1:),*) chimera_beta_full
+      CASE ("ChimeraBetaZero")
+        READ(string(iEq+1:),*) chimera_beta_zero
+      CASE ("ChimeraCouplingRelax")
+        READ(string(iEq+1:),*) chimera_coupling_relax
       CASE ("PartitionFormat")
        READ(string(iEq+1:),*) cParam2
        cPartitionFormat = normalize_partition_format(cParam2)
@@ -1406,6 +1418,15 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
       CALL write_param_real(mfile, mterm, "ChimeraGammaMax = ", chimera_gamma_max)
       CALL write_param_int(mfile, mterm, "ChimeraOuterIters = ", chimera_outer_iters)
       CALL write_param_int(mfile, mterm, "ChimeraSubNL = ", chimera_sub_nl)
+      IF (chimera_penalty_lumped) THEN
+        CALL write_param_str(mfile, mterm, "ChimeraPenaltyLumped = ", "YES")
+      ELSE
+        CALL write_param_str(mfile, mterm, "ChimeraPenaltyLumped = ", "NO")
+      END IF
+      CALL write_param_real(mfile, mterm, "ChimeraProjCap = ", chimera_proj_cap)
+      CALL write_param_real(mfile, mterm, "ChimeraBetaFull = ", chimera_beta_full)
+      CALL write_param_real(mfile, mterm, "ChimeraBetaZero = ", chimera_beta_zero)
+      CALL write_param_real(mfile, mterm, "ChimeraCouplingRelax = ", chimera_coupling_relax)
     END IF
 
     IF (ProlongationDirection == 0) THEN

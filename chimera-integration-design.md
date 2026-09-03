@@ -325,11 +325,45 @@ above, all reviewer-visible):
   is on even in the plain FAC run and is therefore not a usable
   criterion).
 
-**`chi_penalty.f90`** *(Phase 4)* — `mg_ChiDMat(NLMIN:NLMAX)` on the
-`mg_qMat` pattern (name avoids the viscous `DMat`), `g` vector, and the
-correction solve. Cadence by explicit dirty-flag invalidation (static:
-assemble once; moving: dirty on reclassification; `g`: every coupling
-update; coarse levels: whenever finest geometry changes).
+**`chi_penalty.f90`** *(Phase 4, DONE 2026-09-03)* — Layer-M penalty
+kernels: the paper's damping function β with a parametrised ramp
+(`ChimeraBetaFull/Zero`), 27-point tabulation + consistent Q2 penalty
+matrix `D` and vector `g` on the level pattern, the **nodal
+(Lobatto-quadrature) lumped penalty `D_L`** (positive; constant-exact
+with `g_i = D_L(i)·û(x_i)`) and a Jacobi-PCG for eq. (12) with
+sum/filter/allsum callbacks. Layer H (`chi_coupling`) keeps per-level
+`D_L` (rank-partial and E013Sum'd copies; static: built once) and the
+finest-level nodal donor list; `g` is rebuilt every coupling update.
+
+*Phase-4 implementation notes (what the FAC case taught):*
+- The velocity multigrid's coarse solver (`Velo@MGCrsSolverType = 1`) is
+  a damped Jacobi iteration on the stored global diagonal
+  (`MGE013%UE11`); the consistent penalty matrix (mass-like, not
+  diagonally dominant) makes it diverge once `dt·γ ≳ 100`. The
+  production operator is therefore `D_L` (row-sum lumping of a
+  β-weighted Q2 mass matrix is *not* positive; nodal quadrature is).
+  The consistent matrix + CG correction remains as the diagnostic
+  `ChimeraPenaltyLumped = No`.
+- Projection: the paper's damped correction (12) with the plain Poisson
+  operator (11) leaves the divergence in the penalised zone uncorrected
+  and was observed to drift; using the penalised lumped mass in both
+  (11) and (12) — the variable-density mechanism, `ChimeraProjCap > 0` —
+  steepens the interior pressure gradient by `1+κ` and blows up at the
+  ramp edge on `h = D/4`. Default: **plain projection** (`ProjCap = 0`,
+  momentum-only penalty, standard correction loop = fast path); the
+  corrected velocity is exactly discretely divergence-free and the fixed
+  point is the penalised steady state with an O(1/γ) interior leak.
+- The step-iterated Robin ↔ penalty loop has a slowly growing mode on
+  the L2 background (growth ≈ ×1.2 per step, onset t ≈ 4, for γ = 1e3,
+  1e4, 1e5 alike) when the paper's β support (up to `R + 0.75H`) leaves
+  less than a background cell free before the atmosphere boundary Γ
+  where the Robin data are sampled; with the support shrunk to
+  `R + 0.5H` (`ChimeraBetaFull/Zero = 0.25/0.5`, one free cell) the run
+  converges monotonically. `ChimeraCouplingRelax` (under-relaxation of
+  the Dirichlet data, both variants) is available as an additional
+  damping knob. The strong variant is stable on the same case.
+- The weak variant freezes `dt` in the projection operator (constant
+  `TimeStep` enforced at the correction).
 
 **`chimera_api.f90`** *(Phase 0 onward)* — the facade; thin delegation.
 
@@ -419,8 +453,9 @@ All calls go through `CHIMERA_API`.
 | C1 | `ProjectFiles.cmake`, `GenerateLinkerFlags.cmake` | source lists, `ff_chimera`, ctests, layer-graph comment | P0 |
 | H8 | `QuadSc_def.f90` : `Matdef_General_QuadScalar`, `idef==-1`, inside the level loop | `Chimera_AddMomentumMatrix(...)` (`tstep·ChiD`, §5) | M2 |
 | H10 | `QuadSc_main.f90` : beside `AddGravForce()` (:630) | `Chimera_AddMomentumRHS(...)` (`tstep·g`) | M2 |
-| H11 | `QuadSc_corrections.f90` : `Velocity_Correction` (~:30) | `Chimera_CorrectVelocity(applied)`; existing loop when `.NOT.applied` (fast path, §5) | M2 |
-| H12 | driving app restart path | `Chimera_Write/ReadRestart` — versioned; donor caches rebuilt, not restored | M2 |
+| H11 | `QuadSc_corrections.f90` : `Velocity_Correction` (~:30) | `Chimera_CorrectVelocity(applied)`; existing loop when `.NOT.applied` (fast path, §5); helper `Chimera_DefectFilter3` | M2 |
+| H12 | driving app restart path | `Chimera_Write/ReadRestart` — versioned (`CHIMERA_RESTART_V1`); donor caches rebuilt, not restored | M2 |
+| H15 | `QuadSc_assembly.f90` : `Create_CMat`; `QuadSc_def.f90` : `Create_ParCMat` | `Chimera_AddPressureMass(...)` — penalised lumped mass (capped) in `B^T M^-1 B`; the app rebuilds both after `Chimera_Initialize` | M2 |
 | H13 | `QuadSc_main.f90` : in-step outer driver (paper §6 S-sequence) with full time-level state restoration (`valU^n`, `valP_old`/:785-786, `thstep`, stats) | default 1 ⇒ identical control flow | M4 |
 | H14 | `QuadSc_handlers.f90` : `Init_Chimera_Handlers()` | forces → PE stepper | M3 |
 
@@ -500,7 +535,7 @@ CMake: `chimera_config.f90` → `src_util` list; `add_library(ff_chimera)`
 | 1 — Services | `chi_geometry`, `chi_fem_eval`, `chi_locator`, `chi_sparse_direct` + tests | Phase-1 ctests green |
 | 2 — Submesh subsystem *(reviewer-cleared; DONE 2026-09-02)* | `chi_kernels` (new reentrant kernels), `chi_legacy_mesh_adapter`, `chi_submesh/solver/forces`, meshgen | annular Couette 2nd-order L2 (Q1-geometry limit; measured 2.08), torque → −8π/3 (1.0 % at L3), Robin consistency, sign tests — all green (`chi-submesh-couette`) |
 | 3 — **M1: static steady Chimera-S** *(DONE 2026-09-02; see §3 Phase-3 notes)* | `chi_markers`, `chi_exchange`, `chi_output`, `chi_coupling` (two-array markers); H1–H6 live; `q2p1_chimera` + vendored channel/annulus case; steady FAC | `chi-markers-cutcell`, `chi-exchange-np{1,2,3}` green; steady FAC `q2p1_chimera_cylinder` pinned (values in the baseline yaml, compared against the body-fitted `q2p1_fc_ext_cylinder` and the DFG band); worker-count invariance; off-regression exact |
-| 4 — Static Chimera-W + unsteady validation | `chi_penalty`; H8/H10/H11/H12; `test_chi_algebra` | W vs S on steady FAC; fast-path bit-identity; unsteady FAC via one-pass W; restart round-trip |
+| 4 — Static Chimera-W + unsteady validation *(DONE 2026-09-03; see §3 Phase-4 notes)* | `chi_penalty`; H8/H10/H11/H12/H15 (+ defect sibling); `test_chi_algebra` | `chi-algebra-serial` green; W vs S on steady FAC (`q2p1_chimera_cylinder_weak` pinned); worker-count invariance; fast path = the disabled/strong path runs the original loop (off-regression exact, strong anchor unchanged); restart round trip bit-identical; **unsteady Re 100 one-pass W NOT achieved at L2 — the strong variant diverges identically (RUNBOOK); carried to Phase 5/6 with the L3 background** |
 | 5 — Arrays + periodicity | periodic donor images; H_k seeding; halo upgrade | Hasimoto ≲1 %; random arrays in Beetstra–Tenneti band |
 | 6 — Moving | submesh ALE, per-step reclassification, H14 (M3); H13 (M4) | ten Cate / FBM cross-checks; force continuity; `outer_iters=1` flow byte-identical |
 

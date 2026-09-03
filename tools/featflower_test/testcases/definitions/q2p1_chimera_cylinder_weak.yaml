@@ -1,0 +1,96 @@
+schema_version: "0.2"
+id: q2p1_chimera_cylinder_weak
+name: Q2P1 Chimera-W Cylinder Benchmark (Phase 4, weak variant)
+suite: smoke
+priority: normal
+enabled: true
+
+# Steady DFG 2D-1 flow around a cylinder solved with the WEAK Chimera
+# variant (chimera-integration-design.md v3, Phase 4): same background
+# mesh and annulus atmosphere as q2p1_chimera_cylinder, but the body is
+# imposed through the nodal lumped interior penalty (gamma_max 1e3, plain
+# projection, damping support R+0.25H..R+0.5H) instead of hole/fringe
+# Dirichlet constraints.  Drag/lift from the submesh surface stress
+# ("ChimeraForce1:" lines).
+#
+# Recipe: the vendored weak deck (q2p1_param_weak.dat, patched into
+# q2p1_param.dat by the level patch), MaxMeshLevel 2, atmosphere
+# level 2, backward Euler dt = 0.05 to t = 6, 3 partitions / 4 ranks.
+# The weak path has no bit-identity guarantee across worker counts
+# (parallel Jacobi/MG reductions): 2 vs 3 partitions agree to all
+# printed digits in C_D and to 5e-6 relative in C_L, hence the
+# tolerance.  Regression anchor at a coarse background (h = D/4); the
+# accuracy statement is in the M1 RUNBOOK ladder.
+
+setup:
+  modules:
+    - gcc/latest-v13
+    - openmpi/options/interface/ethernet
+    - openmpi/4.1.6
+  git:
+    submodules:
+      mode: strict
+      update_recursive: true
+
+build:
+  workspace: build-release
+  cache_policy: reuse_if_compatible
+  steps:
+    - kind: cmake_configure
+      build_dir: build-release
+      source_dir: .
+      options:
+        - CMAKE_BUILD_TYPE=Release
+        - BUILD_APPLICATIONS=ON
+        - USE_HYPRE=ON
+        - CMAKE_C_COMPILER=mpicc
+        - CMAKE_CXX_COMPILER=mpicxx
+        - CMAKE_Fortran_COMPILER=mpifort
+    - kind: cmake_build
+      build_dir: build-release
+      targets: [q2p1_chimera, metis]
+      jobs: 8
+
+run:
+  levels:
+    start: 2
+    count: 1
+    parameter_patch:
+      file_in: _data/q2p1_param_weak.dat
+      file_out: _data/q2p1_param.dat
+      key: SimPar@MaxMeshLevel
+  partition:
+    tool: python
+    command: "python3 {repo_root}/tools/PyPartitioner.py 3 1 1 CHIFAC _data/CHIMERA_FAC/chimera_fac.prj"
+    expected_partition_count: 3
+  launch:
+    workdir: build-release/applications/q2p1_chimera
+    mpi_ranks: 4
+    command: "./q2p1_chimera"
+  slurm:
+    partition: med
+    nodes: 1
+    ntasks: 4
+    cpus_per_task: 1
+    time: "02:00:00"
+
+outputs:
+  logs: [run.log, build.log]
+  artifacts:
+    - _data/prot.txt
+    - _data/Statistics.txt
+
+metrics:
+  - id: drag_lift
+    parser: keyword_columns
+    file: _data/prot.txt
+    keyword: "ChimeraForce1:"
+    columns: {drag: 2, lift: 3}
+    occurrence: last
+    numeric_format: fortran_d_or_e
+    compare:
+      type: tolerance
+      tolerance: {drag: 1.0e-4, lift: 1.0e-5}
+
+references:
+  baseline: tools/featflower_test/testcases/baselines/q2p1_chimera_cylinder_weak.yaml

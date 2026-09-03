@@ -238,6 +238,7 @@ set(src_chimera
   ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_markers.f90
   ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_exchange.f90
   ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_output.f90
+  ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_penalty.f90
   )
 
 add_library(ff_chimera ${src_chimera})
@@ -525,6 +526,16 @@ if(BUILD_TESTING)
   else()
     add_test(NAME chi-exchange-np1 COMMAND test_chi_exchange)
   endif()
+
+  # --- Chimera Phase-4 test: penalty algebra (paper eqs. (7)/(10)/(12)):
+  # symmetry, consistency D*1 = g(uhat = 1), penalised volume, and the
+  # correction CG against a dense solve, filter rows, D = 0 identity.
+  add_executable(test_chi_algebra
+    ${CMAKE_SOURCE_DIR}/source/src_chimera/tests/test_chi_algebra.f90)
+  target_link_libraries(test_chi_algebra ff_quadLS_app ff_chimera)
+  target_include_directories(test_chi_algebra PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_chi_algebra PRIVATE ${Fortran_FLAGS})
+  add_test(NAME chi-algebra-serial COMMAND test_chi_algebra)
 endif()
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=

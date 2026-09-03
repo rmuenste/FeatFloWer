@@ -22,13 +22,21 @@ PROGRAM Q2P1_CHIMERA
                          sim_finalize
   USE var_QuadScalar, ONLY :  myTimer
   USE Transport_Q2P1, ONLY : Transport_q2p1_UxyzP_fluid_core
-  USE chimera_api, ONLY : Chimera_Initialize, Chimera_Finalize
+  USE chimera_api, ONLY : Chimera_Initialize, Chimera_Finalize, &
+                          Chimera_ReadRestart, Chimera_WriteRestart, &
+                          Chimera_VariantIsWeak
+  USE var_QuadScalar, ONLY : QuadSc, LinSc
+  USE QuadSc_assembly, ONLY : Create_CMat
+  USE def_QuadScalar, ONLY : Create_ParCMat
+  USE PP3D_MPI, ONLY : myid, master
+  use solution_io, only: ifile   ! dump counter of the flow solution
 
   integer            :: iOGMV,iTout
   character(len=200) :: command
   character(len=60)  :: CPP3D
   real               :: dout = 0.0
   integer            :: ufile,ilog
+  integer            :: ifile0
   real               :: tt0 = 0.0
   real               :: dtt0 = 0.0
   real               :: dtt10 = 0.0
@@ -62,6 +70,16 @@ PROGRAM Q2P1_CHIMERA
 
   ! Hook H5 (app-local): submeshes, markers, donor caches.
   CALL Chimera_Initialize(ufile)
+  ! Hook H12 (app-local): restart of the submesh states next to the flow
+  ! dump (SimPar@StartFile / _dump/<name>/chimera.dmp); caches are rebuilt.
+  IF (ISTART.NE.0) CALL Chimera_ReadRestart(CSTART)
+  ! Hook H15 (app-local): the weak variant's projection operator carries
+  ! the penalised lumped mass -> rebuild B^T M^-1 B after the penalty exists.
+  IF (Chimera_VariantIsWeak()) THEN
+    CALL Create_CMat(QuadSc%knprU,QuadSc%knprV,QuadSc%knprW,LinSc%knprP, &
+         LinSc%prm%MGprmIn%MinLev,LinSc%prm%MGprmIn%CrsSolverType)
+    IF (myid.NE.master) CALL Create_ParCMat(QuadSc%knprU,QuadSc%knprV,QuadSc%knprW)
+  END IF
 
   CALL ZTIME(tt0)
   call ztime(dtt0)
@@ -88,7 +106,11 @@ PROGRAM Q2P1_CHIMERA
     inonln_t = 2
   END IF
 
+  ifile0 = ifile
   call postprocessing_app(dout, inonln_u, inonln_t,ufile)
+  ! A flow dump was written in this step: write the Chimera state with
+  ! the same index (write_sol_to_file's cyclic index rule).
+  IF (ifile.NE.ifile0) CALL Chimera_WriteRestart(MOD(ifile+insavn-1,insavn)+1)
 
   call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
 
@@ -100,6 +122,8 @@ PROGRAM Q2P1_CHIMERA
 
   END DO
 
+  ! Final dump: sim_finalize writes the flow with the next cyclic index.
+  CALL Chimera_WriteRestart(MOD(ifile+1+insavn-1,insavn)+1)
   ! Hook H6 (app-local): release the component (idempotent).
   CALL Chimera_Finalize()
 

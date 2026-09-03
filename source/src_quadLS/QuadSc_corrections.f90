@@ -10,8 +10,10 @@
 ! Updates velocity field: U = U~ - k M^-1 B P
 !=========================================================================
 subroutine Velocity_Correction()
+  USE CHIMERA_API, ONLY: Chimera_VariantIsWeak, Chimera_CorrectVelocity
   implicit none
   integer :: i
+  logical :: chi_applied
 
   ! Update of U = U~ - k M^-1 B P
   ILEV = NLMAX
@@ -28,13 +30,45 @@ subroutine Velocity_Correction()
 
   call Boundary_QuadScalar_Def()
 
+  ! Chimera weak-coupling correction (hook H11): [M_L + k D] dU = k B P.
+  ! Reports chi_applied = .FALSE. unless the weak variant is active, in
+  ! which case the existing loop below runs verbatim (fast path).
+  chi_applied = .FALSE.
+  if (Chimera_VariantIsWeak()) then
+    call Chimera_CorrectVelocity(QuadSc%valU, QuadSc%valV, QuadSc%valW, &
+         QuadSc%defU, QuadSc%defV, QuadSc%defW, MlRhoPmat, QuadSc%ndof, &
+         Chimera_DefectFilter3, chi_applied)
+  end if
+
+  if (.not. chi_applied) then
   do i = 1, QuadSc%ndof
     QuadSc%valU(i) = QuadSc%valU(i) - QuadSc%defU(i) / MlRhoPmat(i)
     QuadSc%valV(i) = QuadSc%valV(i) - QuadSc%defV(i) / MlRhoPmat(i)
     QuadSc%valW(i) = QuadSc%valW(i) - QuadSc%defW(i) / MlRhoPmat(i)
   end do
+  end if
 
 end subroutine Velocity_Correction
+
+!=========================================================================
+! Chimera_DefectFilter3 - the Dirichlet defect filter of this module
+! applied to caller-owned vectors (used by the Chimera weak-coupling
+! correction solve, hook H11).  QuadSc%def* serve as scratch.
+!=========================================================================
+subroutine Chimera_DefectFilter3(y1, y2, y3, n)
+  implicit none
+  integer, intent(in) :: n
+  real(8), intent(inout) :: y1(n), y2(n), y3(n)
+
+  QuadSc%defU(1:n) = y1
+  QuadSc%defV(1:n) = y2
+  QuadSc%defW(1:n) = y3
+  call Boundary_QuadScalar_Def()
+  y1 = QuadSc%defU(1:n)
+  y2 = QuadSc%defV(1:n)
+  y3 = QuadSc%defW(1:n)
+
+end subroutine Chimera_DefectFilter3
 
 !=========================================================================
 ! Pressure_Correction - Apply pressure correction step

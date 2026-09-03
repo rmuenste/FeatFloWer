@@ -572,7 +572,8 @@ SUBROUTINE Transport_q2p1_UxyzP_fluid_core(mfile,inl_u,itns,enable_fbm)
 use cinterface, only: calculateDynamics,calculateFBM
 use fbm, only: fbm_updateFBM, fbm_velBCTest,fbm_testFBMGeom
 use PP3D_MPI, only: Barrier_myMPI, Sum_myMPI
-use chimera_api, only: Chimera_IsEnabled, Chimera_BeginStep
+use chimera_api, only: Chimera_IsEnabled, Chimera_BeginStep, &
+                       Chimera_VariantIsWeak, Chimera_AddMomentumRHS
 #ifdef HAVE_PE
 use dem_query, only: numLocalParticles, numTotalParticles
 #endif
@@ -646,6 +647,11 @@ IF (myid.ne.master) THEN
  IF (el_apply_fluid_feedback) THEN
    CALL EL_APPLY_FLUID_FEEDBACK_SOURCE(QuadSc%defU, QuadSc%defV, &
      QuadSc%defW, tstep)
+ END IF
+
+ ! Chimera weak-coupling penalty right-hand side (hook H10): rhs += tstep*g
+ IF (Chimera_VariantIsWeak()) THEN
+   CALL Chimera_AddMomentumRHS(QuadSc%defU,QuadSc%defV,QuadSc%defW,QuadSc%ndof,tstep)
  END IF
 
  ! Set dirichlet boundary conditions on the defect

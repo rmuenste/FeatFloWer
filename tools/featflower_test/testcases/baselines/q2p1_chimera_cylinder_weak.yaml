@@ -1,0 +1,17 @@
+# Regression anchor for the Phase-4 Chimera-W (weak) cylinder case,
+# measured 2026-09-03 with the definition's recipe: vendored weak deck
+# (MaxMeshLevel 2, ChimeraSubmeshLev 2, gamma_max 1e3, ChimeraProjCap 0,
+# ChimeraBetaFull/Zero 0.25/0.5, backward Euler dt 0.05, MaxSimTime
+# 6.0001 -> last "ChimeraForce1:" line at t = 6.05), PyPartitioner 3
+# subpartitions (CHIFAC), mpirun -np 4 q2p1_chimera, gcc 14.3 / OpenMPI
+# 4.1.6, USE_HYPRE.  With 2 subpartitions / 3 ranks: C_D identical to all
+# printed digits, C_L 1.4285933e-3 (5e-6 relative).
+#
+# Accuracy context: strong variant on the same background gives
+# 5.514568 / -0.04199148 (staircase-dominated lift); body-fitted L2
+# 5.601296 / 0.00994711; DFG 5.5795 / 0.01062.  The weak lift is still
+# creeping at t = 6 (see the M1 RUNBOOK).
+metrics:
+  drag_lift:
+    drag: 5.5224849
+    lift: 1.4285999e-3

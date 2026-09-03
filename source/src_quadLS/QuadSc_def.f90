@@ -49,6 +49,10 @@ USE QuadSc_assembly, ONLY : Assemble_Mass_Generic, Assemble_Diffusion_Alpha_Gene
                              Create_SMat, Create_KMat
 USE EL_CONFIG, ONLY: el_apply_fluid_feedback, el_drag_semi_implicit
 USE EL_FIELDS, ONLY: el_field_data
+! Chimera weak-coupling penalty (hooks H8 and the defect sibling,
+! chimera-integration-design.md); no-ops unless ChimeraVariant = weak.
+USE CHIMERA_API, ONLY: Chimera_VariantIsWeak, Chimera_AddMomentumMatrix, &
+                       Chimera_AddMomentumDefect, Chimera_AddPressureMass
 
 use, intrinsic :: ieee_arithmetic
 
@@ -553,6 +557,7 @@ END SUBROUTINE Create_GradDivMat
 SUBROUTINE Create_ParCMat(knprU,knprV,knprW) !(C)
 TYPE(mg_kVector) :: knprU(*),knprV(*),knprW(*)
 INTEGER i
+REAL*8, ALLOCATABLE :: chiMeff(:)
 
  CALL ZTIME(myStat%t0)
 
@@ -575,10 +580,23 @@ INTEGER i
 
  IF (.NOT.ALLOCATED(mg_CPMat(ILEV)%a)) ALLOCATE(mg_CPMat(ILEV)%a(lPMat%na))
   mg_CPMat(ILEV)%a=0d0
+  IF (Chimera_VariantIsWeak()) THEN
+   ! Chimera weak coupling (hook H15, parallel copy): same penalised
+   ! lumped mass as in Create_CMat.
+   ALLOCATE(chiMeff(qMat%nu))
+   chiMeff = MlRhoPmat(1:qMat%nu)
+   CALL Chimera_AddPressureMass(chiMeff,qMat%nu,ILEV,tstep)
+   CALL Get_CMat(chiMeff,mg_CPMat(ILEV)%a,lPMat%LdA,lPMat%ColA,&
+        BXPMat,BYPMat,BZPMat,qlPMat%LdA,qlPMat%ColA,&
+        BTXMat,BTYMat,BTZMat,lqMat%LdA,lqMat%ColA, &
+        knprU(ILEV)%x,knprV(ILEV)%x,knprW(ILEV)%x,lPMat%nu,qMat%nu)
+   DEALLOCATE(chiMeff)
+  ELSE
   CALL Get_CMat(MlRhoPmat,mg_CPMat(ILEV)%a,lPMat%LdA,lPMat%ColA,&
        BXPMat,BYPMat,BZPMat,qlPMat%LdA,qlPMat%ColA,&
        BTXMat,BTYMat,BTZMat,lqMat%LdA,lqMat%ColA, &
        knprU(ILEV)%x,knprV(ILEV)%x,knprW(ILEV)%x,lPMat%nu,qMat%nu)
+  END IF
 
   IF (myid.eq.showID) THEN
    IF (ILEV.EQ.NLMIN) THEN
@@ -2400,6 +2418,12 @@ REAL tttx1,tttx0
 
     END IF
 
+    ! Chimera weak-coupling penalty operator (hook H8): A += tstep*D on
+    ! every level (fully implicit, design section 5).
+    IF (Chimera_VariantIsWeak()) THEN
+     CALL Chimera_AddMomentumMatrix(A11Mat,A22Mat,A33Mat,qMat%LdA,qMat%nu,ILEV,tstep)
+    END IF
+
   END DO
  END IF
  
@@ -2713,6 +2737,13 @@ REAL tttx1,tttx0
       myScalar%valV,myScalar%defV,-thstep,1d0)
       CALL LAX17(KMat,qMat%ColA,qMat%LdA,qMat%nu,&
       myScalar%valW,myScalar%defW,-thstep,1d0)
+     END IF
+
+     ! Chimera weak-coupling penalty in the part-wise defect (the other
+     ! branches use the assembled A, which already carries tstep*D).
+     IF (Chimera_VariantIsWeak()) THEN
+      CALL Chimera_AddMomentumDefect(myScalar%valU,myScalar%valV,myScalar%valW,&
+           myScalar%defU,myScalar%defV,myScalar%defW,qMat%LdA,qMat%ColA,qMat%nu,-tstep)
      END IF
 
      CALL ZTIME(tttx0)
