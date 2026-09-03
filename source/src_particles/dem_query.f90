@@ -389,6 +389,20 @@ logical(c_bool) function isSphere(idx) bind(C, name="isTypeSphere")
 end interface
 
 !================================================================================================
+!                              Subroutine getParticleOrientation
+! C++ implementation: getObjOrientation() via the extern-C wrapper in
+! libs/pe/pe/interface/c_interface_queries.h. Returns the world-frame
+! direction of the body-frame x axis (the ellipsoid a-axis, D6.1).
+!================================================================================================
+interface
+subroutine getParticleOrientation(idx, axis) bind(C, name="getParticleOrientation")
+  use iso_c_binding, only: c_int, c_double
+  integer(c_int) :: idx
+  real(c_double) :: axis(*)
+  end subroutine
+end interface
+
+!================================================================================================
 !                              Subroutine getParticleRadius
 ! C++ implementation: getObjRadius() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================

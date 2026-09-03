@@ -574,7 +574,8 @@ use fbm, only: fbm_updateFBM, fbm_velBCTest,fbm_testFBMGeom
 use PP3D_MPI, only: Barrier_myMPI, Sum_myMPI
 #ifdef HAVE_PE
 use dem_query, only: numLocalParticles, numTotalParticles, &
-                     get_lubrication_enabled, get_lubrication_stage_diag
+                     get_lubrication_enabled, get_lubrication_stage_diag, &
+                     isSphere, getParticleOrientation
 #endif
 external E013
 
@@ -590,6 +591,8 @@ real*8 px, py, pz
 real*8 dres_buf(2), dofs_pp, d_over_h
 real*8 dLubF, dLubDiss, dLubJmax
 integer nLubPairs, nLubSat
+real*8 part_axis(3)
+integer ipart_ax
 integer k
 k=1
 
@@ -945,6 +948,19 @@ IF (bPrintParticleState .AND. enable_fbm) THEN
       'DNS_CFL time= ', timens, ' cfl_fluid= ', cfl_global, &
       ' cfl_particle= ', cfl_particle_global, ' vp_max= ', vp_max_global, &
       ' dt= ', tstep
+#ifdef PE_SERIAL_MODE
+    ! D6.1: orientation record for non-spherical bodies (world-frame
+    ! direction of the body a-axis). Sphere-only runs print nothing here.
+    ! Serial PE only: rank 1 holds the full particle world.
+    DO ipart_ax = 0, NINT(dres_buf(2))-1
+      IF (.NOT. isSphere(ipart_ax)) THEN
+        CALL getParticleOrientation(ipart_ax, part_axis)
+        WRITE(*,'(A,ES16.8,A,I6,A,3ES17.8)') &
+          'DNS_PART_AXIS time= ', timens, ' ip= ', ipart_ax, &
+          ' axis= ', part_axis
+      END IF
+    END DO
+#endif
     ! Lubrication-stage record (D2.2 G2 instrumentation): rank-1 PE instance;
     ! in PE serial mode every rank holds the full world, so this is the global
     ! record. For a single sphere-wall pair F_total IS the applied lubrication
