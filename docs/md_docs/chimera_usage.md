@@ -60,6 +60,8 @@ Component", for the full key table (`ChimeraVariant`, `ChimeraOuterBC`,
    by the Chimera atmosphere on a uniform channel background mesh;
    `ChimeraForce1:` C_D/C_L pinned, cross-checked against the body-fitted
    standard solver (`q2p1_fc_ext_cylinder`) and the DFG reference band.
+   Case runbook (design, staging checklist, gates, result ladder):
+   `applications/q2p1_chimera/validation_cases/m1_steady_fac/RUNBOOK.md`.
 
 ## Running the milestone-1 case (q2p1_chimera)
 
