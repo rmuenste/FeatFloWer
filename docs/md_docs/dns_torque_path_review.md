@@ -111,6 +111,22 @@ only `createEllipsoid` caller anywhere is commented-out code in
 values. Residual left in place: `EllipsoidBase::calcDensity` still carries a
 sphere-signature copy-paste `(0.75 m / pi r^3)`; it has no callers.
 
+### Defect D-4 (pe): Ellipsoid::containsPoint dropped the z-term
+
+Found 2026-09-03 by D6.1 gate G0 (the alpha-field smoke): the live test was
+`x^2/a^2 + y^2/b^2 <= 1` with the correct three-term quadric commented out
+beside it - the FBM embedded an INFINITE ELLIPTIC CYLINDER instead of an
+ellipsoid (45225 inside-DOFs vs 7123 for the equal-volume sphere; predicted
+cylinder ratio 5.7x). `containsRelPoint` was a unit-sphere test on unscaled
+coordinates, and all four `isSurface*` predicates were sphere copy-pasta.
+All fixed in pe 1b0dda2 with containment unit tests (per-axis inside/outside
+pairs - the along-c pair detects exactly this bug - plus a rotated case).
+Same creep-bench lineage as D-1/D-3. Post-scriptum to the review's method:
+the source read-through audited the force/torque APPLICATION path and missed
+the geometry predicates entirely - it took the first live alpha-field
+measurement to expose them. The G0-before-physics discipline is what caught
+it.
+
 ### Notes (not defects, staging constraints)
 
 - N-1: the FF torque moment arm `x − x_c` has **no periodic minimum-image
