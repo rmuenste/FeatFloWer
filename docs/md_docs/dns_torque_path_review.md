@@ -36,7 +36,10 @@ while it is still cheap to fix.
    term), contact impulses via world-frame `getInvInertia()`,
    `integratePositions` (exponential-map quaternion update, `R_` rebuilt).
 
-## Verdict: sound for spheres; two defects block trustworthy non-spherical runs
+## Verdict: sound for spheres; three defects block trustworthy non-spherical runs
+
+(Two found by the source read-through; a third — the volume/mass factor — was
+caught by the new unit test's mass check during the fix, see D-3.)
 
 ### Sound (verified, not assumed)
 
@@ -95,6 +98,19 @@ the same buoyancy branch (or better, collapse the four copy-pasted per-type
 branches into one generic `body->getVolume()`-based path so new shapes cannot
 miss it).
 
+### Defect D-3 (pe): ellipsoid volume and mass low by 25%
+
+Found while pinning D-1 with the new unit test (its mass check failed after
+the inertia fix): `EllipsoidBase::getVolume()`, `calcVolume()`, and
+`calcMass()` all returned `pi*a*b*c` — the correct `(4/3)*pi*a*b*c` lines sat
+commented out beside them, same fingerprint as D-1. Consequence: mass, weight,
+buoyancy volume, and (through the mass factor) the whole inertia tensor were
+25% low. Introduced in the same creep-bench bring-up lineage (c19ed8f); the
+only `createEllipsoid` caller anywhere is commented-out code in
+`pe/interface/setup_creep.h`, so nothing live ever depended on the wrong
+values. Residual left in place: `EllipsoidBase::calcDensity` still carries a
+sphere-signature copy-paste `(0.75 m / pi r^3)`; it has no callers.
+
 ### Notes (not defects, staging constraints)
 
 - N-1: the FF torque moment arm `x − x_c` has **no periodic minimum-image
@@ -117,10 +133,12 @@ miss it).
 
 - The **D/h=16 resolution rung (spheres) is unaffected** by both defects and
   proceeds on the frozen certified build.
-- Before D6.1: fix D-1 + D-2 in pe (one commit, unit tests for the inertia
-  values and the seeding branch), gate with the standard e4_l3 bitwise twin
-  (both changes are inert for spheres: sphere inertia comes from SphereBase,
-  sphere seeding from its own branch — the twin proves it).
+- FIXED 2026-09-03, same day: D-1 + D-2 + D-3 repaired in pe commit 6971b13
+  with new test `pe_ellipsoid_inertia_test` (volume, mass, all three principal
+  inertia values, I*Iinv identity, sphere degeneracy against the Sphere
+  class); full pe serial suite 15/15; e4_l3 bitwise twin PASS (job 142801,
+  particle streams byte-identical — datasheet row pe_ellfix_twin). Pin bump
+  pending owner push.
 - D6.1 design should use a fixed spheroid + body-force-driven flow (N-1),
   which also sidesteps D-2 entirely; D-2 still must be fixed for any free
   ellipsoid later (D6.2+).
