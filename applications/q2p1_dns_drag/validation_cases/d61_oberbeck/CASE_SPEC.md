@@ -7,9 +7,12 @@ replaced by a **fixed prolate spheroid** and the gate replaced by Oberbeck's
 anisotropic Stokes drag.
 
 Owner decisions already taken:
-- D6.1/D6.2 run on the **local** cluster (Fritz is for node-hungry work).
-- Not gated on v24f: independent physics, independent domain, disjoint
-  resources (see §9).
+- D6.1 runs on **Fritz** (owner revision 2026-09-03: local cluster is full;
+  original local plan superseded). Runs are minutes-scale, so the
+  fill-whole-nodes billing policy is immaterial here — reuse the certified
+  d11 rank count rather than cutting a 71-way axis_uniform partition; the
+  waste is minutes of one node across the whole matrix.
+- Not gated on v24f: independent physics, independent domain (see §9).
 
 Prerequisite state (all in place): pe ellipsoid defects D-1/D-2/D-3 fixed at
 pin 6971b13 (row `pe_ellfix_twin`); torque-path review
@@ -160,7 +163,7 @@ argument applies per axis. Secondary-gate procedure:
 Steadiness criterion as in D1.1: force plateau flat to 5 digits over the
 final ~2 t.u.; steady by t ~ 4-5 expected (d31 precedent).
 
-## 7. Run matrix (all local cluster; all small)
+## 7. Run matrix (all on Fritz, single node each; all small)
 
 | run | body | orientation | level | est. cost |
 |---|---|---|---|---|
@@ -211,9 +214,13 @@ instrument (torque ratio in the annulus). D6.1 gates ANISOTROPIC STOKES
 DRAG in the d11 periodic cell. They share no domain, no mesh, no
 observable, and no closure; D6.1 carries its own resolution rung (V4) and
 its own sphere anchor (V0), so nothing v24f could report would change a
-D6.1 design choice. Resources are disjoint by the owner's workload split
-(local vs Fritz). The only ordering that matters is INTERNAL to D6.1:
-implementation (§8) -> twin -> G0/V0 -> V1..V4.
+D6.1 design choice. Both now run on Fritz, but D6.1's single-node
+minutes-scale jobs slot into the queue independently of v24f's 6-node
+allocation. The only ordering that matters is INTERNAL to D6.1:
+implementation (§8) -> twin -> G0/V0 -> V1..V4. Deployment chain per the
+fritz bring-up: implement + twin locally (or reuse the fritz twin rundir),
+owner pushes pe, pull + rebuild build-dns-gcc14 on Fritz, re-run the
+fritz e4_l3 twin against the certified reference logs, then G0/V0.
 
 ## 10. What D6.1 deliberately does not test
 
