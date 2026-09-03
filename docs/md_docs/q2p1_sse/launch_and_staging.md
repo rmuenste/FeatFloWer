@@ -19,6 +19,12 @@ the build directory by the `q2p1_sse` CMake target.
 requires `-y/--yaml` and executes solver steps from YAML files in
 `tools/e3d_scripts`. See [YAML Simulation Plans](yaml_simulation_plans.md).
 
+`e3d_start_yaml.py` also separates the installation folder (executables,
+`partitioner`, default templates and plans) from the case folder (`-C/--case`,
+default: current directory), so a simulation folder only has to contain the
+case-specific inputs. The shared logic lives in `tools/e3d_scripts/e3d_layout.py`;
+`e3d_start.py` still assumes that it runs inside the installation folder.
+
 ## Main Responsibilities
 
 - Parse command-line options such as `-n`, `-f`, `-a`, `-d`, `-t`, `--short-test`,

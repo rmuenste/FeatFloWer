@@ -175,14 +175,32 @@ def _readAfterKeyword(fh,keyword):
   while keyword not in s:
     s=fh.readline()
 
+def _metis_candidates(name):
+  """
+  Locations searched for the metis shared library, in order:
+    1. the current working directory (classic layout: case == install folder)
+    2. next to the partitioner package, i.e. the installation folder the
+       launcher lives in (bin/q2p1_gendie/libmetis.so)
+    3. the lib64/lib folders of the install prefix, relative to the package
+    4. ../lib64 relative to the working directory (legacy)
+    5. the bare name, resolved through the system library path
+  """
+  package_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+  return [
+    os.path.join(os.curdir, name),
+    os.path.join(package_root, name),
+    os.path.join(package_root, "..", "..", "lib64", name),
+    os.path.join(package_root, "..", "..", "lib", name),
+    os.path.join(os.curdir, "..", "lib64", name),
+    name,
+  ]
+
 def _try_in_place_first(name):
-  tmp=os.path.join(os.curdir,name)
-
-  if not os.path.exists(tmp):
-    tmp=os.path.join(os.curdir, "../lib64", name)
-
-  if not os.path.exists(tmp):
-    tmp=name
+  tmp=name
+  for candidate in _metis_candidates(name):
+    if os.path.exists(candidate):
+      tmp=candidate
+      break
 
   try:
     return CDLL(tmp)
