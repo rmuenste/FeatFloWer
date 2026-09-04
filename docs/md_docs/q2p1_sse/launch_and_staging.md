@@ -74,8 +74,10 @@ s3d_mesher or case folder/meshDir
   the same `q2p1_sse` executable with DIE-specific setup.
 - Temperature mode alternates velocity and heat solver runs using
   `q2p1_sse_temp`; see [Temperature Extension](temperature_extension.md).
-- Mesh-reduction mode launches `q2p1_sse_mesh` and copies `ReducedMeshDir` back
-  into the case folder.
+- Mesh-reduction mode in the legacy launcher expects `q2p1_sse_mesh` and copies
+  `ReducedMeshDir` back into the case folder. That executable is no longer part
+  of the default application build or installation, so this mode requires the
+  legacy target to be re-enabled explicitly.
 - Short-test mode selects reduced iteration parameter templates.
 - YAML mode launches through `e3d_start_yaml.py` and delegates the sequence of
   solver runs to `e3d_xse*.yaml` or `e3d_die*.yaml` templates.

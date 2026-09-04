@@ -1,5 +1,8 @@
 PROGRAM Q2P1_CC
 
+  ! Expose the dependency hidden in defs_include.h to CMake's Fortran scanner.
+  USE Transport_CC
+
   include 'defs_include.h'
 
   integer            :: iOGMV,iTout

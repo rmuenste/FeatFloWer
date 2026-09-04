@@ -24,14 +24,14 @@ Everything below is installed into `bin/q2p1_gendie` by
 
 | Item | Note |
 |---|---|
-| `q2p1_sse`, `q2p1_sse_temp`, `s3d_mesher`, `q1_scalar_multimat`, `autoparam`, `stream`, `STLvsTRI`, `meshref` | executables, rpath `$ORIGIN/../lib` |
+| `q2p1_sse`, `q2p1_sse_temp`, `s3d_mesher`, `q1_scalar_multimat`, `STLvsTRI`, `meshref` | executables, rpath `$ORIGIN/../lib` |
 | `partitioner/` | Python package, imported by the launchers |
 | `e3d_start.py`, `e3d_start_yaml.py`, `conv_check.sh`, `computeAreas.py`, `RunnerGenDIE.sh`, `RunnerScript.sh`, `RunSCALEXA.sh`, `RankFileGenerator.sh`, `slurm_Veka_*.sh` | scripts |
 | `e3d_die*.yaml` | default execution plans |
 | `_data_BU/*.dat` | default solver parameter templates |
 | `_data/MG.dat` | static lookup table read by `CreateDumpStructures` (`source/OutputProfiles.f90:1803`), needed by the umbrella/dump code of `q2p1_sse` |
 | `start/sampleRigidBody.xml`, `start/data.TXT` | static rigid-body world and FullC0ntact parameters read by `init_fc_rigid_body` (`FullC0ntact/inshape3dcore/fortrancppinterface/init_func.hpp`) from the working directory, for every SSE run |
-| `PATCHES/`, `param_meshref.cfg`, `param_vtu_mesher.cfg` | inputs of the preprocessing tools, read relative to their working directory |
+| `PATCHES/`, `param_meshref.cfg` | inputs of the preprocessing tools, read relative to their working directory |
 | `SCALEXA/` (81 MB), `_ianus/` (12 MB), `VEKA_S/` | tooling and example cases, never read by the gendie solvers |
 | `_mesh _vtk _dump _1D _hist _prot0 _prot1 _RTD` | empty output skeleton |
 
