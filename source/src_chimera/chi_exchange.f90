@@ -33,6 +33,8 @@ MODULE CHI_EXCHANGE
   PUBLIC :: CHI_EXCHANGE_SIZE
   PUBLIC :: CHI_EXCHANGE_MAX_INT
   PUBLIC :: CHI_EXCHANGE_ALLSUM
+  PUBLIC :: CHI_EXCHANGE_ALLMIN
+  PUBLIC :: CHI_EXCHANGE_ALLMAX
   PUBLIC :: CHI_BG_NVAL
 
   ! value layout per point: u(3), grad u (3x3, column-major: (a,b) at
@@ -154,5 +156,23 @@ CONTAINS
     IF (n .LE. 0) RETURN
     CALL MPI_ALLREDUCE(MPI_IN_PLACE, vals, n, MPI_DOUBLE_PRECISION, MPI_SUM, comm, ierr)
   END SUBROUTINE CHI_EXCHANGE_ALLSUM
+
+  ! In-place MPI_MIN / MPI_MAX over the communicator (Phase 5: global
+  ! background bounding box for the periodic wrap).
+  SUBROUTINE CHI_EXCHANGE_ALLMIN(comm, vals, n)
+    INTEGER, INTENT(IN) :: comm, n
+    REAL*8, INTENT(INOUT) :: vals(*)
+    INTEGER :: ierr
+    IF (n .LE. 0) RETURN
+    CALL MPI_ALLREDUCE(MPI_IN_PLACE, vals, n, MPI_DOUBLE_PRECISION, MPI_MIN, comm, ierr)
+  END SUBROUTINE CHI_EXCHANGE_ALLMIN
+
+  SUBROUTINE CHI_EXCHANGE_ALLMAX(comm, vals, n)
+    INTEGER, INTENT(IN) :: comm, n
+    REAL*8, INTENT(INOUT) :: vals(*)
+    INTEGER :: ierr
+    IF (n .LE. 0) RETURN
+    CALL MPI_ALLREDUCE(MPI_IN_PLACE, vals, n, MPI_DOUBLE_PRECISION, MPI_MAX, comm, ierr)
+  END SUBROUTINE CHI_EXCHANGE_ALLMAX
 
 END MODULE CHI_EXCHANGE

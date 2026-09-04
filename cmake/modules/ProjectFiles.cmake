@@ -227,6 +227,7 @@ endif()
 # target standalone).  Link deps: umf4* symbols come via ff_le_solvers /
 # FF_UMFPACK_LINK_LIBS.
 set(src_chimera
+  ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_periodic.f90
   ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_geometry.f90
   ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_fem_eval.f90
   ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_locator.f90
@@ -536,6 +537,16 @@ if(BUILD_TESTING)
   target_include_directories(test_chi_algebra PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
   target_compile_options(test_chi_algebra PRIVATE ${Fortran_FLAGS})
   add_test(NAME chi-algebra-serial COMMAND test_chi_algebra)
+
+  # --- Chimera Phase-5 test: periodic box geometry (minimum image / wrap),
+  # marker classification and nodal penalty of a body straddling the
+  # periodic faces against the same body translated to the box centre.
+  add_executable(test_chi_periodic
+    ${CMAKE_SOURCE_DIR}/source/src_chimera/tests/test_chi_periodic.f90)
+  target_link_libraries(test_chi_periodic ff_quadLS_app ff_chimera)
+  target_include_directories(test_chi_periodic PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_chi_periodic PRIVATE ${Fortran_FLAGS})
+  add_test(NAME chi-periodic-serial COMMAND test_chi_periodic)
 endif()
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=

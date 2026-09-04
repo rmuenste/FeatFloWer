@@ -365,6 +365,66 @@ finest-level nodal donor list; `g` is rebuilt every coupling update.
 - The weak variant freezes `dt` in the projection operator (constant
   `TimeStep` enforced at the correction).
 
+**`chi_periodic.f90`** *(Phase 5, Layer M)* — periodic-box geometry as a
+value type `tChiPeriodic` (per-axis flag, period, box origin):
+minimum-image displacement/distance and box wrap, exact identities when
+inactive. The box is derived in `chi_coupling` from the base code's
+`dPeriodicity` (now settable from the shared parser with
+`SimPar@PeriodicLength = Lx,Ly,Lz`; the E013 communicator pairs the
+opposite-face dofs, there is no periodic BC in the discretisation) plus
+the global background bounding box (allreduce; the background must span
+exactly one period per periodic axis, checked). It is passed as an
+OPTIONAL argument into the Layer-M kernels (`CHI_POINT_IN_BODY`,
+`CHI_CLASSIFY_MARKERS`, `CHI_PENALTY_BETA/TABULATE/NODAL`), so every
+"x − X_k" is the minimum image; donor searches map background points into
+the body frame (`image_point`), Robin/Dirichlet sample points of an
+atmosphere straddling a periodic face are wrapped into the box before
+`CHI_EXCHANGE_BG_EVAL`. `check_atmospheres` enforces the paper's
+non-overlap assumption (atmosphere ∩ other body = ∅ for both variants,
+pairwise-disjoint atmospheres for Chimera-S, own periodic images
+included). Element prefilters (`CHI_BODY_NEAR_BOX`) make the marker
+classification O(nel) per body for arrays.
+
+**Phase-5 implementation notes (DONE 2026-09-04, milestone: Hasimoto /
+random arrays):**
+
+- Tooling (`tools/chimera_meshgen/`): `sphere_shell_tri.py` (equiangular
+  cubed-sphere shell, one file fitted per body), `seed_array.py` (SC
+  lattice / RSA in a periodic box, emits the body table with
+  `H_k = min(H_max, ½ nearest gap)`, minimum-image), `channel_tri.py
+  --periodic`, `partition_periodic_box.py` + `flatten_axis_partition.py`
+  (axis-aligned 2×2×2 partition in the single-host `sub0001/GRID000k`
+  layout that the host-name rank mapping of `get_pid.f90` expects).
+- `ChimeraSubStokes`: linear (Stokes) submesh operator factorised once,
+  rhs-only coupling updates (`chi_solver::solve_frozen`). On one core the
+  Picard path costs ≈ 2 min/step (two UMFPACK factorisations of 47670
+  unknowns); the frozen path ≈ 1 s/step, identical forces to 8 digits at
+  Re 3e-3.
+- The submesh momentum equation receives the background's uniform body
+  forces (`ConstantForcing`, fluid gravity) as `rho·M·f`; without it the
+  steady force of a periodic array misses exactly the atmosphere volume
+  fraction (observed −14 % before the fix).
+- Composite bulk velocity (`ChimeraBulk:` lines, `bulk_diagnostic`): cell
+  average with 0 in the bodies, the submesh field in the atmospheres,
+  the background elsewhere — the superficial velocity of the drag
+  closures; plus the summed surface forces for the momentum balance.
+- Hasimoto convention (RUNBOOK `m2_hasimoto`): the surface traction of a
+  fluid-only body force is `f·V_fluid` at steady state; Hasimoto's
+  mean-gradient force is `F_H = F_s + f·V_solid` (the FBM constraint force
+  contains this term because the hole fluid is forced).
+- Results at D/h = 4 (6³ box, L2, atmosphere level 2): strong
+  K_meas 1.8020 (−1.6 % vs 1.8317), K_bal 1.8165 (−0.8 %), balance
+  residual −0.82 %; weak (γ 1e5, Phase-4 settings) 1.8008 / 1.8157;
+  corner-placed sphere (atmosphere across all six periodic faces) equal
+  to the centred one to 5e-8. FBM (D1.1) needs D/h = 24 for −2.3 %.
+  L3 rungs and the 8-sphere random array (φ 0.05): see the RUNBOOK.
+- Off-regression: FAC strong/weak anchors bit-identical after the
+  Phase-5 changes; `q2p1_fc_ext` protocol unchanged (parser key inert
+  when absent).
+- Deferred: the halo (neighbourhood) exchange upgrade — the replicated
+  collective is adequate for the single-host runs; the interface
+  (`CHI_EXCHANGE_BG_EVAL`) is unchanged.
+
 **`chimera_api.f90`** *(Phase 0 onward)* — the facade; thin delegation.
 
 ---
@@ -536,7 +596,7 @@ CMake: `chimera_config.f90` → `src_util` list; `add_library(ff_chimera)`
 | 2 — Submesh subsystem *(reviewer-cleared; DONE 2026-09-02)* | `chi_kernels` (new reentrant kernels), `chi_legacy_mesh_adapter`, `chi_submesh/solver/forces`, meshgen | annular Couette 2nd-order L2 (Q1-geometry limit; measured 2.08), torque → −8π/3 (1.0 % at L3), Robin consistency, sign tests — all green (`chi-submesh-couette`) |
 | 3 — **M1: static steady Chimera-S** *(DONE 2026-09-02; see §3 Phase-3 notes)* | `chi_markers`, `chi_exchange`, `chi_output`, `chi_coupling` (two-array markers); H1–H6 live; `q2p1_chimera` + vendored channel/annulus case; steady FAC | `chi-markers-cutcell`, `chi-exchange-np{1,2,3}` green; steady FAC `q2p1_chimera_cylinder` pinned (values in the baseline yaml, compared against the body-fitted `q2p1_fc_ext_cylinder` and the DFG band); worker-count invariance; off-regression exact |
 | 4 — Static Chimera-W + unsteady validation *(DONE 2026-09-03; see §3 Phase-4 notes)* | `chi_penalty`; H8/H10/H11/H12/H15 (+ defect sibling); `test_chi_algebra` | `chi-algebra-serial` green; W vs S on steady FAC (`q2p1_chimera_cylinder_weak` pinned); worker-count invariance; fast path = the disabled/strong path runs the original loop (off-regression exact, strong anchor unchanged); restart round trip bit-identical; **unsteady Re 100 one-pass W NOT achieved at L2 — the strong variant diverges identically (RUNBOOK); carried to Phase 5/6 with the L3 background** |
-| 5 — Arrays + periodicity | periodic donor images; H_k seeding; halo upgrade | Hasimoto ≲1 %; random arrays in Beetstra–Tenneti band |
+| 5 — Arrays + periodicity *(DONE 2026-09-04; see §3 Phase-5 notes and `applications/q2p1_chimera/validation_cases/m2_hasimoto/RUNBOOK.md`)* | `chi_periodic` (minimum image / wrap), `SimPar@PeriodicLength`, H_k seeding + sphere-shell + periodic-partition tooling, `ChimeraSubStokes`, submesh body force, `ChimeraBulk` diagnostic, `test_chi_periodic`; halo upgrade deferred (interface unchanged) | `chi-periodic-serial` green; Hasimoto at D/h = 4: K_bal −0.8 % / K_meas −1.6 % (both variants; FBM needs D/h 24–48 for that); corner-placed sphere = centred to 5e-8; FAC anchors bit-identical; random array vs Beetstra/Tenneti: RUNBOOK |
 | 6 — Moving | submesh ALE, per-step reclassification, H14 (M3); H13 (M4) | ten Cate / FBM cross-checks; force continuity; `outer_iters=1` flow byte-identical |
 
 ---

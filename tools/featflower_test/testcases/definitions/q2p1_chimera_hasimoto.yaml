@@ -1,0 +1,107 @@
+schema_version: "0.2"
+id: q2p1_chimera_hasimoto
+name: Q2P1 Chimera-S Hasimoto periodic sphere array (Phase 5)
+suite: smoke
+priority: normal
+enabled: true
+
+# Hasimoto (1959) simple-cubic sphere array solved with the Chimera-S
+# component on a PERIODIC box (chimera-integration-design.md v3, Phase 5):
+# one fixed sphere per unit cell (d/L = 1/3, phi = 0.0193925), Stokes
+# regime (rho = mu = 1), driven by SimPar@ConstantForcing = 0,0,1e-2;
+# 6^3 periodic background (applications/q2p1_chimera/_data/CHIMERA_BOX6,
+# all faces 'Periodic', SimPar@PeriodicLength = 1,1,1) + one cubed-sphere
+# shell atmosphere (H = R), linear submesh operator (ChimeraSubStokes).
+# Sibling of the FBM ladder applications/q2p1_dns_drag/validation_cases/
+# d11_hasimoto (QBOX9, 28 ranks).
+#
+# Recipe: vendored deck _data/q2p1_param_hasimoto.dat (MaxMeshLevel 2 =
+# D/h 4, atmosphere level 2, backward Euler dt 0.01 to t = 4.01), axis
+# partition 2x2x2 (partition_periodic_box.py = PyPartitioner 1 -123 8 +
+# flatten), 9 ranks.  Metrics: the surface force F_z and the composite
+# superficial velocity <u>_z (ChimeraBulk) of the last step; K =
+# (F_z + f V_solid)/(6 pi mu R U) = 1.8020 vs Hasimoto 1.8317 (-1.6 %),
+# balance-based 1.8165 (-0.8 %) -- see validation_cases/m2_hasimoto/RUNBOOK.md.
+
+setup:
+  modules:
+    - gcc/latest-v13
+    - openmpi/options/interface/ethernet
+    - openmpi/4.1.6
+  git:
+    submodules:
+      mode: strict
+      update_recursive: true
+
+build:
+  workspace: build-release
+  cache_policy: reuse_if_compatible
+  steps:
+    - kind: cmake_configure
+      build_dir: build-release
+      source_dir: .
+      options:
+        - CMAKE_BUILD_TYPE=Release
+        - BUILD_APPLICATIONS=ON
+        - USE_HYPRE=ON
+        - CMAKE_C_COMPILER=mpicc
+        - CMAKE_CXX_COMPILER=mpicxx
+        - CMAKE_Fortran_COMPILER=mpifort
+    - kind: cmake_build
+      build_dir: build-release
+      targets: [q2p1_chimera, metis]
+      jobs: 8
+
+run:
+  levels:
+    start: 2
+    count: 1
+    parameter_patch:
+      file_in: _data/q2p1_param_hasimoto.dat
+      file_out: _data/q2p1_param.dat
+      key: SimPar@MaxMeshLevel
+  partition:
+    tool: python
+    command: "python3 {repo_root}/tools/chimera_meshgen/partition_periodic_box.py CHIBOX6 _data/CHIMERA_BOX6/box6.prj"
+    expected_partition_count: 8
+  launch:
+    workdir: build-release/applications/q2p1_chimera
+    mpi_ranks: 9
+    command: "./q2p1_chimera"
+  slurm:
+    partition: med
+    nodes: 1
+    ntasks: 9
+    cpus_per_task: 1
+    time: "02:00:00"
+
+outputs:
+  logs: [run.log, build.log]
+  artifacts:
+    - _data/prot.txt
+    - _data/Statistics.txt
+
+metrics:
+  - id: sphere_force
+    parser: keyword_columns
+    file: _data/prot.txt
+    keyword: "ChimeraForce1:"
+    columns: {fz: 6}
+    occurrence: last
+    numeric_format: fortran_d_or_e
+    compare:
+      type: tolerance
+      tolerance: {fz: 1.0e-8}
+  - id: bulk_velocity
+    parser: keyword_columns
+    file: _data/prot.txt
+    keyword: "ChimeraBulk:"
+    columns: {uz: 4}
+    occurrence: last
+    numeric_format: fortran_d_or_e
+    compare:
+      type: tolerance
+      tolerance: {uz: 1.0e-8}
+
+references:
+  baseline: tools/featflower_test/testcases/baselines/q2p1_chimera_hasimoto.yaml

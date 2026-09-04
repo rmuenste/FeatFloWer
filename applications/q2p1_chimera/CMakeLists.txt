@@ -43,6 +43,10 @@ ENDIF()
 # background mesh; the deck references _data/CHIMERA_FAC/annulus_coarse.tri.
 file(COPY ${CMAKE_SOURCE_DIR}/source/src_chimera/tests/fixtures/annulus_coarse.tri
      DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/_data/CHIMERA_FAC)
+# Phase 5: the cubed-sphere shell for the periodic sphere-array cases
+# (_data/q2p1_param_hasimoto*.dat reference _data/CHIMERA_BOX6/sphere_shell_coarse.tri).
+file(COPY ${CMAKE_SOURCE_DIR}/source/src_chimera/tests/fixtures/sphere_shell_coarse.tri
+     DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/_data/CHIMERA_BOX6)
 file(COPY ${CMAKE_SOURCE_DIR}/tools/partitioner DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 IF(${OUT_OF_SOURCE_BUILD})

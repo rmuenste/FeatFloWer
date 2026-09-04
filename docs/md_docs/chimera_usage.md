@@ -39,8 +39,9 @@ See `parameter_reference.md`, section "Chimera Overlapping-Mesh
 Component", for the full key table (`ChimeraVariant`, `ChimeraOuterBC`,
 `ChimeraParticleFile`, `ChimeraSubmeshFile`, `ChimeraSubmeshLev`,
 `ChimeraRobinAlpha`, `ChimeraGammaMax`, `ChimeraOuterIters`,
-`ChimeraSubNL`, `ChimeraWriteVTK`). Invalid values abort at parse time
-(`CHIMERA_VALIDATE_CONFIG`).
+`ChimeraSubNL`, `ChimeraWriteVTK`, `ChimeraSubStokes`, the weak-variant
+keys, and the shared `SimPar@PeriodicLength`). Invalid values abort at
+parse time (`CHIMERA_VALIDATE_CONFIG`).
 
 ## Verification protocol (the fbm_acceleration_usage.md pattern)
 
@@ -142,6 +143,36 @@ plus the final one) and reads them back when `SimPar@StartingProc = 1`
 with `SimPar@StartFile = "<idx>"`. Markers, donor caches, g and the
 penalty operator are rebuilt at initialisation, never restored. The
 provenance dump path (`UseProvDump`) is not covered.
+
+## Periodic sphere arrays (Phase 5)
+
+The array-closure cases (Hasimoto simple-cubic lattice, random arrays)
+run on a periodic box background. Recipe (RUNBOOK:
+`applications/q2p1_chimera/validation_cases/m2_hasimoto/RUNBOOK.md`):
+
+1. Background: `tools/chimera_meshgen/channel_tri.py ... --periodic`
+   (all six faces tagged `Periodic`); deck `SimPar@PeriodicLength =
+   L,L,L`, `SimPar@UseConstantForcing = YES` + `ConstantForcing` for the
+   driving body force, `SimPar@SubMeshNumber = 1`.
+2. Partition axis-aligned (periodic faces must coincide with their
+   images): `python3 tools/PyPartitioner.py 1 -123 8 <FOLDER> <prj>`
+   (2×2×2 median split) followed by
+   `python3 tools/chimera_meshgen/flatten_axis_partition.py _mesh/<FOLDER>`
+   (single-host `sub0001/GRID000k` layout); run with `-np 9`.
+3. Atmospheres: `sphere_shell_tri.py` (cubed-sphere shell, one file for
+   all bodies, fitted per body to `[R, R+H_k]`) and the body table from
+   `seed_array.py` (`H_k = min(H_max, half nearest gap)`, minimum-image).
+4. Creeping flow: `ChimeraSubStokes = Yes` (linear submesh, factorized
+   once). Both variants apply; the weak variant keeps the Phase-4 settings
+   (lumped penalty, plain projection, narrow ramp support) with `gamma`
+   scaled to the viscous rate `mu/h^2` of the case.
+
+Geometry rule: every "x minus body centre" is the minimum-image
+displacement (`chi_periodic.f90`), so a body sitting on a box corner is
+handled exactly like a centred one (unit test `chi-periodic-serial`);
+the Robin sample points outside the box are wrapped before the background
+exchange. The drag ratio is post-processed from the `ChimeraForce`/
+`ChimeraBulk` lines with `validation_cases/m2_hasimoto/hasimoto_k.py`.
 
 ## Component layout
 

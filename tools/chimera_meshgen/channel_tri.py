@@ -68,24 +68,37 @@ def main(argv):
     ap.add_argument("--nz", type=int, required=True)
     ap.add_argument("--name", required=True, help="base name of the .tri/.prj")
     ap.add_argument("--outdir", required=True)
+    ap.add_argument("--periodic", action="store_true",
+                    help="tag all six faces 'Periodic' (xmin..zmax.par) for a "
+                         "periodic box; pair with SimPar@PeriodicLength")
     a = ap.parse_args(argv)
 
     coords, kvert, knpr = generate_box(a.lx, a.ly, a.lz, a.nx, a.ny, a.nz)
     os.makedirs(a.outdir, exist_ok=True)
     comment = (f"chimera_meshgen channel lx={a.lx} ly={a.ly} lz={a.lz} "
-               f"nx={a.nx} ny={a.ny} nz={a.nz}")
+               f"nx={a.nx} ny={a.ny} nz={a.nz} periodic={a.periodic}")
     write_tri(os.path.join(a.outdir, a.name + ".tri"), coords, kvert, knpr, comment)
 
     tol = 1e-12
     sel = lambda pred: [i + 1 for i, c in enumerate(coords) if pred(c)]
-    pars = [
-        ("in",     "Inflow2",     sel(lambda c: abs(c[0]) < tol)),
-        ("out",    "Symmetry011", sel(lambda c: abs(c[0] - a.lx) < tol)),
-        ("bottom", "Wall",        sel(lambda c: abs(c[1]) < tol)),
-        ("top",    "Wall",        sel(lambda c: abs(c[1] - a.ly) < tol)),
-        ("wall1",  "Symmetry001", sel(lambda c: abs(c[2]) < tol)),
-        ("wall2",  "Symmetry001", sel(lambda c: abs(c[2] - a.lz) < tol)),
-    ]
+    if a.periodic:
+        pars = [
+            ("xmin", "Periodic", sel(lambda c: abs(c[0]) < tol)),
+            ("xmax", "Periodic", sel(lambda c: abs(c[0] - a.lx) < tol)),
+            ("ymin", "Periodic", sel(lambda c: abs(c[1]) < tol)),
+            ("ymax", "Periodic", sel(lambda c: abs(c[1] - a.ly) < tol)),
+            ("zmin", "Periodic", sel(lambda c: abs(c[2]) < tol)),
+            ("zmax", "Periodic", sel(lambda c: abs(c[2] - a.lz) < tol)),
+        ]
+    else:
+        pars = [
+            ("in",     "Inflow2",     sel(lambda c: abs(c[0]) < tol)),
+            ("out",    "Symmetry011", sel(lambda c: abs(c[0] - a.lx) < tol)),
+            ("bottom", "Wall",        sel(lambda c: abs(c[1]) < tol)),
+            ("top",    "Wall",        sel(lambda c: abs(c[1] - a.ly) < tol)),
+            ("wall1",  "Symmetry001", sel(lambda c: abs(c[2]) < tol)),
+            ("wall2",  "Symmetry001", sel(lambda c: abs(c[2] - a.lz) < tol)),
+        ]
     for name, btype, verts in pars:
         write_par(os.path.join(a.outdir, name + ".par"), btype, verts)
     with open(os.path.join(a.outdir, a.name + ".prj"), "w") as f:

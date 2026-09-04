@@ -27,7 +27,7 @@ USE CHIMERA_CONFIG, ONLY: chimera_enable, chimera_variant, chimera_outer_bc, &
   chimera_particle_file, chimera_submesh_file, chimera_submesh_nlmax, &
   chimera_robin_alpha, chimera_gamma_max, chimera_outer_iters, &
   chimera_sub_nl, chimera_write_vtk, chimera_penalty_lumped, chimera_proj_cap, &
-  chimera_beta_full, chimera_beta_zero, chimera_coupling_relax, &
+  chimera_beta_full, chimera_beta_zero, chimera_coupling_relax, chimera_sub_stokes, &
   CHIMERA_VALIDATE_CONFIG
 USE types, ONLY: tParamV, tParamP, tProperties
 
@@ -855,6 +855,8 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
   ! Local variables - integers
   INTEGER :: myFile = PARAM_FILE_UNIT
   INTEGER :: iEnd, iAt, iEq, iLen, istat
+  INTEGER :: iPer
+  REAL*8  :: dPeriodicLen(3)
   INTEGER :: iOutShift
   INTEGER :: iVisco, iLoc, iangle, mylength, nFields, i
   INTEGER :: MFILE
@@ -1035,6 +1037,21 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         bConstForce = read_yes_no_param(string, iEq)
       CASE ("ConstantForcing")
         READ(string(iEq+1:),*) ConstForce
+      CASE ("PeriodicLength")
+        ! Periodic box: per-axis period (dPeriodicity, PP3D_MPI); a value
+        ! <= 0 leaves the axis non-periodic.  The mesh must span exactly
+        ! one period along each periodic axis and the partition must be
+        ! axis-aligned (CheckFaceClaimDecode); the face .par files carry a
+        ! non-BC tag (e.g. 'Periodic').  Absent key: bit-identical to the
+        ! previous behaviour (default 1d9 = off).
+        READ(string(iEq+1:),*) dPeriodicLen
+        DO iPer = 1, 3
+          IF (dPeriodicLen(iPer) .GT. 0d0) THEN
+            dPeriodicity(iPer) = dPeriodicLen(iPer)
+          ELSE
+            dPeriodicity(iPer) = 1d9
+          END IF
+        END DO
       CASE ("skipFBMForce")
         skipFBMForce = read_yes_no_param(string, iEq)
       CASE ("skipFBMDynamics")
@@ -1133,6 +1150,8 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         READ(string(iEq+1:),*) chimera_sub_nl
       CASE ("ChimeraWriteVTK")
         chimera_write_vtk = read_yes_no_param(string, iEq)
+      CASE ("ChimeraSubStokes")
+        chimera_sub_stokes = read_yes_no_param(string, iEq)
       CASE ("ChimeraPenaltyLumped")
         chimera_penalty_lumped = read_yes_no_param(string, iEq)
       CASE ("ChimeraProjCap")
@@ -1312,6 +1331,13 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
       CALL write_param_str(mfile, mterm, "BoundaryCheck is ", "OFF")
     END IF
 
+    IF (ANY(dPeriodicity .LT. 1d8)) THEN
+      WRITE(mfile,'(A,3ES14.4)') "PeriodicLength = ", &
+        MERGE(dPeriodicity, 0d0, dPeriodicity .LT. 1d8)
+      WRITE(mterm,'(A,3ES14.4)') "PeriodicLength = ", &
+        MERGE(dPeriodicity, 0d0, dPeriodicity .LT. 1d8)
+    END IF
+
     IF (bConstForce) THEN
       CALL write_param_str(mfile, mterm, "UseConstantForcing is ", "ON")
       WRITE(mfile,'(A,3ES14.4)') "ConstantForcing = ", ConstForce
@@ -1418,6 +1444,7 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
       CALL write_param_real(mfile, mterm, "ChimeraGammaMax = ", chimera_gamma_max)
       CALL write_param_int(mfile, mterm, "ChimeraOuterIters = ", chimera_outer_iters)
       CALL write_param_int(mfile, mterm, "ChimeraSubNL = ", chimera_sub_nl)
+      IF (chimera_sub_stokes) CALL write_param_str(mfile, mterm, "ChimeraSubStokes = ", "YES")
       IF (chimera_penalty_lumped) THEN
         CALL write_param_str(mfile, mterm, "ChimeraPenaltyLumped = ", "YES")
       ELSE

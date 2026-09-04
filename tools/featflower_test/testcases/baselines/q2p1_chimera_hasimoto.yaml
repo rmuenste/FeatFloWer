@@ -1,0 +1,18 @@
+# Regression anchor for the Phase-5 Chimera-S Hasimoto periodic array
+# case, measured 2026-09-04 with the definition's recipe: vendored deck
+# _data/q2p1_param_hasimoto.dat (MaxMeshLevel 2 = D/h 4, ChimeraSubmeshLev
+# 2, ChimeraSubStokes, backward Euler dt 0.01, MaxSimTime 4.0001 -> last
+# lines at t = 4.01), axis partition 2x2x2 (CHIBOX6), mpirun -np 9
+# q2p1_chimera, gcc 14.3 / OpenMPI 4.1.6, USE_HYPRE.  Steady to all printed
+# digits from t ~ 3.
+#
+# Accuracy context (validation_cases/m2_hasimoto/RUNBOOK.md): K_meas =
+# (F_z + f V_solid)/(6 pi mu R U_sup) = 1.8020, K_bal = f V_cell/(6 pi mu R
+# U_sup) = 1.8165 vs Hasimoto 1.8317; momentum balance F_z/(f V_fluid) - 1 =
+# -0.82 %.  FBM ladder (q2p1_dns_drag D1.1): -6.05 % at D/h 6, -2.29 % at
+# D/h 24.
+metrics:
+  sphere_force:
+    fz: 9.7261000e-3
+  bulk_velocity:
+    uz: 1.7523269e-3

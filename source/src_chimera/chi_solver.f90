@@ -50,6 +50,11 @@ MODULE CHI_SOLVER
     REAL*8,  ALLOCATABLE :: uold(:), vold(:), wold(:)  ! previous time level
     REAL*8,  ALLOCATABLE :: p(:)                 ! (4*nel)
     TYPE(tSparseDirectSolver) :: sd
+    ! Phase 5: frozen linear (Stokes) operator - factorized once, only the
+    ! rhs is rebuilt per step (Ascratch takes the discarded matrix part of
+    ! the Robin/Dirichlet rhs assembly).
+    LOGICAL :: frozen = .FALSE.
+    REAL*8,  ALLOCATABLE :: Ascratch(:)
   END TYPE tChiSubSolver
 
 CONTAINS
@@ -173,7 +178,7 @@ CONTAINS
   ! resid is the max-norm velocity update of the LAST Picard iteration.
   !-----------------------------------------------------------------------
   SUBROUTINE CHI_SOLVE_STEADY_TAB(slv, sub, rho, mu, dtinv, alpha, outer_dirichlet, &
-                                  dirmask, ubc, hq, npicard, resid, ok)
+                                  dirmask, ubc, hq, npicard, resid, ok, stokes, bodyforce)
     TYPE(tChiSubSolver), INTENT(INOUT) :: slv
     TYPE(tChimeraSubmesh), INTENT(IN) :: sub
     REAL*8, INTENT(IN) :: rho, mu, dtinv, alpha
@@ -183,10 +188,13 @@ CONTAINS
     INTEGER, INTENT(IN) :: npicard
     REAL*8, INTENT(OUT) :: resid
     LOGICAL, INTENT(OUT) :: ok
+    LOGICAL, INTENT(IN), OPTIONAL :: stokes   ! Phase 5: frozen linear operator
+    REAL*8,  INTENT(IN), OPTIONAL :: bodyforce(3)  ! Phase 5: uniform body force f
+                                                   ! (rhs += rho * M * f, like Grav_QuadSc)
 
     INTEGER :: nvt, net, nat, nel, ndof, ip, i, a, r
-    REAL*8 :: umesh(3)
-    LOGICAL :: sdok
+    REAL*8 :: umesh(3), fb(3)
+    LOGICAL :: sdok, lin, withf
 
     ok = .FALSE.
     resid = HUGE(1d0)
@@ -198,6 +206,16 @@ CONTAINS
     nel = sub%mesh%level(sub%nlmax)%nel
     ndof = slv%ndof
     umesh = 0d0
+    lin = .FALSE.
+    IF (PRESENT(stokes)) lin = stokes
+    fb = 0d0
+    IF (PRESENT(bodyforce)) fb = bodyforce
+    withf = ANY(fb .NE. 0d0)
+
+    IF (lin) THEN
+      CALL solve_frozen()
+      RETURN
+    END IF
 
     DO ip = 1, npicard
       CALL CHI_ASM_SADDLE(nel, nvt, net, nat, &
@@ -212,6 +230,7 @@ CONTAINS
           sub%mesh%level(sub%nlmax)%karea, sub%mesh%level(sub%nlmax)%dcorvg, &
           rho*dtinv, slv%uold, slv%vold, slv%wold, slv%rhs)
       END IF
+      IF (withf) CALL add_body_force()
 
       IF (.NOT. outer_dirichlet) THEN
         CALL CHI_ASM_ROBIN_TAB(sub%outerFaces, SIZE(sub%outerFaces,2), &
@@ -265,6 +284,111 @@ CONTAINS
     END DO
 
     ok = .TRUE.
+
+  CONTAINS
+
+    ! Uniform body force: rhs += rho * M * f (constant nodal vectors).
+    SUBROUTINE add_body_force()
+      REAL*8, ALLOCATABLE :: f1(:), f2(:), f3(:)
+      ALLOCATE(f1(ndof), f2(ndof), f3(ndof))
+      f1 = fb(1); f2 = fb(2); f3 = fb(3)
+      CALL CHI_ASM_MASS_RHS(nel, nvt, net, nat, &
+        sub%mesh%level(sub%nlmax)%kvert, sub%mesh%level(sub%nlmax)%kedge, &
+        sub%mesh%level(sub%nlmax)%karea, sub%mesh%level(sub%nlmax)%dcorvg, &
+        rho, f1, f2, f3, slv%rhs)
+      DEALLOCATE(f1, f2, f3)
+    END SUBROUTINE add_body_force
+
+    ! Linear (Stokes) submesh: convection and the Robin alpha-term are
+    ! dropped (Picard velocity 0), the operator - including the Robin
+    ! matrix part and the Dirichlet rows, both static - is factorized once;
+    ! every later call assembles only the rhs and back-substitutes.
+    SUBROUTINE solve_frozen()
+      REAL*8, ALLOCATABLE :: zero(:)
+      ALLOCATE(zero(ndof))
+      zero = 0d0
+      IF (.NOT. slv%frozen) THEN
+        CALL CHI_ASM_SADDLE(nel, nvt, net, nat, &
+          sub%mesh%level(sub%nlmax)%kvert, sub%mesh%level(sub%nlmax)%kedge, &
+          sub%mesh%level(sub%nlmax)%karea, sub%mesh%level(sub%nlmax)%dcorvg, &
+          slv%n, slv%LdA, slv%ColA, slv%Avals, &
+          rho, mu, dtinv, zero, zero, zero, umesh)
+        slv%rhs = 0d0
+        IF (.NOT. outer_dirichlet) THEN
+          CALL CHI_ASM_ROBIN_TAB(sub%outerFaces, SIZE(sub%outerFaces,2), &
+            nvt, net, nat, nel, &
+            sub%mesh%level(sub%nlmax)%kvert, sub%mesh%level(sub%nlmax)%kedge, &
+            sub%mesh%level(sub%nlmax)%karea, sub%mesh%level(sub%nlmax)%dcorvg, &
+            slv%n, slv%LdA, slv%ColA, slv%Avals, slv%rhs, &
+            alpha, zero, zero, zero, hq)
+        END IF
+        DO i = 1, ndof
+          IF (dirmask(i) .EQ. 0) CYCLE
+          DO a = 1, 3
+            IF (IAND(dirmask(i), 2**(a-1)) .EQ. 0) CYCLE
+            r = (a-1)*ndof + i
+            CALL CHI_APPLY_DIRICHLET_ROW(r, ubc(a,i), slv%LdA, slv%ColA, &
+                                         slv%Avals, slv%rhs)
+          END DO
+        END DO
+        IF (outer_dirichlet) CALL CHI_APPLY_DIRICHLET_ROW(3*ndof + 1, 0d0, &
+          slv%LdA, slv%ColA, slv%Avals, slv%rhs)
+        CALL SD_FACTORIZE(slv%sd, slv%Avals, sdok)
+        IF (.NOT. sdok) THEN
+          WRITE(*,*) 'CHI_SOLVE_STEADY_TAB: frozen factorization failed'
+          RETURN
+        END IF
+        IF (.NOT. ALLOCATED(slv%Ascratch)) ALLOCATE(slv%Ascratch(SIZE(slv%Avals)))
+        slv%frozen = .TRUE.
+      END IF
+      ! rhs only (matrix contributions of the surface/Dirichlet assembly
+      ! land in the scratch copy and are discarded)
+      slv%Ascratch = 0d0
+      slv%rhs = 0d0
+      IF (dtinv .GT. 0d0) THEN
+        CALL CHI_ASM_MASS_RHS(nel, nvt, net, nat, &
+          sub%mesh%level(sub%nlmax)%kvert, sub%mesh%level(sub%nlmax)%kedge, &
+          sub%mesh%level(sub%nlmax)%karea, sub%mesh%level(sub%nlmax)%dcorvg, &
+          rho*dtinv, slv%uold, slv%vold, slv%wold, slv%rhs)
+      END IF
+      IF (withf) CALL add_body_force()
+      IF (.NOT. outer_dirichlet) THEN
+        CALL CHI_ASM_ROBIN_TAB(sub%outerFaces, SIZE(sub%outerFaces,2), &
+          nvt, net, nat, nel, &
+          sub%mesh%level(sub%nlmax)%kvert, sub%mesh%level(sub%nlmax)%kedge, &
+          sub%mesh%level(sub%nlmax)%karea, sub%mesh%level(sub%nlmax)%dcorvg, &
+          slv%n, slv%LdA, slv%ColA, slv%Ascratch, slv%rhs, &
+          alpha, zero, zero, zero, hq)
+      END IF
+      DO i = 1, ndof
+        IF (dirmask(i) .EQ. 0) CYCLE
+        DO a = 1, 3
+          IF (IAND(dirmask(i), 2**(a-1)) .EQ. 0) CYCLE
+          r = (a-1)*ndof + i
+          CALL CHI_APPLY_DIRICHLET_ROW(r, ubc(a,i), slv%LdA, slv%ColA, &
+                                       slv%Ascratch, slv%rhs)
+        END DO
+      END DO
+      IF (outer_dirichlet) CALL CHI_APPLY_DIRICHLET_ROW(3*ndof + 1, 0d0, &
+        slv%LdA, slv%ColA, slv%Ascratch, slv%rhs)
+      CALL SD_SOLVE(slv%sd, slv%sol, slv%rhs, sdok)
+      IF (.NOT. sdok) THEN
+        WRITE(*,*) 'CHI_SOLVE_STEADY_TAB: frozen solve failed'
+        RETURN
+      END IF
+      resid = 0d0
+      DO i = 1, ndof
+        resid = MAX(resid, ABS(slv%sol(i)        - slv%u(i)), &
+                           ABS(slv%sol(ndof+i)   - slv%v(i)), &
+                           ABS(slv%sol(2*ndof+i) - slv%w(i)))
+        slv%u(i) = slv%sol(i)
+        slv%v(i) = slv%sol(ndof+i)
+        slv%w(i) = slv%sol(2*ndof+i)
+      END DO
+      slv%p(1:4*nel) = slv%sol(3*ndof+1:3*ndof+4*nel)
+      DEALLOCATE(zero)
+      ok = .TRUE.
+    END SUBROUTINE solve_frozen
   END SUBROUTINE CHI_SOLVE_STEADY_TAB
 
   !-----------------------------------------------------------------------
@@ -285,6 +409,8 @@ CONTAINS
     IF (ALLOCATED(slv%LdA))  DEALLOCATE(slv%LdA)
     IF (ALLOCATED(slv%ColA)) DEALLOCATE(slv%ColA)
     IF (ALLOCATED(slv%Avals)) DEALLOCATE(slv%Avals)
+    IF (ALLOCATED(slv%Ascratch)) DEALLOCATE(slv%Ascratch)
+    slv%frozen = .FALSE.
     IF (ALLOCATED(slv%rhs))  DEALLOCATE(slv%rhs)
     IF (ALLOCATED(slv%sol))  DEALLOCATE(slv%sol)
     IF (ALLOCATED(slv%u))    DEALLOCATE(slv%u)

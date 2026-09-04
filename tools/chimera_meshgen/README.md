@@ -26,18 +26,57 @@ call (r_i=1, r_o=2, L_z=0.5, nr=2, nt=12, nz=1; 24 hexes) and is the
 mesh of the `chi-submesh-couette` Phase-2 gate test. Regenerate it only
 together with the constants in `tests/test_chi_submesh.f90`.
 
-Planned (design roadmap): sphere shells (Phase 5 array closures; the
-`applications/mesh_ref/Particle/*.tri` 24-hex shells serve as interim
-fixtures), per-particle atmosphere width tables
-`H_k = min(H_max, 0.5 * nearest-surface gap)` for the seeding rule, and
-the FAC cylinder-annulus instantiation for the Phase-3 milestone.
+## sphere_shell_tri.py — cubed-sphere shell (sphere atmosphere, Phase 5)
+
+The six faces of the cube are mapped equiangularly onto the sphere
+(near-uniform surface cells) and stacked in `nr` radial layers
+(`--grading` = geometric growth factor per layer); closed, conforming
+shell with `6 n^2 nr` hexes, FEAT vertex ordering, positive Jacobians.
+One file serves a whole array: at load time each body's copy is fitted to
+`[R, R + H_k]` and translated to the body centre.
+
+```bash
+python3 sphere_shell_tri.py --ri 1.0 --ro 2.0 --n 4 --nr 2 --out sphere_shell_coarse.tri
+```
+
+This call produced `source/src_chimera/tests/fixtures/sphere_shell_coarse.tri`
+(192 hexes; 1536 at submesh level 2, 13842 Q2 dofs) used by the Hasimoto
+case (`applications/q2p1_chimera/_data/q2p1_param_hasimoto*.dat`).
+
+## seed_array.py — sphere arrays in a periodic box (Phase 5)
+
+Emits the `SimPar@ChimeraParticleFile` body table for a simple-cubic
+lattice (`--mode sc --n 1` = Hasimoto; `--offset 0,0,0` puts the sphere
+on the box corner, the periodic-donor check) or a random sequential
+addition (`--mode random --count N --phi --seed --mingap`), with the
+non-overlap rule `H_k = min(H_max, 0.5 * nearest surface gap)` evaluated
+with minimum-image distances (own periodic images count). Unlike
+`tools/gen_random_array.py` (FBM) no explicit image spheres are written:
+the Chimera geometry is minimum-image periodic itself.
+
+```bash
+python3 seed_array.py --mode sc --n 1 --phi 0.0193925 --hmax 1.0 --out hasimoto_center.dat
+python3 seed_array.py --mode random --count 8 --phi 0.05 --seed 1 --mingap 0.5 --out random8.dat
+```
+
+## flatten_axis_partition.py — single-host layout of an axis partition
+
+Periodic runs need an axis-aligned partition; `PyPartitioner.py 1 -123 8`
+produces it as eight SUBGRIDS (`sub000k/GRID.tri`), while a single-host
+run reads `sub0001/GRID000k.tri`. The script rewrites the former into
+the latter (see its docstring and `docs/md_docs/chimera_usage.md`).
+
+Phase-3 note: the FAC cylinder-annulus instantiation uses the annulus
+fixture above.
 
 ## channel_tri.py — structured box background mesh (+ .par/.prj)
 
 Uniform hex box for Chimera cases (no body in the mesh), with the DFG
 2D-FAC boundary types (`Inflow2` at x=0, `Symmetry011` at x=Lx, `Wall`
 at y=0/Ly, `Symmetry001` at z=0/Lz) and a project file for
-`tools/PyPartitioner.py`.
+`tools/PyPartitioner.py`; with `--periodic` all six faces are tagged
+`Periodic` (`xmin..zmax.par`) for a periodic box
+(`applications/q2p1_chimera/_data/CHIMERA_BOX6`: 6^3 unit cube).
 
 ```bash
 python3 channel_tri.py --lx 2.2 --ly 0.41 --lz 0.05 --nx 44 --ny 8 --nz 1 \

@@ -40,6 +40,7 @@ Category@ParameterName = value
 
 | Parameter | Type | Units | Description | Example |
 |-----------|------|-------|-------------|---------|
+| `SimPar@PeriodicLength` | 3 reals | `0,0,0` (off) | Periodic box: period per axis (sets `dPeriodicity`); a value <= 0 leaves the axis non-periodic. The mesh must span exactly one period per periodic axis, all faces of that axis carry a non-BC tag (`Periodic`) in the `.par` files, and the partition must be axis-aligned with >= 2 ranks per periodic axis (`tools/PyPartitioner.py 1 -123 8 ...` + `tools/chimera_meshgen/flatten_axis_partition.py`); METIS partitions abort in `CheckFaceClaimDecode`. MUMPS coarse solvers are refused on periodic decks. Absent key: unchanged behaviour |
 | **Mesh & Domain** |
 | MeshFolder | string | - | Name of the mesh directory | `"NEWFAC"` |
 | SubMeshNumber | integer | - | Number of subpartitions for multilevel partitioning | `1` |
@@ -717,6 +718,7 @@ parser, so decks stay portable. Values land in
 | `SimPar@ChimeraOuterIters` | integer | `1` | In-step outer coupling iterations (>= 2 for time-accurate Chimera-S) |
 | `SimPar@ChimeraSubNL` | integer | `3` | Picard iterations per submesh solve |
 | `SimPar@ChimeraWriteVTK` | Yes/No | `No` | Dump submesh solutions for visualization |
+| `SimPar@ChimeraSubStokes` | Yes/No | `No` | Linear (Stokes) submesh operator: convection and the Robin alpha-term are dropped, the saddle-point matrix is factorized **once** and every coupling update only rebuilds the rhs (creeping-flow array closures; `ChimeraSubNL` is ignored). Turns the per-step submesh cost from two UMFPACK factorizations into one back-substitution |
 | `SimPar@ChimeraPenaltyLumped` | Yes/No | `Yes` | `weak` only. `Yes`: nodal-quadrature (Lobatto) lumped penalty `D_L` (positive, diagonal; the Jacobi-type velocity solvers stay convergent; correction of paper eq. (12) is diagonal). `No`: consistent Q2 penalty matrix with a CG correction and the paper's plain-mass Poisson operator (diagnostic only: the Jacobi coarse solver diverges for mass-dominated rows at large `dt*gamma`) |
 | `SimPar@ChimeraProjCap` | real | `0` | `weak` only. Cap kappa of the penalised mass used in **both** the pressure Poisson operator and the velocity correction (`M_eff = M_L + min(dt D_L, kappa M_L)`), keeping the corrected velocity exactly discretely divergence-free. `0` = plain projection (momentum-only penalty; recommended). `kappa > 0` is experimental: it steepens the pressure inside the bodies by up to `1+kappa` (observed to diverge at `h = D/4` with kappa = 10) |
 | `SimPar@ChimeraBetaFull` / `ChimeraBetaZero` | real | `0.5` / `0.75` | `weak` only. Damping function `beta = 1` up to `R + BetaFull*H`, linear to 0 at `R + BetaZero*H`, 0 beyond (defaults = paper eq. (7)). The free band between the last penalised node and the atmosphere boundary (where the Robin data are sampled) should be at least 1-2 background cells wide; shrink the support on coarse backgrounds |
@@ -732,7 +734,7 @@ particles in the same run; the `weak` variant requires a constant
 
 **Body table (`ChimeraParticleFile`)** — `#` comment lines, then the body
 count, then one line per body (`H` = atmosphere width, outer radius =
-radius + H):
+radius + H; per-body `H_k` for arrays):
 
 ```
 # cylinder_z  cx cy cz  radius  H  zlo zhi   (cz unused; infinite along z)
@@ -741,10 +743,30 @@ radius + H):
 cylinder_z  0.2 0.2 0.0   0.05  0.05   0.0 0.05
 ```
 
+Sphere arrays are seeded with `tools/chimera_meshgen/seed_array.py`
+(simple-cubic lattice or random sequential addition in a periodic box),
+which applies the non-overlap rule `H_k = min(H_max, 0.5 * nearest
+surface gap)` with minimum-image distances. Initialization aborts when an
+atmosphere intersects another body (both variants) or another atmosphere
+(`strong`), own periodic images included.
+
+**Periodic boxes (Phase 5)**: with `SimPar@PeriodicLength = Lx,Ly,Lz`
+(see the SimPar table) the Chimera geometry is minimum-image periodic —
+hole/fringe markers, the penalty ramp and the donor searches see the
+periodic images of every body, and the Robin sample points of an
+atmosphere that straddles a periodic face are wrapped into the box before
+the background is evaluated. The background must span exactly one period
+per periodic axis (checked at initialization).
+
 **Protocol output**: one `ChimeraForce<k>:` line per body and time step
 with `time  C_D  C_L  Fx  Fy  Fz  Tz` (C_D/C_L normalized with the
-`Bench_U_mean/H/D` parameters exactly like `BenchForce:`), plus a short
-`Chimera:` summary at initialization.
+`Bench_U_mean/H/D` parameters exactly like `BenchForce:`), one
+`ChimeraBulk:` line per time step with `time  <u>_x <u>_y <u>_z
+fluid_fraction  sum(Fx) sum(Fy) sum(Fz)` (composite cell average of the
+velocity: 0 inside the bodies, the submesh solution in the atmospheres,
+the background elsewhere — the superficial velocity of the Hasimoto /
+Beetstra–Tenneti drag conventions), plus a short `Chimera:` summary at
+initialization.
 
 ---
 

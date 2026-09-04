@@ -19,6 +19,7 @@
 MODULE CHI_MARKERS
 
   USE CHI_FEM_EVAL, ONLY: CHI_Q2_DOFMAP
+  USE CHI_PERIODIC, ONLY: tChiPeriodic, CHI_PER_ACTIVE, CHI_PER_DELTA
 
   IMPLICIT NONE
 
@@ -28,6 +29,7 @@ MODULE CHI_MARKERS
   PUBLIC :: CHI_BODY_CYLINDER_Z, CHI_BODY_SPHERE
   PUBLIC :: CHI_MARK_FREE, CHI_MARK_FRINGE, CHI_MARK_HOLE
   PUBLIC :: CHI_POINT_IN_BODY
+  PUBLIC :: CHI_BODY_NEAR_BOX
   PUBLIC :: CHI_CLASSIFY_MARKERS
   PUBLIC :: CHI_MERGE_MARKER
 
@@ -49,11 +51,16 @@ CONTAINS
   !-----------------------------------------------------------------------
   ! Point-in-body test (closed body: surface points count as inside).
   !-----------------------------------------------------------------------
-  PURE LOGICAL FUNCTION CHI_POINT_IN_BODY(body, x)
+  PURE LOGICAL FUNCTION CHI_POINT_IN_BODY(body, x, pb)
     TYPE(tChiBody), INTENT(IN) :: body
     REAL*8, INTENT(IN) :: x(3)
+    TYPE(tChiPeriodic), INTENT(IN), OPTIONAL :: pb   ! Phase 5: minimum image
     REAL*8 :: d(3), r2
-    d = x - body%center
+    IF (PRESENT(pb)) THEN
+      d = CHI_PER_DELTA(pb, x, body%center)
+    ELSE
+      d = x - body%center
+    END IF
     IF (body%shape .EQ. CHI_BODY_SPHERE) THEN
       r2 = d(1)*d(1) + d(2)*d(2) + d(3)*d(3)
     ELSE
@@ -63,6 +70,46 @@ CONTAINS
   END FUNCTION CHI_POINT_IN_BODY
 
   !-----------------------------------------------------------------------
+  ! Conservative box test: can a body's neighbourhood of radius `reach`
+  ! (radius, or radius + atmosphere width) touch the axis-aligned box
+  ! [lo, hi]?  Without an active periodic box this is the plain
+  ! bounding-box overlap test (unchanged Phase-3/4 arithmetic); with one
+  ! it uses the minimum-image displacement of the box centre, so periodic
+  ! images of the body are seen.  Cylinders ignore the z-axis.
+  !-----------------------------------------------------------------------
+  PURE LOGICAL FUNCTION CHI_BODY_NEAR_BOX(body, lo, hi, reach, pb)
+    TYPE(tChiBody), INTENT(IN) :: body
+    REAL*8, INTENT(IN) :: lo(3), hi(3), reach
+    TYPE(tChiPeriodic), INTENT(IN), OPTIONAL :: pb
+    REAL*8 :: mid(3), half(3), d(3), tol
+    LOGICAL :: periodic
+    periodic = .FALSE.
+    IF (PRESENT(pb)) periodic = CHI_PER_ACTIVE(pb)
+    IF (periodic) THEN
+      mid = 0.5d0*(lo + hi)
+      half = 0.5d0*(hi - lo)
+      d = CHI_PER_DELTA(pb, mid, body%center)
+      tol = reach*(1d0 + 1d-9)
+      IF (body%shape .EQ. CHI_BODY_CYLINDER_Z) THEN
+        CHI_BODY_NEAR_BOX = (ABS(d(1)) .LE. tol + half(1)) .AND. &
+                            (ABS(d(2)) .LE. tol + half(2))
+      ELSE
+        CHI_BODY_NEAR_BOX = ALL(ABS(d) .LE. tol + half)
+      END IF
+    ELSE
+      IF (body%shape .EQ. CHI_BODY_CYLINDER_Z) THEN
+        CHI_BODY_NEAR_BOX = (lo(1) .LE. body%center(1)+reach .AND. &
+                             hi(1) .GE. body%center(1)-reach .AND. &
+                             lo(2) .LE. body%center(2)+reach .AND. &
+                             hi(2) .GE. body%center(2)-reach)
+      ELSE
+        CHI_BODY_NEAR_BOX = ALL(lo .LE. body%center+reach) .AND. &
+                            ALL(hi .GE. body%center-reach)
+      END IF
+    END IF
+  END FUNCTION CHI_BODY_NEAR_BOX
+
+  !-----------------------------------------------------------------------
   ! Classify the Q2 dofs of a (partition of a) background mesh.  q2coor
   ! holds the Q2 node coordinates (3, nvt+net+nat+nel).  kind/pid are
   ! reset to free first.  Precedence between bodies: hole > fringe; the
@@ -70,16 +117,18 @@ CONTAINS
   ! (unambiguous for non-overlapping atmospheres, the M1 assumption).
   !-----------------------------------------------------------------------
   SUBROUTINE CHI_CLASSIFY_MARKERS(nel, nvt, net, nat, kvert, kedge, karea, &
-                                  q2coor, nbody, bodies, kind, pid)
+                                  q2coor, nbody, bodies, kind, pid, pb)
     INTEGER, INTENT(IN) :: nel, nvt, net, nat
     INTEGER, INTENT(IN) :: kvert(8,*), kedge(12,*), karea(6,*)
     REAL*8,  INTENT(IN) :: q2coor(3,*)
     INTEGER, INTENT(IN) :: nbody
     TYPE(tChiBody), INTENT(IN) :: bodies(*)
     INTEGER, INTENT(OUT) :: kind(*), pid(*)
+    TYPE(tChiPeriodic), INTENT(IN), OPTIONAL :: pb   ! Phase 5: periodic box
 
     INTEGER :: ndof, e, k, i, idx(27), nin
     LOGICAL :: inside(27)
+    REAL*8 :: lo(3), hi(3)
 
     ndof = nvt + net + nat + nel
     kind(1:ndof) = CHI_MARK_FREE
@@ -87,10 +136,18 @@ CONTAINS
 
     DO e = 1, nel
       CALL CHI_Q2_DOFMAP(e, kvert, kedge, karea, nvt, net, nat, idx)
+      lo = q2coor(:,idx(1))
+      hi = lo
+      DO i = 2, 8
+        lo = MIN(lo, q2coor(:,idx(i)))
+        hi = MAX(hi, q2coor(:,idx(i)))
+      END DO
       DO k = 1, nbody
+        ! bounding-box reject (arrays: O(nel) per body instead of 27x)
+        IF (.NOT. CHI_BODY_NEAR_BOX(bodies(k), lo, hi, bodies(k)%radius, pb)) CYCLE
         nin = 0
         DO i = 1, 27
-          inside(i) = CHI_POINT_IN_BODY(bodies(k), q2coor(:,idx(i)))
+          inside(i) = CHI_POINT_IN_BODY(bodies(k), q2coor(:,idx(i)), pb)
           IF (inside(i)) nin = nin + 1
         END DO
         IF (nin .EQ. 0) CYCLE

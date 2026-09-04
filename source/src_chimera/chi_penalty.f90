@@ -42,7 +42,8 @@
 MODULE CHI_PENALTY
   USE CHI_GEOMETRY, ONLY: CHI_Q1_MAP, CHI_GAUSS3
   USE CHI_FEM_EVAL, ONLY: CHI_Q2_BASIS, CHI_Q2_DOFMAP, CHI_Q2_REFNODES
-  USE CHI_MARKERS, ONLY: tChiBody, CHI_BODY_CYLINDER_Z, CHI_BODY_SPHERE
+  USE CHI_MARKERS, ONLY: tChiBody, CHI_BODY_CYLINDER_Z, CHI_BODY_SPHERE, CHI_BODY_NEAR_BOX
+  USE CHI_PERIODIC, ONLY: tChiPeriodic, CHI_PER_DELTA
   IMPLICIT NONE
   PRIVATE
 
@@ -94,15 +95,20 @@ CONTAINS
   ! width hwidth; inbody = .TRUE. when x lies in the closed body.
   ! Cylinders are treated as infinite along z (milestone convention).
   !-----------------------------------------------------------------------
-  PURE SUBROUTINE CHI_PENALTY_BETA(body, hwidth, x, beta, inbody, rfull, rzero)
+  PURE SUBROUTINE CHI_PENALTY_BETA(body, hwidth, x, beta, inbody, rfull, rzero, pb)
     TYPE(tChiBody), INTENT(IN) :: body
     REAL*8, INTENT(IN)  :: hwidth, x(3)
     REAL*8, INTENT(OUT) :: beta
     LOGICAL, INTENT(OUT) :: inbody
     REAL*8, INTENT(IN), OPTIONAL :: rfull, rzero   ! ramp bounds as fractions of H
+    TYPE(tChiPeriodic), INTENT(IN), OPTIONAL :: pb ! Phase 5: minimum image
     REAL*8 :: d(3), r, f1, f0
 
-    d = x - body%center
+    IF (PRESENT(pb)) THEN
+      d = CHI_PER_DELTA(pb, x, body%center)
+    ELSE
+      d = x - body%center
+    END IF
     IF (body%shape .EQ. CHI_BODY_CYLINDER_Z) THEN
       r = SQRT(d(1)*d(1) + d(2)*d(2))
     ELSE
@@ -128,13 +134,14 @@ CONTAINS
   ! The caller fills tab%uhat (finest level) before assembling g.
   !-----------------------------------------------------------------------
   SUBROUTINE CHI_PENALTY_TABULATE(nel, kvert, dcorvg, nbody, bodies, hwidth, tab, &
-                                  rfull, rzero)
+                                  rfull, rzero, pb)
     INTEGER, INTENT(IN) :: nel, nbody
     INTEGER, INTENT(IN) :: kvert(8,*)
     REAL*8,  INTENT(IN) :: dcorvg(3,*), hwidth(nbody)
     TYPE(tChiBody), INTENT(IN) :: bodies(nbody)
     TYPE(tChiPenaltyTab), INTENT(INOUT) :: tab
     REAL*8,  INTENT(IN) :: rfull, rzero
+    TYPE(tChiPeriodic), INTENT(IN), OPTIONAL :: pb
 
     REAL*8 :: gp(3, CHI_PENALTY_NQ), gw(CHI_PENALTY_NQ), dphi(3,27)
     REAL*8 :: nodes(3,8), xq(3), jac(3,3), detj, beta, bmax
@@ -176,15 +183,7 @@ CONTAINS
           near = .FALSE.
           DO k = 1, nbody
             reach = bodies(k)%radius + hwidth(k)
-            IF (bodies(k)%shape .EQ. CHI_BODY_CYLINDER_Z) THEN
-              near = near .OR. (lo(1) .LE. bodies(k)%center(1)+reach .AND. &
-                                hi(1) .GE. bodies(k)%center(1)-reach .AND. &
-                                lo(2) .LE. bodies(k)%center(2)+reach .AND. &
-                                hi(2) .GE. bodies(k)%center(2)-reach)
-            ELSE
-              near = near .OR. ALL(lo .LE. bodies(k)%center+reach) .AND. &
-                               ALL(hi .GE. bodies(k)%center-reach)
-            END IF
+            near = near .OR. CHI_BODY_NEAR_BOX(bodies(k), lo, hi, reach, pb)
           END DO
           IF (.NOT. near) CYCLE
         END IF
@@ -195,7 +194,7 @@ CONTAINS
           bq(q) = 0
           inq(q) = .FALSE.
           DO k = 1, nbody
-            CALL CHI_PENALTY_BETA(bodies(k), hwidth(k), xq, beta, inb, rfull, rzero)
+            CALL CHI_PENALTY_BETA(bodies(k), hwidth(k), xq, beta, inb, rfull, rzero, pb)
             IF (beta .GT. bmax) THEN
               bmax = beta
               bq(q) = k
@@ -353,11 +352,12 @@ CONTAINS
   !-----------------------------------------------------------------------
   SUBROUTINE CHI_PENALTY_NODAL(nel, nvt, net, nat, kvert, kedge, karea, dcorvg, &
                                nbody, bodies, hwidth, gamma, nu, dl, nbody_of, &
-                               inbody, xnode, rfull, rzero)
+                               inbody, xnode, rfull, rzero, pb)
     INTEGER, INTENT(IN) :: nel, nvt, net, nat, nbody, nu
     INTEGER, INTENT(IN) :: kvert(8,*), kedge(12,*), karea(6,*)
     REAL*8,  INTENT(IN) :: dcorvg(3,*), hwidth(nbody), gamma
     REAL*8,  INTENT(IN) :: rfull, rzero
+    TYPE(tChiPeriodic), INTENT(IN), OPTIONAL :: pb
     TYPE(tChiBody), INTENT(IN) :: bodies(nbody)
     REAL*8,  INTENT(OUT) :: dl(nu), xnode(3,nu)
     INTEGER, INTENT(OUT) :: nbody_of(nu)
@@ -386,15 +386,7 @@ CONTAINS
       near = .FALSE.
       DO k = 1, nbody
         reach = bodies(k)%radius + hwidth(k)
-        IF (bodies(k)%shape .EQ. CHI_BODY_CYLINDER_Z) THEN
-          near = near .OR. (lo(1) .LE. bodies(k)%center(1)+reach .AND. &
-                            hi(1) .GE. bodies(k)%center(1)-reach .AND. &
-                            lo(2) .LE. bodies(k)%center(2)+reach .AND. &
-                            hi(2) .GE. bodies(k)%center(2)-reach)
-        ELSE
-          near = near .OR. ALL(lo .LE. bodies(k)%center+reach) .AND. &
-                           ALL(hi .GE. bodies(k)%center-reach)
-        END IF
+        near = near .OR. CHI_BODY_NEAR_BOX(bodies(k), lo, hi, reach, pb)
       END DO
       IF (.NOT. near) CYCLE
       CALL CHI_Q2_DOFMAP(e, kvert, kedge, karea, nvt, net, nat, idx)
@@ -404,7 +396,7 @@ CONTAINS
         ib = 0
         inmax = .FALSE.
         DO k = 1, nbody
-          CALL CHI_PENALTY_BETA(bodies(k), hwidth(k), x, beta, inb, rfull, rzero)
+          CALL CHI_PENALTY_BETA(bodies(k), hwidth(k), x, beta, inb, rfull, rzero, pb)
           IF (beta .GT. bmax) THEN
             bmax = beta
             ib = k

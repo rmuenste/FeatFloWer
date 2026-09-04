@@ -1,0 +1,5 @@
+# Chimera body table (SimPar@ChimeraParticleFile), seed_array.py
+# mode=sc L=1 count=1 phi=0.0193925 R=0.1666665313213737 seed=1 Hmax=0.1666665313213737 mingap_measured=0.6666669374 Hk_min=0.1666665313 Hk_max=0.1666665313
+# H_k = min(H_max, 0.5 * nearest surface gap), minimum-image periodic
+1
+sphere  0.5 0.5 0.5   0.1666665313213737  0.1666665313213737

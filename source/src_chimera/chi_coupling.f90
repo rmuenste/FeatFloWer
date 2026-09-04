@@ -29,12 +29,14 @@
 !=========================================================================
 MODULE CHI_COUPLING
 
-  USE PP3D_MPI, ONLY: myid, master, showid, subnodes, MPI_COMM_SUBS
-  USE var_QuadScalar, ONLY: mg_mesh, myQ2Coor, Properties, postParams, mg_qMat
+  USE PP3D_MPI, ONLY: myid, master, showid, subnodes, MPI_COMM_SUBS, dPeriodicity
+  USE var_QuadScalar, ONLY: mg_mesh, myQ2Coor, Properties, postParams, mg_qMat, &
+    bConstForce, ConstForce
+  USE EL_CONFIG, ONLY: el_fluid_gravity
   USE def_FEAT, ONLY: NLMIN, NLMAX, ILEV, TIMENS, TSTEP
   USE CHIMERA_CONFIG, ONLY: chimera_outer_bc, chimera_particle_file, &
     chimera_submesh_file, chimera_submesh_nlmax, chimera_robin_alpha, &
-    chimera_sub_nl, chimera_write_vtk, bChimeraW, chimera_gamma_max, &
+    chimera_sub_nl, chimera_write_vtk, bChimeraW, chimera_gamma_max, chimera_sub_stokes, &
     chimera_penalty_lumped, chimera_proj_cap, chimera_beta_full, chimera_beta_zero, &
     chimera_coupling_relax
   USE CHI_SUBMESH, ONLY: tChimeraSubmesh, CHI_SHAPE_CYLINDER_Z, &
@@ -46,10 +48,14 @@ MODULE CHI_COUPLING
   USE CHI_FORCES, ONLY: CHI_COMPUTE_FORCES
   USE CHI_LOCATOR, ONLY: tChimeraLocator, CHI_LOCATOR_BUILD, CHI_LOCATE, &
     CHI_LOCATE_NEAREST, CHI_LOCATOR_RELEASE
-  USE CHI_FEM_EVAL, ONLY: CHI_EVAL_FIELD_AT
+  USE CHI_FEM_EVAL, ONLY: CHI_EVAL_FIELD_AT, CHI_Q2_BASIS, CHI_Q2_DOFMAP
+  USE CHI_GEOMETRY, ONLY: CHI_GAUSS3, CHI_Q1_MAP
+  USE CHI_PERIODIC, ONLY: tChiPeriodic, CHI_PER_ACTIVE, CHI_PER_DELTA, CHI_PER_WRAP, &
+    CHI_PER_DIST
   USE CHI_KERNELS, ONLY: CHI_ROBIN_POINTS
   USE CHI_EXCHANGE, ONLY: CHI_EXCHANGE_BG_EVAL, CHI_EXCHANGE_BCAST, &
-    CHI_EXCHANGE_RANK, CHI_EXCHANGE_MAX_INT, CHI_BG_NVAL, CHI_EXCHANGE_ALLSUM
+    CHI_EXCHANGE_RANK, CHI_EXCHANGE_MAX_INT, CHI_BG_NVAL, CHI_EXCHANGE_ALLSUM, &
+    CHI_EXCHANGE_ALLMIN, CHI_EXCHANGE_ALLMAX
   USE CHI_MARKERS, ONLY: tChiBody, CHI_BODY_CYLINDER_Z, CHI_BODY_SPHERE, &
     CHI_MARK_FREE, CHI_MARK_FRINGE, CHI_MARK_HOLE, CHI_CLASSIFY_MARKERS
   USE CHI_OUTPUT, ONLY: CHI_WRITE_SUBMESH_VTK
@@ -94,6 +100,18 @@ MODULE CHI_COUPLING
   TYPE(tChimeraLocator), ALLOCATABLE, SAVE :: subloc(:)
   TYPE(tChiBody),        ALLOCATABLE, SAVE :: bodies(:)
   INTEGER, ALLOCATABLE, SAVE :: owner(:)      ! owning rank in MPI_COMM_SUBS
+
+  ! periodic box (Phase 5): from dPeriodicity + the global background
+  ! bounding box; inactive (identity geometry) for walled cases
+  TYPE(tChiPeriodic), SAVE :: pbox
+  REAL*8, SAVE :: bg_lo(3) = 0d0, bg_hi(3) = 0d0
+
+  ! composite bulk-velocity diagnostic (Phase 5, "ChimeraBulk:" lines):
+  ! per background Gauss point the region (0 background / -k inside body k
+  ! / +k atmosphere k) and the cached submesh donor
+  INTEGER, ALLOCATABLE, SAVE :: bk_region(:,:), bk_iel(:,:)
+  REAL*8,  ALLOCATABLE, SAVE :: bk_xi(:,:,:)
+  LOGICAL, SAVE :: bk_ready = .FALSE.
 
   ! background finest level
   TYPE(tChimeraLocator), SAVE :: bgloc
@@ -158,9 +176,9 @@ CONTAINS
     INTEGER, INTENT(IN) :: mfile
 
     INTEGER :: k, i, lev, nvt, net, nat, nel, nholes, nfringe, nmax
-    INTEGER :: nf, ifc, q, e, fl, nd, ilev_save
+    INTEGER :: nf, ifc, q, e, fl, nd, ilev_save, ndof_all, nunk_all
     LOGICAL :: ok, found
-    REAL*8 :: excess, maxexcess
+    REAL*8 :: excess, maxexcess, xq(3)
     INTEGER, ALLOCATABLE :: kind0(:), tmp(:)
 
     mfile_unit = mfile
@@ -211,6 +229,10 @@ CONTAINS
     CALL CHI_LOCATOR_BUILD(bgloc, mg_mesh%level(lev)%dcorvg, &
       mg_mesh%level(lev)%kvert, nel, nvt)
 
+    !---- periodic box + atmosphere admissibility (Phase 5) ---------------
+    CALL setup_periodic(mg_mesh%level(lev)%dcorvg, nvt)
+    CALL check_atmospheres()
+
     ALLOCATE(marker_kind(nbgdof), marker_pid(nbgdof))
     ALLOCATE(fringeU(nbgdof), fringeV(nbgdof), fringeW(nbgdof))
     fringeU = 0d0; fringeV = 0d0; fringeW = 0d0
@@ -222,7 +244,7 @@ CONTAINS
     ELSE
     CALL CHI_CLASSIFY_MARKERS(nel, nvt, net, nat, mg_mesh%level(lev)%kvert, &
       mg_mesh%level(lev)%kedge, mg_mesh%level(lev)%karea, myQ2Coor, &
-      nsub, bodies, marker_kind, marker_pid)
+      nsub, bodies, marker_kind, marker_pid, pbox)
 
     ! Parallel synchronisation: MAX on the kind (hole > fringe > free),
     ! then the body id among partitions that carry the winning kind.
@@ -273,12 +295,13 @@ CONTAINS
         STOP 1
       END IF
       lev = atm(k)%nlmax
+      xq = image_point(myQ2Coor(:,i), k)
       CALL CHI_LOCATE(subloc(k), atm(k)%mesh%level(lev)%dcorvg, &
-        atm(k)%mesh%level(lev)%kvert, myQ2Coor(:,i), con_iel(ncon), &
+        atm(k)%mesh%level(lev)%kvert, xq, con_iel(ncon), &
         con_xi(:,ncon), found)
       IF (.NOT. found) THEN
         CALL CHI_LOCATE_NEAREST(subloc(k), atm(k)%mesh%level(lev)%dcorvg, &
-          atm(k)%mesh%level(lev)%kvert, myQ2Coor(:,i), con_iel(ncon), &
+          atm(k)%mesh%level(lev)%kvert, xq, con_iel(ncon), &
           con_xi(:,ncon), excess, found)
         IF (.NOT. found) THEN
           WRITE(*,'(A,I0,A,3ES14.6)') 'CHI_COUPLING error: fringe dof ', i, &
@@ -304,6 +327,13 @@ CONTAINS
         atm(k)%mesh%level(lev)%kvert, atm(k)%mesh%level(lev)%dcorvg, &
         qpts(:,9*qoff(k)+1:9*qoff(k+1)), qnrm(:,9*qoff(k)+1:9*qoff(k+1)))
     END DO
+    ! atmospheres straddling periodic faces: sample the background at the
+    ! wrapped image of every outer quadrature point (normals unchanged)
+    IF (CHI_PER_ACTIVE(pbox)) THEN
+      DO i = 1, nqtot
+        qpts(:,i) = CHI_PER_WRAP(pbox, qpts(:,i))
+      END DO
+    END IF
 
     !---- outer Q2 nodes (Dirichlet diagnostic mode) ----------------------
     ALLOCATE(doff(nsub+1))
@@ -324,6 +354,7 @@ CONTAINS
         nd = nd + 1
         ddof(nd) = i
         dpts(:,nd) = atm(k)%q2coor(:,i)
+        IF (CHI_PER_ACTIVE(pbox)) dpts(:,nd) = CHI_PER_WRAP(pbox, dpts(:,nd))
       END DO
     END DO
 
@@ -341,17 +372,243 @@ CONTAINS
         WRITE(*,'(A,I0,A,I0,A)') 'Chimera: ', nsub, ' body/bodies, ', &
           subnodes, ' worker(s); strong (Chimera-S) coupling'
       END IF
-      WRITE(*,'(A,I0,A,I0,A,I0)') 'Chimera: submesh Q2 dofs = ', atm(1)%ndof, &
-        ', unknowns = ', slv(1)%n, ', levels = ', atm(1)%nlmax
+      ndof_all = 0
+      nunk_all = 0
+      DO k = 1, nsub
+        ndof_all = ndof_all + atm(k)%ndof
+        nunk_all = nunk_all + slv(k)%n
+      END DO
+      WRITE(*,'(A,I0,A,I0,A,I0)') 'Chimera: submesh Q2 dofs (all bodies) = ', &
+        ndof_all, ', unknowns = ', nunk_all, ', levels = ', atm(1)%nlmax
       WRITE(*,'(A,I0,A,I0,A,I0,A,ES10.2)') 'Chimera: rank ', myid, &
         ' hole dofs = ', nholes, ', fringe dofs = ', nfringe, &
         ', max donor extrapolation = ', maxexcess
+      IF (CHI_PER_ACTIVE(pbox)) THEN
+        WRITE(*,'(A,3L2,A,3ES12.4,A,3ES12.4)') 'Chimera: periodic box axes =', &
+          pbox%per, ', period =', pbox%len, ', origin =', pbox%lo
+        WRITE(mfile,'(A,3L2,A,3ES12.4)') 'Chimera: periodic box axes =', &
+          pbox%per, ', period =', pbox%len
+      END IF
       WRITE(mfile,'(A,I0,A,I0,A,I0)') 'Chimera: bodies = ', nsub, &
-        ', submesh levels = ', atm(1)%nlmax, ', submesh Q2 dofs = ', atm(1)%ndof
+        ', submesh levels = ', atm(1)%nlmax, ', submesh Q2 dofs (all bodies) = ', ndof_all
       WRITE(mfile,'(A,A)') 'Chimera: outer BC = ', TRIM(chimera_outer_bc)
       WRITE(mfile,'(A,I0)') 'Chimera: max constrained dofs per worker = ', nmax
     END IF
   END SUBROUTINE CHI_COUPLING_INIT
+
+  !=======================================================================
+  ! Phase 5: periodic box, atmosphere admissibility, image points, and
+  ! the composite bulk-velocity diagnostic.
+  !=======================================================================
+
+  ! Periodic box from dPeriodicity (PP3D_MPI, set by SimPar@PeriodicLength
+  ! or the application) and the GLOBAL bounding box of the background
+  ! (allreduce over the workers).  Along a periodic axis the background
+  ! must span exactly one period (that is what the E013 pairing assumes).
+  SUBROUTINE setup_periodic(dcorvg, nvt)
+    REAL*8, INTENT(IN) :: dcorvg(3,*)
+    INTEGER, INTENT(IN) :: nvt
+    INTEGER :: i, d
+    REAL*8 :: ext
+    bg_lo = dcorvg(:,1)
+    bg_hi = dcorvg(:,1)
+    DO i = 2, nvt
+      bg_lo = MIN(bg_lo, dcorvg(:,i))
+      bg_hi = MAX(bg_hi, dcorvg(:,i))
+    END DO
+    CALL CHI_EXCHANGE_ALLMIN(MPI_COMM_SUBS, bg_lo, 3)
+    CALL CHI_EXCHANGE_ALLMAX(MPI_COMM_SUBS, bg_hi, 3)
+    pbox = tChiPeriodic()
+    DO d = 1, 3
+      IF (dPeriodicity(d) .LT. 1d8) THEN
+        pbox%per(d) = .TRUE.
+        pbox%len(d) = dPeriodicity(d)
+        pbox%lo(d)  = bg_lo(d)
+        ext = bg_hi(d) - bg_lo(d)
+        IF (ABS(ext - dPeriodicity(d)) .GT. 1d-8*MAX(1d0, dPeriodicity(d))) THEN
+          WRITE(*,'(A,I0,A,ES14.6,A,ES14.6)') 'CHI_COUPLING error: periodic axis ', d, &
+            ': background extent ', ext, ' differs from the period ', dPeriodicity(d)
+          STOP 1
+        END IF
+      END IF
+    END DO
+  END SUBROUTINE setup_periodic
+
+  ! Paper assumption (design section 3, memory rule H_k <= half gap):
+  ! atmosphere k must not intersect body j, and for Chimera-S the
+  ! atmospheres must be pairwise disjoint.  Minimum-image distances, so
+  ! a body's own periodic images count (a single sphere in a box that
+  ! is smaller than 2(R+H) is rejected too).
+  SUBROUTINE check_atmospheres()
+    INTEGER :: k, j, d
+    REAL*8 :: dist, ro_k, ro_j, self
+    LOGICAL :: bad
+    bad = .FALSE.
+    DO k = 1, nsub
+      ro_k = atm(k)%radius_outer
+      ! own images
+      IF (CHI_PER_ACTIVE(pbox)) THEN
+        self = HUGE(1d0)
+        DO d = 1, 3
+          IF (pbox%per(d)) self = MIN(self, pbox%len(d))
+        END DO
+        IF (self .LT. ro_k + atm(k)%radius_inner) THEN
+          WRITE(*,'(A,I0,A)') 'CHI_COUPLING error: atmosphere of body ', k, &
+            ' overlaps its own periodic image'
+          bad = .TRUE.
+        END IF
+      END IF
+      DO j = k+1, nsub
+        ro_j = atm(j)%radius_outer
+        IF (bodies(k)%shape .EQ. CHI_BODY_CYLINDER_Z .OR. &
+            bodies(j)%shape .EQ. CHI_BODY_CYLINDER_Z) THEN
+          dist = CHI_PER_DIST(pbox, (/bodies(k)%center(1), bodies(k)%center(2), 0d0/), &
+                                    (/bodies(j)%center(1), bodies(j)%center(2), 0d0/))
+        ELSE
+          dist = CHI_PER_DIST(pbox, bodies(k)%center, bodies(j)%center)
+        END IF
+        IF (dist .LT. MAX(ro_k + atm(j)%radius_inner, ro_j + atm(k)%radius_inner)) THEN
+          WRITE(*,'(A,I0,A,I0,A,ES12.4)') 'CHI_COUPLING error: atmosphere of body ', k, &
+            ' intersects body ', j, ' (or vice versa), centre distance ', dist
+          bad = .TRUE.
+        ELSE IF (.NOT. weak_mode .AND. dist .LT. ro_k + ro_j) THEN
+          WRITE(*,'(A,I0,A,I0,A,ES12.4)') 'CHI_COUPLING error: atmospheres of bodies ', k, &
+            ' and ', j, ' overlap (Chimera-S needs disjoint atmospheres), distance ', dist
+          bad = .TRUE.
+        END IF
+      END DO
+    END DO
+    IF (bad) STOP 1
+  END SUBROUTINE check_atmospheres
+
+  ! Image of a background point in the coordinate frame of submesh k
+  ! (the submesh sits at the body's nominal centre; a periodic image of
+  ! the point may be the one inside the atmosphere).  Identity when the
+  ! box is not periodic - keeps the walled cases bit-identical.
+  FUNCTION image_point(x, k) RESULT(xq)
+    REAL*8, INTENT(IN) :: x(3)
+    INTEGER, INTENT(IN) :: k
+    REAL*8 :: xq(3)
+    IF (CHI_PER_ACTIVE(pbox)) THEN
+      xq = bodies(k)%center + CHI_PER_DELTA(pbox, x, bodies(k)%center)
+    ELSE
+      xq = x
+    END IF
+  END FUNCTION image_point
+
+  ! Composite volume average of the velocity over the background cell:
+  ! Gauss points inside a body contribute 0 (static bodies), points in an
+  ! atmosphere take the replicated submesh solution, all others the
+  ! background Q2 field.  Reported once per coupling update as
+  !   ChimeraBulk: time  <u>_x <u>_y <u>_z  fluid_fraction  sum F_x F_y F_z
+  ! (<u> = superficial/Darcy velocity of the whole cell, the U of the
+  ! Hasimoto and Beetstra/Tenneti drag conventions).  Elements are
+  ! partitioned, so the rank-local sums add up over MPI_COMM_SUBS.
+  SUBROUTINE bulk_diagnostic(valU, valV, valW, Ftot)
+    REAL*8, INTENT(IN) :: valU(*), valV(*), valW(*), Ftot(3)
+    INTEGER :: lev, e, q, k, i, idx(27), nel, sl, kin, katm
+    REAL*8 :: gp(3,27), gw(27), phi(27,27), dphi(3,27), nodes(3,8), x(3), jac(3,3)
+    REAL*8 :: detj, w, uval(3), gradu(3,3), pval, sums(5), d(3), r, xq(3), excess
+    LOGICAL :: ok, found
+    IF (.NOT. active) RETURN
+    lev = NLMAX
+    nel = mg_mesh%level(lev)%nel
+    CALL CHI_GAUSS3(gp, gw)
+    DO q = 1, 27
+      CALL CHI_Q2_BASIS(gp(:,q), phi(:,q), dphi)
+    END DO
+    IF (.NOT. bk_ready) THEN
+      ALLOCATE(bk_region(27, MAX(nel,1)), bk_iel(27, MAX(nel,1)), bk_xi(3, 27, MAX(nel,1)))
+      bk_region = 0
+      bk_iel = 0
+      bk_xi = 0d0
+      DO e = 1, nel
+        DO k = 1, 8
+          nodes(:,k) = mg_mesh%level(lev)%dcorvg(:, mg_mesh%level(lev)%kvert(k,e))
+        END DO
+        DO q = 1, 27
+          CALL CHI_Q1_MAP(nodes, gp(:,q), x, jac, detj)
+          kin = 0
+          katm = 0
+          DO k = 1, nsub
+            d = CHI_PER_DELTA(pbox, x, bodies(k)%center)
+            IF (bodies(k)%shape .EQ. CHI_BODY_CYLINDER_Z) THEN
+              r = SQRT(d(1)*d(1) + d(2)*d(2))
+            ELSE
+              r = SQRT(d(1)*d(1) + d(2)*d(2) + d(3)*d(3))
+            END IF
+            IF (r .LE. atm(k)%radius_inner) THEN
+              kin = k
+              EXIT
+            ELSE IF (r .LT. atm(k)%radius_outer .AND. katm .EQ. 0) THEN
+              katm = k
+            END IF
+          END DO
+          IF (kin .GT. 0) THEN
+            bk_region(q,e) = -kin
+          ELSE IF (katm .GT. 0) THEN
+            k = katm
+            sl = atm(k)%nlmax
+            xq = image_point(x, k)
+            CALL CHI_LOCATE(subloc(k), atm(k)%mesh%level(sl)%dcorvg, &
+              atm(k)%mesh%level(sl)%kvert, xq, bk_iel(q,e), bk_xi(:,q,e), found)
+            IF (.NOT. found) CALL CHI_LOCATE_NEAREST(subloc(k), &
+              atm(k)%mesh%level(sl)%dcorvg, atm(k)%mesh%level(sl)%kvert, xq, &
+              bk_iel(q,e), bk_xi(:,q,e), excess, found)
+            IF (found) THEN
+              bk_region(q,e) = k
+            ELSE
+              bk_region(q,e) = 0          ! fall back to the background field
+              bk_iel(q,e) = 0
+            END IF
+          END IF
+        END DO
+      END DO
+      bk_ready = .TRUE.
+    END IF
+
+    sums = 0d0
+    DO e = 1, nel
+      DO k = 1, 8
+        nodes(:,k) = mg_mesh%level(lev)%dcorvg(:, mg_mesh%level(lev)%kvert(k,e))
+      END DO
+      CALL CHI_Q2_DOFMAP(e, mg_mesh%level(lev)%kvert, mg_mesh%level(lev)%kedge, &
+        mg_mesh%level(lev)%karea, mg_mesh%level(lev)%nvt, mg_mesh%level(lev)%net, &
+        mg_mesh%level(lev)%nat, idx)
+      DO q = 1, 27
+        CALL CHI_Q1_MAP(nodes, gp(:,q), x, jac, detj)
+        w = gw(q)*ABS(detj)
+        sums(1) = sums(1) + w
+        IF (bk_region(q,e) .LT. 0) CYCLE            ! solid: u = 0
+        sums(2) = sums(2) + w
+        IF (bk_region(q,e) .GT. 0) THEN
+          k = bk_region(q,e)
+          sl = atm(k)%nlmax
+          CALL CHI_EVAL_FIELD_AT(bk_iel(q,e), bk_xi(:,q,e), &
+            atm(k)%mesh%level(sl)%kvert, atm(k)%mesh%level(sl)%kedge, &
+            atm(k)%mesh%level(sl)%karea, atm(k)%mesh%level(sl)%nvt, &
+            atm(k)%mesh%level(sl)%net, atm(k)%mesh%level(sl)%nat, &
+            atm(k)%mesh%level(sl)%dcorvg, slv(k)%u, slv(k)%v, slv(k)%w, slv(k)%p, &
+            uval, gradu, pval, ok)
+        ELSE
+          uval = 0d0
+          DO i = 1, 27
+            uval(1) = uval(1) + phi(i,q)*valU(idx(i))
+            uval(2) = uval(2) + phi(i,q)*valV(idx(i))
+            uval(3) = uval(3) + phi(i,q)*valW(idx(i))
+          END DO
+        END IF
+        sums(3:5) = sums(3:5) + w*uval
+      END DO
+    END DO
+    CALL CHI_EXCHANGE_ALLSUM(MPI_COMM_SUBS, sums, 5)
+    IF (myid .EQ. showid .AND. sums(1) .GT. 0d0) THEN
+      WRITE(mfile_unit,'(A,8ES15.7E2)') 'ChimeraBulk: ', timens, sums(3:5)/sums(1), &
+        sums(2)/sums(1), Ftot
+      WRITE(*,'(A,8ES15.7E2)') 'ChimeraBulk: ', timens, sums(3:5)/sums(1), &
+        sums(2)/sums(1), Ftot
+    END IF
+  END SUBROUTINE bulk_diagnostic
 
   !-----------------------------------------------------------------------
   ! Particle file: '#' comment lines; first data line = number of
@@ -460,7 +717,8 @@ CONTAINS
     INTEGER :: lev, k, i, j, ip, a, b, nmissing, nf, ndof, nel, ic, ierr
     INTEGER, ALLOCATABLE :: qowner(:), dirmask(:), downer(:)
     REAL*8,  ALLOCATABLE :: qvals(:,:), hq(:,:,:), ubc(:,:), dvals(:,:)
-    REAL*8 :: uq(3), g(3,3), pq, sig(3,3), n(3), un, resid, F(3), T(3), fac
+    REAL*8 :: uq(3), g(3,3), pq, sig(3,3), n(3), un, resid, F(3), T(3), fac, Ftot(3)
+    REAL*8 :: fbody(3)
     REAL*8 :: uval(3), gradu(3,3), pval
     LOGICAL :: ok
     CHARACTER(LEN=256) :: vtkname
@@ -468,6 +726,13 @@ CONTAINS
     IF (.NOT. active) RETURN
     nstep_done = nstep_done + 1
     lev = NLMAX
+
+    ! uniform body forces of the background momentum equation (Phase 5):
+    ! the atmosphere must carry the same driving, else the momentum
+    ! balance of a periodic array misses the atmosphere volume
+    fbody = 0d0
+    IF (bConstForce) fbody = fbody + ConstForce
+    IF (el_fluid_gravity) fbody = fbody + Properties%Gravity
 
     !---- background data at the Robin quadrature points -----------------
     ALLOCATE(qvals(CHI_BG_NVAL, MAX(nqtot,1)), qowner(MAX(nqtot,1)))
@@ -558,7 +823,7 @@ CONTAINS
         ! one, advanced from its own previous level.
         CALL CHI_SOLVE_STEADY_TAB(slv(k), atm(k), rho, mu, 1d0/TSTEP, &
           chimera_robin_alpha, dirichlet_mode, dirmask, ubc, hq, &
-          chimera_sub_nl, resid, ok)
+          chimera_sub_nl, resid, ok, chimera_sub_stokes, fbody)
         IF (.NOT. ok) THEN
           WRITE(*,'(A,I0)') 'CHI_COUPLING error: submesh solve failed, body ', k
           STOP 1
@@ -606,6 +871,7 @@ CONTAINS
 
     !---- forces (design section 5), reported once ------------------------
     fac = 2d0/(postParams%U_mean*postParams%U_mean*postParams%D*postParams%H)
+    Ftot = 0d0
     DO k = 1, nsub
       lev = atm(k)%nlmax
       CALL CHI_COMPUTE_FORCES(atm(k)%innerFaces, SIZE(atm(k)%innerFaces,2), &
@@ -614,6 +880,7 @@ CONTAINS
         atm(k)%mesh%level(lev)%kvert, atm(k)%mesh%level(lev)%kedge, &
         atm(k)%mesh%level(lev)%karea, atm(k)%mesh%level(lev)%dcorvg, &
         slv(k)%u, slv(k)%v, slv(k)%w, slv(k)%p, mu, atm(k)%center, F, T)
+      Ftot = Ftot + F
       IF (myid .EQ. showid) THEN
         WRITE(mfile_unit,'(A,I0,A,7ES15.7E2)') 'ChimeraForce', k, ': ', &
           timens, fac*F(1), fac*F(2), F(1), F(2), F(3), T(3)
@@ -627,6 +894,9 @@ CONTAINS
         END IF
       END IF
     END DO
+
+    !---- composite bulk velocity (array closures: superficial velocity) --
+    CALL bulk_diagnostic(valU, valV, valW, Ftot)
   END SUBROUTINE CHI_COUPLING_BEGIN_STEP
 
   !=======================================================================
@@ -731,6 +1001,9 @@ CONTAINS
     IF (ALLOCATED(doff)) DEALLOCATE(doff)
     IF (ALLOCATED(ddof)) DEALLOCATE(ddof, dpts)
     CALL release_penalty()
+    IF (ALLOCATED(bk_region)) DEALLOCATE(bk_region, bk_iel, bk_xi)
+    bk_ready = .FALSE.
+    pbox = tChiPeriodic()
     nsub = 0
     ncon = 0
     nqtot = 0
@@ -748,7 +1021,7 @@ CONTAINS
     REAL*8, ALLOCATABLE :: hw(:), xn(:,:)
     INTEGER, ALLOCATABLE :: nb_of(:)
     LOGICAL, ALLOCATABLE :: inb(:)
-    REAL*8 :: excess, maxexcess
+    REAL*8 :: excess, maxexcess, xq(3)
     LOGICAL :: found
 
     nact = 0
@@ -771,7 +1044,7 @@ CONTAINS
           mg_mesh%level(lev)%net, mg_mesh%level(lev)%nat, mg_mesh%level(lev)%kvert, &
           mg_mesh%level(lev)%kedge, mg_mesh%level(lev)%karea, mg_mesh%level(lev)%dcorvg, &
           nsub, bodies, hw, chimera_gamma_max, mg_qMat(lev)%nu, pmat(lev)%dl, &
-          nb_of, inb, xn, chimera_beta_full, chimera_beta_zero)
+          nb_of, inb, xn, chimera_beta_full, chimera_beta_zero, pbox)
         IF (lev .EQ. NLMAX) THEN
           ! finest level: penalised node list with donors in the atmosphere
           nnod = COUNT(pmat(lev)%dl .GT. 0d0)
@@ -792,11 +1065,12 @@ CONTAINS
             k = nb_of(a)
             sl = atm(k)%nlmax
             npts = npts + 1
+            xq = image_point(xn(:,a), k)
             CALL CHI_LOCATE(subloc(k), atm(k)%mesh%level(sl)%dcorvg, &
-              atm(k)%mesh%level(sl)%kvert, xn(:,a), nd_iel(nnod), nd_xi(:,nnod), found)
+              atm(k)%mesh%level(sl)%kvert, xq, nd_iel(nnod), nd_xi(:,nnod), found)
             IF (.NOT. found) THEN
               CALL CHI_LOCATE_NEAREST(subloc(k), atm(k)%mesh%level(sl)%dcorvg, &
-                atm(k)%mesh%level(sl)%kvert, xn(:,a), nd_iel(nnod), nd_xi(:,nnod), &
+                atm(k)%mesh%level(sl)%kvert, xq, nd_iel(nnod), nd_xi(:,nnod), &
                 excess, found)
               IF (found) THEN
                 maxexcess = MAX(maxexcess, excess)
@@ -816,7 +1090,7 @@ CONTAINS
         ! consistent penalty matrix on the level pattern (paper scheme)
         CALL CHI_PENALTY_TABULATE(mg_mesh%level(lev)%nel, mg_mesh%level(lev)%kvert, &
           mg_mesh%level(lev)%dcorvg, nsub, bodies, hw, ptab(lev), &
-          chimera_beta_full, chimera_beta_zero)
+          chimera_beta_full, chimera_beta_zero, pbox)
         ALLOCATE(pmat(lev)%d(na))
         CALL CHI_PENALTY_ASSEMBLE_D(ptab(lev), chimera_gamma_max, &
           mg_mesh%level(lev)%kvert, mg_mesh%level(lev)%kedge, mg_mesh%level(lev)%karea, &
@@ -854,11 +1128,12 @@ CONTAINS
           k = ptab(lev)%body(q,a)
           sl = atm(k)%nlmax
           npts = npts + 1
+          xq = image_point(ptab(lev)%x(:,q,a), k)
           CALL CHI_LOCATE(subloc(k), atm(k)%mesh%level(sl)%dcorvg, &
-            atm(k)%mesh%level(sl)%kvert, ptab(lev)%x(:,q,a), pd_iel(q,a), pd_xi(:,q,a), found)
+            atm(k)%mesh%level(sl)%kvert, xq, pd_iel(q,a), pd_xi(:,q,a), found)
           IF (.NOT. found) THEN
             CALL CHI_LOCATE_NEAREST(subloc(k), atm(k)%mesh%level(sl)%dcorvg, &
-              atm(k)%mesh%level(sl)%kvert, ptab(lev)%x(:,q,a), pd_iel(q,a), pd_xi(:,q,a), &
+              atm(k)%mesh%level(sl)%kvert, xq, pd_iel(q,a), pd_xi(:,q,a), &
               excess, found)
             IF (found) THEN
               maxexcess = MAX(maxexcess, excess)

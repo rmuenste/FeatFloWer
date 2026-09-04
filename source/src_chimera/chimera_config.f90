@@ -147,6 +147,15 @@ MODULE CHIMERA_CONFIG
   !-----------------------------------------------------------------------
   LOGICAL, PUBLIC :: chimera_write_vtk = .FALSE.
 
+  !-----------------------------------------------------------------------
+  ! SimPar@ChimeraSubStokes (Yes/No, default No)
+  ! Linear (Stokes) submesh operator: convection and the Robin alpha-term
+  ! are dropped, the saddle-point matrix is factorized ONCE and every
+  ! coupling update only rebuilds the rhs (Phase 5; creeping-flow array
+  ! closures).  ChimeraSubNL is ignored when set.
+  !-----------------------------------------------------------------------
+  LOGICAL, PUBLIC :: chimera_sub_stokes = .FALSE.
+
   ! Derived flags, set by CHIMERA_VALIDATE_CONFIG.
   LOGICAL, PUBLIC :: bChimeraS = .FALSE.
   LOGICAL, PUBLIC :: bChimeraW = .FALSE.

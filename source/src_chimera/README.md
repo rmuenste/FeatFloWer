@@ -36,21 +36,22 @@ coupling. Authoritative design document: `chimera-integration-design.md`
 |---|---|---|
 | `chimera_config.f90` | 0 | Runtime keys + `CHIMERA_VALIDATE_CONFIG` |
 | `chimera_api.f90` | 0 | Facade; `Chimera_IsEnabled`, lifecycle contract, fatal stubs for later phases |
+| `chi_periodic.f90` | 5 | Periodic-box geometry (value type): minimum-image displacement/distance and box wrap; exact identities when inactive |
 | `chi_geometry.f90` | 1 | Q1 map (pinned vs `EL_Q1_MAP`), Newton inverse map, 3×3×3 Gauss, 3×3 inverse |
 | `chi_fem_eval.f90` | 1 | Q2 basis in FeatFloWer local ordering, DOF map, physical gradients, P1 eval |
 | `chi_locator.f90` | 1 | Instance-based element-bbox bucket-grid point locator |
 | `chi_sparse_direct.f90` | 1 | Instance-based UMFPACK wrapper (per-instance handles, owned CSR copies) |
 | `chi_kernels.f90` | 2 | Reentrant Q2/P1 saddle-point assembly (deformation-form NS, B/Bᵀ, Robin, Dirichlet rows, face quadrature); the legacy F77 kernels (`/ELEM/ /CUB/ /TRIAD/`) are never used for submeshes |
 | `chi_submesh.f90` | 2 | `tChimeraSubmesh`: own `tMultiMesh`, bitmask boundary classification with hierarchical propagation, radial projection, Q2 coords, boundary face lists |
-| `chi_solver.f90` | 2 | Per-submesh monolithic Picard/direct solve (Dirichlet or Robin outer BC, pressure gauge) |
+| `chi_solver.f90` | 2, 5 | Per-submesh monolithic Picard/direct solve (Dirichlet or Robin outer BC, pressure gauge); Phase 5: frozen linear (Stokes) operator, factorized once, rhs-only updates (`ChimeraSubStokes`) |
 | `chi_forces.f90` | 2 | Surface-stress force/torque with the design §5 normal/sign conventions |
 | `chi_legacy_mesh_adapter.f90` | 2 (Layer H) | Sole bridge to `mesh_structures` (readTriCoarse/refineMeshLevel/genMeshStructures), with coarse-shell fitting and per-level classify+project |
-| `chi_markers.f90` | 3 | Hole/fringe classification kernel (paper §6 definition; two-array `kind`/`pid` scheme with the MAX merge rule) |
+| `chi_markers.f90` | 3, 5 | Hole/fringe classification kernel (paper §6 definition; two-array `kind`/`pid` scheme with the MAX merge rule); Phase 5: optional periodic box (minimum image), per-body bounding-box prefilter (`CHI_BODY_NEAR_BOX`) |
 | `chi_exchange.f90` | 3 | MPI service on a passed communicator: replicated query lists, MIN-rank ownership, SUM reduction; broadcast |
 | `chi_output.f90` | 3 | Legacy-VTK dump of a submesh solution |
 | `chi_penalty.f90` | 4 | Weak-variant penalty operator: paper's damping function beta (parametrised ramp), 27-point tabulation + consistent Q2 penalty matrix D and vector g on the level pattern, nodal (Lobatto) lumped penalty D_L (positive, constant-exact), Jacobi-PCG for paper eq. (12) with sum/filter/allsum callbacks |
 | `chi_coupling.f90` | 3-4 (Layer H) | The SAVEd coupling state and hook bodies: body table, replicated submeshes + solvers, background locator, markers synchronised with `E013Max_SUPER`, donor caches, per-step Robin exchange → owner solve → broadcast → fringe values (strong) or nodal Dirichlet data g (weak) → forces; weak variant: per-level D_L (E013Sum'd copies), H8/H10/H11/H15 bodies, coupling under-relaxation; restart write/read of the replicated submesh states |
-| `tests/` | 1–4 | ctests; `chi-submesh-couette` is the Phase-2 analytic gate; `chi-markers-cutcell` and `chi-exchange-np{1,2,3}` are the Phase-3 tests; `chi-algebra-serial` (symmetry, D·1 = g(const), penalised volume, PSD, nodal lumping positivity/volume, PCG residual + filter rows, D = 0 bitwise) is the Phase-4 test |
+| `tests/` | 1–5 | ctests; `chi-periodic-serial` (Phase 5: minimum image/wrap identities, corner body vs translated centred body: identical markers and penalised volume, wrapped sample points) is the Phase-5 test; `chi-submesh-couette` is the Phase-2 analytic gate; `chi-markers-cutcell` and `chi-exchange-np{1,2,3}` are the Phase-3 tests; `chi-algebra-serial` (symmetry, D·1 = g(const), penalised volume, PSD, nodal lumping positivity/volume, PCG residual + filter rows, D = 0 bitwise) is the Phase-4 test |
 
 Implementation notes recorded in Phase 2: the FEAT 1:8 refinement yields
 child elements of mixed orientation, so boundary normals are oriented
@@ -86,7 +87,22 @@ about one background cell (keys `ChimeraBetaFull/Zero`; the paper's
 0.5/0.75 assume h ≪ H). The consistent matrix + CG path is kept as the
 diagnostic `ChimeraPenaltyLumped = No`.
 
-## Hooks in existing code (complete list as of Phase 4)
+Phase 5 (arrays + periodicity) notes: periodicity is the base code's
+`dPeriodicity` (now settable from the shared parser with
+`SimPar@PeriodicLength`); the Chimera side derives a `tChiPeriodic` box
+from it plus the global background bounding box (allreduce) and passes it
+as an OPTIONAL argument into the Layer-M kernels — absent/inactive, the
+kernels execute the Phase-3/4 arithmetic unchanged (FAC anchors stay
+bit-identical). Donor searches map background points into the body frame
+by the minimum image (`image_point`), Robin/Dirichlet sample points are
+wrapped into the box, and `check_atmospheres` enforces the paper's
+non-overlap assumption (own images included). The composite bulk
+velocity (`ChimeraBulk:` lines) is the superficial-velocity diagnostic of
+the array closures. The halo (neighbourhood) exchange upgrade is still
+behind the unchanged `CHI_EXCHANGE_BG_EVAL` interface (not needed for the
+replicated single-host runs of this phase).
+
+## Hooks in existing code (complete list as of Phase 5)
 
 - `source/src_quadLS/QuadSc_main.f90` — hook H1 in
   `Transport_q2p1_UxyzP_fluid_core` (guarded `Chimera_BeginStep`).
@@ -113,6 +129,7 @@ diagnostic `ChimeraPenaltyLumped = No`.
   the projection operators (`Create_CMat`/`Create_ParCMat`) after the
   penalty exists; drives the shared fluid core with `enable_fbm = .FALSE.`.
 - `source/src_util/param_parser.f90` — `CASE ("Chimera*")` branches,
-  validation call, enabled-only echo.
+  validation call, enabled-only echo; the shared `SimPar@PeriodicLength`
+  key (sets `dPeriodicity`, echoed only when active).
 - `cmake/modules/ProjectFiles.cmake`, `GenerateLinkerFlags.cmake` —
   library + test wiring.
