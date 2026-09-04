@@ -1219,7 +1219,8 @@ EXTERNAL ELE
 INTEGER KDFG(NNBAS),KDFL(NNBAS)
 REAL*8 :: force_norm, force_dir(3), upar_elem, upar_avg_elem
 REAL*8 :: vol_elem, solid_vol_elem, fluid_vol_elem, fluid_frac_elem
-REAL*8 :: local_sums(4), global_sums(4)
+REAL*8 :: local_sums(7), global_sums(7)
+REAL*8 :: uvw_elem(3), U3_sup(3)
 REAL*8 :: dbi1, alpha_val
 INTEGER, PARAMETER :: bulk_log_unit = 780
 LOGICAL :: bulk_monitor_valid, bulk_monitor_enabled, bulk_log_exists
@@ -1318,6 +1319,7 @@ DO IEL = 1, NEL
   upar_elem = 0.0D0
   vol_elem = 0.0D0
   solid_vol_elem = 0.0D0
+  uvw_elem = 0.0D0
 
   DO ICUBP=1,NCUBP
     XI1=DXI(ICUBP,1)
@@ -1370,6 +1372,9 @@ DO IEL = 1, NEL
 
     upar = DU1V*force_dir(1) + DU2V*force_dir(2) + DU3V*force_dir(3)
     upar_elem = upar_elem + upar*OM
+    uvw_elem(1) = uvw_elem(1) + DU1V*OM
+    uvw_elem(2) = uvw_elem(2) + DU2V*OM
+    uvw_elem(3) = uvw_elem(3) + DU3V*OM
     vol_elem = vol_elem + OM
     solid_vol_elem = solid_vol_elem + alpha_val*OM
   END DO
@@ -1386,10 +1391,13 @@ DO IEL = 1, NEL
   local_sums(2) = local_sums(2) + fluid_vol_elem
   local_sums(3) = local_sums(3) + upar_avg_elem*vol_elem
   local_sums(4) = local_sums(4) + upar_avg_elem*fluid_frac_elem*vol_elem
+  local_sums(5) = local_sums(5) + uvw_elem(1)
+  local_sums(6) = local_sums(6) + uvw_elem(2)
+  local_sums(7) = local_sums(7) + uvw_elem(3)
 END DO
 
 global_sums = local_sums
-CALL COMM_SUMMN(global_sums, 4)
+CALL COMM_SUMMN(global_sums, 7)
 
 IF (myid == 1) THEN
   time_out = timens
@@ -1401,6 +1409,13 @@ IF (myid == 1) THEN
     fluid_fraction = global_sums(2) / global_sums(1)
   END IF
   IF (global_sums(2) > 0.0D0) U_fluid = global_sums(4) / global_sums(2)
+
+  ! D6.1 off-diagonal mobility observable: all three superficial-velocity
+  ! components (stdout only - bulk_flow.log keeps its certified format).
+  U3_sup = 0.0D0
+  IF (global_sums(1) > 0.0D0) U3_sup = global_sums(5:7) / global_sums(1)
+  WRITE(*,'(A,ES16.8,A,3ES17.8)') 'DNS_BULK3 time= ', timens, &
+    ' Usup_xyz= ', U3_sup
 
   INQUIRE(file='bulk_flow.log', exist=bulk_log_exists)
   IF ((itns == 1) .OR. (.NOT. bulk_log_exists)) THEN
