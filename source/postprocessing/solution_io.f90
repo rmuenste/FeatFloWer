@@ -190,7 +190,7 @@ end subroutine write_sol_to_file_heat
 ! @param time_ns simulation time
 subroutine read_sol_from_file(startFrom, iLevel, time_ns)
 
-USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
+USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier,COMM_Maximum
 USE def_FEAT
 USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic,Temperature,MaterialDistribution
 USE var_QuadScalar,ONLY:myFBM,myDump,istep_ns,fieldPtr,mg_mesh
@@ -199,6 +199,8 @@ USE var_QuadScalar,ONLY:Tracer
 
 implicit none
 
+LOGICAL bMDExists
+REAL*8 dMDMissing
 character(60), intent(in) :: startFrom
 character(60) :: fieldName
 integer, intent(in) :: iLevel
@@ -241,14 +243,28 @@ IF (allocated(Temperature)) then
 END IF                  
 
 IF (allocated(MaterialDistribution)) then
- fieldName = "MaterialDistribution"
- QuadSc%auxU = 0
- packed(1)%p => QuadSc%auxU
- call read_q2_sol(fieldName,startFrom,iLevel-1,nelem,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
- MaterialDistribution(NLMAX)%x(1:knel(NLMAX)) = QuadSc%auxU((knvt(NLMAX) + knat(NLMAX) + knet(NLMAX))+1:) 
-END IF                  
-
-pause
+ ! Restart-tolerant read: legacy runtime dumps (ProcCtrl Dump_Out before the
+ ! write_sol_to_file switch) lack MaterialDistribution.dmp. Reading a missing
+ ! file poisons the material field (NaN on the first residual - v24f seg-2
+ ! failure, 2026-09-04). Skip collectively when any worker lacks the file:
+ ! the setup-initialized field is the correct fallback (static per run).
+ dMDMissing = 0d0
+ IF (myid.ne.0) THEN
+  INQUIRE(FILE="_dump/"//trim(adjustl(startFrom))//"/MaterialDistribution.dmp",&
+          EXIST=bMDExists)
+  IF (.NOT.bMDExists) dMDMissing = 1d0
+ END IF
+ CALL COMM_Maximum(dMDMissing)
+ IF (dMDMissing.LT.0.5d0) THEN
+  fieldName = "MaterialDistribution"
+  QuadSc%auxU = 0
+  packed(1)%p => QuadSc%auxU
+  call read_q2_sol(fieldName,startFrom,iLevel-1,nelem,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
+  MaterialDistribution(NLMAX)%x(1:knel(NLMAX)) = QuadSc%auxU((knvt(NLMAX) + knat(NLMAX) + knet(NLMAX))+1:)
+ ELSE IF (myid.eq.1) THEN
+  WRITE(*,*) 'read_sol_from_file: MaterialDistribution.dmp absent in dump - keeping setup field'
+ END IF
+END IF
 if (allocated(GenLinScalar%Fld)) then
  DO iFld=1,GenLinScalar%nOfFields
   fieldName = adjustl(trim(GenLinScalar%prm%cField(iFld)))
