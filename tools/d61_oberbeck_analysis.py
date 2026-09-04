@@ -29,6 +29,8 @@ A_MAJOR = 2.0 * B_MINOR                      # 0.26456684...
 H_L3 = 1.0 / 36.0
 AEFF_C = 0.14                                # a_eff ~ a + 0.14 h (d11_rh_collapse)
 K_L3_CERTIFIED = 1.7404                      # RUNBOOK L3 row (job 137540)
+SOLID_NOMINAL = 0.019392547                  # (4/3) pi r^3 = (4/3) pi a b^2 (matched)
+DLNK_DLNR = 1.87                             # d11 sensitivity dlnK/dlnr
 
 
 def resistance_functions(re_aspect):
@@ -87,13 +89,20 @@ def main(argv):
     print(f"{'run':4} {'t_end':>6} {'|F|':>12} {'U_sup':>12} {'R_h':>10} "
           f"{'|T|/(a|F|)':>11} {'plateau dF/F':>13}")
     rh = {}
+    rhc = {}
     for n in names:
         r = runs[n]
         Fmag = math.sqrt(sum(f * f for f in r["F"]))
         Tmag = math.sqrt(sum(x * x for x in r["T"]))
         rh[n] = invert_rh(Fmag, r["U"])
+        # d11_rh_collapse volume correction: dr from the run's own fluid_frac,
+        # K divided by (1+dr)^1.87 == invert with F/(1+dr)^1.87
+        dr = ((1.0 - r["fluid_frac"]) / SOLID_NOMINAL) ** (1.0 / 3.0) - 1.0
+        rhc[n] = invert_rh(Fmag / (1.0 + dr) ** DLNK_DLNR, r["U"])
+        r["dr"] = dr
         print(f"{n:4} {r['t']:6.2f} {Fmag:12.6e} {r['U']:12.6e} {rh[n]:10.6f} "
-              f"{Tmag/(A_MAJOR*Fmag):11.2e} {r['plateau_dF']:13.2e}")
+              f"{Tmag/(A_MAJOR*Fmag):11.2e} {r['plateau_dF']:13.2e}  dr={dr:+.4%} "
+              f"R_h_corr={rhc[n]:.6f}")
 
     print("\n--- gates ---")
     if "V0" in runs:
@@ -103,9 +112,11 @@ def main(argv):
               f"({(K0/K_L3_CERTIFIED-1)*100:+.3f}%)")
     if "V1" in runs and "V2" in runs:
         ratio = rh["V2"] / rh["V1"]
+        ratio_c = rhc["V2"] / rhc["V1"]
         tgt = YA / XA
-        print(f"G-ratio : R_h(perp)/R_h(par) = {ratio:.5f} vs {tgt:.5f} "
-              f"({(ratio/tgt-1)*100:+.2f}%)  [band +-2%]")
+        print(f"G-ratio : R_h(perp)/R_h(par) = {ratio:.5f} raw / {ratio_c:.5f} "
+              f"vol-corr vs {tgt:.5f} ({(ratio/tgt-1)*100:+.2f}% / "
+              f"{(ratio_c/tgt-1)*100:+.2f}%)  [band +-2%]")
         # absolutes, raw and a_eff-corrected
         for n, coef in (("V1", XA), ("V2", YA)):
             tgt_abs = A_MAJOR * coef
@@ -113,9 +124,10 @@ def main(argv):
             XAe, YAe = resistance_functions(a_e / b_e)
             coef_e = XAe if n == "V1" else YAe
             tgt_eff = a_e * coef_e
-            print(f"G-abs {n}: R_h = {rh[n]:.6f} vs a*C = {tgt_abs:.6f} "
-                  f"({(rh[n]/tgt_abs-1)*100:+.2f}% raw) | a_eff-corrected "
-                  f"{tgt_eff:.6f} ({(rh[n]/tgt_eff-1)*100:+.2f}%)  [band +-3% corr]")
+            print(f"G-abs {n}: R_h raw {rh[n]:.6f} / vol-corr {rhc[n]:.6f} vs "
+                  f"a*C = {tgt_abs:.6f} ({(rhc[n]/tgt_abs-1)*100:+.2f}% corr-vs-nominal) "
+                  f"| a_eff target {tgt_eff:.6f} ({(rhc[n]/tgt_eff-1)*100:+.2f}%)  "
+                  f"[band +-3%]")
     if "V3" in runs:
         fx, fy, fz = runs["V3"]["F"]
         axis = (1.0 / math.sqrt(2.0), 0.0, 1.0 / math.sqrt(2.0))
@@ -124,9 +136,13 @@ def main(argv):
         ang_axis = math.degrees(math.acos(max(-1.0, min(1.0, cos_fa))))
         ang_pred = math.degrees(math.atan(YA / XA))
         drift = ang_axis - 45.0
-        print(f"G-offdiag: angle(F,axis) = {ang_axis:.2f} deg vs {ang_pred:.2f} "
-              f"pred; drift(F from U) = {drift:+.2f} deg vs +3.88 pred "
-              f"[band +-0.5 deg]")
+        print(f"G-offdiag [F-form, INVALID for body-force driving]: "
+              f"angle(F,axis) = {ang_axis:.2f} deg (steady-state momentum "
+              f"balance forces F -> f*V_cell, transverse F -> 0; the "
+              f"off-diagonal mobility appears as a TRANSVERSE MEAN FLOW "
+              f"U_x/U_z = (Y-X)/(Y+X) = {(YA-XA)/(YA+XA):+.4f} = "
+              f"{math.degrees(math.atan((YA-XA)/(YA+XA))):+.2f} deg instead - "
+              f"needs the 3-component bulk-flow diagnostic, gate redesigned)")
 
 
 if __name__ == "__main__":

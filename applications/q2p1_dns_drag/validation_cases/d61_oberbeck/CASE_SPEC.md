@@ -156,12 +156,18 @@ argument applies per axis. Secondary-gate procedure:
 | G-ratio (PRIMARY) | R_h(perp)/R_h(par) at L3 | 1.14532 +- 2% | lattice + bias cancel in ratio |
 | G-abs | R_h per orientation vs a*X^A, a*Y^A (a_eff-corrected) | +- 3% | tracks d11 ladder residuals |
 | G-torque | |T| / (a |F|), every run | < 1e-3 (report exact) | torque-path null test |
-| G-offdiag (V3) | force direction at 45 deg: F = 6 pi mu a [X^A uu + Y^A (I-uu)] U -> angle of F from the body axis = atan(Y^A/X^A * tan 45) = 48.88 deg, i.e. F drifts 3.88 deg from U toward the perpendicular | drift 3.88 +- 0.5 deg | off-diagonal mobility, first anisotropy observable beyond magnitudes |
+| G-offdiag (V3), AMENDED 2026-09-04 | the F-form gate is INVALID under body-force driving: steady-state momentum balance forces F -> f*V_cell in ALL components (transverse F -> 0, measured +0.45 deg residual decaying). The off-diagonal mobility appears instead as a TRANSVERSE MEAN FLOW: U tilts toward the axis by atan((Y^A-X^A)/(Y^A+X^A)) = 3.88 deg | U-drift 3.88 +- 0.5 deg (needs the 3-component bulk-flow diagnostic; V3 rerun) | the resistance problem becomes a mobility problem at steady state - the instrument insight of the first V3 run |
 | G0 volume | measured alpha-field solid fraction vs (4/3) pi a b^2 / V_cell | same rel. error band as d31 imaged (+-0.5%) | in-situ check of the pe D-3 volume fix + ellipsoid pointInside path |
 | V0 regression | sphere K at L3 | reproduce d11 row to 5 digits | anchor |
 
 Steadiness criterion as in D1.1: force plateau flat to 5 digits over the
 final ~2 t.u.; steady by t ~ 4-5 expected (d31 precedent).
+
+Momentum-balance note (learned from the first V3 run): with body-force
+driving, |F| = f*V_cell at steady state for EVERY orientation - the entire
+anisotropy signal lives in the velocity response (U_sup magnitude for
+V1/V2, transverse U for V3). Gates that read force *direction* are
+structurally null in this fixture.
 
 ## 7. Run matrix (all on Fritz, single node each; all small)
 
