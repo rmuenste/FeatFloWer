@@ -156,6 +156,42 @@ MODULE CHIMERA_CONFIG
   !-----------------------------------------------------------------------
   LOGICAL, PUBLIC :: chimera_sub_stokes = .FALSE.
 
+  !-----------------------------------------------------------------------
+  ! SimPar@ChimeraMotion (static | prescribed | free, default static)
+  ! Phase 6.  static: bodies fixed (Phases 3-5, bit-identical).
+  ! prescribed: rigid translation/rotation with the constant velocities of
+  ! the body table.  free: Newton-Euler integration (spheres) from the
+  ! Chimera forces plus the buoyancy-corrected body gravity.  Submeshes
+  ! are solved in the translating body frame (no mesh motion).
+  !-----------------------------------------------------------------------
+  CHARACTER(LEN=12), PUBLIC :: chimera_motion = 'static'
+  INTEGER, PUBLIC :: chimera_motion_mode = 0     ! derived: 0/1/2
+
+  !-----------------------------------------------------------------------
+  ! SimPar@ChimeraBodyGravity (3 reals, default 0)
+  ! Gravity acting on the bodies only (free motion): external force
+  ! (rho_s - rho_f) V g.  Fluid gravity stays Prop@Gravity.
+  !-----------------------------------------------------------------------
+  REAL*8, PUBLIC :: chimera_body_gravity(3) = 0d0
+
+  !-----------------------------------------------------------------------
+  ! SimPar@ChimeraAddedMass (real >= 0, default 0.5)
+  ! Virtual-mass factor c of the explicit body update, m_eff = m_s +
+  ! c rho_f V (stabilises the staggered coupling for light bodies).
+  !-----------------------------------------------------------------------
+  REAL*8, PUBLIC :: chimera_added_mass = 0.5d0
+
+  !-----------------------------------------------------------------------
+  ! SimPar@ChimeraDragImplicit (real >= 0, default 1)
+  ! Implicit linearisation of the viscous drag/torque in the explicit
+  ! body update: U += dt (F + F_ext)/(m_eff + dt kappa 6 pi mu R),
+  ! Omega += dt T/(I + dt kappa 8 pi mu R^3).  kappa = 1 is the Stokes
+  ! slope (exact implicit Euler for creeping flow); the viscous relaxation
+  ! times of small bodies are shorter than dt, so 0 (plain explicit
+  ! update) is unstable there.
+  !-----------------------------------------------------------------------
+  REAL*8, PUBLIC :: chimera_drag_implicit = 1d0
+
   ! Derived flags, set by CHIMERA_VALIDATE_CONFIG.
   LOGICAL, PUBLIC :: bChimeraS = .FALSE.
   LOGICAL, PUBLIC :: bChimeraW = .FALSE.
@@ -214,6 +250,27 @@ CONTAINS
     IF (chimera_beta_full .LT. 0d0 .OR. chimera_beta_zero .GT. 1d0 .OR. &
         chimera_beta_zero .LE. chimera_beta_full) THEN
       WRITE(*,'(A)') 'CHIMERA_CONFIG error: need 0 <= ChimeraBetaFull < ChimeraBetaZero <= 1'
+      STOP 1
+    END IF
+    CALL chimera_lowercase(chimera_motion)
+    SELECT CASE (TRIM(chimera_motion))
+    CASE ('static')
+      chimera_motion_mode = 0
+    CASE ('prescribed')
+      chimera_motion_mode = 1
+    CASE ('free')
+      chimera_motion_mode = 2
+    CASE DEFAULT
+      WRITE(*,'(A,A)') 'CHIMERA_CONFIG error: invalid ChimeraMotion: ', TRIM(chimera_motion)
+      WRITE(*,'(A)') '  valid values: static | prescribed | free'
+      STOP 1
+    END SELECT
+    IF (chimera_added_mass .LT. 0d0) THEN
+      WRITE(*,'(A)') 'CHIMERA_CONFIG error: ChimeraAddedMass must be >= 0'
+      STOP 1
+    END IF
+    IF (chimera_drag_implicit .LT. 0d0) THEN
+      WRITE(*,'(A)') 'CHIMERA_CONFIG error: ChimeraDragImplicit must be >= 0'
       STOP 1
     END IF
     IF (chimera_coupling_relax .LE. 0d0 .OR. chimera_coupling_relax .GT. 1d0) THEN

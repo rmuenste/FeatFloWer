@@ -37,6 +37,7 @@ MODULE CHI_COUPLING
   USE CHIMERA_CONFIG, ONLY: chimera_outer_bc, chimera_particle_file, &
     chimera_submesh_file, chimera_submesh_nlmax, chimera_robin_alpha, &
     chimera_sub_nl, chimera_write_vtk, bChimeraW, chimera_gamma_max, chimera_sub_stokes, &
+    chimera_motion_mode, chimera_body_gravity, chimera_added_mass, chimera_drag_implicit, &
     chimera_penalty_lumped, chimera_proj_cap, chimera_beta_full, chimera_beta_zero, &
     chimera_coupling_relax
   USE CHI_SUBMESH, ONLY: tChimeraSubmesh, CHI_SHAPE_CYLINDER_Z, &
@@ -112,6 +113,18 @@ MODULE CHI_COUPLING
   INTEGER, ALLOCATABLE, SAVE :: bk_region(:,:), bk_iel(:,:)
   REAL*8,  ALLOCATABLE, SAVE :: bk_xi(:,:,:)
   LOGICAL, SAVE :: bk_ready = .FALSE.
+
+  ! ---- Phase 6: body motion (submeshes solved in the translating body
+  ! frame; the mesh stays at its initial fit atm(k)%center = X0) ----
+  INTEGER, SAVE :: motion_mode = 0             ! 0 static / 1 prescribed / 2 free
+  LOGICAL, SAVE :: moving = .FALSE.
+  REAL*8, ALLOCATABLE, SAVE :: bX(:,:)         ! lab centre (unwrapped)
+  REAL*8, ALLOCATABLE, SAVE :: bU(:,:), bUprev(:,:), bOm(:,:), bacc(:,:)
+  REAL*8, ALLOCATABLE, SAVE :: brho(:), bmass(:), binert(:), bvol(:)
+  REAL*8, ALLOCATABLE, SAVE :: qpts0(:,:), dpts0(:,:)   ! body-frame sample points
+  INTEGER, SAVE :: con_nholes = 0, con_nfringe = 0
+  REAL*8, ALLOCATABLE, SAVE :: bF(:,:), bT(:,:)   ! last forces/torques per body
+  REAL*8,  SAVE :: con_maxexcess = 0d0
 
   ! background finest level
   TYPE(tChimeraLocator), SAVE :: bgloc
@@ -198,6 +211,9 @@ CONTAINS
       STOP 1
     END IF
 
+    !---- body motion (Phase 6) -------------------------------------------
+    CALL setup_motion()
+
     !---- submeshes (replicated on every worker) --------------------------
     ALLOCATE(slv(nsub), subloc(nsub), owner(nsub))
     DO k = 1, nsub
@@ -236,6 +252,310 @@ CONTAINS
     ALLOCATE(marker_kind(nbgdof), marker_pid(nbgdof))
     ALLOCATE(fringeU(nbgdof), fringeV(nbgdof), fringeW(nbgdof))
     fringeU = 0d0; fringeV = 0d0; fringeW = 0d0
+
+    CALL build_constraints()
+    nholes = con_nholes
+    nfringe = con_nfringe
+    maxexcess = con_maxexcess
+
+    !---- Robin quadrature point cache ------------------------------------
+    ALLOCATE(qoff(nsub+1))
+    qoff(1) = 0
+    DO k = 1, nsub
+      qoff(k+1) = qoff(k) + SIZE(atm(k)%outerFaces,2)
+    END DO
+    nqtot = 9*qoff(nsub+1)
+    ALLOCATE(qpts(3,MAX(nqtot,1)), qnrm(3,MAX(nqtot,1)))
+    DO k = 1, nsub
+      lev = atm(k)%nlmax
+      nf = SIZE(atm(k)%outerFaces,2)
+      IF (nf .GT. 0) CALL CHI_ROBIN_POINTS(atm(k)%outerFaces, nf, &
+        atm(k)%mesh%level(lev)%kvert, atm(k)%mesh%level(lev)%dcorvg, &
+        qpts(:,9*qoff(k)+1:9*qoff(k+1)), qnrm(:,9*qoff(k)+1:9*qoff(k+1)))
+    END DO
+    ALLOCATE(qpts0(3,MAX(nqtot,1)))
+    qpts0 = qpts
+
+    !---- outer Q2 nodes (Dirichlet diagnostic mode) ----------------------
+    ALLOCATE(doff(nsub+1))
+    doff(1) = 0
+    DO k = 1, nsub
+      nd = 0
+      DO i = 1, atm(k)%ndof
+        IF (IAND(atm(k)%dofmask(i), CHI_SURF_OUTER) .NE. 0) nd = nd + 1
+      END DO
+      doff(k+1) = doff(k) + nd
+    END DO
+    ndtot = doff(nsub+1)
+    ALLOCATE(ddof(MAX(ndtot,1)), dpts(3,MAX(ndtot,1)))
+    nd = 0
+    DO k = 1, nsub
+      DO i = 1, atm(k)%ndof
+        IF (IAND(atm(k)%dofmask(i), CHI_SURF_OUTER) .EQ. 0) CYCLE
+        nd = nd + 1
+        ddof(nd) = i
+        dpts(:,nd) = atm(k)%q2coor(:,i)
+      END DO
+    END DO
+    ALLOCATE(dpts0(3,MAX(ndtot,1)))
+    dpts0 = dpts
+    ! lab-frame sample points (body offset + periodic wrap)
+    CALL lab_sample_points()
+
+    IF (weak_mode) CALL setup_penalty()
+
+    active = .TRUE.
+
+    nmax = CHI_EXCHANGE_MAX_INT(MPI_COMM_SUBS, ncon)
+    IF (myid .EQ. showid) THEN
+      IF (weak_mode) THEN
+        WRITE(*,'(A,I0,A,I0,A,ES10.2)') 'Chimera: ', nsub, ' body/bodies, ', &
+          subnodes, ' worker(s); weak (Chimera-W) coupling, gamma_max = ', &
+          chimera_gamma_max
+      ELSE
+        WRITE(*,'(A,I0,A,I0,A)') 'Chimera: ', nsub, ' body/bodies, ', &
+          subnodes, ' worker(s); strong (Chimera-S) coupling'
+      END IF
+      ndof_all = 0
+      nunk_all = 0
+      DO k = 1, nsub
+        ndof_all = ndof_all + atm(k)%ndof
+        nunk_all = nunk_all + slv(k)%n
+      END DO
+      WRITE(*,'(A,I0,A,I0,A,I0)') 'Chimera: submesh Q2 dofs (all bodies) = ', &
+        ndof_all, ', unknowns = ', nunk_all, ', levels = ', atm(1)%nlmax
+      WRITE(*,'(A,I0,A,I0,A,I0,A,ES10.2)') 'Chimera: rank ', myid, &
+        ' hole dofs = ', nholes, ', fringe dofs = ', nfringe, &
+        ', max donor extrapolation = ', maxexcess
+      IF (moving) THEN
+        WRITE(*,'(A,I0,A,ES10.2,A,ES10.2)') 'Chimera: body motion mode = ', motion_mode, &
+          ' (1 prescribed, 2 free), added-mass factor = ', chimera_added_mass, &
+          ', |body gravity| = ', SQRT(SUM(chimera_body_gravity**2))
+        WRITE(mfile,'(A,I0)') 'Chimera: body motion mode = ', motion_mode
+      END IF
+      IF (CHI_PER_ACTIVE(pbox)) THEN
+        WRITE(*,'(A,3L2,A,3ES12.4,A,3ES12.4)') 'Chimera: periodic box axes =', &
+          pbox%per, ', period =', pbox%len, ', origin =', pbox%lo
+        WRITE(mfile,'(A,3L2,A,3ES12.4)') 'Chimera: periodic box axes =', &
+          pbox%per, ', period =', pbox%len
+      END IF
+      WRITE(mfile,'(A,I0,A,I0,A,I0)') 'Chimera: bodies = ', nsub, &
+        ', submesh levels = ', atm(1)%nlmax, ', submesh Q2 dofs (all bodies) = ', ndof_all
+      WRITE(mfile,'(A,A)') 'Chimera: outer BC = ', TRIM(chimera_outer_bc)
+      WRITE(mfile,'(A,I0)') 'Chimera: max constrained dofs per worker = ', nmax
+    END IF
+  END SUBROUTINE CHI_COUPLING_INIT
+
+  !=======================================================================
+  ! Phase 6: body motion.  Submeshes are solved in the translating body
+  ! frame (x' = x - X_k(t) + X0_k, u' = u - U_k): the mesh never moves,
+  ! the frame change is exact and only adds the uniform fictitious force
+  ! -rho a_k (a_k = dU_k/dt).  Rotation enters through the inner
+  ! Dirichlet data Omega x r (spheres, z-cylinders about their axis).
+  !=======================================================================
+  SUBROUTINE setup_motion()
+    INTEGER :: k
+    REAL*8, PARAMETER :: PI = 3.14159265358979323846d0
+    motion_mode = chimera_motion_mode
+    moving = (motion_mode .GT. 0)
+    IF (.NOT. moving) RETURN
+    IF (weak_mode .AND. .NOT. chimera_penalty_lumped) THEN
+      WRITE(*,'(A)') 'CHI_COUPLING error: moving bodies need ChimeraPenaltyLumped = Yes'
+      STOP 1
+    END IF
+    DO k = 1, nsub
+      IF (bodies(k)%shape .EQ. CHI_BODY_SPHERE) THEN
+        bvol(k) = 4d0/3d0*PI*bodies(k)%radius**3
+      ELSE
+        bvol(k) = PI*bodies(k)%radius**2*(atm(k)%zhi - atm(k)%zlo)
+      END IF
+      IF (motion_mode .EQ. 2) THEN
+        IF (bodies(k)%shape .NE. CHI_BODY_SPHERE) THEN
+          WRITE(*,'(A,I0)') 'CHI_COUPLING error: free motion is implemented for spheres, body ', k
+          STOP 1
+        END IF
+        IF (brho(k) .LE. 0d0) THEN
+          WRITE(*,'(A,I0)') 'CHI_COUPLING error: free motion needs rho_s > 0 in the body table, body ', k
+          STOP 1
+        END IF
+        bmass(k) = brho(k)*bvol(k)
+        binert(k) = 0.4d0*bmass(k)*bodies(k)%radius**2
+      END IF
+    END DO
+    bUprev = bU
+    bacc = 0d0
+  END SUBROUTINE setup_motion
+
+  ! Rigid-body velocity U + Omega x (x - X_k) at a lab point (minimum image).
+  FUNCTION rigid_velocity(k, x) RESULT(v)
+    INTEGER, INTENT(IN) :: k
+    REAL*8, INTENT(IN) :: x(3)
+    REAL*8 :: v(3), r(3)
+    r = CHI_PER_DELTA(pbox, x, bodies(k)%center)
+    IF (bodies(k)%shape .EQ. CHI_BODY_CYLINDER_Z) r(3) = 0d0
+    v = bU(:,k) + cross3(bOm(:,k), r)
+  END FUNCTION rigid_velocity
+
+  PURE FUNCTION cross3(a, b) RESULT(c)
+    REAL*8, INTENT(IN) :: a(3), b(3)
+    REAL*8 :: c(3)
+    c(1) = a(2)*b(3) - a(3)*b(2)
+    c(2) = a(3)*b(1) - a(1)*b(3)
+    c(3) = a(1)*b(2) - a(2)*b(1)
+  END FUNCTION cross3
+
+  ! Lab-frame sample points of the Robin/Dirichlet caches: body-frame
+  ! points shifted by the current offset X_k - X0_k, wrapped into the box.
+  SUBROUTINE lab_sample_points()
+    INTEGER :: k, i
+    REAL*8 :: off(3)
+    DO k = 1, nsub
+      off = bodies(k)%center - atm(k)%center
+      DO i = 9*qoff(k)+1, 9*qoff(k+1)
+        qpts(:,i) = qpts0(:,i) + off
+        IF (CHI_PER_ACTIVE(pbox)) qpts(:,i) = CHI_PER_WRAP(pbox, qpts(:,i))
+      END DO
+      DO i = doff(k)+1, doff(k+1)
+        dpts(:,i) = dpts0(:,i) + off
+        IF (CHI_PER_ACTIVE(pbox)) dpts(:,i) = CHI_PER_WRAP(pbox, dpts(:,i))
+      END DO
+    END DO
+  END SUBROUTINE lab_sample_points
+
+  ! Start of a coupling update: X^{n+1} = X^n + dt U^n (explicit), frame
+  ! acceleration a^n = (U^n - U^{n-1})/dt, then the coupling geometry at
+  ! the new positions.
+  SUBROUTINE advance_bodies()
+    INTEGER :: k
+    DO k = 1, nsub
+      IF (motion_mode .EQ. 2 .AND. nstep_done .GT. 1) THEN
+        bacc(:,k) = (bU(:,k) - bUprev(:,k))/TSTEP
+      ELSE
+        bacc(:,k) = 0d0
+      END IF
+      bX(:,k) = bX(:,k) + TSTEP*bU(:,k)
+      bodies(k)%center = bX(:,k)
+      IF (CHI_PER_ACTIVE(pbox)) bodies(k)%center = CHI_PER_WRAP(pbox, bX(:,k))
+    END DO
+    IF (nsub .GT. 1) CALL check_atmospheres()
+    IF (weak_mode) THEN
+      CALL retabulate_penalty()
+    ELSE
+      CALL build_constraints()
+    END IF
+    CALL lab_sample_points()
+    bk_ready = .FALSE.
+  END SUBROUTINE advance_bodies
+
+  ! End of a coupling update: free bodies integrate Newton-Euler with the
+  ! Chimera force, the buoyancy-corrected body gravity and a virtual-mass
+  ! stabilisation (m_eff = m_s + c rho_f V); body state lines.
+  SUBROUTINE update_bodies()
+    INTEGER :: k
+    REAL*8 :: fext(3), meff, dt_, dr_
+    REAL*8, PARAMETER :: PI = 3.14159265358979323846d0
+    DO k = 1, nsub
+      IF (motion_mode .EQ. 2) THEN
+        fext = (brho(k) - rho)*bvol(k)*chimera_body_gravity
+        meff = bmass(k) + chimera_added_mass*rho*bvol(k)
+        ! implicit Stokes drag/torque linearisation (stiff viscous relaxation)
+        dt_ = chimera_drag_implicit*6d0*PI*mu*bodies(k)%radius
+        dr_ = chimera_drag_implicit*8d0*PI*mu*bodies(k)%radius**3
+        bUprev(:,k) = bU(:,k)
+        bU(:,k) = bU(:,k) + TSTEP*(bF(:,k) + fext)/(meff + TSTEP*dt_)
+        bOm(:,k) = bOm(:,k) + TSTEP*bT(:,k)/(binert(k) + TSTEP*dr_)
+      END IF
+      IF (myid .EQ. showid) THEN
+        WRITE(mfile_unit,'(A,I0,A,10ES15.7E2)') 'ChimeraBody', k, ': ', &
+          timens, bX(:,k), bU(:,k), bOm(:,k)
+        WRITE(*,'(A,I0,A,10ES15.7E2)') 'ChimeraBody', k, ': ', &
+          timens, bX(:,k), bU(:,k), bOm(:,k)
+      END IF
+    END DO
+  END SUBROUTINE update_bodies
+
+  ! Weak variant, moving bodies: re-tabulate the nodal lumped penalty on
+  ! every level at the current body positions and rebuild the finest-
+  ! level penalised node list with its donors (lumped path only).
+  SUBROUTINE retabulate_penalty()
+    INTEGER :: lev, k, a, nmiss, ilev_save, sl
+    REAL*8, ALLOCATABLE :: hw(:), xn(:,:)
+    INTEGER, ALLOCATABLE :: nb_of(:)
+    LOGICAL, ALLOCATABLE :: inb(:)
+    REAL*8 :: excess, xq(3)
+    LOGICAL :: found
+    ALLOCATE(hw(nsub))
+    DO k = 1, nsub
+      hw(k) = atm(k)%radius_outer - atm(k)%radius_inner
+    END DO
+    DO lev = pen_lmin, pen_lmax
+      ALLOCATE(nb_of(mg_qMat(lev)%nu), inb(mg_qMat(lev)%nu), xn(3, mg_qMat(lev)%nu))
+      CALL CHI_PENALTY_NODAL(mg_mesh%level(lev)%nel, mg_mesh%level(lev)%nvt, &
+        mg_mesh%level(lev)%net, mg_mesh%level(lev)%nat, mg_mesh%level(lev)%kvert, &
+        mg_mesh%level(lev)%kedge, mg_mesh%level(lev)%karea, mg_mesh%level(lev)%dcorvg, &
+        nsub, bodies, hw, chimera_gamma_max, mg_qMat(lev)%nu, pmat(lev)%dl, &
+        nb_of, inb, xn, chimera_beta_full, chimera_beta_zero, pbox)
+      IF (lev .EQ. NLMAX) THEN
+        IF (ALLOCATED(nd_dof)) DEALLOCATE(nd_dof, nd_sub, nd_iel, nd_xi)
+        nnod = COUNT(pmat(lev)%dl .GT. 0d0)
+        ALLOCATE(nd_dof(MAX(nnod,1)), nd_sub(MAX(nnod,1)), nd_iel(MAX(nnod,1)), &
+                 nd_xi(3, MAX(nnod,1)))
+        nnod = 0
+        nmiss = 0
+        DO a = 1, mg_qMat(lev)%nu
+          IF (pmat(lev)%dl(a) .LE. 0d0) CYCLE
+          nnod = nnod + 1
+          nd_dof(nnod) = a
+          nd_sub(nnod) = nb_of(a)
+          nd_iel(nnod) = 0
+          nd_xi(:,nnod) = 0d0
+          IF (inb(a)) CYCLE
+          k = nb_of(a)
+          sl = atm(k)%nlmax
+          xq = image_point(xn(:,a), k)
+          CALL CHI_LOCATE(subloc(k), atm(k)%mesh%level(sl)%dcorvg, &
+            atm(k)%mesh%level(sl)%kvert, xq, nd_iel(nnod), nd_xi(:,nnod), found)
+          IF (.NOT. found) THEN
+            CALL CHI_LOCATE_NEAREST(subloc(k), atm(k)%mesh%level(sl)%dcorvg, &
+              atm(k)%mesh%level(sl)%kvert, xq, nd_iel(nnod), nd_xi(:,nnod), &
+              excess, found)
+            IF (.NOT. found) nmiss = nmiss + 1
+          END IF
+        END DO
+        IF (nmiss .GT. 0) THEN
+          WRITE(*,'(A,I0,A)') 'CHI_COUPLING error: ', nmiss, &
+            ' penalised node(s) have no donor element in their atmosphere'
+          STOP 1
+        END IF
+      END IF
+      DEALLOCATE(nb_of, inb, xn)
+      pmat(lev)%dlg = pmat(lev)%dl
+      ilev_save = ILEV
+      ILEV = lev
+      CALL E013Sum(pmat(lev)%dlg)
+      ILEV = ilev_save
+    END DO
+    DEALLOCATE(hw)
+  END SUBROUTINE retabulate_penalty
+
+  !=======================================================================
+  ! Marker classification (strong variant), parallel synchronisation and
+  ! the constraint list with donor caches.  Called at initialisation and,
+  ! for moving bodies, at every coupling update (bodies(k)%center holds
+  ! the current lab position; donors are located in the body frame).
+  !=======================================================================
+  SUBROUTINE build_constraints()
+    INTEGER :: i, k, lev, nvt, net, nat, nel, ilev_save, nholes, nfringe
+    INTEGER, ALLOCATABLE :: kind0(:), tmp(:)
+    REAL*8 :: excess, maxexcess, xq(3)
+    LOGICAL :: found
+
+    lev = NLMAX
+    nvt = mg_mesh%level(lev)%nvt
+    net = mg_mesh%level(lev)%net
+    nat = mg_mesh%level(lev)%nat
+    nel = mg_mesh%level(lev)%nel
+    IF (ALLOCATED(con_dof)) DEALLOCATE(con_dof, con_sub, con_iel, con_xi)
 
     IF (weak_mode) THEN
       ! Chimera-W: no nodal constraints; the coupling is the penalty.
@@ -312,89 +632,10 @@ CONTAINS
       END IF
     END DO
 
-    !---- Robin quadrature point cache ------------------------------------
-    ALLOCATE(qoff(nsub+1))
-    qoff(1) = 0
-    DO k = 1, nsub
-      qoff(k+1) = qoff(k) + SIZE(atm(k)%outerFaces,2)
-    END DO
-    nqtot = 9*qoff(nsub+1)
-    ALLOCATE(qpts(3,MAX(nqtot,1)), qnrm(3,MAX(nqtot,1)))
-    DO k = 1, nsub
-      lev = atm(k)%nlmax
-      nf = SIZE(atm(k)%outerFaces,2)
-      IF (nf .GT. 0) CALL CHI_ROBIN_POINTS(atm(k)%outerFaces, nf, &
-        atm(k)%mesh%level(lev)%kvert, atm(k)%mesh%level(lev)%dcorvg, &
-        qpts(:,9*qoff(k)+1:9*qoff(k+1)), qnrm(:,9*qoff(k)+1:9*qoff(k+1)))
-    END DO
-    ! atmospheres straddling periodic faces: sample the background at the
-    ! wrapped image of every outer quadrature point (normals unchanged)
-    IF (CHI_PER_ACTIVE(pbox)) THEN
-      DO i = 1, nqtot
-        qpts(:,i) = CHI_PER_WRAP(pbox, qpts(:,i))
-      END DO
-    END IF
-
-    !---- outer Q2 nodes (Dirichlet diagnostic mode) ----------------------
-    ALLOCATE(doff(nsub+1))
-    doff(1) = 0
-    DO k = 1, nsub
-      nd = 0
-      DO i = 1, atm(k)%ndof
-        IF (IAND(atm(k)%dofmask(i), CHI_SURF_OUTER) .NE. 0) nd = nd + 1
-      END DO
-      doff(k+1) = doff(k) + nd
-    END DO
-    ndtot = doff(nsub+1)
-    ALLOCATE(ddof(MAX(ndtot,1)), dpts(3,MAX(ndtot,1)))
-    nd = 0
-    DO k = 1, nsub
-      DO i = 1, atm(k)%ndof
-        IF (IAND(atm(k)%dofmask(i), CHI_SURF_OUTER) .EQ. 0) CYCLE
-        nd = nd + 1
-        ddof(nd) = i
-        dpts(:,nd) = atm(k)%q2coor(:,i)
-        IF (CHI_PER_ACTIVE(pbox)) dpts(:,nd) = CHI_PER_WRAP(pbox, dpts(:,nd))
-      END DO
-    END DO
-
-    IF (weak_mode) CALL setup_penalty()
-
-    active = .TRUE.
-
-    nmax = CHI_EXCHANGE_MAX_INT(MPI_COMM_SUBS, ncon)
-    IF (myid .EQ. showid) THEN
-      IF (weak_mode) THEN
-        WRITE(*,'(A,I0,A,I0,A,ES10.2)') 'Chimera: ', nsub, ' body/bodies, ', &
-          subnodes, ' worker(s); weak (Chimera-W) coupling, gamma_max = ', &
-          chimera_gamma_max
-      ELSE
-        WRITE(*,'(A,I0,A,I0,A)') 'Chimera: ', nsub, ' body/bodies, ', &
-          subnodes, ' worker(s); strong (Chimera-S) coupling'
-      END IF
-      ndof_all = 0
-      nunk_all = 0
-      DO k = 1, nsub
-        ndof_all = ndof_all + atm(k)%ndof
-        nunk_all = nunk_all + slv(k)%n
-      END DO
-      WRITE(*,'(A,I0,A,I0,A,I0)') 'Chimera: submesh Q2 dofs (all bodies) = ', &
-        ndof_all, ', unknowns = ', nunk_all, ', levels = ', atm(1)%nlmax
-      WRITE(*,'(A,I0,A,I0,A,I0,A,ES10.2)') 'Chimera: rank ', myid, &
-        ' hole dofs = ', nholes, ', fringe dofs = ', nfringe, &
-        ', max donor extrapolation = ', maxexcess
-      IF (CHI_PER_ACTIVE(pbox)) THEN
-        WRITE(*,'(A,3L2,A,3ES12.4,A,3ES12.4)') 'Chimera: periodic box axes =', &
-          pbox%per, ', period =', pbox%len, ', origin =', pbox%lo
-        WRITE(mfile,'(A,3L2,A,3ES12.4)') 'Chimera: periodic box axes =', &
-          pbox%per, ', period =', pbox%len
-      END IF
-      WRITE(mfile,'(A,I0,A,I0,A,I0)') 'Chimera: bodies = ', nsub, &
-        ', submesh levels = ', atm(1)%nlmax, ', submesh Q2 dofs (all bodies) = ', ndof_all
-      WRITE(mfile,'(A,A)') 'Chimera: outer BC = ', TRIM(chimera_outer_bc)
-      WRITE(mfile,'(A,I0)') 'Chimera: max constrained dofs per worker = ', nmax
-    END IF
-  END SUBROUTINE CHI_COUPLING_INIT
+    con_nholes = nholes
+    con_nfringe = nfringe
+    con_maxexcess = maxexcess
+  END SUBROUTINE build_constraints
 
   !=======================================================================
   ! Phase 5: periodic box, atmosphere admissibility, image points, and
@@ -489,8 +730,12 @@ CONTAINS
     REAL*8, INTENT(IN) :: x(3)
     INTEGER, INTENT(IN) :: k
     REAL*8 :: xq(3)
+    ! body frame: the submesh sits at atm(k)%center (initial fit), the
+    ! body at bodies(k)%center (current lab position)
     IF (CHI_PER_ACTIVE(pbox)) THEN
-      xq = bodies(k)%center + CHI_PER_DELTA(pbox, x, bodies(k)%center)
+      xq = atm(k)%center + CHI_PER_DELTA(pbox, x, bodies(k)%center)
+    ELSE IF (moving) THEN
+      xq = x - (bodies(k)%center - atm(k)%center)
     ELSE
       xq = x
     END IF
@@ -518,7 +763,8 @@ CONTAINS
       CALL CHI_Q2_BASIS(gp(:,q), phi(:,q), dphi)
     END DO
     IF (.NOT. bk_ready) THEN
-      ALLOCATE(bk_region(27, MAX(nel,1)), bk_iel(27, MAX(nel,1)), bk_xi(3, 27, MAX(nel,1)))
+      IF (.NOT. ALLOCATED(bk_region)) &
+        ALLOCATE(bk_region(27, MAX(nel,1)), bk_iel(27, MAX(nel,1)), bk_xi(3, 27, MAX(nel,1)))
       bk_region = 0
       bk_iel = 0
       bk_xi = 0d0
@@ -579,7 +825,10 @@ CONTAINS
         CALL CHI_Q1_MAP(nodes, gp(:,q), x, jac, detj)
         w = gw(q)*ABS(detj)
         sums(1) = sums(1) + w
-        IF (bk_region(q,e) .LT. 0) CYCLE            ! solid: u = 0
+        IF (bk_region(q,e) .LT. 0) THEN             ! solid: rigid-body velocity
+          IF (moving) sums(3:5) = sums(3:5) + w*rigid_velocity(-bk_region(q,e), x)
+          CYCLE
+        END IF
         sums(2) = sums(2) + w
         IF (bk_region(q,e) .GT. 0) THEN
           k = bk_region(q,e)
@@ -590,6 +839,7 @@ CONTAINS
             atm(k)%mesh%level(sl)%net, atm(k)%mesh%level(sl)%nat, &
             atm(k)%mesh%level(sl)%dcorvg, slv(k)%u, slv(k)%v, slv(k)%w, slv(k)%p, &
             uval, gradu, pval, ok)
+          IF (moving) uval = uval + bU(:,k)       ! body frame -> lab frame
         ELSE
           uval = 0d0
           DO i = 1, 27
@@ -620,10 +870,10 @@ CONTAINS
   !-----------------------------------------------------------------------
   SUBROUTINE read_particle_file(fname)
     CHARACTER(*), INTENT(IN) :: fname
-    INTEGER :: iu, ios, k
+    INTEGER :: iu, ios, ios2, k
     CHARACTER(LEN=512) :: line
     CHARACTER(LEN=32) :: shape
-    REAL*8 :: c(3), r, h, zlo, zhi
+    REAL*8 :: c(3), r, h, zlo, zhi, uu(3), ww(3), rs
 
     iu = 772
     OPEN(UNIT=iu, FILE=TRIM(fname), STATUS='OLD', ACTION='READ', IOSTAT=ios)
@@ -642,6 +892,10 @@ CONTAINS
       STOP 1
     END IF
     ALLOCATE(bodies(nsub), atm(nsub))
+    ALLOCATE(bX(3,nsub), bU(3,nsub), bUprev(3,nsub), bOm(3,nsub), bacc(3,nsub), &
+             brho(nsub), bmass(nsub), binert(nsub), bvol(nsub))
+    bX = 0d0; bU = 0d0; bUprev = 0d0; bOm = 0d0; bacc = 0d0
+    brho = 0d0; bmass = 0d0; binert = 0d0; bvol = 0d0
     DO k = 1, nsub
       CALL next_data_line(iu, line, ios)
       IF (ios .NE. 0) THEN
@@ -650,12 +904,18 @@ CONTAINS
       END IF
       READ(line, *, IOSTAT=ios) shape
       CALL lowercase(shape)
+      uu = 0d0; ww = 0d0; rs = 0d0
       SELECT CASE (TRIM(shape))
       CASE ('cylinder_z')
         READ(line, *, IOSTAT=ios) shape, c, r, h, zlo, zhi
         IF (ios .NE. 0) THEN
           WRITE(*,'(A,I0)') 'CHI_COUPLING error: cylinder_z line needs cx cy cz r H zlo zhi, body ', k
           STOP 1
+        END IF
+        ! optional motion columns: ux uy uz wx wy wz rho_s
+        READ(line, *, IOSTAT=ios2) shape, c, r, h, zlo, zhi, uu, ww, rs
+        IF (ios2 .NE. 0) THEN
+          uu = 0d0; ww = 0d0; rs = 0d0
         END IF
         bodies(k)%shape = CHI_BODY_CYLINDER_Z
         atm(k)%shape = CHI_SHAPE_CYLINDER_Z
@@ -666,6 +926,10 @@ CONTAINS
         IF (ios .NE. 0) THEN
           WRITE(*,'(A,I0)') 'CHI_COUPLING error: sphere line needs cx cy cz r H, body ', k
           STOP 1
+        END IF
+        READ(line, *, IOSTAT=ios2) shape, c, r, h, uu, ww, rs
+        IF (ios2 .NE. 0) THEN
+          uu = 0d0; ww = 0d0; rs = 0d0
         END IF
         bodies(k)%shape = CHI_BODY_SPHERE
         atm(k)%shape = CHI_SHAPE_SPHERE
@@ -682,6 +946,10 @@ CONTAINS
       atm(k)%center = c
       atm(k)%radius_inner = r
       atm(k)%radius_outer = r + h
+      bX(:,k) = c
+      bU(:,k) = uu
+      bOm(:,k) = ww
+      brho(k) = rs
     END DO
     CLOSE(iu)
   END SUBROUTINE read_particle_file
@@ -718,7 +986,7 @@ CONTAINS
     INTEGER, ALLOCATABLE :: qowner(:), dirmask(:), downer(:)
     REAL*8,  ALLOCATABLE :: qvals(:,:), hq(:,:,:), ubc(:,:), dvals(:,:)
     REAL*8 :: uq(3), g(3,3), pq, sig(3,3), n(3), un, resid, F(3), T(3), fac, Ftot(3)
-    REAL*8 :: fbody(3)
+    REAL*8 :: fbody(3), fbk(3)
     REAL*8 :: uval(3), gradu(3,3), pval
     LOGICAL :: ok
     CHARACTER(LEN=256) :: vtkname
@@ -726,6 +994,10 @@ CONTAINS
     IF (.NOT. active) RETURN
     nstep_done = nstep_done + 1
     lev = NLMAX
+
+    ! Phase 6: advance the bodies to the new time level, rebuild the
+    ! coupling geometry (markers/penalty, donors, lab sample points)
+    IF (moving) CALL advance_bodies()
 
     ! uniform body forces of the background momentum equation (Phase 5):
     ! the atmosphere must carry the same driving, else the momentum
@@ -779,6 +1051,7 @@ CONTAINS
           DO ip = 1, 9
             ic = 9*qoff(k) + 9*(j-1) + ip
             uq = qvals(1:3, ic)
+            IF (moving) uq = uq - bU(:,k)          ! body-frame velocity
             DO b = 1, 3
               g(:,b) = qvals(3+3*(b-1)+1:3+3*b, ic)   ! g(a,b) = du_a/dx_b
             END DO
@@ -803,6 +1076,7 @@ CONTAINS
         IF (IAND(atm(k)%dofmask(i), CHI_SURF_INNER) .NE. 0) THEN
           dirmask(i) = CHI_DIR_ALL
           ubc(:,i) = 0d0
+          IF (moving) ubc(:,i) = cross3(bOm(:,k), atm(k)%q2coor(:,i) - atm(k)%center)
         ELSE IF (IAND(atm(k)%dofmask(i), CHI_SURF_ZLO+CHI_SURF_ZHI) .NE. 0) THEN
           dirmask(i) = CHI_DIR_W
           ubc(3,i) = 0d0
@@ -814,6 +1088,7 @@ CONTAINS
           IF (dirmask(i) .EQ. CHI_DIR_ALL) CYCLE      ! rim shared with inner
           dirmask(i) = CHI_DIR_ALL
           ubc(:,i) = dvals(1:3, j)
+          IF (moving) ubc(:,i) = ubc(:,i) - bU(:,k)
         END DO
       END IF
 
@@ -821,9 +1096,12 @@ CONTAINS
         ! Same time discretization as the background step (backward
         ! Euler, step TSTEP): the submesh problem is the time-discrete
         ! one, advanced from its own previous level.
+        ! body frame: fictitious force -rho a_k of the translating frame
+        fbk = fbody
+        IF (moving) fbk = fbody - rho*bacc(:,k)
         CALL CHI_SOLVE_STEADY_TAB(slv(k), atm(k), rho, mu, 1d0/TSTEP, &
           chimera_robin_alpha, dirichlet_mode, dirmask, ubc, hq, &
-          chimera_sub_nl, resid, ok, chimera_sub_stokes, fbody)
+          chimera_sub_nl, resid, ok, chimera_sub_stokes, fbk)
         IF (.NOT. ok) THEN
           WRITE(*,'(A,I0)') 'CHI_COUPLING error: submesh solve failed, body ', k
           STOP 1
@@ -847,11 +1125,15 @@ CONTAINS
     !---- fringe values from the replicated submesh solutions -------------
     DO ic = 1, ncon
       i = con_dof(ic)
+      k = con_sub(ic)
       IF (con_iel(ic) .EQ. 0) THEN            ! hole: rigid-body velocity
         fringeU(i) = 0d0; fringeV(i) = 0d0; fringeW(i) = 0d0
+        IF (moving) THEN
+          uval = rigid_velocity(k, myQ2Coor(:,i))
+          fringeU(i) = uval(1); fringeV(i) = uval(2); fringeW(i) = uval(3)
+        END IF
         CYCLE
       END IF
-      k = con_sub(ic)
       lev = atm(k)%nlmax
       CALL CHI_EVAL_FIELD_AT(con_iel(ic), con_xi(:,ic), &
         atm(k)%mesh%level(lev)%kvert, atm(k)%mesh%level(lev)%kedge, &
@@ -859,6 +1141,7 @@ CONTAINS
         atm(k)%mesh%level(lev)%net, atm(k)%mesh%level(lev)%nat, &
         atm(k)%mesh%level(lev)%dcorvg, slv(k)%u, slv(k)%v, slv(k)%w, slv(k)%p, &
         uval, gradu, pval, ok)
+      IF (moving) uval = uval + bU(:,k)       ! back to the lab frame
       IF (chimera_coupling_relax .LT. 1d0 .AND. fringe_valid) THEN
         fringeU(i) = chimera_coupling_relax*uval(1) + (1d0-chimera_coupling_relax)*fringeU(i)
         fringeV(i) = chimera_coupling_relax*uval(2) + (1d0-chimera_coupling_relax)*fringeV(i)
@@ -872,6 +1155,7 @@ CONTAINS
     !---- forces (design section 5), reported once ------------------------
     fac = 2d0/(postParams%U_mean*postParams%U_mean*postParams%D*postParams%H)
     Ftot = 0d0
+    IF (.NOT. ALLOCATED(bF)) ALLOCATE(bF(3,nsub), bT(3,nsub))
     DO k = 1, nsub
       lev = atm(k)%nlmax
       CALL CHI_COMPUTE_FORCES(atm(k)%innerFaces, SIZE(atm(k)%innerFaces,2), &
@@ -881,6 +1165,8 @@ CONTAINS
         atm(k)%mesh%level(lev)%karea, atm(k)%mesh%level(lev)%dcorvg, &
         slv(k)%u, slv(k)%v, slv(k)%w, slv(k)%p, mu, atm(k)%center, F, T)
       Ftot = Ftot + F
+      bF(:,k) = F
+      bT(:,k) = T
       IF (myid .EQ. showid) THEN
         WRITE(mfile_unit,'(A,I0,A,7ES15.7E2)') 'ChimeraForce', k, ': ', &
           timens, fac*F(1), fac*F(2), F(1), F(2), F(3), T(3)
@@ -894,6 +1180,9 @@ CONTAINS
         END IF
       END IF
     END DO
+
+    !---- Phase 6: body dynamics and body state lines ---------------------
+    IF (moving) CALL update_bodies()
 
     !---- composite bulk velocity (array closures: superficial velocity) --
     CALL bulk_diagnostic(valU, valV, valW, Ftot)
@@ -1003,6 +1292,12 @@ CONTAINS
     CALL release_penalty()
     IF (ALLOCATED(bk_region)) DEALLOCATE(bk_region, bk_iel, bk_xi)
     bk_ready = .FALSE.
+    IF (ALLOCATED(bX)) DEALLOCATE(bX, bU, bUprev, bOm, bacc, brho, bmass, binert, bvol)
+    IF (ALLOCATED(bF)) DEALLOCATE(bF, bT)
+    IF (ALLOCATED(qpts0)) DEALLOCATE(qpts0)
+    IF (ALLOCATED(dpts0)) DEALLOCATE(dpts0)
+    moving = .FALSE.
+    motion_mode = 0
     pbox = tChiPeriodic()
     nsub = 0
     ncon = 0
@@ -1208,8 +1503,16 @@ CONTAINS
       gU = 0d0; gV = 0d0; gW = 0d0
       DO a = 1, nnod
         i = nd_dof(a)
-        IF (nd_iel(a) .EQ. 0) CYCLE               ! hole node: uhat = 0 (static)
         k = nd_sub(a)
+        IF (nd_iel(a) .EQ. 0) THEN                ! hole node: rigid velocity
+          IF (moving) THEN
+            uval = rigid_velocity(k, myQ2Coor(:,i))
+            gU(i) = pmat(lev)%dl(i)*uval(1)
+            gV(i) = pmat(lev)%dl(i)*uval(2)
+            gW(i) = pmat(lev)%dl(i)*uval(3)
+          END IF
+          CYCLE
+        END IF
         sl = atm(k)%nlmax
         CALL CHI_EVAL_FIELD_AT(nd_iel(a), nd_xi(:,a), &
           atm(k)%mesh%level(sl)%kvert, atm(k)%mesh%level(sl)%kedge, &
@@ -1217,6 +1520,7 @@ CONTAINS
           atm(k)%mesh%level(sl)%net, atm(k)%mesh%level(sl)%nat, &
           atm(k)%mesh%level(sl)%dcorvg, slv(k)%u, slv(k)%v, slv(k)%w, slv(k)%p, &
           uval, gradu, pval, ok)
+        IF (moving) uval = uval + bU(:,k)
         gU(i) = pmat(lev)%dl(i)*uval(1)
         gV(i) = pmat(lev)%dl(i)*uval(2)
         gW(i) = pmat(lev)%dl(i)*uval(3)
@@ -1230,6 +1534,7 @@ CONTAINS
         IF (ptab(lev)%w(q,a) .EQ. 0d0) CYCLE
         IF (ptab(lev)%inbody(q,a)) THEN
           ptab(lev)%uhat(:,q,a) = 0d0
+          IF (moving) ptab(lev)%uhat(:,q,a) = rigid_velocity(ptab(lev)%body(q,a), ptab(lev)%x(:,q,a))
           CYCLE
         END IF
         k = ptab(lev)%body(q,a)
@@ -1240,6 +1545,7 @@ CONTAINS
           atm(k)%mesh%level(sl)%net, atm(k)%mesh%level(sl)%nat, &
           atm(k)%mesh%level(sl)%dcorvg, slv(k)%u, slv(k)%v, slv(k)%w, slv(k)%p, &
           uval, gradu, pval, ok)
+        IF (moving) uval = uval + bU(:,k)
         ptab(lev)%uhat(:,q,a) = uval
       END DO
     END DO
@@ -1448,7 +1754,7 @@ CONTAINS
       WRITE(*,'(A)') 'CHI_COUPLING error: cannot write ' // TRIM(dir) // '/chimera.dmp'
       STOP 1
     END IF
-    tag = 'CHIMERA_RESTART_V1'
+    tag = 'CHIMERA_RESTART_V2'
     WRITE(iu) tag
     WRITE(iu) nsub, nstep_done, TIMENS
     DO k = 1, nsub
@@ -1457,6 +1763,8 @@ CONTAINS
       WRITE(iu) slv(k)%uold, slv(k)%vold, slv(k)%wold
       WRITE(iu) slv(k)%p
     END DO
+    ! V2: body kinematics (Phase 6)
+    WRITE(iu) bX, bU, bUprev, bOm
     CLOSE(iu)
     WRITE(*,'(A)') 'Chimera: restart state written to ' // TRIM(dir) // '/chimera.dmp'
   END SUBROUTINE CHI_COUPLING_WRITE_RESTART
@@ -1477,7 +1785,7 @@ CONTAINS
       STOP 1
     END IF
     READ(iu) tag
-    IF (tag .NE. 'CHIMERA_RESTART_V1') THEN
+    IF (tag .NE. 'CHIMERA_RESTART_V1' .AND. tag .NE. 'CHIMERA_RESTART_V2') THEN
       WRITE(*,'(A)') 'CHI_COUPLING error: unknown restart format in ' // TRIM(fname)
       STOP 1
     END IF
@@ -1496,6 +1804,15 @@ CONTAINS
       READ(iu) slv(k)%uold, slv(k)%vold, slv(k)%wold
       READ(iu) slv(k)%p
     END DO
+    IF (tag .EQ. 'CHIMERA_RESTART_V2') THEN
+      READ(iu) bX, bU, bUprev, bOm
+      IF (moving) THEN
+        DO k = 1, nsub
+          bodies(k)%center = bX(:,k)
+          IF (CHI_PER_ACTIVE(pbox)) bodies(k)%center = CHI_PER_WRAP(pbox, bX(:,k))
+        END DO
+      END IF
+    END IF
     CLOSE(iu)
     IF (myid .EQ. showid) WRITE(*,'(A,I0,A,ES12.5)') 'Chimera: restart state read from ' // &
       TRIM(fname) // ', steps done = ', nstep_done, ', dump time = ', t

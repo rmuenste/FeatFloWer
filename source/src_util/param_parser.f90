@@ -28,6 +28,8 @@ USE CHIMERA_CONFIG, ONLY: chimera_enable, chimera_variant, chimera_outer_bc, &
   chimera_robin_alpha, chimera_gamma_max, chimera_outer_iters, &
   chimera_sub_nl, chimera_write_vtk, chimera_penalty_lumped, chimera_proj_cap, &
   chimera_beta_full, chimera_beta_zero, chimera_coupling_relax, chimera_sub_stokes, &
+  chimera_motion, chimera_body_gravity, chimera_added_mass, chimera_motion_mode, &
+  chimera_drag_implicit, &
   CHIMERA_VALIDATE_CONFIG
 USE types, ONLY: tParamV, tParamP, tProperties
 
@@ -1152,6 +1154,14 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         chimera_write_vtk = read_yes_no_param(string, iEq)
       CASE ("ChimeraSubStokes")
         chimera_sub_stokes = read_yes_no_param(string, iEq)
+      CASE ("ChimeraMotion")
+        READ(string(iEq+1:),*) chimera_motion
+      CASE ("ChimeraBodyGravity")
+        READ(string(iEq+1:),*) chimera_body_gravity
+      CASE ("ChimeraAddedMass")
+        READ(string(iEq+1:),*) chimera_added_mass
+      CASE ("ChimeraDragImplicit")
+        READ(string(iEq+1:),*) chimera_drag_implicit
       CASE ("ChimeraPenaltyLumped")
         chimera_penalty_lumped = read_yes_no_param(string, iEq)
       CASE ("ChimeraProjCap")
@@ -1445,6 +1455,13 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
       CALL write_param_int(mfile, mterm, "ChimeraOuterIters = ", chimera_outer_iters)
       CALL write_param_int(mfile, mterm, "ChimeraSubNL = ", chimera_sub_nl)
       IF (chimera_sub_stokes) CALL write_param_str(mfile, mterm, "ChimeraSubStokes = ", "YES")
+      IF (chimera_motion_mode .GT. 0) THEN
+        CALL write_param_str(mfile, mterm, "ChimeraMotion = ", TRIM(chimera_motion))
+        WRITE(mfile,'(A,3ES14.4)') "ChimeraBodyGravity = ", chimera_body_gravity
+        WRITE(mterm,'(A,3ES14.4)') "ChimeraBodyGravity = ", chimera_body_gravity
+        CALL write_param_real(mfile, mterm, "ChimeraAddedMass = ", chimera_added_mass)
+        CALL write_param_real(mfile, mterm, "ChimeraDragImplicit = ", chimera_drag_implicit)
+      END IF
       IF (chimera_penalty_lumped) THEN
         CALL write_param_str(mfile, mterm, "ChimeraPenaltyLumped = ", "YES")
       ELSE

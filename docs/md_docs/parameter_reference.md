@@ -718,6 +718,10 @@ parser, so decks stay portable. Values land in
 | `SimPar@ChimeraOuterIters` | integer | `1` | In-step outer coupling iterations (>= 2 for time-accurate Chimera-S) |
 | `SimPar@ChimeraSubNL` | integer | `3` | Picard iterations per submesh solve |
 | `SimPar@ChimeraWriteVTK` | Yes/No | `No` | Dump submesh solutions for visualization |
+| `SimPar@ChimeraMotion` | string | `static` | Phase 6. `static`: bodies fixed (bit-identical to Phases 3–5). `prescribed`: rigid translation/rotation with the constant velocities of the body table. `free`: Newton–Euler integration of spheres from the Chimera force/torque plus the buoyancy-corrected body gravity. Submeshes are solved in the translating body frame (no mesh motion; the frame change adds the fictitious force `-rho dU/dt`); markers (strong) or the lumped penalty (weak) are rebuilt every step |
+| `SimPar@ChimeraBodyGravity` | 3 reals | `0,0,0` | Gravity on the bodies only (free motion): external force `(rho_s - rho_f) V g` per body; the fluid keeps `Prop@Gravity` |
+| `SimPar@ChimeraAddedMass` | real >= 0 | `0.5` | Virtual-mass factor `c` of the explicit body update, `m_eff = m_s + c rho_f V` (stabilises the staggered coupling for light bodies) |
+| `SimPar@ChimeraDragImplicit` | real >= 0 | `1` | Implicit linearisation of the viscous drag/torque in the body update: `U += dt (F + F_ext)/(m_eff + dt kappa 6 pi mu R)`, `Omega += dt T/(I + dt kappa 8 pi mu R^3)`. `kappa = 1` is the Stokes slope (implicit Euler for creeping flow; needed because the viscous relaxation times of small bodies are below dt — the plain explicit update, `0`, blows up rotationally) |
 | `SimPar@ChimeraSubStokes` | Yes/No | `No` | Linear (Stokes) submesh operator: convection and the Robin alpha-term are dropped, the saddle-point matrix is factorized **once** and every coupling update only rebuilds the rhs (creeping-flow array closures; `ChimeraSubNL` is ignored). Turns the per-step submesh cost from two UMFPACK factorizations into one back-substitution |
 | `SimPar@ChimeraPenaltyLumped` | Yes/No | `Yes` | `weak` only. `Yes`: nodal-quadrature (Lobatto) lumped penalty `D_L` (positive, diagonal; the Jacobi-type velocity solvers stay convergent; correction of paper eq. (12) is diagonal). `No`: consistent Q2 penalty matrix with a CG correction and the paper's plain-mass Poisson operator (diagnostic only: the Jacobi coarse solver diverges for mass-dominated rows at large `dt*gamma`) |
 | `SimPar@ChimeraProjCap` | real | `0` | `weak` only. Cap kappa of the penalised mass used in **both** the pressure Poisson operator and the velocity correction (`M_eff = M_L + min(dt D_L, kappa M_L)`), keeping the corrected velocity exactly discretely divergence-free. `0` = plain projection (momentum-only penalty; recommended). `kappa > 0` is experimental: it steepens the pressure inside the bodies by up to `1+kappa` (observed to diverge at `h = D/4` with kappa = 10) |
@@ -742,6 +746,13 @@ radius + H; per-body `H_k` for arrays):
 1
 cylinder_z  0.2 0.2 0.0   0.05  0.05   0.0 0.05
 ```
+
+Optional trailing columns per body (Phase 6): `ux uy uz  wx wy wz  rho_s`
+— the (initial) translational and angular velocity and the solid density
+(`free` motion needs `rho_s > 0`; `prescribed` motion keeps the
+velocities constant). Body state lines `ChimeraBody<k>:` with
+`time  X Y Z  Ux Uy Uz  Wx Wy Wz` are written every step when the bodies
+move.
 
 Sphere arrays are seeded with `tools/chimera_meshgen/seed_array.py`
 (simple-cubic lattice or random sequential addition in a periodic box),

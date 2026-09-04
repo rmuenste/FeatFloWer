@@ -1,0 +1,91 @@
+! Chimera Phase-6 reference: static Hasimoto sphere with f equal to 1 (one sphere per
+! periodic unit cell, d over L 1/3, phi 0.0193925), Stokes regime, driven by
+! a constant body force.  Mirrors applications/q2p1_dns_drag/validation_cases/
+! d11_hasimoto (FBM ladder) with the Chimera-S coupling: 6^3 periodic box
+! background (2x2x2 axis partition, 9 ranks), cubed-sphere shell atmosphere
+! H equal to R.  Gate: K, i.e. Fz over 6 pi mu R U_sup, vs Hasimoto 1.8322 (U_sup from the
+! ChimeraBulk line).  RUNBOOK: validation_cases/m2_hasimoto/RUNBOOK.md
+----------- Simulation Parameters --------------
+SimPar@MeshFolder = "CHIBOX6"
+SimPar@SubMeshNumber = 1                                                ! flat layout of the 2x2x2 axis partition (flatten_axis_partition.py)
+SimPar@ParticleFile = "_data/particles.dat"
+SimPar@ProjectFile = "_data/CHIMERA_BOX6/box6.prj"
+SimPar@ProtocolFile = "_data/prot.txt"
+SimPar@StartingProc = 0                                                 ! 0,1,2
+SimPar@StartFile = "_dump/01"
+SimPar@SolFile = "_sol/1/mySol"
+SimPar@MinMeshLevel = 1
+SimPar@MaxMeshLevel = 2
+SimPar@TimeScheme = BE                                                  ! CN,BE,FE
+SimPar@TimeStep = 0.01d0
+SimPar@TimeAdaptivity = No                                              ! Yes
+SimPar@MinTimeAdapt = 0.00001d0
+SimPar@MaxTimeAdapt = 0.01d0
+SimPar@StartSimTime = 0d0
+SimPar@MaxSimTime = 4.0001d0
+SimPar@MaxNumStep = 1000000
+SimPar@BackUpFreq = 1
+SimPar@BackUpNum = 10
+SimPar@NoOutflow = No                                                    ! Yes
+SimPar@PeriodicLength = 1d0,1d0,1d0                                     ! periodic unit cell (all axes)
+SimPar@UseConstantForcing = YES
+SimPar@ConstantForcing = 0d0,0d0,1d0    ! body force f (Galilean reference, ten times... scaled to 1)
+SimPar@Umbrella = 0	
+SimPar@OutputFreq = 1.0d0
+SimPar@MatrixRenewal = M1D1K3S0C1
+SimPar@FlowType = Newtonian                                              ! Newtonian (anything else leads to non-newtonian ... )
+SimPar@Tracer = No                                                      ! Yes
+SimPar@bViscoElastic = No                                                      ! Yes
+SimPar@noLoadAdaptedMesh = "_dump/msh"
+SimPar@OutputFields = "Pressure_V,Velocity,Viscosity,Temperature"
+PossibleOutputFields = Temperature,Velocity,Pressure_E
+SimPar@OutputFormat = "VTK"                                              ! GMV,VTK
+SimPar@OutputLevel = MAX+1                                               ! 1,2,3,4 ... , MAX,MAX+1,MAX-1
+------------- Chimera overlapping-mesh component -----------
+SimPar@ChimeraEnable = Yes
+SimPar@ChimeraVariant = strong                                          ! strong (Chimera-S) | weak (phase 4)
+SimPar@ChimeraOuterBC = robin                                           ! robin (paper eq. 5d) | dirichlet (diagnostic)
+SimPar@ChimeraParticleFile = "_data/hasimoto_center.dat"
+SimPar@ChimeraSubmeshFile = "_data/CHIMERA_BOX6/sphere_shell_coarse.tri"
+SimPar@ChimeraSubmeshLev = 2                                           ! 2 for MaxMeshLevel 2, 3 for MaxMeshLevel 3
+SimPar@ChimeraRobinAlpha = 1d0
+SimPar@ChimeraSubNL = 2
+SimPar@ChimeraSubStokes = Yes                                            ! creeping flow: linear submesh operator, factorized once
+SimPar@ChimeraWriteVTK = No
+----------------- Velocity --------------------
+Velo@defCrit =1d-6
+Velo@epsCrit =1d-5
+Velo@MinDef  =1d-10
+Velo@NLmin = 1
+Velo@NLmax = 5
+Velo@Alpha = 1d0
+Velo@MGMinLev = 2
+Velo@MGMedLev = 2
+Velo@MGMinIterCyc = 1
+Velo@MGMaxIterCyc = 1
+Velo@MGSmoothSteps = 2
+Velo@MGIterCoarse = 50
+Velo@MGCrsSolverType = 1                                                   ! 1 SSOR + blockJacobi, 5 Mumps
+Velo@MGDefImprCoarse = 0.1d0
+Velo@MGCriterion1 = 0.9d-1
+Velo@MGCriterion2 = 0.9d-1
+Velo@MGCycType = F
+Velo@MGRelaxPrm = 0.7d0
+----------------- Pressure ---------------------
+Pres@MGMinLev = 1
+Pres@MGMedLev = 1
+Pres@MGMinIterCyc = 2
+Pres@MGMaxIterCyc = 20
+Pres@MGSmoothSteps = 16
+Pres@MGIterCoarse = 799
+Pres@MGDefImprCoarse = 1d-3
+Pres@MGCriterion1 = 1d-3
+Pres@MGCriterion2 = 1d-10
+Pres@MGCycType = F
+Pres@MGCrsSolverType = 4
+------------- Physical parameters --------------
+Prop@Gravity = 0d0,0d0,0d0
+Prop@Density = 1d0,1d0
+Prop@Viscosity = 1d0,1d0    ! Stokes regime: rho 1, mu 1 (kinematic viscosity key)
+Prop@DiffCoeff = 1d-4,1d-4
+Prop@PowerLawExp = 1.0

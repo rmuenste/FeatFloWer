@@ -174,6 +174,25 @@ the Robin sample points outside the box are wrapped before the background
 exchange. The drag ratio is post-processed from the `ChimeraForce`/
 `ChimeraBulk` lines with `validation_cases/m2_hasimoto/hasimoto_k.py`.
 
+## Moving bodies (Phase 6)
+
+`SimPar@ChimeraMotion = prescribed | free` moves the bodies. The
+submesh of body k is solved in its translating frame: the mesh stays at
+the initial fit, the Robin data are taken from the background at the
+shifted (and wrapped) sample points with the frame velocity subtracted,
+the fictitious force `-rho dU_k/dt` is added as a uniform body force,
+the inner Dirichlet data are `Omega x r`, and the fringe/penalty data go
+back to the lab frame (`u' + U_k`, rigid velocity in the hole). The
+strong variant re-classifies the markers every step, the weak variant
+re-tabulates the lumped penalty on all levels; the Stokes-frozen
+factorisation stays valid (frame change instead of ALE). Free spheres
+integrate Newton–Euler explicitly with a virtual-mass stabilisation
+(`ChimeraAddedMass`); the driving is `ChimeraBodyGravity` (buoyancy
+corrected). Restart files (`CHIMERA_RESTART_V2`) carry the body
+kinematics; V1 files still load. Validation cases: RUNBOOK
+`validation_cases/m3_moving/RUNBOOK.md` (Galilean check of the Hasimoto
+sphere, free sedimentation in the periodic cell).
+
 ## Component layout
 
 `source/src_chimera/` (see its README.md for the layer rules and file

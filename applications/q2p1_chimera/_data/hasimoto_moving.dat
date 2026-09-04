@@ -1,0 +1,5 @@
+# Chimera body table: Hasimoto sphere translating at minus the superficial
+# velocity of the static f = 1 case (Galilean check, ChimeraMotion = prescribed).
+# Columns after H: ux uy uz  wx wy wz  rho_s
+1
+sphere  0.5 0.5 0.5   0.1666665313213737  0.1666665313213737   0 0 -0.17523269   0 0 0   0

@@ -443,6 +443,49 @@ random arrays):**
   collective is adequate for the single-host runs; the interface
   (`CHI_EXCHANGE_BG_EVAL`) is unchanged.
 
+**Phase-6 implementation notes (DONE 2026-09-04, milestone: moving
+bodies, `ChimeraMotion = prescribed | free`):**
+
+- **Body-frame submeshes instead of ALE.** Each submesh is solved in the
+  translating frame of its body: the mesh stays at its initial fit, the
+  frame change `u' = u − U_k` is exact and adds only the fictitious
+  force `−ρ dU_k/dt` (uniform body force, the Phase-5 path), rotation
+  enters through the inner Dirichlet data `Ω × r` (spheres, z-cylinders
+  about their axis). Locator, donor machinery and the Stokes-frozen
+  factorisation are reused unchanged; the lab/body mapping is
+  `image_point` (offset `X_k − X0_k`, minimum image); Robin/Dirichlet
+  sample points are shifted and wrapped (`lab_sample_points`). The
+  design's "constant `dMeshVelo` ALE" is thereby realised analytically.
+- Per coupling update (`advance_bodies`): `X^{n+1} = X^n + Δt U^n`,
+  `a^n = (U^n − U^{n−1})/Δt`, atmosphere admissibility re-checked,
+  markers re-classified (`build_constraints`, strong) or the lumped
+  penalty re-tabulated on all levels (`retabulate_penalty`, weak;
+  the consistent-matrix path is not supported with motion), fringe /
+  penalty data returned to the lab frame (rigid velocity in the hole).
+  After the solve `update_bodies`: explicit Newton–Euler with a
+  virtual-mass factor (`ChimeraAddedMass`) and an implicit Stokes
+  drag/torque linearisation (`ChimeraDragImplicit`; without it the
+  rotational update blows up because `I/(8πμR³) < Δt/2` for small
+  bodies), `ChimeraBody<k>:` state lines; restart V2 carries X, U,
+  U_prev, Ω (V1 files still load). Static mode is bit-identical
+  (Hasimoto and FAC anchors re-checked).
+- Validation (6³ periodic box, D/h 4, RUNBOOK `m3_moving`): Galilean
+  check — the Hasimoto sphere translating at `−U_sup` with f = 1 gives a
+  lab-frame cell average of 0.5 % of `U_sup` (Galilean invariance),
+  mean force 0.9812 (strong) / 0.9808 (weak) against the momentum-balance
+  value 0.9806 and the static Chimera value 0.9726, with a peak-to-peak
+  force variation across 8.4 background-cell crossings of 1.0 % (strong)
+  and 0.63 % (weak) — the smooth-force property of Chimera-W. Free
+  sedimentation in the momentum-conserving periodic cell is stable and
+  reaches force balance to 0.06 %; the relative superficial velocity
+  gives K 6–7 % below the static value and the sphere+fluid drift
+  slowly together — the static 0.8 % momentum leak of the overlap
+  integrated in time. The leak (variationally consistent forces) is
+  therefore the accuracy item for dynamics, not the motion machinery.
+- Open: H13 (in-step outer iterations; the coupling is the explicit
+  staggered scheme, first order in time), H14 (PE hand-off; the
+  internal integrator covers spheres), ten Cate in a walled box.
+
 **`chimera_api.f90`** *(Phase 0 onward)* — the facade; thin delegation.
 
 ---
@@ -615,7 +658,7 @@ CMake: `chimera_config.f90` → `src_util` list; `add_library(ff_chimera)`
 | 3 — **M1: static steady Chimera-S** *(DONE 2026-09-02; see §3 Phase-3 notes)* | `chi_markers`, `chi_exchange`, `chi_output`, `chi_coupling` (two-array markers); H1–H6 live; `q2p1_chimera` + vendored channel/annulus case; steady FAC | `chi-markers-cutcell`, `chi-exchange-np{1,2,3}` green; steady FAC `q2p1_chimera_cylinder` pinned (values in the baseline yaml, compared against the body-fitted `q2p1_fc_ext_cylinder` and the DFG band); worker-count invariance; off-regression exact |
 | 4 — Static Chimera-W + unsteady validation *(DONE 2026-09-03; see §3 Phase-4 notes)* | `chi_penalty`; H8/H10/H11/H12/H15 (+ defect sibling); `test_chi_algebra` | `chi-algebra-serial` green; W vs S on steady FAC (`q2p1_chimera_cylinder_weak` pinned); worker-count invariance; fast path = the disabled/strong path runs the original loop (off-regression exact, strong anchor unchanged); restart round trip bit-identical; **unsteady Re 100 one-pass W NOT achieved at L2 — the strong variant diverges identically (RUNBOOK); carried to Phase 5/6 with the L3 background** |
 | 5 — Arrays + periodicity *(DONE 2026-09-04; see §3 Phase-5 notes and `applications/q2p1_chimera/validation_cases/m2_hasimoto/RUNBOOK.md`)* | `chi_periodic` (minimum image / wrap), `SimPar@PeriodicLength`, H_k seeding + sphere-shell + periodic-partition tooling, `ChimeraSubStokes`, submesh body force, `ChimeraBulk` diagnostic, `test_chi_periodic`; halo upgrade deferred (interface unchanged) | `chi-periodic-serial` green; Hasimoto at D/h = 4: K_bal −0.8 % / K_meas −1.6 % (both variants; FBM needs D/h 24–48 for that); corner-placed sphere = centred to 5e-8; FAC anchors bit-identical; 8-sphere array S = W to 0.1 % with ±8 % per-sphere dispersion; Beetstra–Tenneti band: the quasi-ordered configuration the strong atmosphere rule allows at this resolution gives 2.36 (between SC 2.51 and the closures), the Chimera-W thin-atmosphere probe on 0.22 d gaps gives 2.00 (upper edge of the band, one realisation); ensembles carried to the campaign |
-| 6 — Moving | submesh ALE, per-step reclassification, H14 (M3); H13 (M4) | ten Cate / FBM cross-checks; force continuity; `outer_iters=1` flow byte-identical |
+| 6 — Moving *(DONE 2026-09-04 for the motion machinery; see §3 Phase-6 notes and `applications/q2p1_chimera/validation_cases/m3_moving/RUNBOOK.md`)* | body-frame submeshes (no ALE), per-step reclassification / penalty re-tabulation, internal Newton–Euler (virtual mass, implicit drag), restart V2, `ChimeraBody` lines; H13/H14 open | static mode bit-identical; Galilean invariance (cell average 0.5 % of U_sup); force continuity across grid crossings 1.0 % (S) / 0.63 % (W) p2p; free sedimentation stable, force balance 0.06 %, K 6–7 % low (momentum leak); ten Cate open |
 
 ---
 

@@ -102,7 +102,19 @@ the array closures. The halo (neighbourhood) exchange upgrade is still
 behind the unchanged `CHI_EXCHANGE_BG_EVAL` interface (not needed for the
 replicated single-host runs of this phase).
 
-## Hooks in existing code (complete list as of Phase 5)
+Phase 6 (moving bodies) notes: no submesh ALE — each submesh is solved
+in the translating frame of its body (exact frame change: `u' = u - U_k`,
+fictitious force `-rho a_k`, rotation through the inner Dirichlet data),
+so mesh, locator and the Stokes-frozen factorisation are reused; the
+lab/body mapping is `image_point` (offset `X_k - X0_k`, minimum image).
+Per coupling update: `advance_bodies` (X += dt U, a = ΔU/dt,
+`build_constraints` or `retabulate_penalty`, `lab_sample_points`),
+then the usual solve, then `update_bodies` (explicit Newton–Euler with
+virtual mass, `ChimeraBody<k>:` lines). The PE hand-off (H14) and the
+in-step outer iteration (H13) remain open; the coupling is the explicit
+staggered scheme (first order in time).
+
+## Hooks in existing code (complete list as of Phase 6)
 
 - `source/src_quadLS/QuadSc_main.f90` — hook H1 in
   `Transport_q2p1_UxyzP_fluid_core` (guarded `Chimera_BeginStep`).
