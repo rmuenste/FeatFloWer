@@ -200,7 +200,7 @@ USE var_QuadScalar,ONLY:Tracer
 implicit none
 
 LOGICAL bMDExists
-REAL*8 dMDMissing
+REAL*8 dMDMissing, dCoorBad, dExtC
 character(60), intent(in) :: startFrom
 character(60) :: fieldName
 integer, intent(in) :: iLevel
@@ -231,9 +231,40 @@ packed(1)%p => QuadSc%auxU
 packed(2)%p => QuadSc%auxV
 packed(3)%p => QuadSc%auxW
 call read_q2_sol(fieldName, startFrom,ilevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,3, packed)
+! Sanity guard before overwriting the mesh (v24f seg-2 lesson, 2026-09-04):
+! legacy SolToFile dumps stored the raw aux work arrays under "coordinates",
+! and blindly loading them destroys dcorvg (NaN on the first residual).
+! Accept the loaded coordinates only if finite and bounding-box-consistent
+! with the current mesh (true for genuine static or adapted coordinates);
+! otherwise keep the setup mesh.
+dCoorBad = 0d0
+IF (myid.ne.0) THEN
+ IF (ANY(QuadSc%auxU.NE.QuadSc%auxU) .OR. ANY(QuadSc%auxV.NE.QuadSc%auxV) .OR. &
+     ANY(QuadSc%auxW.NE.QuadSc%auxW)) THEN
+  dCoorBad = 1d0
+ ELSE
+  dExtC = MAXVAL(mg_mesh%level(nlmax+1)%dcorvg) - MINVAL(mg_mesh%level(nlmax+1)%dcorvg) + 1d-30
+  IF (ABS(MAXVAL(QuadSc%auxU)-MAXVAL(mg_mesh%level(nlmax+1)%dcorvg(1,:))) .GT. 1d-2*dExtC .OR. &
+      ABS(MINVAL(QuadSc%auxU)-MINVAL(mg_mesh%level(nlmax+1)%dcorvg(1,:))) .GT. 1d-2*dExtC .OR. &
+      ABS(MAXVAL(QuadSc%auxV)-MAXVAL(mg_mesh%level(nlmax+1)%dcorvg(2,:))) .GT. 1d-2*dExtC .OR. &
+      ABS(MINVAL(QuadSc%auxV)-MINVAL(mg_mesh%level(nlmax+1)%dcorvg(2,:))) .GT. 1d-2*dExtC .OR. &
+      ABS(MAXVAL(QuadSc%auxW)-MAXVAL(mg_mesh%level(nlmax+1)%dcorvg(3,:))) .GT. 1d-2*dExtC .OR. &
+      ABS(MINVAL(QuadSc%auxW)-MINVAL(mg_mesh%level(nlmax+1)%dcorvg(3,:))) .GT. 1d-2*dExtC) THEN
+   dCoorBad = 1d0
+  END IF
+ END IF
+END IF
+CALL COMM_Maximum(dCoorBad)
+IF (dCoorBad.GT.0.5d0) THEN
+ IF (myid.eq.1) THEN
+  WRITE(*,*) 'read_sol_from_file: dump coordinates fail the sanity check - keeping the setup mesh'
+  CALL FLUSH(6)
+ END IF
+ELSE
 mg_mesh%level(nlmax+1)%dcorvg(1,:) = QuadSc%auxU
 mg_mesh%level(nlmax+1)%dcorvg(2,:) = QuadSc%auxV
 mg_mesh%level(nlmax+1)%dcorvg(3,:) = QuadSc%auxW
+END IF
 
 IF (allocated(Temperature)) then
  fieldName = "temperature"
@@ -263,6 +294,7 @@ IF (allocated(MaterialDistribution)) then
   MaterialDistribution(NLMAX)%x(1:knel(NLMAX)) = QuadSc%auxU((knvt(NLMAX) + knat(NLMAX) + knet(NLMAX))+1:)
  ELSE IF (myid.eq.1) THEN
   WRITE(*,*) 'read_sol_from_file: MaterialDistribution.dmp absent in dump - keeping setup field'
+  CALL FLUSH(6)
  END IF
 END IF
 if (allocated(GenLinScalar%Fld)) then
