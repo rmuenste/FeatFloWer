@@ -417,7 +417,25 @@ random arrays):**
   residual −0.82 %; weak (γ 1e5, Phase-4 settings) 1.8008 / 1.8157;
   corner-placed sphere (atmosphere across all six periodic faces) equal
   to the centred one to 5e-8. FBM (D1.1) needs D/h = 24 for −2.3 %.
-  L3 rungs and the 8-sphere random array (φ 0.05): see the RUNBOOK.
+  D/h = 8 (L3 background, level-2 atmosphere): strong 1.8034 / 1.8151,
+  weak 1.8024 / 1.8140, balance residual −0.66 % (halved) — the
+  remaining ≈ 1 % is the atmosphere discretisation; the level-3 shell
+  (362598 unknowns) exceeds the direct solver (UMFPACK failure; Vanka/MG
+  or 64-bit UMFPACK is the upgrade path).
+- Random array, 8 spheres, φ = 0.05, L3 background: strong mean K
+  2.356 / K_bal 2.364, weak 2.354 / 2.362, per-sphere forces equal to
+  4 digits (spread ±8 % = the FF-EL dispersion datum). The value sits
+  between the SC lattice (2.51) and the random-array closures
+  (Beetstra 1.76, Hill–Koch–Ladd 1.95, Tenneti 1.53): the strong
+  variant's fringe rule forces `gap ≳ 4h` (0.73 d here), so the seeded
+  configuration is a perturbed lattice, not hard-sphere microstructure —
+  the Beetstra–Tenneti band is a resolution question (h ≲ 0.012 d for
+  0.05 d gaps) for Chimera-S. The Chimera-W probe on a configuration
+  with 0.22 d gaps and atmospheres down to 0.6 background cells runs
+  stably (balance +0.2 %) and gives mean K 2.003 — 2.5 % above
+  Hill–Koch–Ladd, 14 % above Beetstra, i.e. the upper edge of the band
+  for one realisation: random arrays with closure-fit microstructure
+  are a Chimera-W job on coarse backgrounds.
 - Off-regression: FAC strong/weak anchors bit-identical after the
   Phase-5 changes; `q2p1_fc_ext` protocol unchanged (parser key inert
   when absent).
@@ -596,7 +614,7 @@ CMake: `chimera_config.f90` → `src_util` list; `add_library(ff_chimera)`
 | 2 — Submesh subsystem *(reviewer-cleared; DONE 2026-09-02)* | `chi_kernels` (new reentrant kernels), `chi_legacy_mesh_adapter`, `chi_submesh/solver/forces`, meshgen | annular Couette 2nd-order L2 (Q1-geometry limit; measured 2.08), torque → −8π/3 (1.0 % at L3), Robin consistency, sign tests — all green (`chi-submesh-couette`) |
 | 3 — **M1: static steady Chimera-S** *(DONE 2026-09-02; see §3 Phase-3 notes)* | `chi_markers`, `chi_exchange`, `chi_output`, `chi_coupling` (two-array markers); H1–H6 live; `q2p1_chimera` + vendored channel/annulus case; steady FAC | `chi-markers-cutcell`, `chi-exchange-np{1,2,3}` green; steady FAC `q2p1_chimera_cylinder` pinned (values in the baseline yaml, compared against the body-fitted `q2p1_fc_ext_cylinder` and the DFG band); worker-count invariance; off-regression exact |
 | 4 — Static Chimera-W + unsteady validation *(DONE 2026-09-03; see §3 Phase-4 notes)* | `chi_penalty`; H8/H10/H11/H12/H15 (+ defect sibling); `test_chi_algebra` | `chi-algebra-serial` green; W vs S on steady FAC (`q2p1_chimera_cylinder_weak` pinned); worker-count invariance; fast path = the disabled/strong path runs the original loop (off-regression exact, strong anchor unchanged); restart round trip bit-identical; **unsteady Re 100 one-pass W NOT achieved at L2 — the strong variant diverges identically (RUNBOOK); carried to Phase 5/6 with the L3 background** |
-| 5 — Arrays + periodicity *(DONE 2026-09-04; see §3 Phase-5 notes and `applications/q2p1_chimera/validation_cases/m2_hasimoto/RUNBOOK.md`)* | `chi_periodic` (minimum image / wrap), `SimPar@PeriodicLength`, H_k seeding + sphere-shell + periodic-partition tooling, `ChimeraSubStokes`, submesh body force, `ChimeraBulk` diagnostic, `test_chi_periodic`; halo upgrade deferred (interface unchanged) | `chi-periodic-serial` green; Hasimoto at D/h = 4: K_bal −0.8 % / K_meas −1.6 % (both variants; FBM needs D/h 24–48 for that); corner-placed sphere = centred to 5e-8; FAC anchors bit-identical; random array vs Beetstra/Tenneti: RUNBOOK |
+| 5 — Arrays + periodicity *(DONE 2026-09-04; see §3 Phase-5 notes and `applications/q2p1_chimera/validation_cases/m2_hasimoto/RUNBOOK.md`)* | `chi_periodic` (minimum image / wrap), `SimPar@PeriodicLength`, H_k seeding + sphere-shell + periodic-partition tooling, `ChimeraSubStokes`, submesh body force, `ChimeraBulk` diagnostic, `test_chi_periodic`; halo upgrade deferred (interface unchanged) | `chi-periodic-serial` green; Hasimoto at D/h = 4: K_bal −0.8 % / K_meas −1.6 % (both variants; FBM needs D/h 24–48 for that); corner-placed sphere = centred to 5e-8; FAC anchors bit-identical; 8-sphere array S = W to 0.1 % with ±8 % per-sphere dispersion; Beetstra–Tenneti band: the quasi-ordered configuration the strong atmosphere rule allows at this resolution gives 2.36 (between SC 2.51 and the closures), the Chimera-W thin-atmosphere probe on 0.22 d gaps gives 2.00 (upper edge of the band, one realisation); ensembles carried to the campaign |
 | 6 — Moving | submesh ALE, per-step reclassification, H14 (M3); H13 (M4) | ten Cate / FBM cross-checks; force continuity; `outer_iters=1` flow byte-identical |
 
 ---

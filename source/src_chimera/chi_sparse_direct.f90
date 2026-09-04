@@ -125,7 +125,11 @@ CONTAINS
     IF (slv%symbolic .LT. 0) THEN
       CALL umf4sym(slv%n, slv%n, slv%Ap0, slv%Ai0, slv%Ax, slv%symbolic, &
                    slv%control, slv%info)
-      IF (slv%symbolic .LT. 0 .OR. slv%info(1) .LT. 0d0) RETURN
+      IF (slv%symbolic .LT. 0 .OR. slv%info(1) .LT. 0d0) THEN
+        WRITE(*,'(A,I0,A,I0,A,F6.0)') 'SD_FACTORIZE: UMFPACK symbolic failed, n = ', &
+          slv%n, ', nnz = ', slv%nz, ', info(1) = ', slv%info(1)
+        RETURN
+      END IF
     END IF
 
     IF (slv%numeric .GE. 0) THEN
@@ -134,7 +138,11 @@ CONTAINS
     END IF
     CALL umf4num(slv%Ap0, slv%Ai0, slv%Ax, slv%symbolic, slv%numeric, &
                  slv%control, slv%info)
-    IF (slv%numeric .LT. 0 .OR. slv%info(1) .LT. 0d0) RETURN
+    IF (slv%numeric .LT. 0 .OR. slv%info(1) .LT. 0d0) THEN
+      WRITE(*,'(A,I0,A,I0,A,F6.0)') 'SD_FACTORIZE: UMFPACK numeric failed, n = ', &
+        slv%n, ', nnz = ', slv%nz, ', info(1) = ', slv%info(1)
+      RETURN
+    END IF
 
     slv%factorized = .TRUE.
     ok = .TRUE.

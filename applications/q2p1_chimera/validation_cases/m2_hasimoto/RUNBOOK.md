@@ -83,8 +83,9 @@ d11_hasimoto/RUNBOOK.md` (same case, same conventions). First executed
 | H_S_L2 | S | 4 | 9.7261000e-3 | 1.7523269e-3 | 1.8020 | −1.63 % | 1.8165 | −0.83 % | −0.82 % | 4.4 min |
 | H_W_L2 | W (γ 1e5) | 4 | 9.7242570e-3 | 1.7531250e-3 | 1.8008 | −1.69 % | 1.8157 | −0.88 % | −0.83 % | 4.3 min |
 | H_Scorner_L2 | S, sphere on the box corner | 4 | 9.7260995e-3 | 1.7523268e-3 | 1.8020 | −1.63 % | 1.8165 | −0.83 % | −0.82 % | 4.4 min |
-| H_S_L3 | S | 8 | TBD | | | | | | | |
-| H_W_L3 | W | 8 | TBD | | | | | | | |
+| H_S_L3 | S | 8 | 9.7416990e-3 | 1.7536560e-3 | 1.8034 | −1.55 % | 1.8151 | −0.91 % | −0.66 % | 7.5 min |
+| H_W_L3 | W (γ 1e5) | 8 | 9.7421350e-3 | 1.7546980e-3 | 1.8024 | −1.60 % | 1.8140 | −0.97 % | −0.65 % | 7.4 min |
+| H_S_L3L3 | S, atmosphere level 3 (362598 unknowns) | 8 | — UMFPACK factorisation of the level-3 shell fails (`frozen factorization failed`, `info(1) < 0`: the 32-bit UMFPACK interface / fill-in of a 3-D Q2/P1 saddle point of this size) — open rung | | | | | | | |
 
 FBM ladder for comparison (D1.1, post-fix, raw K): −6.05 % at D/h 6,
 −5.01 % at 12, −2.29 % at 24, −1.35 % at 48.
@@ -101,10 +102,45 @@ Re → 0: Beetstra et al. (2007) F = 10φ/(1−φ)² + (1−φ)²(1 + 1.5√φ) 
 of K_meas (F_H per sphere; f V_solid split equally) is the number to
 compare; one 8-sphere realisation scatters by several per cent.
 
-| Case | Variant | D/h | mean K_meas | K_bal | balance | wall |
-|---|---|---|---|---|---|---|
-| R8_S_L3 | S | 5.5 | TBD | | | |
-| R8_W_L3 | W | 5.5 | TBD | | | |
+| Case | Variant | D/h | min gap | mean K_meas | K_bal | balance | wall |
+|---|---|---|---|---|---|---|---|
+| R8_S_L3 | S | 5.5 | 0.76 d | 2.3560 | 2.3638 | −0.35 % | 35 min (8 factorisations ≈ 6 min) |
+| R8_W_L3 | W (γ 1e5) | 5.5 | 0.76 d | 2.3535 | 2.3617 | −0.37 % | 35 min |
+| R8rand_W_L3 | W (γ 1e5), `random8_phi005_gap005.dat` (H_k ∈ [0.025, 0.10] = 0.6–2.4 h) | 5.5 | 0.22 d | 2.0031 | 1.9989 | +0.22 % | 34 min |
+
+Per-sphere F_z of R8_S_L3 at t = 4.01 (×1e-3): 1.299, 1.123, 1.168, 1.101,
+1.183, 1.142, 1.224, 1.227 (spread ±8 % around the mean, the
+configuration-dispersion datum of the FF-EL fluctuation model); the weak
+twin reproduces every per-sphere force to 4 digits (mean K within 0.1 %).
+
+**Reading.** 2.36 lies between the simple-cubic value at φ = 0.05
+(Hasimoto formula 2.51; the 2×2×2 lattice of 8 spheres in the unit cell
+is exactly that array) and the random-array closures (1.76–1.95). This
+is the expected signature of a QUASI-ORDERED array: the strong variant's
+atmosphere rule (fringe nodes must lie inside the atmosphere,
+H_k = ½ gap ≳ 2h) forces a minimum gap of 4h = 0.73 d at this
+resolution, and random sequential addition under that constraint yields
+a perturbed lattice, not the hard-sphere microstructure the closures
+were fitted to (memory rule: "enforced minimum gaps bias microstructure").
+The Beetstra/Tenneti band therefore is NOT met by this configuration and
+cannot be by construction; reaching it needs gap/h ≳ 4 at realistic
+gaps (0.05 d → h ≲ 0.012 d, i.e. L5 on the 6³ box) or the weak variant
+with thin atmospheres (no fringe requirement).
+
+**Thin-atmosphere probe (`R8rand_W_L3`).** The weak variant on a
+configuration seeded with `--mingap 0.05` (realised min gap 0.22 d; the
+two closest spheres get H_k = 0.025 = 0.6 background cells, i.e. a
+shell of four Q2 layers 0.006 thick) runs stably and conservatively
+(balance +0.2 %) and gives mean K = 2.003: 2.5 % above the Hill–Koch–Ladd
+random-array value (1.95), 14 % above Beetstra (1.76), 31 % above
+Tenneti (1.53) — the upper edge of the closure band, for ONE 8-sphere
+realisation (per-sphere F_z from 0.93e-3 to 1.45e-3, ±22 %). The
+strong→weak change on the same 0.76 d configuration was 0.1 %, so the
+drop from 2.36 to 2.00 is the microstructure, not the variant. Random
+arrays with the closure-fit microstructure are therefore a Chimera-W
+job on this background; the strong variant needs gap ≳ 4h. Ensemble
+statistics (several seeds, larger N) are the next campaign step, not a
+Phase-5 deliverable.
 
 ## Reading of the ladder
 
@@ -129,10 +165,19 @@ compare; one 8-sphere realisation scatters by several per cent.
 
 ## Open rungs
 
-- L3 atmosphere (`ChimeraSubmeshLev 3`, 12288 hexes, ~350k unknowns per
-  body) at the L3/L4 background — memory is available (377 GB) but the
-  factorisation is minutes per body on this core.
+- L3 atmosphere (`ChimeraSubmeshLev 3`, 12288 hexes, 362598 unknowns per
+  body): the direct factorisation FAILS (UMFPACK error; the design's
+  drop-in upgrade is a Vanka/MG submesh solver behind `CHI_SOLVE_STEADY_TAB`,
+  or the 64-bit UMFPACK interface). The ladder above is therefore a
+  background-only refinement at a fixed level-2 atmosphere: K_bal moves
+  by −0.1 % from D/h 4 to 8 while the balance residual halves, i.e. the
+  remaining ≈ 1 % is the atmosphere discretisation (four Q2 layers across
+  H = R; the Phase-2 note that curved-boundary surface stress converges
+  at ~O(h^1.5)).
 - Halo (neighbourhood) exchange upgrade of `chi_exchange` for many-body
   arrays on many ranks (the replicated collective is O(N_points) per
   rank; irrelevant for 9 ranks).
 - Variationally consistent forces (the balance residual is the target).
+- Random-array ensembles (seeds × N) with the weak variant and thin
+  atmospheres, and the strong variant at h ≲ 0.012 d, to place the
+  in-house F(φ) curve against Beetstra/Tenneti with error bars.
