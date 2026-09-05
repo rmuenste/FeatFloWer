@@ -63,11 +63,12 @@ change.
 
 ```text
 heat_start.py
-  -> parse -f/--in-folder, -n/--num-processors, optional --use-srun
-  -> copy OFF/STL assets from the case folder into the working directory
-  -> copy <case>/heat.s3d to _data/heat.s3d
+  -> parse -f/--in-folder, -n/--num-processors, optional -C/--case and --use-srun
+  -> prepare and enter case directory; seed missing runtime defaults
+  -> copy <input>/heat.s3d unchanged to _data/heat.s3d
+  -> read geometry directly through case-relative or absolute references
   -> run s3d_mesher -a heat
-  -> use generated _data/meshDir or copy <case>/meshDir fallback
+  -> use generated _data/meshDir or copy <input>/meshDir fallback
   -> partition _data/meshDir/file.prj for numProcessors - 1 worker ranks
   -> launch heat through mpirun or srun
 

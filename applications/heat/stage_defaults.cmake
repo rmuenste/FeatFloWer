@@ -1,0 +1,12 @@
+# Seed only missing defaults so repeat staging preserves local parameter edits.
+foreach(dir _data _mesh _vtk _dump start)
+  file(MAKE_DIRECTORY "${HEAT_RUNTIME}/${dir}")
+endforeach()
+foreach(rel _data/q2p1_param.dat start/sampleRigidBody.xml start/data.TXT)
+  if(NOT EXISTS "${HEAT_RUNTIME}/${rel}")
+    configure_file("${HEAT_SOURCE}/${rel}" "${HEAT_RUNTIME}/${rel}" COPYONLY)
+  endif()
+endforeach()
+if(NOT EXISTS "${HEAT_RUNTIME}/_data/MG.dat")
+  configure_file("${FF_SOURCE}/_data/MG.dat" "${HEAT_RUNTIME}/_data/MG.dat" COPYONLY)
+endif()

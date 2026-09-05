@@ -11,9 +11,12 @@
 
 ## Geometry Assets
 
-The launcher copies `*.off` and `*.OFF` files from the selected case folder into
-the working directory. `_data/heat.s3d` points each heat segment at one or more
-OFF/STL-style geometry files through `ScrewOFF(...)`.
+The launcher does not copy or delete geometry. `_data/heat.s3d` points each heat
+segment at geometry through `ScrewOFF(...)`. Relative paths resolve against
+the case working directory (`-C`, default invocation directory); absolute paths
+are used unchanged. The `-f` input folder is not a geometry search directory.
+For example, geometry stored at `<case>/input/steel.off` must be referenced as
+`input/steel.off`. The input `heat.s3d` is staged without rewriting its contents.
 
 The build/install layout may also provide default heat cases under
 `_ianus/HEAT`.
@@ -36,7 +39,7 @@ values, heat-source limits, sensor definitions, and OFF files. Then
 `heat_start.py` runs:
 
 ```text
-./s3d_mesher -a heat
+<installation>/s3d_mesher -a heat
 ```
 
 The solver expects `_data/meshDir/file.prj` and the generated mesh directory. If

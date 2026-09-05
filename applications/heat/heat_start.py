@@ -3,54 +3,47 @@
 """
 A python launcher script for a FeatFloWer application
 """
-from tempfile import mkstemp
-from shutil import move
-from os import fdopen, remove
 import os
 import shutil
 import sys
+from pathlib import Path
 try:
     sys.path.append(os.environ['FF_PY_HOME'])
 except:
     pass
-import partitioner
-import xml.etree.ElementTree as ET
+try:
+    import partitioner
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools'))
+    import partitioner
 import getopt
-import platform
 import subprocess
 import re
-import json
-import pprint
+try:
+    from e3d_layout import RunLayout, absolute_from_invocation, CASE_SEED_FILES
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools' / 'e3d_scripts'))
+    from e3d_layout import RunLayout, absolute_from_invocation, CASE_SEED_FILES
 
-if sys.version_info[0] < 3:
-    from pathlib2 import Path
-else:
-    from pathlib import Path
-
-#===============================================================================
-#               Remove off files from working dir
-#===============================================================================
-def cleanWorkingDir(workingDir):
-    if not sys.platform == "win32":
-        offList = list(workingDir.glob('*.off')) + list(workingDir.glob('*.OFF'))
-    else: 
-        offList = list(workingDir.glob('*.off'))
-
-    for item in offList:
-        os.remove(str(item))
+HEAT_DIRS = ('_data', '_mesh', '_vtk', '_dump', 'start')
+HEAT_SEEDS = CASE_SEED_FILES + (Path('_data/q2p1_param.dat'),)
 
 #===============================================================================
 #                          setup the case folder 
 #===============================================================================
-def folderSetup(workingDir, projectFolder):
-    offList = []
-    if not sys.platform == "win32":
-        offList = list(Path(projectFolder).glob('*.off')) + list(Path(projectFolder).glob('*.OFF'))
-    else: 
-        offList = list(Path(projectFolder).glob('*.off'))
+def checked_case_path(case, relative):
+    """Reject runtime symlinks before writing or removing case data."""
+    path = case
+    for part in Path(relative).parts:
+        path = path / part
+        if path.is_symlink():
+            raise ValueError(f'Runtime path must not be a symlink: {path}')
+    return path
 
-    for item in offList:
-        shutil.copyfile(str(item), str(workingDir / item.name))
+
+def paths_overlap(first, second):
+    first, second = first.resolve(), second.resolve()
+    return first == second or first in second.parents or second in first.parents
 
 #===============================================================================
 #                      Function: Usage
@@ -60,23 +53,10 @@ def usage():
     print("Where options can be:")
     print("[-h, --help]: prints this message")
     print("[-n, --num-processors]: defines the number of parallel jobs to be used")
-    print("[-f, --in-folder]: defines the input project file (will be replaced in the q2p1-data-file)")
-
-def replace(file_path, pattern, subst):
-    #Create temp file
-    fh, abs_path = mkstemp()
-    with fdopen(fh,'w') as new_file:
-        with open(file_path) as old_file:
-            for line in old_file:
-                #new_file.write(line.replace(pattern, subst))
-                if pattern in line:
-                    new_file.write(line.replace(line, subst + "\n"))
-                else:
-                    new_file.write(line)
-    #Remove original file
-    remove(file_path)
-    #Move new file
-    move(abs_path, file_path)
+    print("[-f, --in-folder]: input folder containing heat.s3d and optional meshDir")
+    print("[-C, --case]: case directory (default: current directory)")
+    print("[-u, --use-srun]: launch with srun instead of mpirun")
+    print("Geometry paths are case-relative or absolute; geometry is not copied.")
 
 def parse_partition_format(param_file):
     """
@@ -166,19 +146,18 @@ def detect_node_count():
 def main(argv):
     inputFile = '_data/meshDir/file.prj'
     inputCaseFolder = ''
-    inputCaseFile = ''
-    outputFile = ''
     useSrun = False
+    caseDir = ''
 
     numProcessors = -1
 
     try:
-        opts, args = getopt.getopt(argv, "huf:n:", 
-                                ["help", "use-srun", "in-folder=", "num-processors="])
-    except getopt.GetoptError:
-        sys.exit(2)
+        opts, args = getopt.getopt(argv, "huf:n:C:",
+                                ["help", "use-srun", "in-folder=", "num-processors=", "case="])
+    except getopt.GetoptError as error:
+        raise ValueError(str(error)) from error
     for opt, arg in opts:
-        if opt == '-h':
+        if opt in ('-h', '--help'):
             usage()
             sys.exit()
         elif opt in ("-n", "--num-processors"):
@@ -187,28 +166,54 @@ def main(argv):
             inputCaseFolder = arg
         elif opt in ('-u', '--use-srun'):
             useSrun = True
+        elif opt in ('-C', '--case'):
+            caseDir = arg
         else:
             usage()
             sys.exit(2)
 
-    print('Number Of Processors is: '+ str(numProcessors))
-    
-    inputCaseFile = inputCaseFolder+'/heat.s3d'
-    print('Input case file is '+ inputCaseFile)
-
-    workingDir = Path('.')
-    folderSetup(workingDir, inputCaseFolder)
-    
-    shutil.copyfile(inputCaseFile, "_data/heat.s3d")
-
-    #replace("_data/q2p1_param.dat",
-            #"SimPar@ProjectFile = ",
-            #"SimPar@ProjectFile = '" + inputFile + "'")
-
-    if os.path.exists("_data/meshDir"):
-        shutil.rmtree("_data/meshDir")
-
-    subprocess.call(['./s3d_mesher -a %s' %('heat')], shell=True)
+    if args or not inputCaseFolder or numProcessors < 2:
+        raise ValueError('Specify -f INPUT and -n RANKS (at least 2); no positional arguments')
+    invocation = Path.cwd()
+    layout = RunLayout(
+        case_dir=absolute_from_invocation(caseDir, invocation) or invocation,
+        install_dir_env='FF_HEAT_HOME', runtime_dirs=HEAT_DIRS, seed_files=HEAT_SEEDS)
+    direct = Path(absolute_from_invocation(inputCaseFolder, invocation))
+    project = direct if direct.exists() else layout.resolve_input(inputCaseFolder)
+    project = project.resolve()
+    inputCaseFolder = str(project)
+    inputCaseFile = project / 'heat.s3d'
+    if not inputCaseFile.is_file():
+        raise ValueError(f'Missing input configuration: {inputCaseFile}')
+    mesher, solver = layout.exe('s3d_mesher'), layout.exe('heat')
+    for executable in (mesher, solver):
+        if not os.access(executable, os.X_OK):
+            raise ValueError(f'Not executable: {executable}')
+    for relative in HEAT_DIRS + tuple(str(p) for p in HEAT_SEEDS) + ('_data/heat.s3d',):
+        checked_case_path(layout.case_dir, relative)
+    mesh = checked_case_path(layout.case_dir, '_data/meshDir')
+    if ((project / 'meshDir').exists() and paths_overlap(project / 'meshDir', mesh)
+            or paths_overlap(inputCaseFile, mesh)):
+        raise ValueError('Input mesh/configuration overlaps runtime _data/meshDir')
+    for seed in HEAT_SEEDS:
+        if not (layout.case_dir / seed).is_file() and not (layout.install_dir / seed).is_file():
+            raise ValueError(f'Missing runtime default: {seed}')
+    for name in ('HOSTFILE', 'PBS_NODEFILE', 'OMPI_MCA_rankfile'):
+        if os.environ.get(name):
+            os.environ[name] = absolute_from_invocation(os.environ[name], invocation)
+    print(layout.describe())
+    if (layout.case_dir / '_data/q2p1_param.dat').exists():
+        print('[layout] retaining case _data/q2p1_param.dat')
+    layout.prepare_case()
+    layout.enter_case()
+    destination = layout.case_dir / '_data/heat.s3d'
+    if not destination.exists() or not os.path.samefile(inputCaseFile, destination):
+        shutil.copyfile(inputCaseFile, destination)
+    if mesh.exists():
+        shutil.rmtree(mesh)
+    mesher_status = subprocess.call([mesher, '-a', 'heat'])
+    if mesher_status:
+        print(f'Mesher exited with status {mesher_status}; checking mesh/fallback')
 
     # Check if mesh was generated, if not check if there is one provided in the case folder. If not EXIT!
     if not os.path.exists("_data/meshDir"):
@@ -219,6 +224,9 @@ def main(argv):
               "folder present the case folder " + inputCaseFolder)
         sys.exit(2)
       
+    if not Path(inputFile).is_file():
+        raise ValueError(f'Missing mesh project: {inputFile}')
+
     # Call the partitioner
     param_file = Path("_data") / "q2p1_param.dat"
     partition_format = parse_partition_format(str(param_file))
@@ -243,16 +251,18 @@ def main(argv):
     # Configure the launch command and start a simulation
     launchCommand = ""
     if useSrun:
-        launchCommand = "srun ./heat"
+        launchCommand = ['srun', solver]
     else:
-        launchCommand = 'mpirun -np %i ./%s' %(numProcessors, 'heat')
+        launchCommand = ['mpirun', '-np', str(numProcessors), solver]
 
     # Start the simulation as a subprocess
-    exitCode = subprocess.call([launchCommand], shell=True)
-
-    cleanWorkingDir(workingDir)
+    exitCode = subprocess.call(launchCommand)
     if exitCode != 0:
       sys.exit(exitCode)
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    try:
+        main(sys.argv[1:])
+    except (ValueError, OSError) as error:
+        print(f'Error: {error}', file=sys.stderr)
+        sys.exit(2)

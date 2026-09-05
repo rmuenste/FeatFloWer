@@ -59,17 +59,25 @@ CASE_SEED_FILES = (
 
 
 class RunLayout:
-    """Knows where the installation and the case folder are."""
+    """Installation/case paths, with gendie defaults.
 
-    def __init__(self, install_dir=None, case_dir=None, log=print):
+    Other launchers can supply their own environment variable, directory list,
+    and seed list without changing gendie's existing behavior.
+    """
+
+    def __init__(self, install_dir=None, case_dir=None, log=print, *,
+                 install_dir_env=INSTALL_DIR_ENV, runtime_dirs=CASE_RUNTIME_DIRS,
+                 seed_files=CASE_SEED_FILES):
         if install_dir is None:
-            install_dir = os.environ.get(INSTALL_DIR_ENV)
+            install_dir = os.environ.get(install_dir_env)
         if install_dir is None:
             install_dir = Path(sys.argv[0]).resolve().parent
         self.install_dir = Path(install_dir).resolve()
         self.case_dir = Path(case_dir if case_dir is not None else Path.cwd()).resolve()
         self._log = log
         self._reported = set()
+        self.runtime_dirs = tuple(runtime_dirs)
+        self.seed_files = tuple(Path(p) for p in seed_files)
 
     # ------------------------------------------------------------------ #
     # Queries
@@ -130,9 +138,9 @@ class RunLayout:
     def prepare_case(self):
         """Create the output skeleton and seed static files. Idempotent."""
         self.case_dir.mkdir(parents=True, exist_ok=True)
-        for name in CASE_RUNTIME_DIRS:
+        for name in self.runtime_dirs:
             (self.case_dir / name).mkdir(exist_ok=True)
-        for rel in CASE_SEED_FILES:
+        for rel in self.seed_files:
             target = self.case_dir / rel
             if target.exists():
                 continue
