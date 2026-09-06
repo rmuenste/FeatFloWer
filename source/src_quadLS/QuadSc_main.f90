@@ -575,7 +575,7 @@ use PP3D_MPI, only: Barrier_myMPI, Sum_myMPI
 #ifdef HAVE_PE
 use dem_query, only: numLocalParticles, numTotalParticles, &
                      get_lubrication_enabled, get_lubrication_stage_diag, &
-                     isSphere, getParticleOrientation
+                     isEllipsoid, getParticleOrientation
 #endif
 external E013
 
@@ -953,7 +953,7 @@ IF (bPrintParticleState .AND. enable_fbm) THEN
     ! direction of the body a-axis). Sphere-only runs print nothing here.
     ! Serial PE only: rank 1 holds the full particle world.
     DO ipart_ax = 0, NINT(dres_buf(2))-1
-      IF (.NOT. isSphere(ipart_ax)) THEN
+      IF (isEllipsoid(ipart_ax)) THEN
         CALL getParticleOrientation(ipart_ax, part_axis)
         WRITE(*,'(A,ES16.8,A,I6,A,3ES17.8)') &
           'DNS_PART_AXIS time= ', timens, ' ip= ', ipart_ax, &

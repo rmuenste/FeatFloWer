@@ -389,6 +389,19 @@ logical(c_bool) function isSphere(idx) bind(C, name="isTypeSphere")
 end interface
 
 !================================================================================================
+!                              Function isEllipsoid
+! C++ implementation: isEllipsoidType() via the extern-C wrapper isTypeEllipsoid in
+! libs/pe/pe/interface/c_interface_queries.h. The DNS_PART_AXIS record filters on
+! this rather than "not a sphere" so wall planes/boxes stay silent.
+!================================================================================================
+interface
+logical(c_bool) function isEllipsoid(idx) bind(C, name="isTypeEllipsoid")
+  use iso_c_binding, only: c_int, c_bool
+  integer(c_int) :: idx
+  end function
+end interface
+
+!================================================================================================
 !                              Subroutine getParticleOrientation
 ! C++ implementation: getObjOrientation() via the extern-C wrapper in
 ! libs/pe/pe/interface/c_interface_queries.h. Returns the world-frame
