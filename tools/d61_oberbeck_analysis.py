@@ -18,18 +18,20 @@ Usage: d61_oberbeck_analysis.py <rundir_v0> <rundir_v1> <rundir_v2> [rundir_v3]
 Each rundir needs particle_force.log and bulk_flow.log.
 """
 import math
+import os
 import sys
 
+SCALE = float(os.environ.get("D61_SCALE", "1.0"))  # body-size scale (V5 half-size rung: 0.5)
 MU = 1.0           # Prop@Viscosity (campaign units, rho=1)
 L_CELL = 1.0       # periodic cell edge
 R_SPHERE = 1.0 / 6.0
 RE_ASPECT = 2.0
-B_MINOR = R_SPHERE / 2.0 ** (1.0 / 3.0)      # 0.13228342...
-A_MAJOR = 2.0 * B_MINOR                      # 0.26456684...
+B_MINOR = SCALE * R_SPHERE / 2.0 ** (1.0 / 3.0)
+A_MAJOR = 2.0 * B_MINOR
 H_L3 = 1.0 / 36.0
 AEFF_C = 0.14                                # a_eff ~ a + 0.14 h (d11_rh_collapse)
 K_L3_CERTIFIED = 1.7404                      # RUNBOOK L3 row (job 137540)
-SOLID_NOMINAL = 0.019392547                  # (4/3) pi r^3 = (4/3) pi a b^2 (matched)
+SOLID_NOMINAL = 0.019392547 * SCALE**3       # (4/3) pi a b^2 at the current scale
 DLNK_DLNR = 1.87                             # d11 sensitivity dlnK/dlnr
 
 
