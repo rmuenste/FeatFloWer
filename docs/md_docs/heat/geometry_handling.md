@@ -11,15 +11,22 @@
 
 ## Geometry Assets
 
-The launcher does not copy or delete geometry. `_data/heat.s3d` points each heat
-segment at geometry through `ScrewOFF(...)`. Relative paths resolve against
-the case working directory (`-C`, default invocation directory); absolute paths
-are used unchanged. The `-f` input folder is not a geometry search directory.
-For example, geometry stored at `<case>/input/steel.off` must be referenced as
-`input/steel.off`. The input `heat.s3d` is staged without rewriting its contents.
+The launcher copies top-level `.off`/`.OFF` files from the input folder to the
+case root and does not delete them after the run. `_data/heat.s3d` points each
+heat segment at geometry through `ScrewOFF(...)`. Relative paths resolve
+against the case working directory (`-C`, default invocation directory), so a
+bare `steel.off` refers to the staged case copy. Absolute paths are used
+unchanged. Geometry in input subdirectories is not staged and must use a
+case-relative or absolute reference. The input `heat.s3d` is staged without
+rewriting its contents.
 
 The build/install layout may also provide default heat cases under
 `_ianus/HEAT`.
+
+The input folder also supplies `sampleRigidBody.xml` beside `heat.s3d`. The
+launcher copies it to `<case>/start/sampleRigidBody.xml` on every run. Boundary
+surface paths such as `wall_1.off` in that XML are resolved against the case
+working directory, not against the input folder or the `start` directory.
 
 ## Parser To Geometry Registration
 

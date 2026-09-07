@@ -1,0 +1,112 @@
+
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<root>
+    <ApplicationSettings
+        startType = "0"
+        liquidSolid = "1"
+        solution = "solution/particles.start0"
+        nBodies = "1"
+        bodyInit = "0"
+        bodyFile = "defaultBodies.i3d"
+        defaultDensity = "1.5"
+        liquidDensity = "962"
+        defaultRadius = "0.05"
+        gravity = "0.0 0.0 -9.81"
+        totalTimesteps = "1000"
+        timeStep = "0.001"
+        solverType = "0"
+        lcpSolverIterations = "1000"
+        collPipelineIterations = "1"
+        extents ="-2.5 2.5 -2.5 2.5 0.0 5.0 "
+        cgalConfigFile = "mesh_names.offs"
+        doFBM = "1"
+        doDynamics = "0"
+    >
+    </ApplicationSettings>
+    <RigidBodyList size = "1">
+        <RigidBody
+            type = "15"
+            position = "0.0 0.0 0.0"
+            velocity = "0.0 0.0 0.0"
+            angularVelocity = "0.0 0.0 0.0"
+            orientation = "0.0 0.0 0.0"
+            force = "0.0 0.0 0.0"
+            torque = "0.0 0.0 0.0"
+            boxExtents = "0.0075 0.0075 0.0075"
+            U = "1.0 0.0 0.0"
+            V = "0.0 1.0 0.0"
+            W = "0.0 0.0 1.0"
+            density = "1120"
+            tensor = "0.0 0.0 0.0"
+            volume = "0.0"
+            restitution = "0.0"
+            affectedByGravity = "1"
+            meshFile = "_adc/reiloy/Reiloy_S1Main.off"
+            doDynamics = "0"
+            doFBM = "1"
+        >
+        </RigidBody>
+    </RigidBodyList>
+    <BoundaryDescription ncomponents = "30">
+<BoundaryShape type="1" meshFile="wall_1.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_2.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_3.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_4.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_5.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_6.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_7.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_8.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_9.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_10.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_11.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_12.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_13.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_14.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_15.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_16.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_17.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_18.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_19.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_20.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_21.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_22.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_23.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_24.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_25.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_26.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_27.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_28.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_29.off">
+</BoundaryShape>
+<BoundaryShape type="1" meshFile="wall_30.off">
+</BoundaryShape>
+    </BoundaryDescription>
+</root>

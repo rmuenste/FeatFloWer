@@ -26,7 +26,10 @@ except ModuleNotFoundError:
     from e3d_layout import RunLayout, absolute_from_invocation, CASE_SEED_FILES
 
 HEAT_DIRS = ('_data', '_mesh', '_vtk', '_dump', 'start')
-HEAT_SEEDS = CASE_SEED_FILES + (Path('_data/q2p1_param.dat'),)
+HEAT_SEEDS = tuple(
+    path for path in CASE_SEED_FILES
+    if path != Path('start/sampleRigidBody.xml')
+) + (Path('_data/q2p1_param.dat'),)
 
 #===============================================================================
 #                          setup the case folder 
@@ -53,7 +56,7 @@ def usage():
     print("Where options can be:")
     print("[-h, --help]: prints this message")
     print("[-n, --num-processors]: defines the number of parallel jobs to be used")
-    print("[-f, --in-folder]: input folder containing heat.s3d and optional meshDir")
+    print("[-f, --in-folder]: input folder containing heat.s3d, sampleRigidBody.xml, and optional meshDir")
     print("[-C, --case]: case directory (default: current directory)")
     print("[-u, --use-srun]: launch with srun instead of mpirun")
     print("Geometry paths are case-relative or absolute; geometry is not copied.")
@@ -185,12 +188,19 @@ def main(argv):
     inputCaseFile = project / 'heat.s3d'
     if not inputCaseFile.is_file():
         raise ValueError(f'Missing input configuration: {inputCaseFile}')
+    inputRigidBodyFile = project / 'sampleRigidBody.xml'
+    if not inputRigidBodyFile.is_file():
+        raise ValueError(f'Missing input configuration: {inputRigidBodyFile}')
+    inputGeometryFiles = list(project.glob('*.off')) + list(project.glob('*.OFF'))
     mesher, solver = layout.exe('s3d_mesher'), layout.exe('heat')
     for executable in (mesher, solver):
         if not os.access(executable, os.X_OK):
             raise ValueError(f'Not executable: {executable}')
-    for relative in HEAT_DIRS + tuple(str(p) for p in HEAT_SEEDS) + ('_data/heat.s3d',):
+    for relative in HEAT_DIRS + tuple(str(p) for p in HEAT_SEEDS) + (
+            '_data/heat.s3d', 'start/sampleRigidBody.xml'):
         checked_case_path(layout.case_dir, relative)
+    for geometryFile in inputGeometryFiles:
+        checked_case_path(layout.case_dir, geometryFile.name)
     mesh = checked_case_path(layout.case_dir, '_data/meshDir')
     if ((project / 'meshDir').exists() and paths_overlap(project / 'meshDir', mesh)
             or paths_overlap(inputCaseFile, mesh)):
@@ -209,6 +219,17 @@ def main(argv):
     destination = layout.case_dir / '_data/heat.s3d'
     if not destination.exists() or not os.path.samefile(inputCaseFile, destination):
         shutil.copyfile(inputCaseFile, destination)
+    rigidBodyDestination = layout.case_dir / 'start/sampleRigidBody.xml'
+    if (not rigidBodyDestination.exists()
+            or not os.path.samefile(inputRigidBodyFile, rigidBodyDestination)):
+        shutil.copyfile(inputRigidBodyFile, rigidBodyDestination)
+    print(f'[layout] staged sampleRigidBody.xml from input ({inputRigidBodyFile})')
+    for geometryFile in inputGeometryFiles:
+        geometryDestination = layout.case_dir / geometryFile.name
+        if (not geometryDestination.exists()
+                or not os.path.samefile(geometryFile, geometryDestination)):
+            shutil.copyfile(geometryFile, geometryDestination)
+    print(f'[layout] staged {len(inputGeometryFiles)} OFF geometries from input')
     if mesh.exists():
         shutil.rmtree(mesh)
     mesher_status = subprocess.call([mesher, '-a', 'heat'])

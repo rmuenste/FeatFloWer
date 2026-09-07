@@ -6,12 +6,28 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / 'tools/e3d_scripts'))
 from e3d_layout import RunLayout
+
+
+def test_repository_heat_case_is_complete():
+    example = ROOT / 'applications/heat/_ianus/HEAT'
+    assert (example / 'heat.s3d').is_file()
+    assert (example / 'meshDir/file.prj').is_file()
+    xml_text = (example / 'sampleRigidBody.xml').read_text().lstrip()
+    root = ET.fromstring(xml_text)
+    description = root.find('BoundaryDescription')
+    assert description is not None
+    boundaries = description.findall('BoundaryShape')
+    assert int(description.attrib['ncomponents']) == len(boundaries)
+    assert boundaries
+    for boundary in boundaries:
+        assert (example / boundary.attrib['meshFile']).is_file()
 
 
 def executable(path, body):
@@ -68,6 +84,8 @@ def setup(tmp_path):
     shared = tmp_path / 'shared.off'
     shared.write_text('shared')
     (project / 'heat.s3d').write_text('geometry/steel.off\n' + str(shared) + '\n')
+    (project / 'sampleRigidBody.xml').write_text('<input-boundaries/>\n')
+    (project / 'wall_1.off').write_text('input boundary geometry\n')
     env = dict(os.environ, PATH=str(bins) + os.pathsep + os.environ['PATH'])
     env.pop('FF_HEAT_HOME', None)
     for name in ('SLURM_STEP_NUM_NODES', 'SLURM_JOB_NUM_NODES', 'SLURM_JOB_NODELIST',
@@ -91,12 +109,18 @@ def test_separate_case(setup, srun, generate):
     (case / '_data').mkdir()
     params = case / '_data/q2p1_param.dat'
     params.write_text('SimPar@PartitionFormat = legacy\n')
+    (case / 'start').mkdir()
+    (case / 'start/sampleRigidBody.xml').write_text('<stale-case-copy/>\n')
+    (case / 'wall_1.off').write_text('stale boundary geometry\n')
     result = run(setup, '-C', str(case), '-f', 'input', '-n', '4',
                  *(['-u'] if srun else []),
                  extra={'GENERATE': '1'} if generate else {'MESHER_EXIT': '7'})
     assert result.returncode == 0, result.stdout + result.stderr
     assert params.read_text().endswith('legacy\n')
     assert (case / '_data/heat.s3d').read_bytes() == (project / 'heat.s3d').read_bytes()
+    assert ((case / 'start/sampleRigidBody.xml').read_bytes()
+            == (project / 'sampleRigidBody.xml').read_bytes())
+    assert (case / 'wall_1.off').read_bytes() == (project / 'wall_1.off').read_bytes()
     assert (case / 'geometry/steel.off').read_text() == 'geometry'
     assert (case / 'keep.OFF').read_text() == 'original'
     assert not (case / 'steel.off').exists()
@@ -159,15 +183,18 @@ def test_same_configuration_without_input_mesh(setup):
     _, case, project, _ = setup
     (case / '_data').mkdir()
     shutil.copy(project / 'heat.s3d', case / '_data/heat.s3d')
+    shutil.copy(project / 'sampleRigidBody.xml', case / '_data/sampleRigidBody.xml')
     result = run(setup, '-C', str(case), '-f', str(case / '_data'), '-n', '2',
                  extra={'GENERATE': '1'})
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-@pytest.mark.parametrize('missing', ['input', 'default', 'mesh'])
+@pytest.mark.parametrize('missing', ['input', 'rigid-body', 'default', 'mesh'])
 def test_missing_files(setup, missing):
     install, case, project, _ = setup
-    target = {'input': project / 'heat.s3d', 'default': install / '_data/MG.dat',
+    target = {'input': project / 'heat.s3d',
+              'rigid-body': project / 'sampleRigidBody.xml',
+              'default': install / '_data/MG.dat',
               'mesh': project / 'meshDir/file.prj'}[missing]
     target.unlink()
     result = run(setup, '-C', str(case), '-f', str(project), '-n', '2')
@@ -235,18 +262,17 @@ def test_staging_preserves_parameters(tmp_path):
 def test_real_heat_four_ranks(tmp_path):
     """Two EWIKON steps; heat suppresses visualization output on step one."""
     install = Path(os.environ['HEAT_SMOKE_INSTALL']).resolve()
-    example = install / '_ianus/HEAT/EWIKON_201912'
+    example = install / '_ianus/HEAT'
     if not example.is_dir():
-        pytest.fail('Real heat smoke test requires installed EWIKON_201912 example')
+        pytest.fail('Real heat smoke test requires the installed _ianus/HEAT case')
     case = tmp_path / 'case'
     project = case / 'input'
     project.mkdir(parents=True)
     shutil.copy(example / 'heat.s3d', project)
-    shutil.copytree(example, case / '_ianus/HEAT/EWIKON_201912')
-    mesh = project / 'meshDir'
-    mesh.mkdir()
-    for name in ('file.prj', 'mesh.tri', 'x.par', 'y.par', 'z.par'):
-        shutil.copy(example / name, mesh)
+    shutil.copy(example / 'sampleRigidBody.xml', project)
+    for geometry in list(example.glob('*.off')) + list(example.glob('*.OFF')):
+        shutil.copy(geometry, project)
+    shutil.copytree(example / 'meshDir', project / 'meshDir')
     (case / '_data').mkdir()
     parameters = (install / '_data/q2p1_param.dat').read_text()
     for key, value in {'SimPar@MaxMeshLevel': '1', 'SimPar@MaxNumStep': '2',

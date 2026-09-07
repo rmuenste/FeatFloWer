@@ -59,6 +59,9 @@ add_custom_target(heat_stage
           "$<TARGET_FILE:s3d_mesher>" "${CMAKE_CURRENT_BINARY_DIR}"
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           "$<TARGET_FILE:metis>" "${CMAKE_CURRENT_BINARY_DIR}"
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+          "${CMAKE_CURRENT_SOURCE_DIR}/_ianus/HEAT"
+          "${CMAKE_CURRENT_BINARY_DIR}/_ianus/HEAT"
   COMMAND ${CMAKE_COMMAND}
           "-DHEAT_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}"
           "-DHEAT_RUNTIME=${CMAKE_CURRENT_BINARY_DIR}"
@@ -97,6 +100,8 @@ ENDFOREACH()
 
 install(DIRECTORY ${mydirs} DESTINATION bin/${MYTARGET})
 install(DIRECTORY ${mybindirs} DESTINATION bin/${MYTARGET})
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/_ianus/HEAT"
+        DESTINATION bin/${MYTARGET}/_ianus)
 
 IF(DEFAULT_CASE_FOLDER)
   install(DIRECTORY ${DEFAULT_CASE_FOLDER} DESTINATION bin/${MYTARGET}/_ianus/HEAT)
