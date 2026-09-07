@@ -18,7 +18,7 @@ set -Eeuo pipefail
 
 usage() {
   cat >&2 <<EOF
-Usage: $0 [-M gendie|heat] [-i INPUT] /scratch/<runtime-case>
+Usage: $0 [-M gendie|heat] [-i INPUT] <runtime-case>
 
 Options:
   -M, --module NAME  Required simulation module: gendie or heat
@@ -110,11 +110,6 @@ for command_name in cmake ninja python3 realpath; do
 done
 
 case_dir=$(realpath -m -- "${case_arg}")
-if [[ "${case_dir}" != /scratch/* ]]; then
-  echo "Error: the runtime case folder must be located below /scratch." >&2
-  echo "Resolved path: ${case_dir}" >&2
-  exit 2
-fi
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 build_dir=${BUILD_DIR:-"${script_dir}/build-${simulation_module}"}
