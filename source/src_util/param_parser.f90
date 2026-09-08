@@ -1029,6 +1029,10 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         bConstForce = read_yes_no_param(string, iEq)
       CASE ("ConstantForcing")
         READ(string(iEq+1:),*) ConstForce
+      CASE ("Periodicity")
+        ! Periodic wrap lengths (x,y,z); >=1d8 means "not periodic" in that
+        ! direction. Overrides any app-level default (D6.2 shear box).
+        READ(string(iEq+1:),*) dPeriodicity
       CASE ("skipFBMForce")
         skipFBMForce = read_yes_no_param(string, iEq)
       CASE ("skipFBMDynamics")

@@ -611,6 +611,20 @@ IF (iT.EQ.14) THEN
   ValW =  0d0
 END IF
 
+! ---------------------------------------------------------------------
+! Inflow15 - planar Couette wall (D6.2 Jeffery shear box).
+! u = GammaDot * Z x^ on a Z-CENTERED box (walls at z = +-H/2 receive
+! +-GammaDot*H/2); shear rate from the deck key SimPar@GammaDot.
+! No-op for every existing application: fires only for a boundary
+! component declared 'Inflow15' in a mesh .par file, and no mesh
+! currently in the tree declares one.
+! ---------------------------------------------------------------------
+IF (iT.EQ.15) THEN
+  ValU = GammaDot*Z
+  ValV = 0d0
+  ValW = 0d0
+END IF
+
 IF (iT.EQ.20) THEN
 
    dOuterRadius = myProcess%MaxInflowDiameter*0.5d0 !cm
