@@ -19,6 +19,12 @@ the build directory by the `q2p1_sse` CMake target.
 requires `-y/--yaml` and executes solver steps from YAML files in
 `tools/e3d_scripts`. See [YAML Simulation Plans](yaml_simulation_plans.md).
 
+`e3d_start_yaml.py` also separates the installation folder (executables,
+`partitioner`, default templates and plans) from the case folder (`-C/--case`,
+default: current directory), so a simulation folder only has to contain the
+case-specific inputs. The shared logic lives in `tools/e3d_scripts/e3d_layout.py`;
+`e3d_start.py` still assumes that it runs inside the installation folder.
+
 ## Main Responsibilities
 
 - Parse command-line options such as `-n`, `-f`, `-a`, `-d`, `-t`, `--short-test`,
@@ -68,8 +74,10 @@ s3d_mesher or case folder/meshDir
   the same `q2p1_sse` executable with DIE-specific setup.
 - Temperature mode alternates velocity and heat solver runs using
   `q2p1_sse_temp`; see [Temperature Extension](temperature_extension.md).
-- Mesh-reduction mode launches `q2p1_sse_mesh` and copies `ReducedMeshDir` back
-  into the case folder.
+- Mesh-reduction mode in the legacy launcher expects `q2p1_sse_mesh` and copies
+  `ReducedMeshDir` back into the case folder. That executable is no longer part
+  of the default application build or installation, so this mode requires the
+  legacy target to be re-enabled explicitly.
 - Short-test mode selects reduced iteration parameter templates.
 - YAML mode launches through `e3d_start_yaml.py` and delegates the sequence of
   solver runs to `e3d_xse*.yaml` or `e3d_die*.yaml` templates.

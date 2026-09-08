@@ -37,6 +37,47 @@ Inherited options include `-f`, `-n`, `-p`, `-d`, `-a`, `-t`,
 YAML mode adds:
 
 - `-y`, `--yaml`: required path to the YAML execution file.
+- `-C`, `--case`: the case folder holding the inputs and outputs of this run
+  (default: the current directory).
+
+### Installation folder versus case folder
+
+The launcher distinguishes two locations (see `tools/e3d_scripts/e3d_layout.py`):
+
+- the **installation folder** is the directory containing
+  `e3d_start_yaml.py`, i.e. `bin/q2p1_gendie` of an install. It provides the
+  executables, the `partitioner` package, the default parameter templates in
+  `_data_BU`, the default plans and `_data/MG.dat`;
+- the **case folder** is where a simulation lives. It only needs to contain
+  what differs between simulations: the e3d input folder (`-f`) and, if
+  wanted, a case-specific plan or tuned copies of individual `_data_BU`
+  templates. The output skeleton (`_data`, `_mesh`, `_vtk`, `_1D`, ...) is
+  created on the first run, and the static files every run needs
+  (`_data/MG.dat`, `start/sampleRigidBody.xml`, `start/data.TXT`) are seeded
+  from the installation if missing.
+
+Paths given with `-f`, `-y`, `-c` and `-r` are taken relative to the directory
+the launcher is invoked from. If nothing exists there, `-f` and `-y` are looked
+up in the case folder and then in the installation, so `-y e3d_die.yaml` finds
+the shipped plan and `-f _ianus/DIE/RH_LOC` still finds the shipped example.
+`param_file` entries of a plan are resolved the same way: a file with the same
+relative name in the case folder overrides the shipped template, and the
+launcher prints which copy it used.
+
+```bash
+# case folder contains only e3d_input/, invoked from the case folder
+cd /scratch/cases/die_01
+python3 /opt/ff/bin/q2p1_gendie/e3d_start_yaml.py -f e3d_input -y e3d_die.yaml -n 64
+
+# same, invoked from anywhere
+python3 /opt/ff/bin/q2p1_gendie/e3d_start_yaml.py -C /scratch/cases/die_01 \
+        -f /scratch/cases/die_01/e3d_input -y e3d_die.yaml -n 64
+```
+
+Running the launcher from inside the installation folder without `-C` keeps
+the classic behaviour, because installation and case folder then coincide.
+The solvers themselves are unchanged: they run with the case folder as
+working directory, which `mpirun` and `srun` propagate to all ranks.
 
 ## Plan Structure
 

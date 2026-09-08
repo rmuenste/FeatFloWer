@@ -12,7 +12,14 @@ import getopt
 import shutil
 import subprocess
 import math
-import partitioner
+try:
+    import partitioner
+except ModuleNotFoundError:
+    # Source tree: the package lives in tools/partitioner, one level above
+    # tools/e3d_scripts. In a staged or installed folder it is a sibling.
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    import partitioner
+from e3d_layout import RunLayout, absolute_from_invocation
 import fileinput
 import datetime
 import configparser
@@ -236,11 +243,16 @@ paramDict = {
     "resolutionLevel" : -1,
     "partitionFormat": "legacy",
     "yamlConfig": "",
+    "caseDir": "",
     "forceE3DSetupRefresh": False
 }
 
 XSE_PARAM_DIR = Path("_data_BU") / Path("XSE")
 DIE_PARAM_DIR = Path("_data_BU") / Path("DIE")
+# Installation/case folder layout, set up in main() before anything touches
+# the file system.  Until then a default layout (install == script dir,
+# case == cwd) is used so helper functions stay importable.
+layout = RunLayout(install_dir=Path(__file__).resolve().parent)
 stage_counter = 0
 yamlStatus = {
     "enabled": False,
@@ -452,7 +464,14 @@ def usage():
     print("[-x', '--short-test']: configures the program for a short test")
     print("[-u', '--use-srun']: Uses the srun launch mechanism")
     print("[-y', '--yaml']: YAML driver file to use")
+    print("[-C', '--case']: Case folder holding the inputs and outputs of this simulation " +
+          "(default: current directory). The executables, default parameter templates " +
+          "and default YAML plans are taken from the installation folder of this script.")
     print("['--die-simulation']: fires up a single angle DIE sim with the corresponding datafile")
+    print("")
+    print("Paths given with -f, -y, -c and -r are relative to the directory the launcher is")
+    print("invoked from. Parameter templates and YAML plans referenced by relative name are")
+    print("looked up in the case folder first and then in the installation folder.")
     print("")
     print("DIE usage:")
     print("  isothermal single material: e3d_die.yaml")
@@ -460,6 +479,7 @@ def usage():
     print("  isothermal multi material: e3d_die_multi.yaml")
     print("  nonisothermal multi material: e3d_die_multi_temp.yaml")
     print("  example: python ./e3d_start_yaml.py -f _ianus/DIE/RH_LOC -n 5 -y e3d_die.yaml")
+    print("  example: python /opt/ff/bin/q2p1_gendie/e3d_start_yaml.py -C /cases/die_01 -f /cases/die_01/e3d_input -n 5 -y e3d_die.yaml")
     print("")
     print("SCREW usage:")
     print("  isothermal: e3d_xse.yaml")
@@ -511,7 +531,7 @@ def archive_stage_outputs(stage_idx, include_heat, stage_phase=None):
 #                    Solver execution helpers
 #===============================================================================
 def run_momentum_step(param_file, workingDir):
-    source = Path(param_file)
+    source = layout.resolve_input(param_file, must_exist=False)
     if not source.exists():
         raise FileNotFoundError(f"Momentum param file missing: {param_file}")
     shutil.copyfile(str(source), "_data/q2p1_param.dat")
@@ -520,13 +540,13 @@ def run_momentum_step(param_file, workingDir):
 
 
 def run_material_step(param_file):
-    source = Path(param_file)
+    source = layout.resolve_input(param_file, must_exist=False)
     if not source.exists():
         raise FileNotFoundError(f"MaterialDistribution param file missing: {param_file}")
     shutil.copyfile(str(source), "_data/q2p1_paramAlpha.dat")
     apply_resolution_level_to_param_file(Path("_data") / Path("q2p1_paramAlpha.dat"))
 
-    names_source = Path("_data_BU/DIE/mesh_names.offs")
+    names_source = layout.resolve_input("_data_BU/DIE/mesh_names.offs", must_exist=False)
     if names_source.exists():
         shutil.copyfile(str(names_source), "mesh_names.offs")
     else:
@@ -539,13 +559,13 @@ def run_material_step(param_file):
     observer = start_protocol_observer(protocolFilePath)
 
     if sys.platform == "win32":
-        exec_name = "./q1_scalar_multimat.exe"
+        exec_name = layout.exe("q1_scalar_multimat")
         exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  exec_name])
     else:
         if paramDict['useSrun']:
-            launchCommand = "srun " + os.getcwd() + "/q1_scalar_multimat"
+            launchCommand = "srun " + layout.exe("q1_scalar_multimat")
         else:
-            launchCommand = "mpirun -np " + str(numProcessors) + " " + os.getcwd() + "/q1_scalar_multimat"
+            launchCommand = "mpirun -np " + str(numProcessors) + " " + layout.exe("q1_scalar_multimat")
         if paramDict['singleAngle'] >= 0.0:
             launchCommand = launchCommand + " -a %d" %(angle)
         exitCode = subprocess.call([launchCommand], shell=True)
@@ -565,7 +585,7 @@ def run_material_step(param_file):
 
 
 def run_heat_step(param_file):
-    source = Path(param_file)
+    source = layout.resolve_input(param_file, must_exist=False)
     if not source.exists():
         raise FileNotFoundError(f"Heat param file missing: {param_file}")
     shutil.copyfile(str(source), "_data/q2p1_paramT.dat")
@@ -578,12 +598,12 @@ def run_heat_step(param_file):
     observer = start_protocol_observer(protocolFilePath)
 
     if sys.platform == "win32":
-        exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse_temp.exe"])
+        exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  layout.exe("q2p1_sse_temp")])
     else:
         if paramDict['useSrun']:
-            launchCommand = "srun " + os.getcwd() + "/q2p1_sse_temp"
+            launchCommand = "srun " + layout.exe("q2p1_sse_temp")
         else:
-            launchCommand = "mpirun -np " + str(numProcessors) + " " + os.getcwd() + "/q2p1_sse_temp"
+            launchCommand = "mpirun -np " + str(numProcessors) + " " + layout.exe("q2p1_sse_temp")
         if paramDict['singleAngle'] >= 0.0:
             launchCommand = launchCommand + " -a %d" %(angle)
         exitCode = subprocess.call([launchCommand], shell=True)
@@ -773,7 +793,7 @@ def validate_yaml_stage_inputs(plan, yaml_path):
                 continue
             seen_files.add(param_file)
 
-            source = Path(param_file)
+            source = layout.resolve_input(param_file, must_exist=False)
             if not source.exists():
                 missing_files.append(param_file)
 
@@ -1034,7 +1054,7 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
 #    backupDataFile = Path("_data_BU") / Path("q2p1_paramV_BU.dat")
     destDataFile = Path("_data") / Path("q2p1_param.dat")
 
-    shutil.copyfile(str(backupDataFile), str(destDataFile))
+    shutil.copyfile(str(layout.resolve_input(backupDataFile)), str(destDataFile))
     paramDict['partitionFormat'] = parsePartitionFormat(str(destDataFile))
     paramDict['recursivePartitioning'] = True
     extrud3d_base = workingDir / Path("_data/Extrud3D_0.dat")
@@ -1069,10 +1089,7 @@ def mesherStep(workingDir, projectFile, projectPath, projectFolder):
 
     myLog.updateStatusLine("CurrentStatus=running Mesher")
 
-    if sys.platform == "win32":
-        exitCode = subprocess.call(["./s3d_mesher"])        
-    else:
-        exitCode = subprocess.call(["./s3d_mesher"], shell=True)
+    exitCode = subprocess.call([layout.exe("s3d_mesher")])
 
 
     if exitCode != 0:
@@ -1350,7 +1367,7 @@ def simLoopVelocity(workingDir):
         observer = start_protocol_observer(protocolFilePath)
 
         if sys.platform == "win32":
-            exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse.exe"])
+            exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  layout.exe("q2p1_sse")])
         else:
             launchCommand = ""
             
@@ -1360,11 +1377,11 @@ def simLoopVelocity(workingDir):
              rankfileCommand = " -r " + paramDict['rankFile'] + " "
 
             if paramDict['useSrun']:
-                launchCommand = "srun " + os.getcwd() + "/q2p1_sse"
+                launchCommand = "srun " + layout.exe("q2p1_sse")
                 if paramDict['singleAngle'] >= 0.0:
                     launchCommand = launchCommand + " -a %d" %(angle)
             else:
-                launchCommand = "mpirun -np " + str(numProcessors) + rankfileCommand + os.getcwd() + "/q2p1_sse"
+                launchCommand = "mpirun -np " + str(numProcessors) + rankfileCommand + layout.exe("q2p1_sse")
                 if paramDict['singleAngle'] >= 0.0 :
                     launchCommand = launchCommand + " -a %d" %(angle)
 
@@ -1459,8 +1476,8 @@ def simLoopTemperatureXSE(workingDir):
         temperatureDestFile = Path("_data") / Path("q2p1_paramT.dat")
         print("Copying: ", backupVeloFile, veloDestFile)
         print("Copying: ", backupTemperatureFile, temperatureDestFile)
-        shutil.copyfile(str(backupVeloFile), str(veloDestFile))
-        shutil.copyfile(str(backupTemperatureFile), str(temperatureDestFile))
+        shutil.copyfile(str(layout.resolve_input(backupVeloFile)), str(veloDestFile))
+        shutil.copyfile(str(layout.resolve_input(backupTemperatureFile)), str(temperatureDestFile))
 
         if iter > 0:
             myLog.updateStatusLineHeatIteration("CurrentHeatIteration=%i\nHeatMaxIteration=%i\nCurrentStatus=running Heat Solver" %(iter+1, maxIterations))
@@ -1473,17 +1490,17 @@ def simLoopTemperatureXSE(workingDir):
 #        statusMsg = "CurrentIteration=%i\nMaxIteration=%i\nCurrentStatus=running Momentum Solver" %(i+1, nmax)
 
         if sys.platform == "win32":
-            exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse_temp.exe"])
+            exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  layout.exe("q2p1_sse_temp")])
         else:
 
             launchCommand = ""
 
             if paramDict['useSrun']:
-                launchCommand = "srun " + os.getcwd() + "/q2p1_sse_temp"
+                launchCommand = "srun " + layout.exe("q2p1_sse_temp")
                 if paramDict['singleAngle'] >= 0.0:
                     launchCommand = launchCommand + " -a %d" %(angle)
             else:
-                launchCommand = "mpirun -np " + str(numProcessors) + " " + os.getcwd() + "/q2p1_sse_temp"
+                launchCommand = "mpirun -np " + str(numProcessors) + " " + layout.exe("q2p1_sse_temp")
                 if paramDict['singleAngle'] >= 0.0 :
                     launchCommand = launchCommand + " -a %d" %(angle)
 
@@ -1504,7 +1521,7 @@ def simLoopTemperatureXSE(workingDir):
         
     veloDestFile = Path("_data") / Path("q2p1_param.dat")
     print("Copying: ", backupVeloFile, veloDestFile)
-    shutil.copyfile(str(backupVeloFile), str(veloDestFile))
+    shutil.copyfile(str(layout.resolve_input(backupVeloFile)), str(veloDestFile))
 
     exitCode = simLoopVelocity(workingDir)
     archive_stage_outputs(stage_counter, include_heat=False)
@@ -1531,8 +1548,8 @@ def simLoopTemperatureDIE(workingDir):
         temperatureDestFile = Path("_data") / Path("q2p1_paramT.dat")
         print("Copying: ", backupVeloFile, veloDestFile)
         print("Copying: ", backupTemperatureFile, temperatureDestFile)
-        shutil.copyfile(str(backupVeloFile), str(veloDestFile))
-        shutil.copyfile(str(backupTemperatureFile), str(temperatureDestFile))
+        shutil.copyfile(str(layout.resolve_input(backupVeloFile)), str(veloDestFile))
+        shutil.copyfile(str(layout.resolve_input(backupTemperatureFile)), str(temperatureDestFile))
 
         if iter > 0:
             myLog.updateStatusLineHeatIteration("CurrentHeatIteration=%i\nHeatMaxIteration=%i\nCurrentStatus=running Heat Solver" %(iter+1, maxIterations))
@@ -1542,15 +1559,15 @@ def simLoopTemperatureDIE(workingDir):
         exitCode = simLoopVelocity(workingDir)
 
         if sys.platform == "win32":
-            exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse_temp.exe"])
+            exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  layout.exe("q2p1_sse_temp")])
         else:
             launchCommand = ""
             if paramDict['useSrun']:
-                launchCommand = "srun " + os.getcwd() + "/q2p1_sse_temp"
+                launchCommand = "srun " + layout.exe("q2p1_sse_temp")
                 if paramDict['singleAngle'] >= 0.0:
                     launchCommand = launchCommand + " -a %d" %(angle)
             else:
-                launchCommand = "mpirun -np " + str(numProcessors) + " " + os.getcwd() + "/q2p1_sse_temp"
+                launchCommand = "mpirun -np " + str(numProcessors) + " " + layout.exe("q2p1_sse_temp")
                 if paramDict['singleAngle'] >= 0.0 :
                     launchCommand = launchCommand + " -a %d" %(angle)
 
@@ -1567,11 +1584,54 @@ def simLoopTemperatureDIE(workingDir):
     backupVeloFile = DIE_PARAM_DIR / Path("q2p1_paramV_DIE_2.dat")
     veloDestFile = Path("_data") / Path("q2p1_param.dat")
     print("Copying: ", backupVeloFile, veloDestFile)
-    shutil.copyfile(str(backupVeloFile), str(veloDestFile))
+    shutil.copyfile(str(layout.resolve_input(backupVeloFile)), str(veloDestFile))
 
     exitCode = simLoopVelocity(workingDir)
     archive_stage_outputs(stage_counter, include_heat=False)
     stage_counter = stage_counter + 1
+#===============================================================================
+
+
+#===============================================================================
+#                 Installation / case folder layout
+#===============================================================================
+def resolve_cli_path(path_str, invocation_dir):
+    """
+    Paths given on the command line are taken relative to the invocation
+    directory. If nothing exists there, fall back to the case-first lookup so
+    that bare names such as 'e3d_die.yaml' or shipped examples such as
+    '_ianus/DIE/RH_LOC' are found in the case folder or the installation.
+    """
+    if not path_str:
+        return path_str
+    direct = Path(absolute_from_invocation(path_str, invocation_dir))
+    if direct.exists():
+        return str(direct)
+    fallback = layout.resolve_input(path_str, must_exist=False)
+    if fallback.exists():
+        return str(fallback)
+    return str(direct)
+
+
+def setup_run_layout():
+    """
+    Fix the installation and case folder, make every command-line path
+    absolute, prepare the case folder and change into it. After this call the
+    working directory is the case folder, which is what the solvers require.
+    """
+    global layout
+    invocation_dir = os.getcwd()
+    case_dir = absolute_from_invocation(paramDict['caseDir'], invocation_dir) or invocation_dir
+    layout = RunLayout(case_dir=case_dir)
+
+    paramDict['projectFolder'] = resolve_cli_path(paramDict['projectFolder'], invocation_dir)
+    paramDict['yamlConfig'] = resolve_cli_path(paramDict['yamlConfig'], invocation_dir)
+    paramDict['hostFile'] = absolute_from_invocation(paramDict['hostFile'], invocation_dir)
+    paramDict['rankFile'] = absolute_from_invocation(paramDict['rankFile'], invocation_dir)
+
+    print(layout.describe())
+    layout.prepare_case()
+    layout.enter_case()
 #===============================================================================
 
 
@@ -1593,14 +1653,14 @@ def main():
     """
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'n:f:p:d:a:c:r:t:smxhovury:',
+        opts, args = getopt.getopt(sys.argv[1:], 'n:f:p:d:a:c:r:t:smxhovury:C:',
                                    ['num-processors=', 'project-folder=',
                                     'periodicity=', 'delta-angle=', 'angle=',
                                     'host-conf=', 'rank-file=', 'time=', 'skip-setup','die-simulation',
                                     'skip-simulation','short-test', 'help',
                                     'do-temperature','version', 'use-srun',
                                     'retry-deformation', 'only-mesh-creation',
-                                    'mesh-reduction','yaml='])
+                                    'mesh-reduction','yaml=', 'case='])
 
     except getopt.GetoptError:
         usage()
@@ -1656,6 +1716,8 @@ def main():
             paramDict['onlyMeshCreation'] = True
         elif opt in ('-y', '--yaml'):
             paramDict['yamlConfig'] = arg
+        elif opt in ('-C', '--case'):
+            paramDict['caseDir'] = arg
         else:
             usage()
             sys.exit(2)
@@ -1668,6 +1730,8 @@ def main():
     if paramDict['yamlConfig'] == "":
         print("Error: no YAML configuration specified (use -y/--yaml).")
         sys.exit(2)
+
+    setup_run_layout()
 
     with open(paramDict['yamlConfig'], 'r') as cfg:
         plan = yaml.safe_load(cfg)

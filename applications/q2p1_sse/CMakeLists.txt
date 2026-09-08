@@ -101,6 +101,8 @@ IF(${OUT_OF_SOURCE_BUILD})
   ENDIF()
 
   file(COPY "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start.py" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+  file(COPY "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start_yaml.py" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+  file(COPY "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_layout.py" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
  
   file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/conv_check.sh" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
@@ -121,6 +123,12 @@ add_custom_target(q2p1_sse_stage
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start.py
           ${CMAKE_CURRENT_BINARY_DIR}/e3d_start.py
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start_yaml.py
+          ${CMAKE_CURRENT_BINARY_DIR}/e3d_start_yaml.py
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_layout.py
+          ${CMAKE_CURRENT_BINARY_DIR}/e3d_layout.py
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_CURRENT_SOURCE_DIR}/q2p1_sse_start.py
           ${CMAKE_CURRENT_BINARY_DIR}/q2p1_sse_start.py
@@ -173,6 +181,7 @@ file(GLOB E3D_XSE_YAML_SCRIPTS
 # install the driver script
 set(E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start.py")
 list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start_yaml.py")
+list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_layout.py")
 list(APPEND E3D_SCRIPTS ${E3D_XSE_YAML_SCRIPTS})
 list(APPEND E3D_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/conv_check.sh")
 
@@ -220,6 +229,7 @@ if(NOT WIN32)
     # install the driver script
     set(E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start.py")
     list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start_yaml.py")
+    list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_layout.py")
     list(APPEND E3D_SCRIPTS ${E3D_DIE_YAML_SCRIPTS})
     list(APPEND E3D_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/conv_check.sh")
     list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/computeAreas.py")

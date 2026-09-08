@@ -11,12 +11,28 @@
 
 ## Geometry Assets
 
-The launcher copies `*.off` and `*.OFF` files from the selected case folder into
-the working directory. `_data/heat.s3d` points each heat segment at one or more
-OFF/STL-style geometry files through `ScrewOFF(...)`.
+The launcher never copies or deletes geometry. Relative references in the input
+`heat.s3d` resolve against the `-f` input directory, including nested paths.
+Absolute references remain unchanged. The launcher generates `_data/heat.s3d`
+with absolute paths in the counted `ScrewOFF(N)` and `SensorOFF(N)` lists;
+other settings and the original input file are preserved. Multiple case
+directories can therefore share the same input geometry.
 
 The build/install layout may also provide default heat cases under
 `_ianus/HEAT`.
+
+The input folder also supplies `sampleRigidBody.xml` beside `heat.s3d`. The
+launcher generates `<case>/start/sampleRigidBody.xml` on every run, converting
+`BoundaryDescription/BoundaryShape` meshFile references to absolute paths
+against the input directory. Other XML settings, including the solver-generated
+`mesh_names.offs` reference, are preserved. The source XML remains untouched.
+
+All ranks must be able to read the input geometry throughout the run. Existing
+native readers limit segment paths to 200 bytes and sensor paths to 255 bytes;
+those paths cannot contain whitespace or `#`. XML boundary paths support spaces
+and are limited to 1023 bytes. The launcher rejects missing geometry and
+unsupported paths before preparing the case. Input and generated configuration
+files must be distinct to avoid changing source files.
 
 ## Parser To Geometry Registration
 
@@ -36,7 +52,7 @@ values, heat-source limits, sensor definitions, and OFF files. Then
 `heat_start.py` runs:
 
 ```text
-./s3d_mesher -a heat
+<installation>/s3d_mesher -a heat
 ```
 
 The solver expects `_data/meshDir/file.prj` and the generated mesh directory. If

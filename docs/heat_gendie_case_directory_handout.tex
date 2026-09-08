@@ -1,0 +1,262 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=22mm]{geometry}
+\usepackage{hyperref}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.6em}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+
+\title{Running FeatFloWer Heat and Gendie Cases\\from an Installed Tree}
+\author{FeatFloWer workflow handout}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{The installation, input, and runtime case}
+
+The launchers distinguish three locations:
+
+\begin{description}
+  \item[Installation directory] Contains executables, Python launchers,
+  partitioner code, and shipped defaults. It is read-only during a normal run.
+  Typical locations are \code{INSTALL/bin/q2p1_gendie} and
+  \code{INSTALL/bin/heat}.
+
+  \item[Input directory] Contains the configuration and geometry that define a
+  simulation. It is selected with \code{-f}.
+
+  \item[Runtime case directory] Contains staged input, generated meshes,
+  partition data, logs, dumps, and visualization output. It is selected with
+  \code{-C}. The solver uses this directory as its working directory.
+\end{description}
+
+Because launcher and input paths may be absolute, both applications can be
+started from any current working directory. Neither the input directory nor
+the runtime case is restricted to \code{/scratch}; those paths may be anywhere
+the user has the required read or write permissions.
+
+\section{Standalone heat application}
+
+\subsection{Heat input contract}
+
+The directory passed with \code{-f} must initially contain:
+
+\begin{verbatim}
+heat_input/
+|-- heat.s3d                 required heat configuration
+|-- sampleRigidBody.xml      required boundary description
+|-- steel.off                OFF files referenced by heat.s3d
+|-- titan.off
+|-- melt.off
+|-- wire_0.off
+|-- ...
+|-- wall_1.off               OFF files referenced by sampleRigidBody.xml
+|-- ...
+|-- wall_30.off
+`-- meshDir/                 optional fallback if meshing cannot generate one
+    |-- file.prj
+    |-- Mesh.tri
+    |-- wall_1.par
+    `-- ...
+\end{verbatim}
+
+The input \code{sampleRigidBody.xml} is placed beside \code{heat.s3d}, not in
+an input \code{start} directory. On every launch a runtime version is generated at
+\code{<case>/start/sampleRigidBody.xml}. This input copy is authoritative and
+replaces an older runtime copy.
+
+No OFF files are copied or deleted. Relative geometry references, including
+subdirectories, are resolved against the input directory. Absolute references
+remain unchanged. The launcher writes absolute segment/sensor paths into the
+runtime \code{heat.s3d} and absolute boundary paths into the runtime XML.
+Original configurations and geometry remain untouched and may be shared by
+multiple runtime cases. All MPI ranks must have access to that input geometry.
+Input configurations must be separate from generated runtime configurations.
+The existing native readers limit segment paths to 200 bytes and sensor paths
+to 255 bytes; those paths cannot contain whitespace or \code{\#}. XML boundary
+paths support spaces and are limited to 1023 bytes.
+
+The optional input \code{meshDir} is a complete fallback mesh. Every
+parametrization file named by its \code{file.prj} must be present. During a run
+the active mesh is located below \code{<case>/_data/meshDir}.
+
+\subsection{Heat execution}
+
+Example with separate input and runtime directories:
+
+\begin{verbatim}
+python3 /opt/FeatFloWer/INSTALL/bin/heat/heat_start.py \
+  -C /scratch/user/heat_01/RUN \
+  -f /scratch/user/heat_01/CASE \
+  -n 64
+\end{verbatim}
+
+The launcher creates the runtime directory skeleton, stages
+runtime \code{heat.s3d} and \code{sampleRigidBody.xml} with absolute references, runs
+\code{s3d_mesher}, partitions for \code{n-1} worker ranks, and launches
+\code{heat} with \code{n} total MPI ranks. Rank zero is the control rank, so
+at least two ranks are required. Add \code{--use-srun} on a suitable Slurm
+allocation.
+
+Important generated paths include:
+
+\begin{verbatim}
+RUN/_data/heat.s3d
+RUN/_data/meshDir/
+RUN/start/sampleRigidBody.xml
+RUN/mesh_names.offs
+RUN/_vtk/
+RUN/_dump/
+\end{verbatim}
+
+\subsection{Installed heat test case}
+
+The installation contains a complete heat example at:
+
+\begin{verbatim}
+<install>/bin/heat/_ianus/HEAT
+\end{verbatim}
+
+It includes \code{heat.s3d}, \code{sampleRigidBody.xml}, all heat and wall OFF
+geometry, and a complete fallback \code{meshDir}. It can be run directly as
+the input while keeping output in a separate runtime case:
+
+\begin{verbatim}
+python3 /opt/FeatFloWer/INSTALL/bin/heat/heat_start.py \
+  -C /scratch/user/heat_example/RUN \
+  -f /opt/FeatFloWer/INSTALL/bin/heat/_ianus/HEAT \
+  -n 64
+\end{verbatim}
+
+\section{Gendie through q2p1\_sse}
+
+\subsection{Gendie input contract}
+
+A typical YAML-driven gendie runtime case contains:
+
+\begin{verbatim}
+gendie_case/
+|-- e3d_input/
+|   |-- setup.e3d or Extrud3D.dat
+|   |-- *.off                  referenced geometry
+|   `-- meshDir/               optional input mesh
+|-- plan.yaml                  simulation plan
+`-- _data_BU/                  optional case-specific parameter overrides
+    `-- q2p1_paramV_DIE_test.dat
+\end{verbatim}
+
+The installation provides the solver executables, mesher, partitioner,
+standard YAML plans, and default \code{_data_BU} templates. Missing runtime
+directories and static runtime defaults are seeded automatically. A file in
+the case directory overrides the corresponding installed template.
+
+The YAML plan defines ordered \code{init}, \code{main}, and \code{final}
+stages. Supported solver steps include momentum, temperature, and material
+distribution, depending on the installed applications.
+
+\subsection{Gendie execution}
+
+\begin{verbatim}
+python3 /opt/FeatFloWer/INSTALL/bin/q2p1_gendie/e3d_start_yaml.py \
+  -C /scratch/user/gendie_01 \
+  -f /scratch/user/gendie_01/e3d_input \
+  -y /scratch/user/gendie_01/plan.yaml \
+  -n 64 -x
+\end{verbatim}
+
+Here \code{-x} requests the gendie short-test behavior. It is not a heat
+launcher option. As with heat, \code{-C} is the runtime working directory and
+the command may be issued from anywhere.
+
+\section{Module-aware build and case setup helper}
+
+The repository helper
+\code{cmake_cheat_setup_from_Raphael.sh} configures a CGAL-enabled build,
+builds and installs the application tree, prepares an example input, and
+prints (but does not execute) the simulation command.
+
+The module selection is mandatory. For gendie, use:
+
+\begin{verbatim}
+./cmake_cheat_setup_from_Raphael.sh \
+  -M gendie /scratch/user/gendie_01
+\end{verbatim}
+
+Invoking the helper without \code{-M gendie} or \code{-M heat} stops before
+configuration, compilation, or installation.
+
+By default, the installed RH\_LOC example is copied to
+\code{/scratch/user/gendie_01/e3d_input}. An alternative template can be
+selected with \code{-i INPUT}.
+
+For heat, the installed \code{_ianus/HEAT} test case is used by default:
+
+\begin{verbatim}
+./cmake_cheat_setup_from_Raphael.sh \
+  -M heat /scratch/user/heat_01/RUN
+\end{verbatim}
+
+It is copied to \code{RUN/heat_input}. To use a custom heat input template,
+add \code{-i}:
+
+\begin{verbatim}
+./cmake_cheat_setup_from_Raphael.sh \
+  -M heat \
+  -i /scratch/user/heat_01/CASE \
+  /scratch/user/heat_01/RUN
+\end{verbatim}
+
+The printed run command uses \code{-C RUN} together with
+\code{-f RUN/heat_input}. If that input directory is already populated, it is
+preserved when \code{-i} is omitted.
+
+Useful environment overrides are:
+
+\begin{verbatim}
+INSTALL_PREFIX=/path/to/INSTALL
+BUILD_DIR=/path/to/build
+BUILD_JOBS=8
+MPI_RANKS=64
+INPUT_SOURCE=/path/to/input
+\end{verbatim}
+
+For example:
+
+\begin{verbatim}
+INSTALL_PREFIX=$PWD/../INSTALL-HEAT BUILD_JOBS=8 MPI_RANKS=64 \
+  ./cmake_cheat_setup_from_Raphael.sh \
+  -M heat -i /scratch/user/heat_01/CASE /scratch/user/heat_01/RUN
+\end{verbatim}
+
+\section{Quick consistency checks}
+
+For heat, the number of XML boundary shapes should match the generated wall
+surfaces and boundary IDs:
+
+\begin{verbatim}
+grep -c '<BoundaryShape ' CASE/sampleRigidBody.xml
+ls CASE/wall_*.off | wc -l
+\end{verbatim}
+
+After staging, verify that every XML mesh reference resolves from the runtime
+case directory:
+
+\begin{verbatim}
+cd RUN
+grep -o 'meshFile="[^"]*"' start/sampleRigidBody.xml |
+sed 's/meshFile="//; s/"//' |
+while IFS= read -r file; do
+  test -f "$file" || echo "MISSING: $file"
+done
+\end{verbatim}
+
+If heat prints all \code{wall_*.par} names and then crashes in
+\code{projectonboundaryid}, first check that the runtime XML contains the
+matching \code{BoundaryDescription} and that all referenced \code{wall_*.off}
+files exist at the absolute paths in the runtime XML.
+
+\end{document}

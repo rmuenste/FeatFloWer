@@ -45,6 +45,30 @@ IF(${OUT_OF_SOURCE_BUILD})
 ENDIF()
 
 file(COPY heat_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_layout.py"
+     DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
+add_custom_target(heat_stage
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          "${CMAKE_CURRENT_SOURCE_DIR}/heat_start.py" "${CMAKE_CURRENT_BINARY_DIR}"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_layout.py" "${CMAKE_CURRENT_BINARY_DIR}"
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+          "${CMAKE_SOURCE_DIR}/tools/partitioner" "${CMAKE_CURRENT_BINARY_DIR}/partitioner"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          "$<TARGET_FILE:s3d_mesher>" "${CMAKE_CURRENT_BINARY_DIR}"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          "$<TARGET_FILE:metis>" "${CMAKE_CURRENT_BINARY_DIR}"
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+          "${CMAKE_CURRENT_SOURCE_DIR}/_ianus/HEAT"
+          "${CMAKE_CURRENT_BINARY_DIR}/_ianus/HEAT"
+  COMMAND ${CMAKE_COMMAND}
+          "-DHEAT_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}"
+          "-DHEAT_RUNTIME=${CMAKE_CURRENT_BINARY_DIR}"
+          "-DFF_SOURCE=${CMAKE_SOURCE_DIR}"
+          -P "${CMAKE_CURRENT_SOURCE_DIR}/stage_defaults.cmake"
+  DEPENDS heat s3d_mesher metis
+  VERBATIM)
 
 file(COPY sensor_temperature_extraction.sh DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
@@ -76,6 +100,8 @@ ENDFOREACH()
 
 install(DIRECTORY ${mydirs} DESTINATION bin/${MYTARGET})
 install(DIRECTORY ${mybindirs} DESTINATION bin/${MYTARGET})
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/_ianus/HEAT"
+        DESTINATION bin/${MYTARGET}/_ianus)
 
 IF(DEFAULT_CASE_FOLDER)
   install(DIRECTORY ${DEFAULT_CASE_FOLDER} DESTINATION bin/${MYTARGET}/_ianus/HEAT)
@@ -90,6 +116,7 @@ ENDIF()
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/tools/partitioner DESTINATION bin/${MYTARGET})
 
 set(HEAT_SCRIPTS heat_start.py)
+list(APPEND HEAT_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_layout.py")
 
 list(APPEND HEAT_SCRIPTS sensor_temperature_extraction.sh)
 
@@ -98,4 +125,3 @@ install(FILES ${HEAT_SCRIPTS} DESTINATION bin/${MYTARGET}
 
 install(FILES "${CMAKE_SOURCE_DIR}/_data/MG.dat" DESTINATION bin/${MYTARGET}/_data 
     PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
-    

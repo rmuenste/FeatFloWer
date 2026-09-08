@@ -28,7 +28,7 @@ if(METIS_INSTALL)
 
   # Additional install locations for FeatFloWer application directories.
   # Use install(FILES ...) to avoid multiple-RPATH conflicts.
-  foreach(_dest bin/q2p1_sse bin/heat bin/q2p1_gendie bin/q2p1_sse_partfil bin/q2p1_die)
+  foreach(_dest bin/q2p1_sse bin/heat bin/q2p1_gendie)
     install(
       FILES $<TARGET_FILE:metis>
       DESTINATION ${_dest}
