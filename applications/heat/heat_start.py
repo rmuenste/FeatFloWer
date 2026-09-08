@@ -19,6 +19,7 @@ except ModuleNotFoundError:
 import getopt
 import subprocess
 import re
+import xml.etree.ElementTree as ET
 try:
     from e3d_layout import RunLayout, absolute_from_invocation, CASE_SEED_FILES
 except ModuleNotFoundError:
@@ -48,6 +49,85 @@ def paths_overlap(first, second):
     first, second = first.resolve(), second.resolve()
     return first == second or first in second.parents or second in first.parents
 
+
+def geometry_path(value, project, limit, tokenized=False):
+    """Resolve input-owned geometry and enforce the existing native reader limits."""
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+        value = value[1:-1]
+    if not value:
+        raise ValueError('Empty geometry reference')
+    path = Path(value)
+    if not path.is_absolute():
+        path = (project / path).resolve()
+    resolved = str(path)
+    if len(os.fsencode(resolved)) > limit:
+        raise ValueError(f'Geometry path exceeds reader limit of {limit} bytes: {resolved}')
+    if tokenized and (any(c.isspace() for c in resolved) or '#' in resolved):
+        raise ValueError(f'Heat geometry reader cannot handle whitespace or # in path: {resolved}')
+    if not path.is_file():
+        raise ValueError(f'Missing geometry: {resolved}')
+    return resolved
+
+
+def runtime_heat_config(source, project):
+    """Rewrite counted ScrewOFF/SensorOFF lists, preserving other INI content.
+
+    In the native INI format, ScrewOFF(N) introduces N subsequent values;
+    N is a count, not an array index. Blank/comment lines do not count.
+    """
+    lines = source.read_text().splitlines(keepends=True)
+    remaining = 0
+    section = ''
+    for index, line in enumerate(lines):
+        content = line.strip()
+        if not content or content.startswith('#'):
+            continue
+        if remaining:
+            if content.startswith('['):
+                raise ValueError(f'Incomplete geometry list in {source}')
+            # INIP strips unquoted # comments. Paths containing # are unsupported.
+            value, marker, comment = content.partition('#')
+            resolved = geometry_path(value, project, limit, tokenized=True)
+            lines[index] = resolved + (' #' + comment if marker else '') + '\n'
+            remaining -= 1
+            continue
+        if content.startswith('['):
+            section = content.split(']', 1)[0][1:].lower()
+        if not re.fullmatch(r'e3dgeometrydata/machine/element_\d+', section):
+            continue
+        match = re.match(r'\s*(screwoff|sensoroff)\s*\(\s*(\d+)\s*\)\s*=',
+                         line, re.IGNORECASE)
+        if match:
+            remaining = int(match[2])
+            limit = 200 if match[1].lower() == 'screwoff' else 255
+    if remaining:
+        raise ValueError(f'Incomplete geometry list in {source}')
+    return ''.join(lines)
+
+
+def runtime_boundary_config(source, project):
+    """Only boundary meshFile attributes are geometry inputs in this XML path.
+
+    Leave cgalConfigFile (the solver-generated mesh_names.offs) and the legacy
+    RigidBodyList untouched.
+    """
+    parser = ET.XMLParser(target=ET.TreeBuilder(insert_comments=True))
+    try:
+        root = ET.fromstring(source.read_text().lstrip(), parser=parser)
+    except ET.ParseError as error:
+        raise ValueError(f'Invalid boundary XML {source}: {error}') from error
+    for boundary in root.findall('./BoundaryDescription/BoundaryShape'):
+        for key, value in list(boundary.attrib.items()):
+            if key.lower() == 'meshfile':
+                boundary.set(key, geometry_path(value, project, 1023))
+    return ET.tostring(root, encoding='unicode') + '\n'
+
+
+def check_config_destination(source, destination):
+    if destination.exists() and os.path.samefile(source, destination):
+        raise ValueError(f'Input configuration must be separate from generated file: {destination}')
+
 #===============================================================================
 #                      Function: Usage
 #===============================================================================
@@ -59,7 +139,7 @@ def usage():
     print("[-f, --in-folder]: input folder containing heat.s3d, sampleRigidBody.xml, and optional meshDir")
     print("[-C, --case]: case directory (default: current directory)")
     print("[-u, --use-srun]: launch with srun instead of mpirun")
-    print("Geometry paths are case-relative or absolute; geometry is not copied.")
+    print("Geometry paths are input-relative or absolute; geometry is not copied.")
 
 def parse_partition_format(param_file):
     """
@@ -191,7 +271,8 @@ def main(argv):
     inputRigidBodyFile = project / 'sampleRigidBody.xml'
     if not inputRigidBodyFile.is_file():
         raise ValueError(f'Missing input configuration: {inputRigidBodyFile}')
-    inputGeometryFiles = list(project.glob('*.off')) + list(project.glob('*.OFF'))
+    heat_config = runtime_heat_config(inputCaseFile, project)
+    boundary_config = runtime_boundary_config(inputRigidBodyFile, project)
     mesher, solver = layout.exe('s3d_mesher'), layout.exe('heat')
     for executable in (mesher, solver):
         if not os.access(executable, os.X_OK):
@@ -199,8 +280,10 @@ def main(argv):
     for relative in HEAT_DIRS + tuple(str(p) for p in HEAT_SEEDS) + (
             '_data/heat.s3d', 'start/sampleRigidBody.xml'):
         checked_case_path(layout.case_dir, relative)
-    for geometryFile in inputGeometryFiles:
-        checked_case_path(layout.case_dir, geometryFile.name)
+    destination = layout.case_dir / '_data/heat.s3d'
+    rigidBodyDestination = layout.case_dir / 'start/sampleRigidBody.xml'
+    check_config_destination(inputCaseFile, destination)
+    check_config_destination(inputRigidBodyFile, rigidBodyDestination)
     mesh = checked_case_path(layout.case_dir, '_data/meshDir')
     if ((project / 'meshDir').exists() and paths_overlap(project / 'meshDir', mesh)
             or paths_overlap(inputCaseFile, mesh)):
@@ -216,20 +299,9 @@ def main(argv):
         print('[layout] retaining case _data/q2p1_param.dat')
     layout.prepare_case()
     layout.enter_case()
-    destination = layout.case_dir / '_data/heat.s3d'
-    if not destination.exists() or not os.path.samefile(inputCaseFile, destination):
-        shutil.copyfile(inputCaseFile, destination)
-    rigidBodyDestination = layout.case_dir / 'start/sampleRigidBody.xml'
-    if (not rigidBodyDestination.exists()
-            or not os.path.samefile(inputRigidBodyFile, rigidBodyDestination)):
-        shutil.copyfile(inputRigidBodyFile, rigidBodyDestination)
-    print(f'[layout] staged sampleRigidBody.xml from input ({inputRigidBodyFile})')
-    for geometryFile in inputGeometryFiles:
-        geometryDestination = layout.case_dir / geometryFile.name
-        if (not geometryDestination.exists()
-                or not os.path.samefile(geometryFile, geometryDestination)):
-            shutil.copyfile(geometryFile, geometryDestination)
-    print(f'[layout] staged {len(inputGeometryFiles)} OFF geometries from input')
+    destination.write_text(heat_config)
+    rigidBodyDestination.write_text(boundary_config)
+    print(f'[layout] generated runtime configurations; geometry referenced from {project}')
     if mesh.exists():
         shutil.rmtree(mesh)
     mesher_status = subprocess.call([mesher, '-a', 'heat'])

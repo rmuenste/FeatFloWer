@@ -11,22 +11,28 @@
 
 ## Geometry Assets
 
-The launcher copies top-level `.off`/`.OFF` files from the input folder to the
-case root and does not delete them after the run. `_data/heat.s3d` points each
-heat segment at geometry through `ScrewOFF(...)`. Relative paths resolve
-against the case working directory (`-C`, default invocation directory), so a
-bare `steel.off` refers to the staged case copy. Absolute paths are used
-unchanged. Geometry in input subdirectories is not staged and must use a
-case-relative or absolute reference. The input `heat.s3d` is staged without
-rewriting its contents.
+The launcher never copies or deletes geometry. Relative references in the input
+`heat.s3d` resolve against the `-f` input directory, including nested paths.
+Absolute references remain unchanged. The launcher generates `_data/heat.s3d`
+with absolute paths in the counted `ScrewOFF(N)` and `SensorOFF(N)` lists;
+other settings and the original input file are preserved. Multiple case
+directories can therefore share the same input geometry.
 
 The build/install layout may also provide default heat cases under
 `_ianus/HEAT`.
 
 The input folder also supplies `sampleRigidBody.xml` beside `heat.s3d`. The
-launcher copies it to `<case>/start/sampleRigidBody.xml` on every run. Boundary
-surface paths such as `wall_1.off` in that XML are resolved against the case
-working directory, not against the input folder or the `start` directory.
+launcher generates `<case>/start/sampleRigidBody.xml` on every run, converting
+`BoundaryDescription/BoundaryShape` meshFile references to absolute paths
+against the input directory. Other XML settings, including the solver-generated
+`mesh_names.offs` reference, are preserved. The source XML remains untouched.
+
+All ranks must be able to read the input geometry throughout the run. Existing
+native readers limit segment paths to 200 bytes and sensor paths to 255 bytes;
+those paths cannot contain whitespace or `#`. XML boundary paths support spaces
+and are limited to 1023 bytes. The launcher rejects missing geometry and
+unsupported paths before preparing the case. Input and generated configuration
+files must be distinct to avoid changing source files.
 
 ## Parser To Geometry Registration
 

@@ -65,8 +65,8 @@ change.
 heat_start.py
   -> parse -f/--in-folder, -n/--num-processors, optional -C/--case and --use-srun
   -> prepare and enter case directory; seed missing runtime defaults
-  -> copy <input>/heat.s3d unchanged to _data/heat.s3d
-  -> read geometry directly through case-relative or absolute references
+  -> generate runtime heat.s3d and sampleRigidBody.xml with absolute geometry paths
+  -> resolve source relative geometry paths against input directory; no OFF copies
   -> run s3d_mesher -a heat
   -> use generated _data/meshDir or copy <input>/meshDir fallback
   -> partition _data/meshDir/file.prj for numProcessors - 1 worker ranks

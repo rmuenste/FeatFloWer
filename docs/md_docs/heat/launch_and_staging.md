@@ -14,7 +14,7 @@ rank count (at least two) through `-n/--num-processors`, and an optional case
 directory through `-C/--case` (default: invocation directory).
 The input folder must contain `heat.s3d` and its case-specific
 `sampleRigidBody.xml` at the same level. It may also contain a `meshDir`
-fallback. Top-level `.off`/`.OFF` geometry files are staged to the case root.
+fallback. Geometry is read directly from the input directory or absolute paths.
 
 The installation is the launcher directory, optionally overridden by
 `FF_HEAT_HOME`. It holds executables, the partitioner, and shipped defaults.
@@ -37,15 +37,16 @@ Missing runtime directories are created. Missing `_data/MG.dat`,
 Existing case copies of those defaults are preserved; parameter selection is
 reported. The input `sampleRigidBody.xml` is case-specific and is staged to
 `<case>/start/sampleRigidBody.xml` on every launch, replacing a stale runtime
-copy. To tune a case, edit its `_data/q2p1_param.dat`.
+copy, with absolute boundary geometry references. To tune a case, edit its
+`_data/q2p1_param.dat`.
 
 The launcher performs these steps:
 
 ```text
 validate paths and rank count; prepare and enter the case directory
-copy <input>/heat.s3d unchanged to _data/heat.s3d (skip same-file copy)
-copy <input>/sampleRigidBody.xml to start/sampleRigidBody.xml
-copy top-level <input>/*.off and <input>/*.OFF to the case root
+generate _data/heat.s3d with absolute segment and sensor geometry references
+generate start/sampleRigidBody.xml with absolute boundary geometry references
+leave input configurations and geometry untouched
 remove old _data/meshDir
 run <installation>/s3d_mesher -a heat
 if no generated meshDir exists, copy <input>/meshDir
@@ -78,11 +79,18 @@ the existing mesh/fallback check still runs. A generated directory without
 `file.prj` is rejected. Runtime symlinks and input/runtime mesh overlap are
 rejected before mesh removal; keep supplied meshes under `input/meshDir`.
 
-Top-level OFF geometry is copied from the input folder to the case root and is
-not cleaned up after a run. Consequently, bare names such as `steel.off` in
-`heat.s3d` and `wall_1.off` in `sampleRigidBody.xml` address the staged case
-copies. Geometry in input subdirectories is not copied; reference it with a
-case-relative or absolute path instead.
+Geometry is never copied or deleted. Relative references in input configurations
+are relative to the input directory (`-f`), not the runtime case (`-C`). For
+example, `steel.off` becomes `/path/to/input/steel.off` in the generated file.
+Nested relative references and existing absolute paths work the same way.
+Both generated configurations are refreshed each run; originals remain unchanged.
+Use a separate input directory, not the generated `_data/heat.s3d` as input.
+All MPI ranks must retain access to the input geometry. See
+[Geometry Handling](geometry_handling.md) for native path length/character limits.
+
+Migration: references formerly relative to the runtime case must become
+input-relative or absolute. Old OFF copies already in a run directory are left
+untouched, but are no longer selected by bare input-relative references.
 
 ## Build And Install Staging
 
@@ -109,15 +117,20 @@ Regression tests: `python3 -m pytest applications/heat/tests tools/e3d_scripts/t
 
 For a two-step, four-rank EWIKON smoke test, set `HEAT_SMOKE_INSTALL` to the
 installed `bin/heat` directory and run the same tests. This requires MPI and
-uses the installed `_ianus/HEAT` test case; the test creates an isolated case
+uses the installed `_ianus/HEAT` test case directly without copying its geometry;
+the test creates an isolated case
 with mesh level 1 and retains a `heat.log` under pytest's temporary directory.
 Two steps are needed because heat suppresses visualization output on step one.
+This checks launcher integration and source-file preservation, not physical
+convergence. At mesh level 1, the bundled case can have zero-volume sensors
+and NaN PID diagnostics; the previous copying launcher shows the same behavior.
 
 ## Common Failure Points
 
 - Missing `-f` input folder, `<input>/heat.s3d`, or
   `<input>/sampleRigidBody.xml`.
 - `s3d_mesher -a heat` fails and the case folder has no `meshDir` fallback.
-- Geometry paths inside `heat.s3d` are not valid case-relative or absolute paths.
+- Geometry paths are missing, exceed native reader limits, or are not valid
+  input-relative or absolute paths.
 - MPI rank count is too small: the application expects rank 0 plus at least one
   worker partition.

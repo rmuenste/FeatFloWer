@@ -65,16 +65,20 @@ heat_input/
 \end{verbatim}
 
 The input \code{sampleRigidBody.xml} is placed beside \code{heat.s3d}, not in
-an input \code{start} directory. On every launch it is copied to
+an input \code{start} directory. On every launch a runtime version is generated at
 \code{<case>/start/sampleRigidBody.xml}. This input copy is authoritative and
 replaces an older runtime copy.
 
-All top-level \code{*.off} and \code{*.OFF} files are copied from the input
-directory to the runtime case root. Thus entries such as
-\code{steel.off} in \code{heat.s3d} and \code{wall_1.off} in
-\code{sampleRigidBody.xml} resolve correctly. Geometry stored below an input
-subdirectory is not copied and must instead use a path that is valid relative
-to the runtime case, or an absolute path.
+No OFF files are copied or deleted. Relative geometry references, including
+subdirectories, are resolved against the input directory. Absolute references
+remain unchanged. The launcher writes absolute segment/sensor paths into the
+runtime \code{heat.s3d} and absolute boundary paths into the runtime XML.
+Original configurations and geometry remain untouched and may be shared by
+multiple runtime cases. All MPI ranks must have access to that input geometry.
+Input configurations must be separate from generated runtime configurations.
+The existing native readers limit segment paths to 200 bytes and sensor paths
+to 255 bytes; those paths cannot contain whitespace or \code{\#}. XML boundary
+paths support spaces and are limited to 1023 bytes.
 
 The optional input \code{meshDir} is a complete fallback mesh. Every
 parametrization file named by its \code{file.prj} must be present. During a run
@@ -92,7 +96,7 @@ python3 /opt/FeatFloWer/INSTALL/bin/heat/heat_start.py \
 \end{verbatim}
 
 The launcher creates the runtime directory skeleton, stages
-\code{heat.s3d}, \code{sampleRigidBody.xml}, and top-level OFF files, runs
+runtime \code{heat.s3d} and \code{sampleRigidBody.xml} with absolute references, runs
 \code{s3d_mesher}, partitions for \code{n-1} worker ranks, and launches
 \code{heat} with \code{n} total MPI ranks. Rank zero is the control rank, so
 at least two ranks are required. Add \code{--use-srun} on a suitable Slurm
@@ -253,6 +257,6 @@ done
 If heat prints all \code{wall_*.par} names and then crashes in
 \code{projectonboundaryid}, first check that the runtime XML contains the
 matching \code{BoundaryDescription} and that all referenced \code{wall_*.off}
-files exist in the runtime case.
+files exist at the absolute paths in the runtime XML.
 
 \end{document}
