@@ -57,9 +57,15 @@ DNS_PART_AXIS record.
 
 Campaign box units (d11/d61 conventions): rho = 1, nu = 1, mu = 1.
 
-- Body: a = 0.5, b = c = 0.25 (r_e = 2, length 2a = 1). Neutrally buoyant
-  (particleDensity_ = 1.0), center at the box center, axis initially +x
-  (slow phase of the orbit - gentlest start).
+- Body: a = 0.5, b = c = 0.25 (r_e = 2, length 2a = 1). Center at the box
+  center, axis initially +x (slow phase of the orbit - gentlest start).
+  particleDensity_ = 10.0 (AMENDED 2026-09-09, see "Rotational coupling
+  stability" below; the original neutrally-buoyant 1.0 is unusable at this
+  Re/dt). With translation locked and gravity off, density enters ONLY
+  through the rotational inertia, i.e. the rotational relaxation time
+  tau_rot ~ rho_p b^2 / (15 nu) = 0.042 t.u. at rho_p = 10 - against the
+  orbit period 78.5 t.u. (tau_rot * gammadot = 0.008) the body still follows
+  the zero-inertia Jeffery solution; the +-3% period gate is unaffected.
 - Shear: gammadot = 0.2 -> Re_a = gammadot a^2 / nu = 0.05 (the owner cap;
   definition recorded). Wall speed U = gammadot H / 2.
 - Default box (V1): L_x x L_y x H = 8 x 6 x 8 (16 body lengths of x-period,
@@ -72,6 +78,25 @@ Campaign box units (d11/d61 conventions): rho = 1, nu = 1, mu = 1.
 Resolution (thin axis 2b = 0.5): direct-writer coarse box 19 x 15 x 19
 (h ~ 0.42), production at level 4: h = 0.0526 -> 2b/h = 9.5 (certified
 class), 2.77M elements. Level-3 smoke first (2b/h = 4.75, minutes).
+
+**Rotational coupling stability (found 2026-09-09, V0/V1 first attempt).**
+The FBM-PE coupling is explicit: one torque exchange per step, omega
+advanced by dt * I^-1 * T. The fluid torque relaxes omega toward the local
+half-vorticity on the viscous time scale tau_rot = I / C_T, for a sphere
+rho_p a^2 / (15 nu). The explicit update is stable only for
+g = dt / tau_rot * u < 2 (u ~ 1.5-2.5, the short-time unsteady torque
+enhancement a / sqrt(pi nu dt)). At rho_p = 1, nu = 1, a = 0.25, dt = 0.01:
+tau_rot = 0.0042, g ~ 3.6 -> torque sign-alternates and grows ~2.5x per step
+(measured: 0.058, -0.154, ... -2.5 at t=0.1, +23.7 at t=0.15, -94 at
+t=0.2), NaN by t = 0.24 (sphere) / 0.33 (spheroid). Nondimensionally
+g = 15 u (gammadot dt) / (rho_r Re_b): at the Re cap the only levers are
+steps per period N and rho_r, g = 18850 u / (N rho_r). Choice: rho_r = 10
+at dt = 0.01 (N = 7850): g ~ 0.36 (sphere), smaller for the spheroid,
+monotone convergence with tau_rot = 0.042 t.u. (converged before t = 0.3).
+The alternative dt = 0.002 costs 5x the wall time for the same effect. This
+is the same partitioned-coupling mechanism as the ten Cate dt study
+(memory dns-dt-stability-floor), in the rotational channel and in the
+creeping-flow / small-body corner where dt * nu / a^2 is largest.
 
 ## 3. Fixture requirements (the build work)
 
@@ -104,8 +129,9 @@ class), 2.77M elements. Level-3 smoke first (2b/h = 4.75, minutes).
 | run | body | box | level | duration | est. cost |
 |---|---|---|---|---|---|
 | G0 | ellipsoid, rotationOnly | 8x6x8 | L3 | 50 steps | minutes - creation, periodic pairs, axis record, translation lock |
-| V0 | SPHERE r=0.25, rotationOnly | 8x6x8 | L4 | to t~20 | ~2-4h - the omega = -gammadot/2 control |
-| V1 | r_e=2 | 8x6x8 | L4 | t=105 | ~1-2 segments on 2 nodes |
+| V0 | r_e=1 spheroid (semiAxes 0.25^3, so DNS_PART_AXIS fires), rotationOnly | 8x6x8 | L4 | to t=10 (1 rad of spin at omega = gammadot/2; tau_rot = 0.04) | one segment - the omega = -gammadot/2 control |
+| V1 | r_e=2 | 8x6x8 | L4 | t=120 (3 pi-crossings) | L4 costs ~35 s/step on 141 ranks -> ~5 x 24h segments, dumps every 10 t.u. (BackUpFreq=1 with OutputFreq=10); cut at t>=85 (two crossings) if budget demands |
+| (V0/V1 first attempt, rho_r = 1) | | | | NaN at t = 0.24 / 0.33 | rotational coupling instability - see section 2; kept as evidence (fritz jobs 4199314/15) |
 | V2 | r_e=2 | 8x6x4 | L4 | t=105 | ditto - clearance ladder |
 | V3 (optional) | r_e=2, axis +y start | 8x6x8 | L4 | shorter | log-rolling state - only after V1/V2 gate |
 
