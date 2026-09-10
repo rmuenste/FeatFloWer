@@ -15,11 +15,96 @@ r_e = 1 degenerates to the uniform spin control (V0): dphi/dt = gammadot/2,
 T*gammadot = 4 pi.
 
 Usage: d62_jeffery_analysis.py <run_slurm.log> --gammadot 0.2 [--re 2.0]
+                               [--plot fig.png]
+
+--plot draws the classic Jeffery validation figure: Jeffery's closed-form
+solution as continuous curves with the DNS samples overlaid as markers -
+axis components a_x(t), a_z(t); rotation rate dphi/dt / gammadot vs t; and
+the rate waveform vs phi. The analytic curve uses the THEORETICAL period
+(phase anchored at the first sample), so a period error shows as a growing
+phase lag, exactly what the figure is meant to expose.
+
+Convention (flow u = gammadot z along x, vorticity along -y): phi measured
+from the flow axis in the x-z plane, phi(t) = atan2(sin(psi)/r_e, cos(psi))
+unwrapped, psi = -gammadot r_e t/(r_e^2+1) + psi0, i.e. tan(phi) =
+tan(psi)/r_e; rate gammadot (cos^2 phi + r_e^2 sin^2 phi)/(r_e^2+1) - slow
+at flow alignment, fast through the gradient direction.
 """
 import argparse
 import math
 import re
 import sys
+
+
+def jeffery_phi(tt, t0, phi0, sign, re_, g):
+    """Closed-form Jeffery angle (continuous unwrap), anchored at phi(t0)=phi0."""
+    r = re_
+    # psi0 from phi0: tan(psi) = r tan(phi), same half-turn as phi0
+    psi0 = math.atan2(r * math.sin(phi0), math.cos(phi0))
+    psi0 += math.pi * round((phi0 - psi0) / math.pi)
+    out = []
+    for x in tt:
+        psi = psi0 + sign * g * r * (x - t0) / (r * r + 1.0)
+        p = math.atan2(math.sin(psi), r * math.cos(psi))
+        p += math.pi * round((psi - p) / math.pi)
+        out.append(p)
+    return out
+
+
+def jeffery_rate(phi_, re_, g):
+    r2 = re_ * re_
+    return [g * (math.cos(p) ** 2 + r2 * math.sin(p) ** 2) / (r2 + 1.0) for p in phi_]
+
+
+def make_plot(path, t, ax, az, phi, re_, g, Tg_meas, Tg_jeff):
+    import numpy as np
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    t = np.asarray(t); ax = np.asarray(ax); az = np.asarray(az); phi = np.asarray(phi)
+    sign = 1.0 if phi[-1] >= phi[0] else -1.0
+    tf = np.linspace(t[0], t[-1], 4000)
+    phf = np.asarray(jeffery_phi(tf, t[0], phi[0], sign, re_, g))
+    rf = np.asarray(jeffery_rate(phf, re_, g)) / g
+    # measured centred rate
+    rm = np.abs(np.gradient(phi, t)) / g
+    # marker subsampling: ~200 markers per panel
+    step = max(1, len(t) // 200)
+    sl = slice(0, None, step)
+    # analytic components must follow the DNS axis sign convention (the
+    # recorded axis is continuous, phi is unwrapped from it, so cos/sin match)
+    fig, axs = plt.subplots(3, 1, figsize=(8.5, 10.5))
+    a0, a1, a2 = axs
+    a0.plot(tf, np.cos(phf), "-", color="tab:blue", lw=1.2, label="Jeffery $a_x$")
+    a0.plot(tf, np.sin(phf), "-", color="tab:red", lw=1.2, label="Jeffery $a_z$")
+    a0.plot(t[sl], ax[sl], "o", ms=3.5, mfc="none", color="tab:blue", label="DNS $a_x$")
+    a0.plot(t[sl], az[sl], "s", ms=3.5, mfc="none", color="tab:red", label="DNS $a_z$")
+    a0.set_ylabel("axis component"); a0.set_ylim(-1.15, 1.15); a0.grid(alpha=.3)
+    a0.legend(ncol=4, fontsize=8, loc="upper right")
+    a1.plot(tf, rf, "-", color="k", lw=1.2, label="Jeffery")
+    a1.plot(t[sl], rm[sl], "o", ms=3.5, mfc="none", color="tab:green", label="DNS")
+    a1.set_ylabel(r"$\dot\varphi/\dot\gamma$"); a1.grid(alpha=.3); a1.legend(fontsize=8)
+    r2 = re_ * re_
+    a1.set_ylim(0, max(1.05 * r2 / (r2 + 1), 0.6))
+    a1.set_xlabel("t")
+    a0.set_xlabel("t")
+    # waveform vs phi (mod pi, measured from the flow axis)
+    pw = np.linspace(0, math.pi, 400)
+    a2.plot(pw, np.asarray(jeffery_rate(pw, re_, g)) / g, "-", color="k", lw=1.2, label="Jeffery")
+    a2.plot(np.mod(phi[sl], math.pi), rm[sl], "o", ms=3.5, mfc="none", color="tab:green", label="DNS")
+    a2.set_xlabel(r"$\varphi$ mod $\pi$ (from the flow axis)"); a2.set_ylabel(r"$\dot\varphi/\dot\gamma$")
+    a2.set_xlim(0, math.pi); a2.set_ylim(0, max(1.05 * r2 / (r2 + 1), 0.6)); a2.grid(alpha=.3)
+    a2.set_xticks([0, math.pi / 4, math.pi / 2, 3 * math.pi / 4, math.pi])
+    a2.set_xticklabels(["0", r"$\pi/4$", r"$\pi/2$", r"$3\pi/4$", r"$\pi$"]); a2.legend(fontsize=8)
+    ttl = (f"D6.2 Jeffery orbit, $r_e$={re_:g}, $\\dot\\gamma$={g:g}: "
+           f"$T\\dot\\gamma$ = {Tg_jeff:.4f} (Jeffery)")
+    if Tg_meas is not None:
+        ttl += f", {Tg_meas:.4f} measured ({(Tg_meas / Tg_jeff - 1) * 100:+.2f}%)"
+    fig.suptitle(ttl, fontsize=10)
+    fig.tight_layout(rect=(0, 0, 1, 0.97))
+    fig.savefig(path, dpi=150)
+    print(f"plot written: {path}")
 
 
 def main():
@@ -29,6 +114,8 @@ def main():
     ap.add_argument("--re", type=float, default=2.0)
     ap.add_argument("--tmin", type=float, default=0.0,
                     help="discard the startup transient before this time")
+    ap.add_argument("--plot", default=None,
+                    help="write the Jeffery-vs-DNS overlay figure (png/pdf)")
     a = ap.parse_args()
 
     pat = re.compile(r"DNS_PART_AXIS time=\s*(\S+)\s+ip=\s*\d+\s+axis=\s*(\S+)\s+(\S+)\s+(\S+)")
@@ -65,12 +152,16 @@ def main():
     # pi takes exactly T/2, so T = 2 * mean spacing of successive crossings.
     # (A mean-rate estimate is biased whenever the trace covers a non-integer
     # number of half-turns - validated on a synthetic trace.)
-    base = math.floor(phi[0] / math.pi)
+    # direction-agnostic: fold a decreasing phi (negative rotation sense, the
+    # D6.2 convention with vorticity along -y) onto an increasing one
+    sgn = 1.0 if phi[-1] >= phi[0] else -1.0
+    ph = [sgn * p for p in phi]
+    base = math.floor(ph[0] / math.pi)
     crossings = []
     for i in range(1, len(t)):
-        while phi[i] - (base + 1) * math.pi >= 0:
+        while ph[i] - (base + 1) * math.pi >= 0:
             base += 1
-            f = ((base) * math.pi - phi[i - 1]) / (phi[i] - phi[i - 1])
+            f = ((base) * math.pi - ph[i - 1]) / (ph[i] - ph[i - 1])
             crossings.append(t[i - 1] + f * (t[i] - t[i - 1]))
     if len(crossings) >= 2:
         gaps = [crossings[i + 1] - crossings[i] for i in range(len(crossings) - 1)]
@@ -108,6 +199,10 @@ def main():
           f"[{slow:.5f},{fast:.5f}]; modulation {mod_meas:.3f} vs {mod_jeff:.3f} "
           f"({(mod_meas/mod_jeff-1)*100:+.2f}%)  [band +-5%]")
     print(f"G-plane   : max|axis_y| = {ay_max:.3e}  [band < 0.02]")
+
+    if a.plot:
+        make_plot(a.plot, t, ax, az, phi, a.re, a.gammadot,
+                  Tg if len(crossings) >= 2 else None, Tg_jeff)
 
 
 if __name__ == "__main__":
