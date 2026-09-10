@@ -1,6 +1,10 @@
-# DNS (FBM) practitioner's guide — v2.2
+# DNS (FBM) practitioner's guide — v2.3
 
-Status: **v2.2**, 2026-08-22. v2.2 rewrites §6: the "frictional stall"
+Status: **v2.3**, 2026-09-10. v2.3 adds §12 (offloading segmented runs
+to the Fritz cluster, incl. the restart-dump semantics repaired in
+September) and §13 (ellipsoids: setup keys, the four pe defects, the
+D6.1 resolution/lattice rules and the D6.2 rotational-coupling stability
+limit), and extends §10 with Fritz job costs. v2.2, 2026-08-22, rewrites §6: the "frictional stall"
 of the DKT benchmark was an artifact of the `hcaf_angvel_reset` solver
 defect (angular velocity zeroed every step; fixed at libs/pe ≥ de855b6)
 — on the repaired binary the frictional run tumbles
@@ -14,9 +18,9 @@ erratum** (a_eff = a − 0.14h, `d11_aeff_sign_erratum`), the
 matched-Re basis (`d31_matched_re_operation`), and the completed
 nine-check refinement set (`d31_l5_re9_p010`). Every number below
 traces to a row in `dns_validation_datasheet.md`. Scope: spheres,
-Re ≈ 0.003–32, serial-PE mode. Multi-particle collective behavior (D3),
-non-spherical particles (D4) and the shared lubrication closure (D2.2)
-will extend this.
+Re ≈ 0.003–32, serial-PE mode, plus (v2.3) single prolate spheroids at
+Stokes conditions, fixed (D6.1) and freely rotating (D6.2). The
+lubrication closure (D2.2) is sphere-only.
 
 ## 1. Build & configuration prerequisites (non-negotiable)
 
@@ -277,6 +281,16 @@ job — tune its parameters as physics (§6).
 | DKT D/h=8 (109 rk) | 5000 | ~6 h |
 | DKT D/h=16 (109 rk, 2 nodes) | 5000 | ~30 h |
 
+Fritz (72-core Ice Lake nodes, gcc14 build, §12):
+
+| Config | ranks / nodes | per step | note |
+|---|---|---|---|
+| e4_l3 twin | 32 / 1 | ~1 s | 20 steps, 18 s |
+| viscometer annulus L4 (D/h=18, 431 subdomains) | 432 / 6 | 32–39 s | 24 h ≈ 2200–2700 steps; 11 t.u. per segment at dt=0.005 |
+| D6.1 Oberbeck cell L4 (fixed body, t→4) | 141 / 2 | — | ~1 h per run |
+| D6.2 shear box 8×6×8 L3 smoke | 141 / 2 | ~4.5 s | 50 steps in 3m45 incl. setup |
+| D6.2 shear box L4 (2b/h = 9.5, free rotation) | 141 / 2 | 17–21 s | ~41 t.u. per 24 h segment at dt=0.01 |
+
 ## 11. Open items feeding v3
 
 - D3.2 wall-bounded hindered settling — ladder CLOSED 2026-08-15
@@ -297,4 +311,169 @@ job — tune its parameters as physics (§6).
   PE) if any wrapping-particle case is needed.
 - D1.2 spectral characterization; E2/E3 dt points; Tenneti 2011
   comparison of the §9 surface.
-- Non-spherical (D4) and the D6 capstones.
+- D6.2 Jeffery verdict (V1b in flight) and the wall-clearance ladder;
+  a finite-Re orbit ladder needs Ding & Aidun 2000 in the literature
+  folder first. D6.1 optional: half-size 45° variant, r_e = 3.
+- The plan's capstones (ATC suspension regime) and D5 (DNS↔EL twins).
+
+## 12. Offloading segmented runs to Fritz (NHR@FAU)
+
+Added 2026-09-10 after the D/h=16 viscometer rung, D6.1 and D6.2 ran
+there. Access recipe, workspace layout and quotas live in the memory
+`fritz-cluster-access` and in the in-clone agent guide
+`docs/md_docs/building_with_gcc14_on_fritz.md` (untracked, Fritz clone);
+this section records what changes for a practitioner.
+
+- **Certify the build with a twin, not with a diff.** Fritz gcc 14.2 +
+  OpenMPI 4.1.8 against the local gcc 13 stack: the instrument logs
+  (`particle_force.log`, `bulk_flow.log`, 9 significant digits) are
+  **bitwise identical** on the e4_l3 twin; stdout diagnostics drift by
+  1–2 ulp from step 2 on (`fritz_build_twin`). Consequence: Fritz
+  binaries are production-grade for **independent** runs; a trajectory
+  must never be restarted across machines (the ulp drift would be
+  indistinguishable from a restart artifact).
+- **Configuration is the certified 3-step cmake** (Release, USE_PE +
+  USE_PE_SERIAL_MODE + ENABLE_FBM_ACCELERATION, `pe_CONSTRAINT_SOLVER=
+  pe::response::HardContactAndFluid`, SED_BENCH=OFF — the guide's
+  SED_BENCH=ON predates ForceScale). `module` needs a login shell
+  (`bash -lc`); export `Q2P1_MESH_DIR` yourself, the env file does not.
+- **Billing is per whole node** (OverSubscribe=EXCLUSIVE): a 3-rank job
+  costs a 72-core node. For runs longer than minutes, size the partition
+  to 72k−1 subdomains (the master rank makes 72k); for minutes-scale gate
+  runs reuse a certified partition, the waste is negligible.
+- **Every partition caps at 24 h**, so any run above ~2000 steps at L4 is
+  segmented through the dump slots. The semantics that cost three
+  jobs to learn (`d52_v24f_baseline_hr`):
+  - `SimPar@BackUpFreq` counts **output frames**, not steps
+    (`MOD(iOGMV, insav)`, `les.f`): a deck with OutputFreq = 10 t.u. and
+    BackUpFreq = 100000 never dumps. Set BackUpFreq = 1 and let
+    OutputFreq be the dump cadence; a clean run end also dumps.
+  - Dumps cycle through `_dump/processor_N/<slot>/` with `time.dmp`
+    (first line = time) — pick the newest slot by its time, not by
+    slot number. Restart = `SimPar@StartingProc = 1`,
+    `SimPar@StartFile = "<slot>"`; the restart path does **not** re-apply
+    the initial-condition function, so fields carry over intact.
+  - The legacy dump writer wrote scratch as coordinates and omitted
+    `MaterialDistribution.dmp`; the restart then overwrote the mesh and
+    went NaN. Fixed 2026-09-06: `ProcCtrl` Dump_Out uses the complete
+    writer, and both readers carry a coordinate sanity guard
+    ("keeping the setup mesh" in the log means the guard fired on a
+    legacy dump — the run is still valid).
+  - Copy restart dumps with `cp -a`; a hardlinked slot is rewritten in
+    place by whichever run's cycle reaches it (memory
+    `ff-deck-staging-pitfalls`).
+  - Archive each segment log before the next launch
+    (`run_slurm_segN_t<a>-<b>.log`); analyses concatenate segments and,
+    where the restart overlaps the timeout tail, keep the later segment.
+  - A restart rejoins ~0.25% off for one step (reinit transient) and
+    the plateau is unaffected; do not read gates across the seam.
+- **Self-perpetuating chains**: submit the successor with
+  `--dependency=afterany:<self>` *before* `mpirun`, and have each job
+  refuse to continue on the clean-finish marker
+  (`PP3D_LES has successfully finished`), on NaN/abort in the previous
+  log, or past a segment cap. Reference implementation:
+  `rundirs/q2p1_dns_rundir_d62_v1b/chain_v1b.sbatch` on Fritz (D6.2).
+- Watchers over ssh must fall back to `sacct` — `squeue` returns empty
+  for a moment between jobs and a naive watcher declares the run done.
+
+## 13. Ellipsoids (D6 non-spherical, Stokes conditions)
+
+Scope: one prolate spheroid (a; b = c), r_e = a/b = 2, fixed in a
+periodic Stokes cell (D6.1 Oberbeck, CLOSED) and freely rotating in a
+planar Couette box (D6.2 Jeffery, in flight). Everything below traces to
+`dns_torque_path_review.md` and rows `d61_*`, `d62_*`.
+
+**Setup keys (json, serial PE, `setupDNSDragSerial` xyz path):**
+`particleShape_ = "ellipsoid"`, `semiAxes_ = [a,b,c]`, `particleAxis_`
+(world direction of the body a-axis; the setup rotates body-x onto it),
+`particleMotion_ = "fixed" | "rotationOnly"` (the latter =
+`setLinearDofMask(0,0,0)` with angular DOFs free, both for ellipsoids and
+spheres). Lubrication is refused for non-spheres; the lattice path
+refuses ellipsoids. Orientation readout: `DNS_PART_AXIS time= ip= axis=`
+on rank 1 (gated on `isTypeEllipsoid`; an r_e = 1 "ellipsoid" makes a
+sphere emit the record — the D6.2 spin control uses that).
+
+**Binary requirements — four pe defects fixed September 2026** (creep-bench
+lineage, the fingerprint is "correct line commented out"; any binary
+with libs/pe < 1b0dda2 has some of them):
+
+| id | defect | symptom |
+|---|---|---|
+| D-1 | `calcInertia` I_zz coefficient 0.25 instead of 0.2 | wrong tumbling inertia about one axis |
+| D-2 | no ellipsoid branch in HardContactAndFluid velocity seeding | ~11× settling error at ρ_r = 1.1 |
+| D-3 | `getVolume`/`calcMass` missing the 4/3 | mass 25% low; exposed by the unit test written for D-1 |
+| D-4 | `containsPoint` dropped the z term | FBM embedded an infinite elliptic cylinder — 6.35× the expected indicator DOFs; caught by gate G0's DOF count |
+
+Unit test: `tests/interface/pe_ellipsoid_inertia_test.cpp` (volume, mass,
+inertia, I·I⁻¹, sphere degeneracy, per-axis containment incl. a
+"cylinder-bug detector" along c, rotated case). Gate G0 for any ellipsoid
+case must print `dofs_per_particle` and compare it with the analytic
+indicator volume — that check is what found D-4.
+
+**Torque path (reviewed, sound):** FF integrates traction in volume form
+with n = −∇α, live-center moment arm, per-component `ForceScale`, summed
+by `COMM_SUMMN` over 6N; pe consumes and resets the fluid force (no
+double count); `getInvInertia` is R·I⁻¹·Rᵀ in world frame, gyroscopic
+term present, exponential-map quaternion update. No periodic
+minimum-image on the torque arm (N-1) — fixed-body designs sidestep it,
+a wrapping rotating body would not.
+
+**Resolution rules (D6.1 ladder, `d61_v4_resolution`, `d61_v5_halfsize`):**
+
+- Resolve the **thin** axis: 2b/h ≥ 9.5 (the certified class) gives
+  absolutes within −1.1/−1.5% raw (parallel/perpendicular), and the L3→L4
+  step changes the drag ratio by ~1e-4 (1.16993 → 1.17000, resolution-converged at L4).
+- The compact periodic cell adds a **finite-cell lattice term**: the
+  ratio Y/X came out +2.15% high at 2a/L = 0.53 and collapsed to −0.34%
+  when the body was halved in the same cell (excess dropped ~6×, the
+  φ-scaling predicted ~8×). Budget a half-size rung for any anisotropic
+  observable in a periodic cell; it is physics, not method error.
+- **a_eff = a − 0.14h does NOT transfer per axis** — do not correct
+  spheroid axes independently; use the measured indicator volume
+  (`fluid_frac`) for a volume correction, K/(1+dr)^1.87, as the d11
+  ladder does.
+- Under steady momentum balance the cell force is F = f·V_cell in
+  **every** component, so a "force direction" gate on an inclined body is
+  structurally null; the anisotropy shows up as **transverse mean flow**
+  instead (V3b measured 5.86° vs 3.88° naive / 7.8° eigen-corrected).
+- Torque nulls on a fixed symmetric body are 1e-8..1e-9 of the drag
+  moment scale — a useful zero-check for the traction integration.
+
+**Free rotation: the explicit-coupling stability limit (D6.2,
+`d62_v01_rho1_unstable`).** Torque is exchanged once per step and
+ω advanced by dt·I⁻¹·T. The fluid relaxes ω toward the half-vorticity on
+τ_rot = I/C_T (sphere: ρ_p a²/(15ν)); the update is stable only for
+g = u·dt/τ_rot < 2, with u ≈ 1.5–2.5 the short-time unsteady torque
+enhancement a/√(πν dt). Nondimensionally g = 15u·(γ̇dt)/(ρ_r Re_b) —
+at a fixed Re cap the only levers are steps per period and ρ_r. At
+ρ_p = 1, ν = 1, a = 0.25, dt = 0.01 the gain was 3.6: torque
+sign-alternating, ×2.5 per step, NaN by t = 0.3.
+
+- Rule: check τ_rot·u/dt before the first free-rotation run. For
+  translation-locked, gravity-free bodies density enters only through
+  the rotational inertia, so raise ρ_r until g ≲ 0.5 and record
+  τ_rot·γ̇ (0.008 at ρ_r = 10 here — the zero-inertia Jeffery limit is
+  intact). Halving dt costs wall time linearly for the same gain.
+- It is the rotational sibling of the ten Cate dt finding: worst in the
+  creeping-flow, small-body corner where dt·ν/a² is largest; unlike the
+  translational case it is NOT tied to ρ_r ≈ 1 specifically.
+- Control before the orbit: a sphere (r_e = 1) in the same box must spin
+  at ω/γ̇ = −1/2, uniform, in-plane. Measured −0.50495 at 2a/h = 9.5
+  (+0.99%, `d62_v0b_spin`; wall/image corrections are O(1e-4), the
+  excess is discretization) — budget ~1% on rotation rates at this
+  resolution.
+- Linear-shear initial field: `GetVeloInitVal` applies u = γ̇·z when
+  `SimPar@GammaDot ≠ 0` (all other decks keep the zero field). Without
+  it the wall-driven shear needs (H/2)²/ν t.u. to reach the body — the
+  D6.2 G0 smoke saw a 2000× too slow rotation for exactly that reason.
+- Periodic x/y boxes need `SimPar@Periodicity = Lx,Ly,1e9` (the deck key
+  replaces the app's old [1,1,1] hardcode; the `Periodic` par label is
+  inert, the comm layer pairs modulo these lengths) and an axis-uniform
+  partition (5×4×7 = 140 subdomains for the 8×6×8 box; the pe_partpy
+  snap fix makes the tolerance defect moot for 15-digit meshes).
+- Analysis: `tools/d62_jeffery_analysis.py` — period from π-crossings
+  (a mean-rate estimate is biased for non-integer half-turns), 4:1
+  waveform modulation, in-plane check, `--plot` for the Jeffery-vs-DNS
+  overlay; `tools/d61_oberbeck_analysis.py` for the fixed-body drag
+  ratios (Hasimoto fixed-point inversion, `D61_SCALE` for the half-size
+  rung).
