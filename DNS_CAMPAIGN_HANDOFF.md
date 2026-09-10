@@ -14,7 +14,7 @@ untracked, 2026-08-13).
 
 | # | document | what it is | freshness |
 |---|---|---|---|
-| 1 | `docs/md_docs/dns_validation_datasheet.md` (+ `.csv`, same rows) | **the authority.** 152 verdict rows: suite, case id, quantity, expected + source, measured, rel_error, tolerance, verdict. Row prose carries the reasoning; the last ~20 rows are the current state | current (row `d62_v0b_spin`, 2026-09-10) |
+| 1 | `docs/md_docs/dns_validation_datasheet.md` (+ `.csv`) | **the authority.** 155 verdict rows: suite, case id, quantity, expected + source, measured, rel_error, tolerance, verdict. Row prose carries the reasoning; the last ~20 rows are the current state. The two files share the row set (case/quantity keys) but not the ordering or every word of historical prose; the CSV is what tools parse, the MD is what people read | current (rows `d61_review_corrections`, `d62_conventions_pinned`, 2026-09-10) |
 | 2 | `applications/q2p1_dns_drag/validation_cases/*/` | per-family specs: `d11_hasimoto/RUNBOOK.md`, `d22_lubrication/DESIGN_SPEC.md`, `d51_viscometer/CASE_SPEC.md` + `CASE_SPEC_V2.md`, `d61_oberbeck/CASE_SPEC.md`, `d62_jeffery/CASE_SPEC.md`. Gates, geometry, run matrices, dated amendments | current for D5/D6 |
 | 3 | `docs/md_docs/dns_torque_path_review.md` | FF traction/torque integration and pe torque application reviewed line by line; ellipsoid defects D-1..D-4 with fix records; notes N-1..N-4 | 2026-09-05 |
 | 4 | `docs/md_docs/dns_practitioners_guide.md` v2.3 | the distilled rules: D/h, dt, force noise floor, near-contact crossover, contact parameters, reference discipline, array drag law, job costs | v2.3, 2026-09-10 (§12 Fritz + segmented restarts, §13 ellipsoids) |
@@ -110,8 +110,11 @@ D6.2 finding this week (row `d62_v01_rho1_unstable`, spec §2): at
 rho_p = 1 the explicit torque exchange is unstable (rotational relaxation
 time 0.004 t.u. < dt = 0.01, gain ~3.6, NaN by t=0.3). Cure: rho_p = 10
 at unchanged dt (tau_rot = 0.04 t.u. against a 78.5 t.u. period, the
-zero-inertia Jeffery limit is intact). Same partitioned-coupling
-mechanism as the ten Cate dt study, rotational channel.
+zero-inertia Jeffery limit is intact). Stands on its own evidence; it is
+NOT the refuted ten Cate "dt floor" (that was PE/CFD desync).
+Reviewed 2026-09-10 (`DNS_CAMPAIGN_REVIEW.md`, untracked): five findings,
+all addressed the same day - see rows `d61_review_corrections` and
+`d62_conventions_pinned`.
 
 ## 4. Open list (priority order)
 

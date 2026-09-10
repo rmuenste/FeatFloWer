@@ -30,24 +30,33 @@ folder - not needed while Re <= 0.05; acquire when the Re ladder starts.
 A neutrally buoyant prolate spheroid (r_e = a/b = 2), translation-locked but
 FREE TO ROTATE, at the center of a planar Couette box: walls at z = +-H/2
 moving at u = +-U x^, periodic in x (streamwise) and y (spanwise). Linear
-shear gammadot = 2U/H, vorticity along -y.
+shear gammadot = 2U/H, vorticity +gammadot along +y (corrected 2026-09-10;
+the draft said -y).
 
 Jeffery (1922), axis started in the shear plane (x-z) -> pure tumbling
 orbit:
 
 ```
 period      T = 2 pi (r_e + 1/r_e) / gammadot          [T*gammadot = 15.70796 at r_e = 2]
-waveform    dphi/dt = gammadot (r_e^2 cos^2 phi + sin^2 phi) / (r_e^2 + 1)
-            -> at r_e = 2: dphi/dt ranges gammadot/5 (axis || flow, slow)
+waveform    |dphi/dt| = gammadot (cos^2 phi + r_e^2 sin^2 phi) / (r_e^2 + 1)
+            -> at r_e = 2: |dphi/dt| ranges gammadot/5 (axis || flow, slow)
                to 4 gammadot/5 (axis || gradient, fast) - a 4:1 modulation
 ```
 
-phi is the axis angle in the x-z plane, read directly from the per-step
-DNS_PART_AXIS record.
+Convention (pinned 2026-09-10 after the review found the printed formula
+swapped slow/fast for the analyzer's angle): phi = atan2(axis_z, axis_x),
+measured FROM THE FLOW AXIS in the x-z plane, read directly from the
+per-step DNS_PART_AXIS record. With u = gammadot z x^ the vorticity is
++gammadot y^, so the physical spin is omega_y = +gammadot/2 for a sphere
+and phi DECREASES (dphi/dt = -omega_y). Gates quote |dphi/dt|; the sign
+is checked separately (analyzer line "rotation sense"). The formula
+above in the gradient-axis convention reads gammadot (r_e^2 cos^2 +
+sin^2)/(r_e^2+1) - same physics, different origin of phi.
 
 | gate | quantity | band | rationale |
 |---|---|---|---|
-| G-sphere (V0, PRIMARY control) | sphere spin in shear: omega_y / gammadot = -1/2, steady | +-1% | exact, shape-free; certifies the torque->rotation chain before any orbit |
+| G-sphere (V0, PRIMARY control) | sphere spin in shear: omega_y / gammadot = +1/2, i.e. (dphi/dt)/gammadot = -1/2 in the analyzer's angle, steady | +-1% | exact, shape-free; certifies the torque->rotation chain before any orbit |
+| G-orient (V1, added 2026-09-10) | \|dphi/dt\| binned by phi vs Jeffery: rate at flow alignment / rate at the gradient axis = 1/r_e^2, rms residual over the bins | +-10% placement; rms < 3% of gammadot | extrema alone accept a phase-shifted orbit (review finding 1) |
 | G-period (V1, PRIMARY) | measured T*gammadot vs 15.70796 | +-3% at default clearance, tightened by V2 | the integral test of the whole rotational path |
 | G-waveform (V1) | dphi/dt(phi) vs Jeffery, incl. the 4:1 slow/fast ratio | ratio +-5% | shape test - catches compensating errors the period integral hides |
 | G-wall (V2, REQUIRED) | period shift between the two clearances | measured, monotone toward Jeffery with clearance | the owner-observed wall effect, quantified not assumed |
@@ -93,10 +102,12 @@ g = 15 u (gammadot dt) / (rho_r Re_b): at the Re cap the only levers are
 steps per period N and rho_r, g = 18850 u / (N rho_r). Choice: rho_r = 10
 at dt = 0.01 (N = 7850): g ~ 0.36 (sphere), smaller for the spheroid,
 monotone convergence with tau_rot = 0.042 t.u. (converged before t = 0.3).
-The alternative dt = 0.002 costs 5x the wall time for the same effect. This
-is the same partitioned-coupling mechanism as the ten Cate dt study
-(memory dns-dt-stability-floor), in the rotational channel and in the
-creeping-flow / small-body corner where dt * nu / a^2 is largest.
+The alternative dt = 0.002 costs 5x the wall time for the same effect.
+This diagnosis stands on its own evidence (sign-alternating torque growth
+at the predicted gain, cured by the predicted inertia change). It is NOT
+the ten Cate "dt floor": that one was refuted as PE/CFD step
+desynchronization (row dt_stability_refuted) - the draft's analogy is
+withdrawn.
 
 ## 3. Fixture requirements (the build work)
 

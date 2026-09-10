@@ -135,14 +135,14 @@ cell.
 ## 5. Discretization calibration
 
 d11 pinned the sphere bias: r_h/r = 1.034 / 1.028 / 1.013 at D/h = 6/12/24,
-collapsing as a_eff ~ a + 0.14 h (rows `d11_rh_collapse`,
+collapsing as a_eff ~ a - 0.14 h (sign per d11_aeff_sign_erratum; the tool carried + until 2026-09-10) (rows `d11_rh_collapse`,
 `d11_aeff_sign_erratum`). For the spheroid the same surface-smearing
 argument applies per axis. Secondary-gate procedure:
 
 - V0 control re-runs the d11 L3 sphere ON THE CURRENT BINARY (pin 6971b13)
   in the identical rundir layout — regression anchor (must reproduce the
   d11 L3 row to 5 digits) and fresh r_h/r at this exact code state.
-- Apply the a_eff correction axis-wise (a + 0.14h, b + 0.14h -> recompute
+- Apply the a_eff correction axis-wise (a - 0.14h, b - 0.14h, h of the run level -> recompute
   X^A, Y^A at the effective aspect ratio) for the absolute gate; the
   uncorrected values are recorded alongside.
 - V4 (L4 rung) must move the absolute residuals toward zero roughly like

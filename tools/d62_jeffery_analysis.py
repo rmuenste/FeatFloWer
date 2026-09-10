@@ -5,10 +5,14 @@ Reads the DNS_PART_AXIS trace from a run log, reconstructs the in-plane
 orientation angle phi(t) = unwrap(atan2(axis_z, axis_x)), and gates:
 
   G-period  : T*gammadot vs 2 pi (r_e + 1/r_e)          [15.70796 at r_e=2]
-  G-waveform: |dphi/dt|(phi) vs Jeffery
-              gammadot (r_e^2 cos^2 + sin^2)(phi-phi0) / (r_e^2+1),
-              fitted with a free phase offset phi0 (convention-robust);
-              reports the fast/slow modulation ratio vs r_e^2 (4.0 at r_e=2)
+  G-waveform: |dphi/dt| extrema vs Jeffery gammadot/(r_e^2+1) .. gammadot r_e^2/(r_e^2+1);
+              fast/slow modulation ratio vs r_e^2 (4.0 at r_e=2)
+  G-orient  : the waveform AGAINST orientation - |dphi/dt| binned by phi mod pi
+              (phi from the flow axis) vs gammadot (cos^2 + r_e^2 sin^2)/(r_e^2+1):
+              rate(phi~0)/rate(phi~pi/2) vs ~1/r_e^2 (slow at flow alignment) and
+              the rms residual over the bins. Added after the 2026-09-10 review:
+              extrema alone pass a phase-shifted orbit (fast at alignment).
+  sense     : dphi/dt sign vs the expected omega_y = +gammadot/2 (phi decreasing)
   G-plane   : max |axis_y| over the trace (in-plane stability)
 
 r_e = 1 degenerates to the uniform spin control (V0): dphi/dt = gammadot/2,
@@ -24,7 +28,7 @@ the rate waveform vs phi. The analytic curve uses the THEORETICAL period
 (phase anchored at the first sample), so a period error shows as a growing
 phase lag, exactly what the figure is meant to expose.
 
-Convention (flow u = gammadot z along x, vorticity along -y): phi measured
+Convention (flow u = gammadot z along x, vorticity +gammadot along +y): phi measured
 from the flow axis in the x-z plane, phi(t) = atan2(sin(psi)/r_e, cos(psi))
 unwrapped, psi = -gammadot r_e t/(r_e^2+1) + psi0, i.e. tan(phi) =
 tan(psi)/r_e; rate gammadot (cos^2 phi + r_e^2 sin^2 phi)/(r_e^2+1) - slow
@@ -153,7 +157,7 @@ def main():
     # (A mean-rate estimate is biased whenever the trace covers a non-integer
     # number of half-turns - validated on a synthetic trace.)
     # direction-agnostic: fold a decreasing phi (negative rotation sense, the
-    # D6.2 convention with vorticity along -y) onto an increasing one
+    # D6.2 convention: omega_y = +gammadot/2 makes phi decrease) onto an increasing one
     sgn = 1.0 if phi[-1] >= phi[0] else -1.0
     ph = [sgn * p for p in phi]
     base = math.floor(ph[0] / math.pi)
@@ -190,14 +194,67 @@ def main():
     g, r2 = a.gammadot, a.re ** 2
     fast, slow = g * r2 / (r2 + 1), g / (r2 + 1)
 
+    # G-orient: the waveform AGAINST ORIENTATION (review 2026-09-10 finding 1:
+    # extrema and their ratio alone cannot tell a phase-shifted orbit - one
+    # that is fastest at flow alignment - from the real thing). Bin the
+    # measured |dphi/dt| by phi mod pi (phi from the flow axis) and compare
+    # bin means with Jeffery's rate at the bin centre; report the rms
+    # residual and the slow/fast placement explicitly.
+    nbin = 12
+    sums = [0.0] * nbin
+    cnts = [0] * nbin
+    for p, r in zip(phis, rates):
+        k = int((p % math.pi) / math.pi * nbin) % nbin
+        sums[k] += r
+        cnts[k] += 1
+    resid2, nres = 0.0, 0
+    bin_meas = {}
+    for k in range(nbin):
+        if cnts[k] == 0:
+            continue
+        pc = (k + 0.5) * math.pi / nbin
+        r_j = g * (math.cos(pc) ** 2 + r2 * math.sin(pc) ** 2) / (r2 + 1.0)
+        bin_meas[k] = sums[k] / cnts[k]
+        resid2 += (bin_meas[k] - r_j) ** 2
+        nres += 1
+    rms_resid = math.sqrt(resid2 / nres) / g if nres else float("nan")
+    # slow-at-alignment placement: mean rate in the two bins around phi=0
+    # (mod pi) over the two bins around phi=pi/2; Jeffery expects ~1/r_e^2
+    def bins_mean(keys):
+        vals = [bin_meas[k] for k in keys if k in bin_meas]
+        return sum(vals) / len(vals) if vals else float("nan")
+    r_align = bins_mean((0, nbin - 1))
+    r_grad = bins_mean((nbin // 2 - 1, nbin // 2))
+    pc0, pc1 = 0.5 * math.pi / nbin, (nbin // 2 - 0.5) * math.pi / nbin
+    place_jeff = ((math.cos(pc0) ** 2 + r2 * math.sin(pc0) ** 2)
+                  / (math.cos(pc1) ** 2 + r2 * math.sin(pc1) ** 2))
+    place_meas = r_align / r_grad if r_grad else float("nan")
+    # signed rotation sense: with u = gammadot*z along x the vorticity is
+    # +gammadot*y and phi = atan2(a_z, a_x) DECREASES (omega_y = +gammadot/2
+    # for a sphere <-> dphi/dt = -gammadot/2)
+    sense = -1.0 if (phi[-1] - phi[0]) < 0 else 1.0
+    sense_ok = (sense < 0) == (a.gammadot > 0)
+
     ay_max = max(abs(v) for v in ay)
 
-    print(f"samples {len(t)}  t=[{t[0]:.3f},{t[-1]:.3f}]  half-turns {n_half:.2f}")
+    print(f"samples {len(t)}  t=[{t[0]:.3f},{t[-1]:.3f}]  half-turns {n_half:.2f}  "
+          f"rotation sense dphi/dt {'<' if sense < 0 else '>'} 0 "
+          f"({'as expected' if sense_ok else 'WRONG SIGN'} for gammadot={a.gammadot:g}: "
+          f"omega_y = +gammadot/2 -> phi decreasing)")
     print(f"G-period  : T*gammadot = {Tg:.4f} vs {Tg_jeff:.4f} "
           f"({(Tg/Tg_jeff-1)*100:+.2f}%)  [band +-3%]")
     print(f"G-waveform: |dphi/dt| in [{rmin:.5f},{rmax:.5f}] vs Jeffery "
           f"[{slow:.5f},{fast:.5f}]; modulation {mod_meas:.3f} vs {mod_jeff:.3f} "
           f"({(mod_meas/mod_jeff-1)*100:+.2f}%)  [band +-5%]")
+    if math.isnan(place_meas):
+        place_txt = ("rate(phi~0)/rate(phi~pi/2) = n/a (trace does not cover both "
+                     "the aligned and the gradient orientation)")
+    else:
+        place_txt = (f"rate(phi~0)/rate(phi~pi/2) = {place_meas:.4f} vs Jeffery "
+                     f"{place_jeff:.4f} ({(place_meas/place_jeff-1)*100:+.2f}%; slow at "
+                     f"flow alignment) [band +-10%]")
+    print(f"G-orient  : {place_txt}; rms waveform residual over {nres} phi-bins = "
+          f"{rms_resid*100:.2f}% of gammadot [band < 3%]")
     print(f"G-plane   : max|axis_y| = {ay_max:.3e}  [band < 0.02]")
 
     if a.plot:

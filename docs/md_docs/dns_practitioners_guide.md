@@ -454,11 +454,16 @@ sign-alternating, ×2.5 per step, NaN by t = 0.3.
   the rotational inertia, so raise ρ_r until g ≲ 0.5 and record
   τ_rot·γ̇ (0.008 at ρ_r = 10 here — the zero-inertia Jeffery limit is
   intact). Halving dt costs wall time linearly for the same gain.
-- It is the rotational sibling of the ten Cate dt finding: worst in the
-  creeping-flow, small-body corner where dt·ν/a² is largest; unlike the
-  translational case it is NOT tied to ρ_r ≈ 1 specifically.
+- Worst in the creeping-flow, small-body corner where dt·ν/a² is
+  largest; not tied to ρ_r ≈ 1. Do not conflate it with the ten Cate
+  "dt floor" of §3 — that one was refuted as PE/CFD step
+  desynchronization; this one stands on its own evidence
+  (sign-alternating torque growth at the predicted gain, cured by the
+  predicted inertia change).
 - Control before the orbit: a sphere (r_e = 1) in the same box must spin
-  at ω/γ̇ = −1/2, uniform, in-plane. Measured −0.50495 at 2a/h = 9.5
+  at ω_y = +γ̇/2 (vorticity +γ̇ ŷ for u = γ̇z x̂), i.e. the analyzer's
+  angle φ = atan2(a_z, a_x) decreases at γ̇/2, uniform, in-plane.
+  Measured (dφ/dt)/γ̇ = −0.50495 at 2a/h = 9.5
   (+0.99%, `d62_v0b_spin`; wall/image corrections are O(1e-4), the
   excess is discretization) — budget ~1% on rotation rates at this
   resolution.
