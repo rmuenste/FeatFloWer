@@ -120,7 +120,14 @@ def main():
                     help="discard the startup transient before this time")
     ap.add_argument("--plot", default=None,
                     help="write the Jeffery-vs-DNS overlay figure (png/pdf)")
+    ap.add_argument("--seams", default="",
+                    help="comma-separated restart times; samples within "
+                         "--seam-window after each are excluded (the body "
+                         "restarts with omega=0 at a segment seam and spins up "
+                         "within tau_rot - a rate blip, not orbit physics)")
+    ap.add_argument("--seam-window", type=float, default=0.6)
     a = ap.parse_args()
+    seams = [float(x) for x in a.seams.split(",") if x.strip()]
 
     pat = re.compile(r"DNS_PART_AXIS time=\s*(\S+)\s+ip=\s*\d+\s+axis=\s*(\S+)\s+(\S+)\s+(\S+)")
     t, ax, ay, az = [], [], [], []
@@ -130,6 +137,8 @@ def main():
             if m:
                 tt = float(m.group(1))
                 if tt < a.tmin:
+                    continue
+                if any(s <= tt < s + a.seam_window for s in seams):
                     continue
                 t.append(tt)
                 ax.append(float(m.group(2)))
@@ -179,14 +188,18 @@ def main():
     Tg_jeff = 2 * math.pi * (a.re + 1.0 / a.re)
 
     # waveform: centered dphi/dt vs phi
-    rates, phis = [], []
+    rates, phis, rt = [], [], []
+    dts = sorted(t[i + 1] - t[i] for i in range(len(t) - 1))
+    dt_med = dts[len(dts) // 2]
     for i in range(1, len(t) - 1):
         dt = t[i + 1] - t[i - 1]
-        if dt <= 0:
+        if dt <= 0 or dt > 3.0 * dt_med:     # never difference across a masked gap
             continue
         rates.append(abs((phi[i + 1] - phi[i - 1]) / dt))
         phis.append(phi[i])
+        rt.append(t[i])
     rmax, rmin = max(rates), min(rates)
+    t_rmin, t_rmax = rt[rates.index(rmin)], rt[rates.index(rmax)]
     mod_meas = rmax / rmin if rmin > 0 else float("inf")
     mod_jeff = a.re ** 2
 
@@ -243,8 +256,8 @@ def main():
           f"omega_y = +gammadot/2 -> phi decreasing)")
     print(f"G-period  : T*gammadot = {Tg:.4f} vs {Tg_jeff:.4f} "
           f"({(Tg/Tg_jeff-1)*100:+.2f}%)  [band +-3%]")
-    print(f"G-waveform: |dphi/dt| in [{rmin:.5f},{rmax:.5f}] vs Jeffery "
-          f"[{slow:.5f},{fast:.5f}]; modulation {mod_meas:.3f} vs {mod_jeff:.3f} "
+    print(f"G-waveform: |dphi/dt| in [{rmin:.5f} (t={t_rmin:.2f}),{rmax:.5f} (t={t_rmax:.2f})] "
+          f"vs Jeffery [{slow:.5f},{fast:.5f}]; modulation {mod_meas:.3f} vs {mod_jeff:.3f} "
           f"({(mod_meas/mod_jeff-1)*100:+.2f}%)  [band +-5%]")
     if math.isnan(place_meas):
         place_txt = ("rate(phi~0)/rate(phi~pi/2) = n/a (trace does not cover both "
