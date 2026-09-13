@@ -102,9 +102,9 @@ non-spherical work was pulled forward. Use the datasheet names.
 
 | run | where | job | state | what closes it |
 |---|---|---|---|---|
-| d52 v25f, phi=0.05 at L4 (D/h=16 rung) | Fritz, 6 nodes | 4203909 (segment 5, t 240->250) | running, ~t=244 | eta_L4 = T(phi)/83.77503 over the t>=230 plateau vs composite Einstein; rung verdict row; decides whether phi=0.20 needs an L4 rerun |
+| d52 v25f, phi=0.05 at L4 (D/h=16 rung) | Fritz, 6 nodes | position-continuing chain `chain_v25f.sbatch` from the t=250 dump (4215621 -> successors), MaxSimTime 285 | running (first five segments were re-insertion transients, `d52_v25f_l4_protocol`) | eta_L4 on the t>=265 plateau vs the composite target; rung verdict row |
 | d62 V0b, r_e=1 spin control | Fritz | 4200094 | DONE, PASS (`d62_v0b_spin`, omega/gammadot = -0.50495, +0.99%) | - |
-| d62 V1b, r_e=2 Jeffery orbit, t->120 | Fritz, 2 nodes | 4200095 (seg 1) + self-chaining `chain_v1b.sbatch` (4209002 queued afterany) | seg 1 at t~26, ~21 s/step, 3-4 segments | `tools/d62_jeffery_analysis.py <concatenated logs> --gammadot 0.2 --re 2 --tmin 0.5 --plot`; gates: T*gammadot = 15.708 +-3% from pi-crossings, 4:1 waveform +-5%, axis_y < 0.02; preview at t=25 already on the Jeffery curve (figure NOT committed yet, owner's call) |
+| d62 V1b, r_e=2 Jeffery orbit, t->120 | Fritz, 2 nodes | 4200095/4212205/4212365 | DONE 2026-09-13, PASS all gates (`d62_v1b_orbit`: period +0.30%, waveform 0.48% rms) | V2 clearance rung (H=4 box) before D6.2 closes |
 
 D6.2 finding this week (row `d62_v01_rho1_unstable`, spec §2): at
 rho_p = 1 the explicit torque exchange is unstable (rotational relaxation
