@@ -102,7 +102,7 @@ non-spherical work was pulled forward. Use the datasheet names.
 
 | run | where | job | state | what closes it |
 |---|---|---|---|---|
-| d52 v25f, phi=0.05 at L4 (D/h=16 rung) | Fritz, 6 nodes | position-continuing chain `chain_v25f.sbatch` from the t=250 dump (4215621 -> successors), MaxSimTime 285 | running (first five segments were re-insertion transients, `d52_v25f_l4_protocol`) | eta_L4 on the t>=265 plateau vs the composite target; rung verdict row |
+| d52 v25f, phi=0.05 at L4 (D/h=16 rung) | Fritz, 6 nodes | chain complete at t=285 (segments 6-9 position-continuing) | NOT CERTIFIABLE yet (`d52_v25f_l4_poscont`): restarts still zero the particle velocities -> 3% torque sawtooth every 10 t.u.; indicative eta_L4 ~1.12 vs target 1.109 | owner decision: carry velocities through the xyz reader (small pe change, twin-gated) + ~3 segments, or wire pe resume |
 | d62 V0b, r_e=1 spin control | Fritz | 4200094 | DONE, PASS (`d62_v0b_spin`, omega/gammadot = -0.50495, +0.99%) | - |
 | d62 V1b, r_e=2 Jeffery orbit, t->120 | Fritz, 2 nodes | 4200095/4212205/4212365 | DONE 2026-09-13, PASS all gates (`d62_v1b_orbit`: period +0.30%, waveform 0.48% rms) | V2 clearance rung (H=4 box) before D6.2 closes |
 
