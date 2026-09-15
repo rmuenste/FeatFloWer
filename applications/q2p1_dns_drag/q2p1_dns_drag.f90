@@ -3,6 +3,8 @@ PROGRAM Q2P1_DNS_DRAG
   include 'defs_include.h'
 
   use solution_io, only: postprocessing_app
+  use dem_query, only: set_pe_checkpoint_identity
+  use iso_c_binding, only: c_null_char
 
   use app_initialization, only: init_q2p1_app
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
@@ -14,6 +16,7 @@ PROGRAM Q2P1_DNS_DRAG
   integer            :: iOGMV,iTout
   character(len=200) :: command
   character(len=60)  :: CPP3D
+  character(len=64)  :: cTag
   real               :: dout = 0.0
   integer            :: ufile,ilog
   real               :: tt0 = 0.0
@@ -37,6 +40,11 @@ PROGRAM Q2P1_DNS_DRAG
   timnsh=timens
   dt=tstep
   timens=timens+dt
+
+  ! pe checkpoint identity for this step: the same (timens, istep_ns) that a dump written
+  ! in this step puts into time.dmp (libs/pe/FF-WIRING.md section 1)
+  write(cTag,'(A,I0)') 'ff:istep=', istep_ns
+  call set_pe_checkpoint_identity(timens, istep_ns, trim(cTag)//c_null_char)
 
   ! Solve Navier-Stokes (add discretization in name + equation or quantity)
   CALL Transport_q2p1_UxyzP_fc_ext(ufile,inonln_u,itns)

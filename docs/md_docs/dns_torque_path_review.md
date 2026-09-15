@@ -127,6 +127,27 @@ the geometry predicates entirely - it took the first live alpha-field
 measurement to expose them. The G0-before-physics discipline is what caught
 it.
 
+### Defect D-5 (pe): typed iteration over ellipsoids returned spheres
+
+Found 2026-09-15 by the new checkpoint round-trip test written for the
+segmented-run resume (rows d52_v25f_l4_protocol, d62_chain_orientation_fix):
+all sixteen `polymorphicFind<Ellipsoid>` / `polymorphicCount<Ellipsoid>`
+specializations in `Ellipsoid.h` compared `getType()` against `sphereType`
+(copy-paste of the Sphere header, same creep-bench lineage), so
+`world->begin<Ellipsoid>()` walked the SPHERES and never visited an ellipsoid.
+Symptom in the test: the "ellipsoid" section of the checkpoint contained the
+sphere's record read through the ellipsoid unmarshaller (uid 11, radii
+(0.5, 1.6e-322, 0)), the real ellipsoid was never written. Campaign impact:
+none on the D6.1/D6.2 results - the FBM force/torque application and the
+DNS_PART_AXIS readout address bodies by storage index, not by typed
+iteration - but any future code path that iterates ellipsoids by type (VTK
+writers, per-type statistics, the checkpointer) would have silently
+produced sphere data. Fixed in pe 8f7bdd4 together with the ellipsoid
+checkpoint support (BodyBinaryWriter/Reader had no ellipsoid section at
+all); `pe_checkpoint_roundtrip_test` pins position, orientation quaternion,
+linear and angular velocity, semi-axes and material index of a rotated,
+spinning ellipsoid through write -> read, plus the driver identity sidecar.
+
 ### Notes (not defects, staging constraints)
 
 - N-1: the FF torque moment arm `x − x_c` has **no periodic minimum-image

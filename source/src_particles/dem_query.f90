@@ -402,6 +402,31 @@ logical(c_bool) function isEllipsoid(idx) bind(C, name="isTypeEllipsoid")
 end interface
 
 !================================================================================================
+!                              pe checkpoint pairing (libs/pe/FF-WIRING.md)
+! set_pe_checkpoint_identity: once per time step, the (timens, istep_ns) that write_time_sol
+!   puts into time.dmp, so a pe checkpoint written in this step names the FF dump it pairs with.
+! pe_write_checkpoint: writes <name>.peb + <name>.peinfo into the json checkpoint_path_ on
+!   demand - called by write_sol_to_file at the dump instant (representative rank only, PE
+!   serial mode holds identical state on every rank). Resume: json resume_ = true,
+!   resumeCheckpointFile_ = <name>, resumeExpected{Time,Step}_ from time.dmp.
+!================================================================================================
+interface
+subroutine set_pe_checkpoint_identity(simTime, step, tag) bind(C, name="set_pe_checkpoint_identity_")
+  use iso_c_binding, only: c_double, c_int, c_char
+  real(c_double), intent(in) :: simTime
+  integer(c_int), intent(in) :: step
+  character(kind=c_char), dimension(*), intent(in) :: tag
+  end subroutine
+end interface
+
+interface
+subroutine pe_write_checkpoint(name) bind(C, name="pe_write_checkpoint_")
+  use iso_c_binding, only: c_char
+  character(kind=c_char), dimension(*), intent(in) :: name
+  end subroutine
+end interface
+
+!================================================================================================
 !                              Subroutine getParticleOrientation
 ! C++ implementation: getObjOrientation() via the extern-C wrapper in
 ! libs/pe/pe/interface/c_interface_queries.h. Returns the world-frame

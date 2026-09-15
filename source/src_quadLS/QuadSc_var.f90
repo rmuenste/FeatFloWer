@@ -111,6 +111,7 @@ MODULE var_QuadScalar
   LOGICAL :: bPrintParticleCFL = .FALSE. ! Print particle CFL each timestep (SimPar@PrintParticleCFL = Yes)
   LOGICAL :: bPrintParticleReynolds = .FALSE. ! Compute particle Reynolds diagnostics (SimPar@PrintParticleReynolds = Yes)
   LOGICAL :: bPrintParticleState = .FALSE. ! Print DNS_PART_STATE/DNS_PART_FORCE lines each step (SimPar@PrintParticleState = Yes)
+  LOGICAL :: bPeCheckpointOnDump = .FALSE. ! Write a pe checkpoint (<checkpoint_path_>/ffdump.<slot>.peb) at every FF dump (SimPar@PeCheckpointOnDump = Yes); pairs the particle state with the restart dump for segmented runs
   INTEGER :: dns_inside_dofs_local = 0 ! Rank-local FictKNPR inside-DOF count; set collective-free in QuadScalar_FictKnpr, reduced on the rank-symmetric DNS_RESOLUTION path
 
   ! DNS sawtooth watchdog state (DNS_SawtoothCheck): detects the added-mass

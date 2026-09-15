@@ -22,9 +22,13 @@ USE def_FEAT
 USE var_QuadScalar,ONLY: QuadSc,LinSc,bViscoElastic,Temperature,MaterialDistribution
 use var_QuadScalar, only: myDump,istep_ns,myFBM,fieldPtr,mg_mesh
 use var_QuadScalar, only: GenLinScalar
-USE var_QuadScalar, ONLY: Tracer,bTracer
+USE var_QuadScalar, ONLY: Tracer,bTracer,bPeCheckpointOnDump
 USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
 USE cinterface, ONLY: outputRigidBodies
+#ifdef HAVE_PE
+USE dem_query, ONLY: pe_write_checkpoint
+USE iso_c_binding, ONLY: c_null_char
+#endif
 
 implicit none
 integer, intent(in) :: imax_out
@@ -37,6 +41,7 @@ integer :: iout,ifld
 integer :: ndof
 integer :: nelem
 character(60) :: fieldName
+character(len=32) :: cCkpt
 
 type(fieldPtr), dimension(3) :: packed
 
@@ -59,6 +64,18 @@ call write_pres_sol(iout,0,nelem,NLMIN,NLMAX,&
                     coarse%myELEMLINK,myDump%Elements,LinSc%ValP(NLMAX)%x)
 
 call write_time_sol(iout,istep_ns, time_ns)
+
+#ifdef HAVE_PE
+! Pair the particle state with this dump: pe writes <checkpoint_path_>/ffdump.<slot>.peb
+! (+ .peinfo carrying the identity set for this step) at the same instant the fluid dump
+! lands in slot <iout>. Representative rank only - PE serial mode holds identical state on
+! every rank. Resume: json resume_ = true, resumeCheckpointFile_ = "ffdump.<slot>".
+if (bPeCheckpointOnDump .and. myid.eq.1) then
+  write(cCkpt,'(A,I0)') 'ffdump.', iout
+  call pe_write_checkpoint(trim(cCkpt)//c_null_char)
+  write(*,'(A,A,A,I0,A,F0.6)') 'pe checkpoint written: ', trim(cCkpt), ' (slot ', iout, ', t=', time_ns, ')'
+end if
+#endif
 
 fieldName = "coordinates"
 

@@ -21,7 +21,8 @@ USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   MaxLevelKnownToMaster, GammaDot, AlphaRelax, RadParticle, RPM, FluidizationVelocity, &
   bConstForce, ConstForce, skipFBMForce, skipFBMDynamics, bBinaryVtkOutput, &
   bUseHashGridAccel, bUseKVEL_Accel, bPrintCFL, bPrintParticleCFL, &
-  bPrintParticleReynolds, bPrintParticleState, cPartitionFormat, bRecursivePartitioning, myErrorCode
+  bPrintParticleReynolds, bPrintParticleState, cPartitionFormat, bRecursivePartitioning, myErrorCode, &
+  bPeCheckpointOnDump
 USE var_QuadScalar, ONLY: bApplyFAC3DMeshDeformation
 USE types, ONLY: tParamV, tParamP, tProperties
 
@@ -1045,6 +1046,8 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         bPrintParticleReynolds = read_yes_no_param(string, iEq)
       CASE ("PrintParticleState")
         bPrintParticleState = read_yes_no_param(string, iEq)
+      CASE ("PeCheckpointOnDump")
+        bPeCheckpointOnDump = read_yes_no_param(string, iEq)
       CASE ("BinaryVtkOutput")
         bBinaryVtkOutput = read_yes_no_param(string, iEq)
       CASE ("RecursivePartitioning")
