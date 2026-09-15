@@ -102,9 +102,10 @@ non-spherical work was pulled forward. Use the datasheet names.
 
 | run | where | job | state | what closes it |
 |---|---|---|---|---|
-| d52 v25f, phi=0.05 at L4 (D/h=16 rung) | Fritz, 6 nodes | chain complete at t=285 (segments 6-9 position-continuing) | NOT CERTIFIABLE yet (`d52_v25f_l4_poscont`): restarts still zero the particle velocities -> 3% torque sawtooth every 10 t.u.; indicative eta_L4 ~1.12 vs target 1.109 | owner decision: carry velocities through the xyz reader (small pe change, twin-gated) + ~3 segments, or wire pe resume |
+| d52 v25f, phi=0.05 at L4 (D/h=16 rung) | Fritz, 6 nodes | resume-aware chain from the t=285 dump (4236167 -> successors), MaxSimTime 320 | running; first seam is the last zero-velocity carry, later seams resume from pe checkpoints (`pe_resume_wiring`, `pe_resume_twin`) | eta_L4 on a clean 20 t.u. plateau (t>=300) vs the composite target 1.109; rung verdict row |
 | d62 V0b, r_e=1 spin control | Fritz | 4200094 | DONE, PASS (`d62_v0b_spin`, omega/gammadot = -0.50495, +0.99%) | - |
 | d62 V1b, r_e=2 Jeffery orbit, t->120 | Fritz, 2 nodes | 4200095/4212205/4212365 | DONE 2026-09-13, PASS all gates (`d62_v1b_orbit`: period +0.30%, waveform 0.48% rms) | V2 clearance rung (H=4 box) before D6.2 closes |
+| d62 V2, clearance rung H=4, t->120 | Fritz, 2 nodes | 4234197 (seg 1) + `chain_v2.sbatch` successors | running; seg 2+ on the resume binary | period shift vs V1b (gate G-wall), then D6.2 closes |
 
 D6.2 finding this week (row `d62_v01_rho1_unstable`, spec §2): at
 rho_p = 1 the explicit torque exchange is unstable (rotational relaxation
