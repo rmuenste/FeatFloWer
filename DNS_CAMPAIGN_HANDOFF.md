@@ -83,6 +83,7 @@ non-spherical work was pulled forward. Use the datasheet names.
   `d52_v21_einstein`), 0.10 Batchelor (-0.8%, `d52_v22_phi10`), 0.20
   Krieger-Dougherty (-0.9%, `d52_v23_phi20`); sub-grid lubrication adds
   +0.76% / +2.71% at 0.10 / 0.20 (`d52_v22L_settled`, `d52_v23L_settled`).
+- **D6.2 Jeffery orbit (free rotation) CLOSED** (`d62_v1b_orbit`, `d62_v2_clearance`): period +0.30% at 8 semi-axes clearance, +0.81% at 4, waveform 0.5% rms, in-plane; the wall systematic is measured (+0.51 pp per clearance halving) and extrapolates to +0.1..+0.25% at infinite clearance. Explicit rotational coupling needs rho_r with tau_rot > dt (`d62_v01_rho1_unstable`); segmented runs now resume from pe checkpoints (`pe_resume_wiring`).
 - **D6.1 Oberbeck (fixed prolate spheroid, r_e=2) CLOSED**
   (`d61_v5_halfsize`): drag-ratio Y/X = 1.14148 vs 1.14532 (-0.34%) once
   the finite-cell lattice term is removed by the half-size rung; absolutes
@@ -105,7 +106,6 @@ non-spherical work was pulled forward. Use the datasheet names.
 | d52 v25f, phi=0.05 at L4 (D/h=16 rung) | Fritz, 6 nodes | resume-aware chain from the t=285 dump (4236167 -> successors), MaxSimTime 320 | running; first seam is the last zero-velocity carry, later seams resume from pe checkpoints (`pe_resume_wiring`, `pe_resume_twin`) | eta_L4 on a clean 20 t.u. plateau (t>=300) vs the composite target 1.109; rung verdict row |
 | d62 V0b, r_e=1 spin control | Fritz | 4200094 | DONE, PASS (`d62_v0b_spin`, omega/gammadot = -0.50495, +0.99%) | - |
 | d62 V1b, r_e=2 Jeffery orbit, t->120 | Fritz, 2 nodes | 4200095/4212205/4212365 | DONE 2026-09-13, PASS all gates (`d62_v1b_orbit`: period +0.30%, waveform 0.48% rms) | V2 clearance rung (H=4 box) before D6.2 closes |
-| d62 V2, clearance rung H=4, t->120 | Fritz, 2 nodes | 4234197 (seg 1) + `chain_v2.sbatch` successors | running; seg 2+ on the resume binary | period shift vs V1b (gate G-wall), then D6.2 closes |
 
 D6.2 finding this week (row `d62_v01_rho1_unstable`, spec §2): at
 rho_p = 1 the explicit torque exchange is unstable (rotational relaxation

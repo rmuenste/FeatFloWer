@@ -1,6 +1,6 @@
 # D6.2 — Jeffery orbit in a planar Couette box (CASE_SPEC)
 
-Drafted 2026-09-08. Second non-spherical family; the first live test of FREE
+Drafted 2026-09-08; CLOSED 2026-09-15 (rows d62_v0b_spin, d62_v1b_orbit, d62_v2_clearance). Second non-spherical family; the first live test of FREE
 ROTATION end-to-end: FBM torque -> pe angular update (gyroscopic term, the
 D-1-corrected inertia) -> orientation integration. D6.1 exercised only the
 torque NULL on a fixed body; here the torque drives the physics.
@@ -143,7 +143,7 @@ withdrawn.
 | V0 | r_e=1 spheroid (semiAxes 0.25^3, so DNS_PART_AXIS fires), rotationOnly | 8x6x8 | L4 | to t=10 (1 rad of spin at omega = gammadot/2; tau_rot = 0.04) | one segment - the omega = -gammadot/2 control |
 | V1 | r_e=2 | 8x6x8 | L4 | t=120 (3 pi-crossings) | DONE 2026-09-13 (row d62_v1b_orbit): PASS all gates - period +0.30%, modulation +0.8%, orientation-resolved waveform 0.48% rms; three 24h segments at ~21 s/step with orientation continuation |
 | (V0/V1 first attempt, rho_r = 1) | | | | NaN at t = 0.24 / 0.33 | rotational coupling instability - see section 2; kept as evidence (fritz jobs 4199314/15) |
-| V2 | r_e=2 | 8x6x4 | L4 | t=105 | ditto - clearance ladder |
+| V2 | r_e=2 | 8x6x4 | L4 | t=120 | DONE 2026-09-15 (row d62_v2_clearance): PASS - period +0.81% at H=4 vs +0.30% at H=8, wall effect +0.51 pp shrinking with clearance, clearance-free extrapolation +0.1..+0.25%; D6.2 CLOSED |
 | V3 (optional) | r_e=2, axis +y start | 8x6x8 | L4 | shorter | log-rolling state - only after V1/V2 gate |
 
 Cost of the required set: roughly 3-6 node-days - between D6.1 and one
