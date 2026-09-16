@@ -84,9 +84,12 @@ Campaign box units (d11/d61 conventions): rho = 1, nu = 1, mu = 1.
 - Duration: transient ~5 t.u. + >= 1.25 periods; T = 78.54 at gammadot=0.2
   -> run to t = 105 (dt = 0.01 -> 10500 steps).
 
-Resolution (thin axis 2b = 0.5): direct-writer coarse box 19 x 15 x 19
-(h ~ 0.42), production at level 4: h = 0.0526 -> 2b/h = 9.5 (certified
-class), 2.77M elements. Level-3 smoke first (2b/h = 4.75, minutes).
+Resolution (thin axis 2b = 0.5): as BUILT (d62_mesh_v1/v2, corrected
+2026-09-16, row d62_resolution_pinned): coarse box 20 x 16 x 21 (H=8) and
+20 x 16 x 10 (H=4), production at level 4: h_min = 0.0481 (H=8) / 0.0489
+(H=4) by the code's own DNS_RESOLUTION measure -> 2b/h = 10.4 / 10.2
+(the H=4 mesh is 1.6% coarser). The draft's 19x15x19 / h = 0.0526 / 9.5
+was the pre-mesh estimate. Level-3 smoke first (2b/h ~ 5.2, minutes).
 
 **Rotational coupling stability (found 2026-09-09, V0/V1 first attempt).**
 The FBM-PE coupling is explicit: one torque exchange per step, omega

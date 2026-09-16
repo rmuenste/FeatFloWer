@@ -289,7 +289,7 @@ Fritz (72-core Ice Lake nodes, gcc14 build, §12):
 | viscometer annulus L4 (D/h=18, 431 subdomains) | 432 / 6 | 32–39 s | 24 h ≈ 2200–2700 steps; 11 t.u. per segment at dt=0.005 |
 | D6.1 Oberbeck cell L4 (fixed body, t→4) | 141 / 2 | — | ~1 h per run |
 | D6.2 shear box 8×6×8 L3 smoke | 141 / 2 | ~4.5 s | 50 steps in 3m45 incl. setup |
-| D6.2 shear box L4 (2b/h = 9.5, free rotation) | 141 / 2 | 17–21 s | ~41 t.u. per 24 h segment at dt=0.01 |
+| D6.2 shear box L4 (2b/h = 10.4, free rotation) | 141 / 2 | 17–21 s | ~41 t.u. per 24 h segment at dt=0.01 |
 
 ## 11. Open items feeding v3
 
