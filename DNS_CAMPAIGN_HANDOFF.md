@@ -1,4 +1,4 @@
-# DNS campaign handoff — state as of 2026-09-10
+# DNS campaign handoff — state as of 2026-09-16
 
 Orientation document for anyone (human or review agent) joining the DNS
 (fictitious-boundary, FBM) validation campaign cold. It says what exists,
@@ -99,7 +99,7 @@ non-spherical work was pulled forward. Use the datasheet names.
   path is `init_sol_same_level`). Details: row `d52_v24f_baseline_hr`,
   memory `ff-deck-staging-pitfalls`.
 
-## 3. In flight (2026-09-10)
+## 3. In flight (2026-09-16)
 
 | run | where | job | state | what closes it |
 |---|---|---|---|---|
