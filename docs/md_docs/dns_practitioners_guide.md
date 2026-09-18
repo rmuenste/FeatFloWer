@@ -1,6 +1,14 @@
-# DNS (FBM) practitioner's guide — v2.3
+# DNS (FBM) practitioner's guide — v2.4
 
-Status: **v2.3**, 2026-09-10. v2.3 adds §12 (offloading segmented runs
+Status: **v2.4**, 2026-09-18. v2.4 adds the **pe checkpoint-resume
+protocol** to §12 (an FF dump restores the fluid only; particle state now
+rides along in `checkpoints/ffdump.<slot>.peb`, rows `pe_resume_wiring`,
+`pe_resume_twin`, `d52_v25f_l4_protocol`), closes D6.2 in §13 with the
+**wall-clearance rule** (`d62_v1b_orbit`, `d62_v2_clearance`) and pins
+the D6.2 resolution figures to the runs' own records
+(`d62_resolution_pinned`: 2b/h = 10.4 at H = 8, 10.2 at H = 4 — the
+earlier 9.5 was a pre-mesh estimate), and refreshes §11.
+v2.3, 2026-09-10, adds §12 (offloading segmented runs
 to the Fritz cluster, incl. the restart-dump semantics repaired in
 September) and §13 (ellipsoids: setup keys, the four pe defects, the
 D6.1 resolution/lattice rules and the D6.2 rotational-coupling stability
@@ -311,9 +319,18 @@ Fritz (72-core Ice Lake nodes, gcc14 build, §12):
   PE) if any wrapping-particle case is needed.
 - D1.2 spectral characterization; E2/E3 dt points; Tenneti 2011
   comparison of the §9 surface.
-- D6.2 Jeffery verdict (V1b in flight) and the wall-clearance ladder;
-  a finite-Re orbit ladder needs Ding & Aidun 2000 in the literature
-  folder first. D6.1 optional: half-size 45° variant, r_e = 3.
+- D6.2 Jeffery — CLOSED 2026-09-15 (§13, wall-clearance rule). Open in
+  the non-spherical suite: the **third family** (settling spheroid per
+  the plan's D4.3, or a suspension of rotating bodies — owner decision
+  pending), a finite-Re orbit ladder (needs Ding & Aidun 2000 in the
+  literature folder first), D6.1 optional half-size 45° variant, r_e = 3.
+- D5.2 D/h = 16 viscometer rung (v25f) — in flight on the resume protocol
+  of §12; verdict = η_L4 on t ≥ 300 vs the composite target 1.109, then
+  the decision on φ = 0.20 at L4.
+- Visualization: stills exist for every website case (Blender scenes from
+  ParaView plane textures, hand-off folders `blender_viz/<case>/`,
+  untracked); animations would need dense-output re-runs (DKT, Jeffery
+  L3, viscometer) — not started.
 - The plan's capstones (ATC suspension regime) and D5 (DNS↔EL twins).
 
 ## 12. Offloading segmented runs to Fritz (NHR@FAU)
@@ -367,12 +384,48 @@ this section records what changes for a practitioner.
     where the restart overlaps the timeout tail, keep the later segment.
   - A restart rejoins ~0.25% off for one step (reinit transient) and
     the plateau is unaffected; do not read gates across the seam.
+- **An FF dump restores the FLUID ONLY** (found 2026-09-14,
+  `d52_v25f_l4_protocol`). The DNS-drag and DKT setups re-create the
+  particles from `particles.xyz` / `example.json` on every start, so a
+  naive restart re-inserts the cloud at rest: a 10 t.u. torque sawtooth
+  per segment in v25f, and orientation resets in the D6.2 chain. Carrying
+  positions alone still leaves the velocities at zero
+  (`d52_v25f_l4_poscont`, sawtooth persists; the mean-flow deficit relaxes
+  on the box scale). The fix is the **pe checkpoint-resume protocol**
+  (`pe_resume_wiring`, pin ≥ 8f7bdd4 / master 355f767):
+  - Deck: `SimPar@PeCheckpointOnDump = Yes`. On every FF dump, rank 1
+    calls `pe_write_checkpoint_("ffdump.<slot>")`, which writes
+    `checkpoints/ffdump.<slot>.peb` (positions, velocities, angular
+    velocities, quaternions; ellipsoids included) plus a `.peinfo`
+    sidecar carrying the driver identity (time, step, tag
+    `ff:istep=N`) that the app sets each step via
+    `set_pe_checkpoint_identity_`. The slot numbering restarts at 1 in
+    every run and overwrites the source slot; the pe checkpoint of that
+    slot is overwritten in lockstep — pick the slot by `time.dmp`, then
+    verify `.peinfo` against it (relative tolerance 1e-6: FF passes the
+    accumulated double, 0.3099999931 for 0.31).
+  - json: `resume_ = true`, `resumeCheckpointFile_ = "ffdump.<N>"`,
+    `resumeExpectedTime_` / `resumeExpectedStep_` from `time.dmp` lines
+    1/2. The setup then skips insertion, reads the checkpoint (materials
+    first), re-applies the DOF masks (`fixed` / `rotationOnly`) and logs
+    "RESUMED from pe checkpoint".
+  - Certified end-to-end: a resumed Jeffery orbit tracks the continuous
+    run to 3.4e-6 (`pe_resume_twin`); the e4_l3 twin stays bitwise on the
+    resume-capable pin (`pe_master_twin`). Roundtrip unit test:
+    `tests/interface/pe_checkpoint_roundtrip_test.cpp`.
+  - Legacy fallback (orientation/position carry through the xyz/json
+    files) stays in the chainers for dumps written before the protocol
+    existed; it is second-best — velocities are lost.
 - **Self-perpetuating chains**: submit the successor with
   `--dependency=afterany:<self>` *before* `mpirun`, and have each job
   refuse to continue on the clean-finish marker
   (`PP3D_LES has successfully finished`), on NaN/abort in the previous
-  log, or past a segment cap. Reference implementation:
-  `rundirs/q2p1_dns_rundir_d62_v1b/chain_v1b.sbatch` on Fritz (D6.2).
+  log, or past a segment cap. The chainers prefer the pe checkpoint of
+  the chosen slot (identity re-verified against `time.dmp`) and fall back
+  to the legacy carry only if none exists. Reference implementations on
+  Fritz: `rundirs/q2p1_dns_rundir_d62_v1b/chain_v1b.sbatch` (D6.2,
+  orientation carry), `.../d62_v2/chain_v2.sbatch` (+ cold-start branch),
+  `.../d52_v25f/chain_v25f.sbatch` (PREPARE/DRYRUN modes, MAXSEG cap).
 - Watchers over ssh must fall back to `sacct` — `squeue` returns empty
   for a moment between jobs and a naive watcher declares the run done.
 
@@ -380,8 +433,36 @@ this section records what changes for a practitioner.
 
 Scope: one prolate spheroid (a; b = c), r_e = a/b = 2, fixed in a
 periodic Stokes cell (D6.1 Oberbeck, CLOSED) and freely rotating in a
-planar Couette box (D6.2 Jeffery, in flight). Everything below traces to
-`dns_torque_path_review.md` and rows `d61_*`, `d62_*`.
+planar Couette box (D6.2 Jeffery, CLOSED 2026-09-15). Everything below
+traces to `dns_torque_path_review.md` and rows `d61_*`, `d62_*`.
+
+**D6.2 outcome and the wall-clearance rule (`d62_v1b_orbit`,
+`d62_v2_clearance`, `d62_resolution_pinned`).** Box 8 × 6 × 8 (wall
+clearance 8 semi-major axes), γ̇ = 0.2, Re_a = 0.05, ρ_r = 10, dt = 0.01,
+three chained 24 h segments to t = 120 (1.53 orbits): period
+T·γ̇ = 15.7552 vs Jeffery 15.7080 (**+0.30%**), waveform on Jeffery's
+curve (0.48% rms over 12 orientation bins, slow/fast ratio 0.271 vs
+0.266), in-plane to 1.5e-7. Halving the clearance (box 8 × 6 × 4, same
+cells, wall speed 0.4) gives +0.81%: the wall effect is **+0.51 percentage
+points per clearance halving**, monotone toward Jeffery with clearance;
+extrapolated to infinite clearance the period sits at +0.13% ((a/l)²) to
++0.23% ((a/l)³).
+
+- Rule: for a ±1% period gate keep the wall at **≥ 8 semi-major axes**
+  from the body centre; at 4 the shift is a resolved systematic, quote it
+  rather than absorb it. A clearance ladder (two rungs, one parameter
+  moved) is the cheapest way to separate wall from resolution — the two
+  meshes differ by 1.6% in h and cannot produce a 0.5-point shift.
+- Resolution bookkeeping: the built kit is 20 × 16 × 21 (H = 8) and
+  20 × 16 × 10 (H = 4) coarse cells at level 4, h_min = 0.0481 / 0.0489
+  by the code's `DNS_RESOLUTION` line, i.e. **2b/h = 10.4 / 10.2** on the
+  thin axis. The "9.5" quoted in earlier drafts was the CASE_SPEC's
+  pre-mesh estimate for a 19 × 15 × 19 box; always take the figure from
+  the run's own `DNS_RESOLUTION` record.
+- Analysis discipline that the review forced: period from π-crossings
+  (direction-agnostic), a waveform gate binned by orientation (extrema
+  alone accept a phase-shifted orbit), rates never differenced across a
+  segment seam (`--seams`, 0.6 t.u. spin-up masked).
 
 **Setup keys (json, serial PE, `setupDNSDragSerial` xyz path):**
 `particleShape_ = "ellipsoid"`, `semiAxes_ = [a,b,c]`, `particleAxis_`
@@ -463,9 +544,9 @@ sign-alternating, ×2.5 per step, NaN by t = 0.3.
 - Control before the orbit: a sphere (r_e = 1) in the same box must spin
   at ω_y = +γ̇/2 (vorticity +γ̇ ŷ for u = γ̇z x̂), i.e. the analyzer's
   angle φ = atan2(a_z, a_x) decreases at γ̇/2, uniform, in-plane.
-  Measured (dφ/dt)/γ̇ = −0.50495 at 2a/h = 9.5
-  (+0.99%, `d62_v0b_spin`; wall/image corrections are O(1e-4), the
-  excess is discretization) — budget ~1% on rotation rates at this
+  Measured (dφ/dt)/γ̇ = −0.50495 at 2r/h = 10.4 (r = 0.25 sphere on the
+  H = 8 kit; +0.99%, `d62_v0b_spin`; wall/image corrections are O(1e-4),
+  the excess is discretization) — budget ~1% on rotation rates at this
   resolution.
 - Linear-shear initial field: `GetVeloInitVal` applies u = γ̇·z when
   `SimPar@GammaDot ≠ 0` (all other decks keep the zero field). Without
