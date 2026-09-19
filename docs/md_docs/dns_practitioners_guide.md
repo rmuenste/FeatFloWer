@@ -319,11 +319,17 @@ Fritz (72-core Ice Lake nodes, gcc14 build, §12):
   PE) if any wrapping-particle case is needed.
 - D1.2 spectral characterization; E2/E3 dt points; Tenneti 2011
   comparison of the §9 surface.
-- D6.2 Jeffery — CLOSED 2026-09-15 (§13, wall-clearance rule). Open in
-  the non-spherical suite: the **third family** (settling spheroid per
-  the plan's D4.3, or a suspension of rotating bodies — owner decision
-  pending), a finite-Re orbit ladder (needs Ding & Aidun 2000 in the
-  literature folder first), D6.1 optional half-size 45° variant, r_e = 3.
+- D6.2 Jeffery — CLOSED 2026-09-15 (§13, wall-clearance rule). Third
+  family DECIDED 2026-09-19: **D6.3 finite-Re orbit ladder on an oblate
+  spheroid** (a = b = 2c; Ding & Aidun 2000 and Di Giusto et al. 2025 now
+  in the literature folder; CASE_SPEC in
+  `applications/q2p1_dns_drag/validation_cases/d63_oblate_orbit/`, row
+  `d63_design`). Fixtures before the first run: pe angular DOF mask,
+  a < b semi-axis audit, analysis-tool extensions. Non-spherical CONTACT
+  opened as its own family on pe branch `feature/ellipsoid-contact`
+  (support function, bounding box, dispatch — the pinned pe has a sphere
+  placeholder for the ellipsoid support). Still open: settling spheroid
+  (plan D4.3), D6.1 optional half-size 45° variant, r_e = 3.
 - D5.2 D/h = 16 viscometer rung (v25f) — in flight on the resume protocol
   of §12; verdict = η_L4 on t ≥ 300 vs the composite target 1.109, then
   the decision on φ = 0.20 at L4.
