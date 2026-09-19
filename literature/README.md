@@ -29,8 +29,14 @@ Naming convention: `surname[_surname...]_year.pdf`, lowercase.
 | `jeffrey_1922.pdf` | Jeffery, Proc. R. Soc. Lond. A 102 (1922) 161–179 (title page verified) | D4.2 orbit period (filename keeps provider's spelling; author is G.B. Jeffery) |
 | `happel_brenner_1973.pdf` | Happel & Brenner, *Low Reynolds Number Hydrodynamics*, Noordhoff (full book) | D4.3 spheroid drag formulas |
 | `ardekani_2016.pdf` | Ardekani, Costa, Breugem & Brandt, IJMF 87 (2016) 16–34 (arXiv 1602.05769 preprint; title page verified) | D4-ORIENT primary; also covers **spheroid DKT** — bridges D2.3/D4 |
+| `ding_aidun_2000.pdf` | Ding & Aidun, JFM 423 (2000) 317–344, doi 10.1017/S0022112000001932 (read 2026-09-19 from the print-to-file copy `print_ding_aidun_2000.pdf`; the two "save" downloads of the same paper are truncated — no xref trailer — and unreadable by poppler/ghostscript) | D6 finite-Re orbit ladder primary: lattice-Boltzmann, neutrally buoyant **oblate** spheroid a = b = 2c in plane Couette, Re = 4Gb²/ν; rotation period grows with Re and diverges at Re_c = 81 (α = 1) through a saddle-node bifurcation, scaling GT = C(Re_c − Re)^(−1/2) with C = 200 (fit Re 50–81); min rotation rate linear in Re_c − Re; Re_c rises with density ratio; confinement H/b matters; 2-D elliptical cylinder Re_c = 29, C = 100 |
+| `di_giusto_bergougnoux_guazzelli_2025.pdf` | Di Giusto, Bergougnoux & Guazzelli, JFM 1017 (2025) A41, doi 10.1017/jfm.2025.10421 (open access; uploaded as `orientation-of-flat-bodies-of-revolution-in-shear-flows-at-low-reynolds-number.pdf`, title page verified 2026-09-19) | D6 orbit ladder, oblate leg: experiments on neutrally buoyant flat bodies of revolution (oblate spheroids, disks, rings) in shear at low but finite Re; inertia lifts the Jeffery orbit degeneracy and drives drift toward limiting stable orbits; permanent alignment for disks/rings with triangular cross-section; compared with small-inertia asymptotics and simulations |
 | `causin_2005.pdf` | Causin, Gerbeau & Nobile, CMAME 194 (2005) 4506–4527 (title page verified) | Theory for the D1 dt **stability floor** finding (datasheet `dt_stability`): added-mass instability of loosely-coupled partitioned schemes, aggravated by decreasing dt |
 
 Still wanted: **Di Felice 1994** (D5 closure under test) — the only
-outstanding paper. Note: `happel_brenner_1073.pdf` is a byte-identical
+outstanding paper. Housekeeping (2026-09-19): rename
+`print_ding_aidun_2000.pdf` → `ding_aidun_2000.pdf` after deleting the two
+truncated copies (`ding_aidun_2000.pdf`,
+`the-dynamics-and-scaling-law-for-particles-suspended-in-shear-flow-with-inertia.pdf`),
+and rename the Di Giusto file to the convention above. Note: `happel_brenner_1073.pdf` is a byte-identical
 duplicate of `happel_brenner_1973.pdf` (same md5) and can be deleted.
