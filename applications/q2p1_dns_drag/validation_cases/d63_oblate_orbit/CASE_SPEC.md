@@ -159,7 +159,10 @@ Derivations and checks behind the table:
    everything that assumes a is the major axis: AABB padding
    (`maxSphereRadius`, `aabbPadding`), `wallCenterOffset`, the ellipsoid
    containment/inertia unit test (extend it with an oblate case), the FBM
-   indicator. G0's DOF count is the acceptance check.
+   indicator. G0's DOF count is the acceptance check. Already covered by
+   the pe branch `feature/ellipsoid-contact` (2026-09-19, not yet merged):
+   the body's own bounding box (exact for any axis ordering) and the
+   support function; the remaining items above are still to be audited.
 3. **Deck keys.** `Prop@Viscosity` = ν per rung with `fluidViscosity_` in
    the json matching (memory `ff-viscosity-convention`: kinematic; ρ = 1 so
    μ = ν); `particleDensity_` = 1.0 (finite Re) / 10.0 (R0);
