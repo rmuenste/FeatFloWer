@@ -330,9 +330,18 @@ Fritz (72-core Ice Lake nodes, gcc14 build, §12):
   (support function, bounding box, dispatch — the pinned pe has a sphere
   placeholder for the ellipsoid support). Still open: settling spheroid
   (plan D4.3), D6.1 optional half-size 45° variant, r_e = 3.
-- D5.2 D/h = 16 viscometer rung (v25f) — in flight on the resume protocol
-  of §12; verdict = η_L4 on t ≥ 300 vs the composite target 1.109, then
-  the decision on φ = 0.20 at L4.
+- D5.2 D/h = 16 viscometer rung (v25f) — CLOSED 2026-09-19, PASS (row
+  `d52_v25f_l4_verdict`): η_L4 = 1.121 ± 0.001, direct L3 → L4 ratio
+  +1.4 % (η − 1: +13.9 %), +1.9 % vs the mass-conserving composite
+  (`d52_composite_conserving`; the earlier 1.109 target was a
+  non-conserving deposit). Closure twin v21L settled at +0.38 %
+  (`d52_v21L_settled`); energy split `d52_lub_energy_split(_review)`.
+  The origin of the shift is UNRESOLVED (a_eff rule +4.8 % of η − 1 vs
+  +13.9 % measured); the dilute no-pair rung v26/v26f
+  (`d52_v26_dilute_submitted`) is in flight to isolate the single-body
+  term; review halt before any branch decision; φ = 0.20 at L4 deferred.
+  Denominator rule: every level normalises by its own empty-instrument
+  torque (L3 84.2296, L4 83.77503).
 - Visualization: stills exist for every website case (Blender scenes from
   ParaView plane textures, hand-off folders `blender_viz/<case>/`,
   untracked); animations would need dense-output re-runs (DKT, Jeffery
