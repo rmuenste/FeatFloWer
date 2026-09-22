@@ -33,7 +33,7 @@ References (all in `literature/`):
 ## 1. Physics and gates
 
 Two tiers, three bodies of equal volume (equivalent diameter D_eq = 1):
-prolate a/b = 3 (semi-axes 0.7211, 0.4160, 0.4160), oblate c/a = 1/3
+prolate a/b = 3 (semi-axes 1.0400, 0.3467, 0.3467; an earlier draft wrote 0.7211, 0.4160, 0.4160, which is a/b = 1.73 — caught at G0 staging 2026-09-22), oblate c/a = 1/3
 (0.7211, 0.7211, 0.2404), and the sphere (0.5) as the control that ties the
 family to the ten Cate ladder.
 
@@ -102,11 +102,11 @@ Derivations and checks:
 - **Tier I domain.** Ardekani: 15 × 15 D_eq periodic sides; matched. Their
   height 125 D_eq is more than we need for one plateau read.
 - **Resolution.** D6.1's rule: resolve the THIN axis, 2b/h ≥ 9.5 (certified
-  class). Prolate thin axis 2b = 0.832, oblate 2c = 0.481 → h ≤ 0.0506 for
+  class). Prolate thin axis 2b = 0.693, oblate 2c = 0.481 → h ≤ 0.0506 for
   the oblate at the certified class; Ardekani used 32 cells per D_eq
   (h = 0.031) and 48 for the flattest bodies. Plan: level 3 at h ≈ 0.10
   (oblate 2c/h ≈ 4.8) for G0 and for the sphere control only; level 4 at
-  h ≈ 0.05 (oblate 9.6, prolate 16.6, sphere 20) for every gated run. A
+  h ≈ 0.05 (oblate 9.6, prolate 13.9, sphere 20) for every gated run. A
   uniform 15 × 15 × 60 box at h = 0.05 is 300 × 300 × 1200 = 108 M cells —
   too many. Hence a graded or partitioned strategy: (a) tier S boxes are
   small (8 × 8 × 24 at L4 ≈ 6 M cells, fine); (b) tier I uses a moving
