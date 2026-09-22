@@ -329,7 +329,11 @@ Fritz (72-core Ice Lake nodes, gcc14 build, §12):
   opened as its own family on pe branch `feature/ellipsoid-contact`
   (support function, bounding box, dispatch — the pinned pe has a sphere
   placeholder for the ellipsoid support). Still open: settling spheroid
-  (plan D4.3), D6.1 optional half-size 45° variant, r_e = 3.
+  (plan D4.3) — DESIGNED 2026-09-22 as **D6.4** (CASE_SPEC in
+  `validation_cases/d64_settling_spheroid/`, row `d64_design`; tier S
+  Happel–Brenner terminal velocities with an orientation lock, tier I
+  Ga = 80 broadside attractor vs Ardekani 2016, analytic-vs-OBJ twin),
+  D6.1 optional half-size 45° variant, r_e = 3.
 - D5.2 D/h = 16 viscometer rung (v25f) — CLOSED 2026-09-19, PASS (row
   `d52_v25f_l4_verdict`): η_L4 = 1.121 ± 0.001, direct L3 → L4 ratio
   +1.4 % (η − 1: +13.9 %), +1.9 % vs the mass-conserving composite
