@@ -7,6 +7,7 @@ MODULE EL_DIAGNOSTICS
   USE EL_QUADRATURE, ONLY: EL_INTEGRATE_FLUID_MOMENTUM, EL_INTEGRATE_UZ_LANES, &
                            EL_INTEGRATE_WALL_STRESS
   USE EL_CONFIG, ONLY: el_momentum_audit_freq, el_tavg_window, &
+                       el_particle_log_freq, &
                        el_domain_type, el_cylinder_center, &
                        el_cylinder_radius, el_cylinder_axis, &
                        el_momentum_fix, el_meso_filter_bins, &
@@ -735,6 +736,58 @@ CONTAINS
     END IF
 
   END SUBROUTINE EL_WRITE_SS_RADIUS
+
+  SUBROUTINE EL_WRITE_PARTICLE_LOG(time, istep)
+
+    ! Per-rank trajectory log in the DNS particle_force.log column layout so
+    ! that tools/d32_ladder_analysis.py (and any other particle_force.log
+    ! consumer) can read an EL run after tools/el_particle_log_merge.py has
+    ! concatenated the rank files. Each worker writes ONLY its locally owned
+    ! particles (shadow copies excluded by numLocalParticles/getAllParticles),
+    ! no collectives, so the routine is safe under rank-asymmetric control
+    ! flow; the CFD master (which owns no PE state) must not call it.
+    ! Columns: time ip fx fy fz tx ty tz px py pz vx vy vz, with ip the PE
+    ! unique index + 1 (1-based like the DNS log) and force/torque the
+    ! PE-side hydrodynamic state (zero when hydro enters as velocity
+    ! corrections only).
+
+    REAL*8, INTENT(IN) :: time
+    INTEGER, INTENT(IN) :: istep
+
+#ifdef HAVE_PE
+    TYPE(tParticleData), ALLOCATABLE :: particles(:)
+    CHARACTER(LEN=64) :: fname
+    LOGICAL :: exists
+    INTEGER :: i, count, iunit
+#endif
+
+    IF (el_particle_log_freq.LE.0) RETURN
+    IF (MOD(ABS(istep), el_particle_log_freq).NE.0) RETURN
+
+#ifdef HAVE_PE
+    count = numLocalParticles()
+    IF (count.LE.0) RETURN
+    ALLOCATE(particles(count))
+    CALL getAllParticles(particles)
+
+    WRITE(fname,'(A,I4.4,A)') 'el_particles_rank', myid, '.log'
+    INQUIRE(FILE=TRIM(fname), EXIST=exists)
+    OPEN(NEWUNIT=iunit, FILE=TRIM(fname), STATUS='UNKNOWN', &
+         POSITION='APPEND', ACTION='WRITE')
+    IF (.NOT.exists) THEN
+      WRITE(iunit,'(A)') '# time ip fx fy fz tx ty tz px py pz vx vy vz'
+    END IF
+    DO i = 1, count
+      WRITE(iunit,'(F14.6,1X,I7,12(1X,ES16.8E2))') time, &
+        particles(i)%uniqueIdx + 1, &
+        particles(i)%force(1:3), particles(i)%torque(1:3), &
+        particles(i)%position(1:3), particles(i)%velocity(1:3)
+    END DO
+    CLOSE(iunit)
+    DEALLOCATE(particles)
+#endif
+
+  END SUBROUTINE EL_WRITE_PARTICLE_LOG
 
   SUBROUTINE EL_LOCAL_PARTICLE_MOMENTUM(momentum, velocity_sum, count)
 
