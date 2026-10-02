@@ -23,6 +23,7 @@ cat > "$RUNDIR/job.sbatch" <<EOF
 #SBATCH --time=$WALL
 #SBATCH --mem=$MEM
 #SBATCH --prefer=nx
+#SBATCH --exclude=worldgames
 #SBATCH --output=$RUNDIR/slurm-%j.out
 source /etc/profile >/dev/null 2>&1 || true
 module load gcc/14.3.0 openmpi/4.1.6
