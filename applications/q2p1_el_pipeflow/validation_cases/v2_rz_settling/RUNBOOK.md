@@ -521,3 +521,70 @@ the EL solver path, as expected from the unchanged pe files. Log:
 Binary `build-el-rz-postfix/applications/q2p1_el_pipeflow/q2p1_el_pipeflow`
 via `tools/el_slurm_submit.sh` with EL_BIN set. Gates as listed above.
 Production (U0 + four phi) NOT submitted — owner decision.
+
+### G1 result on the HEAD binary — gates PASS, but a pe-pin confound surfaced (2026-10-02, job 147443, nx-05, 5:05 wall)
+
+All listed gates hold: 702 PERIODIC_COMM pairs, `fully periodic PE
+decomposition` banner, 3056 spheres at achieved φ = 0.2000147,
+⟨ε_f⟩ = 0.7999853 (identical to sweep 3 to all digits), volume
+conservation 1.1e-15, Newton-pair ≤ 6e-19, EL_FLUID_PAIR mismatch
+1.1e-12, no NaN/OOB/clipping, ≈1.3 s/step incl. setup. At t = 0.4:
+⟨u_p,z⟩ = −2.1649e-3 vs pre-fix −2.3542e-3 (8% slower settling),
+uf_super,z = +8.391e-4 vs +9.519e-4, Tgran 3.17e-6 vs 4.84e-6 — the
+first periodic-vs-traction-free physics signal, NOT a verdict (200 steps).
+
+Anomaly: `EL_CONTACT_STATS ncontacts` = 0 at every sample, where sweep 3
+had 5571–5574 from step 1 (seeded configuration, lubrication OFF).
+Root cause traced in pe, not in the periodic fix:
+- At the EL-era pins (e14c6cd … 1fef6b8) `SphereBase::calcBoundingBox`
+  padded every sphere AABB by `lubricationThresh` = 1e-2 regardless of
+  the lubrication switch, and `MaxContacts::collideSphereSphere` (with
+  `PE_LUBRICATION_CONTACTS` defined through `pe/core/CollisionSystem.h`
+  → `HardContactLubricated.h`) emitted a *lubrication-type* contact for
+  every pair with gap < 1e-2. HardContactEulerLagrange's contact mask
+  filters by ownership only, so those proximity pairs entered the PGS
+  with positive gap: inert at these velocities (gdot_n + dist/dt > 0 ⇒
+  separating ⇒ no reaction), but counted in `getNumberOfContacts()`.
+  Hard contacts were and are generated only below `contactThreshold`
+  = 1e-8 (pe/core/Thresholds.h); max_overlap = 0 in every old run.
+- At the current pin ce3bb5f (pe PR #26, commits 4273f98/245b53b,
+  2026-08-20) the padding is `lubrication::aabbPadding(r)` = 0 when
+  lubrication is off, and the fine detector takes a fast path
+  (`!contactGenerationEnabled()` → `dist < contactThreshold` only). So
+  `ncontacts` now counts hard contacts only. Residual physics
+  difference: a pair that closes its gap within one step is stopped
+  pre-emptively by the old proximity constraint but caught after a
+  micro-penetration (≤ one step's displacement, then erp-corrected) by
+  the new pin. Sweep 3 used `ncontacts` as its clustering marker
+  (proximity pairs ~240 → ~550 at φ = 0.05); that marker is gone on the
+  HEAD binary.
+- Frozen-box twin, lubrication OFF (`kroupa_shear` smoke deck of job
+  135996, φ = 0.20, 500 steps, prescribed shear ⇒ no fluid solve ⇒
+  periodic fix irrelevant), HEAD binary, job 147445: EL_MEAN_SLIP (40),
+  EL_FORCE_BUDGET (500), EL_SUSP_STRESS (20) and the dp/expected fields
+  of EL_NEWTON_PAIR BITWISE identical to the certified log; Tgran
+  identical; differences only in `ncontacts` (0 vs 5526–5722), the
+  Newton audit roundoff (|mismatch| ≤ 7.4e-18 vs 6.3e-18) and
+  EL_VOLUME_CONSERVATION `rel_error` digits (both ≤ 1.8e-15, deposited
+  and expected identical). The proximity contacts carried no impulse.
+
+Decision: run sweep 4 on a binary with the EL-era pe so that the ONLY
+change vs sweep 3 is the periodic coupling, and the clustering marker
+keeps its meaning. That binary is the state the DNS campaign certified
+on 2026-08-03 (row `d11_el_momentum_recheck`): FF `23144a01`
+(= `9cc4769f` + a RUNBOOK edit) with pe `1fef6b8` (contact-relevant
+files identical to e14c6cd). Rebuilt reproducibly in a second worktree:
+`/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer-el-aug3` (detached at
+23144a01, pe 1fef6b8), build `build-aug3/` with the same cmake recipe;
+binary `build-aug3/applications/q2p1_el_pipeflow/q2p1_el_pipeflow`.
+G0 on that binary (job 147448, 14 s): 702 PERIODIC_COMM, all six EL
+streams incl. EL_CONTACT_STATS BITWISE vs job 137542. The HEAD-pin
+binary (`FeatFloWer-el/build-el-rz-postfix`) stays as the cross-check;
+if the sweep-4 verdict is later re-run on it, expect `ncontacts` = 0
+until genuine collisions occur and max_overlap no longer identically 0.
+
+Submission for sweep 4 therefore uses
+`EL_BIN=/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer-el-aug3/build-aug3/applications/q2p1_el_pipeflow/q2p1_el_pipeflow`
+with the commands listed above (same rundirs; the HEAD-binary smoke
+lives in `q2p1_el_rundir_v2pf_smoke`, the Aug-3-binary smoke in
+`q2p1_el_rundir_v2pf_smoke_aug3`).
