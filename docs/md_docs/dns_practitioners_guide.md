@@ -1,6 +1,13 @@
-# DNS (FBM) practitioner's guide — v2.4
+# DNS (FBM) practitioner's guide — v2.5
 
-Status: **v2.4**, 2026-09-18. v2.4 adds the **pe checkpoint-resume
+Status: **v2.5**, 2026-10-02. v2.5 records the **level-3 viscometer baseline
+erratum** and the restated ladder (§11, rows `d52_l3_baseline_erratum`,
+`d52_v26e_dt_control`, `d52_l3_ladder`), closes the dilute no-pair rung
+(`d52_v26_dilute_result`: the L3→L4 shift IS the a_eff rule), adds the
+**denominator rule** and the **chainer segment-cap** pitfall, opens D6.4
+(§11, §13), and adds a **pe integrator-defect register** to §13 with the
+stale velocity-correction defect (`pe_stale_dv_fixed_bodies`).
+v2.4, 2026-09-18, adds the **pe checkpoint-resume
 protocol** to §12 (an FF dump restores the fluid only; particle state now
 rides along in `checkpoints/ffdump.<slot>.peb`, rows `pe_resume_wiring`,
 `pe_resume_twin`, `d52_v25f_l4_protocol`), closes D6.2 in §13 with the
@@ -340,10 +347,13 @@ Fritz (72-core Ice Lake nodes, gcc14 build, §12):
   (`d52_composite_conserving`; the earlier 1.109 target was a
   non-conserving deposit). Closure twin v21L settled at +0.38 %
   (`d52_v21L_settled`); energy split `d52_lub_energy_split(_review)`.
-  The origin of the shift is UNRESOLVED (a_eff rule +4.8 % of η − 1 vs
-  +13.9 % measured); the dilute no-pair rung v26/v26f
-  (`d52_v26_dilute_submitted`) is in flight to isolate the single-body
-  term; review halt before any branch decision; φ = 0.20 at L4 deferred.
+  **Dilute no-pair rung CLOSED 2026-09-28** (`d52_v26_dilute_result`,
+  `d52_v26m_midgap`): per-sphere excess torque 0.0443 (L3) / 0.04663 (L4),
+  ratio 1.053 vs the a_eff rule 1.048 — the single-body resolution bias IS
+  the effective-radius rule; with the restated ladder the L3→L4 shift
+  (+7.8 % of η − 1) is a_eff (+5.3 %) plus a small film term (residual
+  +0.27 % of η). Review-halt verdict: φ = 0.20 at L4 stays deferred,
+  nothing left for it to settle.
   Denominator rule: every level normalises by its own empty-instrument
   torque (L3 84.2296, L4 83.77503).
 - Visualization: stills exist for every website case (Blender scenes from
@@ -445,6 +455,11 @@ this section records what changes for a practitioner.
   Fritz: `rundirs/q2p1_dns_rundir_d62_v1b/chain_v1b.sbatch` (D6.2,
   orientation carry), `.../d62_v2/chain_v2.sbatch` (+ cold-start branch),
   `.../d52_v25f/chain_v25f.sbatch` (PREPARE/DRYRUN modes, MAXSEG cap).
+  **Segment-cap pitfall (2026-09-23):** the chainers stop with "MAXSEG
+  reached" without running the successor. Raising `SimPar@MaxSimTime` of
+  a running chain without raising `MAXSEG` in the same edit stops the
+  chain one segment short (v26f stopped at t = 243 of 260; resubmitted
+  after MAXSEG 4 → 6).
 - Watchers over ssh must fall back to `sacct` — `squeue` returns empty
   for a moment between jobs and a naive watcher declares the run done.
 
@@ -503,6 +518,16 @@ with libs/pe < 1b0dda2 has some of them):
 | D-2 | no ellipsoid branch in HardContactAndFluid velocity seeding | ~11× settling error at ρ_r = 1.1 |
 | D-3 | `getVolume`/`calcMass` missing the 4/3 | mass 25% low; exposed by the unit test written for D-1 |
 | D-4 | `containsPoint` dropped the z term | FBM embedded an infinite elliptic cylinder — 6.35× the expected indicator DOFs; caught by gate G0's DOF count |
+
+**pe integrator-defect register (code-reading finds, all solvers):**
+
+| id | defect | status |
+|---|---|---|
+| `hcaf_angvel_reset` | `integratePositions` zeroed the angular velocity every step (crystallizer-era debug line): every campaign particle integrated as non-rotating until 2026-08-21 | FIXED upstream de855b6, twin-gated; DKT reinterpreted (`d23_omegafix_rerun`), viscometer held until the fix |
+| `pe_stale_dv_fixed_bodies` | `dv_`/`dw_` are resized, never cleared; `initializeVelocityCorrections` skips fixed bodies, so after any body-storage reorder (migration, create/destroy, shadow copies) a fixed body inherits a stale correction and sizes every contact against it as if it moved — mobile partners get ghost impulses, the wall never moves. A lone ground plane created first keeps index 0 and is immune, which hid it | OPEN upstream at pin ce3bb5f (no fix in any branch); fix branch `fix/stale-velocity-corrections` opened 2026-10-02; **campaign impact none** (serial PE, storage never reorders) |
+
+Rule from both: a cached per-body array that is resized per step must be
+assigned for EVERY body class in the same loop, or cleared at the resize.
 
 Unit test: `tests/interface/pe_ellipsoid_inertia_test.cpp` (volume, mass,
 inertia, I·I⁻¹, sphere degeneracy, per-axis containment incl. a
