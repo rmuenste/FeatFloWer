@@ -588,3 +588,15 @@ Submission for sweep 4 therefore uses
 with the commands listed above (same rundirs; the HEAD-binary smoke
 lives in `q2p1_el_rundir_v2pf_smoke`, the Aug-3-binary smoke in
 `q2p1_el_rundir_v2pf_smoke_aug3`).
+
+### G1 result on the Aug-3 binary — PASS, smoke bitwise vs the HEAD binary except `ncontacts` (2026-10-02, job 147449)
+
+`q2p1_el_rundir_v2pf_smoke_aug3`: 702 PERIODIC_COMM, banner, 3056
+spheres at φ = 0.2000147, no NaN/OOB/clipping, volume conservation
+1.1e-15, Newton-pair ≤ 6.2e-19. EL_MEAN_SLIP, EL_FORCE_BUDGET,
+EL_NEWTON_PAIR and EL_MOMENTUM_ELEMINT are BITWISE identical to job
+147443 (HEAD binary); EL_CONTACT_STATS reports 5571 proximity contacts
+(= sweep 3's step-1 count) with identical Tgran. The pe-pin difference
+is confirmed diagnostic-only over 200 steps; the Aug-3 binary carries
+the sweep-3 diagnostics semantics. **Sweep 4 is READY: submit the five
+production rundirs with `EL_BIN` = the aug3 binary (commands above).**
