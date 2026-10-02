@@ -105,3 +105,29 @@ expected well under 1 h per run.
   solve, not through a resolved wall-sphere interaction.
 - No particle–wall lubrication in EL (the planes are hard contacts only).
 - `ncontacts` semantics on the current pe pin: hard contacts only.
+
+## 6. Results so far (2026-10-02)
+
+- **G0 PASS** (job 147524, 14 s): rebuilt binary (FF + pe feature/el-box-walls
+  bf20411) reproduces job 137542 BITWISE on EL_MOMENTUM_ELEMINT,
+  EL_FEEDBACK_CONSERVATION, EL_NEWTON_PAIR, EL_VOLUME_CONSERVATION,
+  EL_MEAN_SLIP and EL_CONTACT_STATS; 702 PERIODIC_COMM; no rank logs written
+  with ELParticleLogFreq = 0.
+- **G1 PASS** (job 147525, nx-02/03, 109 ranks, 1 h 27 min for 5000 steps at
+  level 2): banner `box walls enabled on x=[-3,3] y=[-3,3] z=[0,24]`,
+  3x3x12 decomposition, seed at (0,0,20), no NaN/OOB/clipping, Newton-pair
+  worst 8.5e-17 (no wall contact in 25 t.u.), five rank logs merged by
+  tools/el_particle_log_merge.py into particle_force.log. Settled
+  **u_t(EL) = 0.35734** (drift < 2e-6 per t.u. over the last 1.5 t.u.).
+  Context: Dallavalle/Di Felice fixed point at eps = 1 is 0.368 (EL −3%,
+  the V1b self-voidage band), Schiller–Naumann 0.398, DNS in the same
+  column 0.4061 (EL −12%). The EL/DNS gap at the single-particle level is
+  itself a D5.1 datum: the DNS sphere is wall-hindered through resolved
+  flow, the EL sphere through the kernel-smoothed no-slip field plus the
+  Dallavalle correlation's own offset from the standard drag curve.
+  Cost: ~1.0 s/step incl. I/O at np = 109.
+- **G3 ladder SUBMITTED** (owner go-ahead 2026-10-02): med partition,
+  06:00:00, 109 ranks / 2 nodes / 40 GB each: n20_s1=147526 n20_s2=147527 n20_s3=147528 n40_s1=147529 n40_s2=147530 n40_s3=147531 n80_s1=147532 n80_s2=147533 n80_s3=147534 n120_s1=147535 n120_s2=147536 n120_s3=147537
+  Analysis once complete:
+  `for d in /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer-el/build-el-rz-postfix/applications/q2p1_el_rundir_v2w_n*_s*; do python3 tools/el_particle_log_merge.py $d; done`
+  then `python3 tools/d32_ladder_analysis.py /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer-el/build-el-rz-postfix/applications/q2p1_el_rundir_v2w_n*_s* --window 15 25 --ut 0.35734 --area 36.0 --radius 0.5`.
