@@ -1,0 +1,58 @@
+# stage 0 environment, 2026-10-02T11:58:43+02:00, host tardis, job 147429
+## modules
+Currently Loaded Modulefiles:
+ 1) python/3.13.5   2) cuda/12.6  
+## nvidia-smi
+Fri Oct  2 11:58:44 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.159.04             Driver Version: 580.159.04     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100 80GB PCIe          Off |   00000000:47:00.0 Off |                    0 |
+| N/A   53C    P0             80W /  300W |       0MiB /  81920MiB |     18%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+name, memory.total [MiB], memory.used [MiB], driver_version, compute_cap
+NVIDIA A100 80GB PCIe, 81920 MiB, 0 MiB, 580.159.04, 8.0
+## python
+/sfw/python/3.13.5/bin/python3
+Python 3.13.5
+cupy 14.2.0 pyamg 5.3.0 numpy 2.3.1 scipy 1.16.0
+compute_capability 80
+device mem free 78.8 GiB total 79.2 GiB
+cuda runtime 12090 driver 13000
+spmv ok 45.0
+## host
+1
+               total        used        free      shared  buff/cache   available
+Mem:             502           4         496           0           4         498
+Swap:              1           0           1
+model name	: AMD EPYC 7343 16-Core Processor
+## filesystems
+Filesystem                Size  Used Avail Use% Mounted on
+efivarfs                  176K   50K  122K  29% /sys/firmware/efi/efivars
+/dev/sda2                  63G   28G   33G  46% /
+/dev/sda4                 1.7T  131G  1.5T   9% /scratch
+applsrv-trf:/sfw          503G  204G  274G  43% /sfw
+warehouse17:/export/data  4.9T  4.4T  253G  95% /data/warehouse17
+warehouse13:/export/home  3.0T  2.6T  284G  91% /home/warehouse13
+warehouse14:/export/data  6.0T  3.5T  2.2T  62% /data/warehouse14
+
+ls: cannot access '/local*': No such file or directory
+ls: cannot access '/data/scratch*': No such file or directory
+drwxrwxrwx.  7 root root  4096 Mar  5  2026 /scratch
+drwxrwxrwt. 10 root root 20480 Oct  2 11:58 /tmp
+## scratch write test
+/scratch/rmuenste writable: yes /dev/sda4       1.7T  131G  1.5T   9% /scratch
+/tmp/rmuenste writable: yes /dev/sda2        63G   28G   33G  46% /

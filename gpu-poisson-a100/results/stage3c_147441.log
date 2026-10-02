@@ -1,0 +1,33 @@
+stage 3c (full storage at full size, geo_lin only, clean memory) on tardis, job 147441, 2026-10-02T12:49:16+02:00
++ python3 gpu_amg_cg.py --instance /scratch/rmuenste/gpu-poisson/p1_160x160x480.npz --storage full --matvec kernel --no-jacobi --amg geo_lin --tag stage3-full-geo --out results/stage3_p1_160x160x480_full_kernel_geo_lin.json
+[     1.1s] device NVIDIA A100 80GB PCIe (85.1 GB), cupy 14.2.0
+[    56.1s] loaded /scratch/rmuenste/gpu-poisson/p1_160x160x480.npz in 55.0 s
+[    56.1s] instance (160, 160, 480): nu 49,152,000 nnz 5,208,269,628 (106.0/row), CSR f64/i32 62.89 GB
+[   117.3s] [op] storage=full matvec=kernel nnz_stored=5,208,269,628 (62.9 GB), upload 61.2 s
+[   118.3s] matvec 49.29 ms (1276 GB/s effective on stored bytes); device used 64.7 GB
+[   122.0s] host scipy CSR for pyamg: index dtype int64, 3.6 s, maxrss 205.4 GB
+[   173.0s] [amg] tobsr 51.0 s, blocks 328,559,992
+[   173.1s] [amg] geometric levels: (160, 160, 480) -> ... -> (3, 3, 8) (6 coarsenings)
+[   205.1s] [amg] geo_lin: 7 levels, n=[49152000, 6144000, 768000, 96000, 12000, 1500, 288], OC=1.141, GC=1.143, setup 83.1 s, maxrss 290.7 GB
+[   218.3s] [vcycle] 7 levels on device, 10.23 GB, omega=[0.878, 0.919, 0.755, 0.703, 0.686, 0.688], coarse n=288, setup 13.2 s
+[   223.7s]   [amg-cg/geo_lin] it 10 relres 1.180e-02 (2.7 s)
+[   226.6s]   [amg-cg/geo_lin] it 20 relres 3.700e-03 (5.6 s)
+[   229.5s]   [amg-cg/geo_lin] it 30 relres 1.362e-03 (8.5 s)
+[   232.4s]   [amg-cg/geo_lin] it 40 relres 5.354e-04 (11.4 s)
+[   235.3s]   [amg-cg/geo_lin] it 50 relres 2.185e-04 (14.3 s)
+[   238.2s]   [amg-cg/geo_lin] it 60 relres 9.119e-05 (17.2 s)
+[   241.1s]   [amg-cg/geo_lin] it 70 relres 3.863e-05 (20.1 s)
+[   244.0s]   [amg-cg/geo_lin] it 80 relres 1.653e-05 (23.0 s)
+[   246.9s]   [amg-cg/geo_lin] it 90 relres 7.130e-06 (26.0 s)
+[   249.9s]   [amg-cg/geo_lin] it 100 relres 3.096e-06 (28.9 s)
+[   252.8s]   [amg-cg/geo_lin] it 110 relres 1.353e-06 (31.8 s)
+[   255.7s]   [amg-cg/geo_lin] it 120 relres 5.949e-07 (34.7 s)
+[   258.6s]   [amg-cg/geo_lin] it 130 relres 2.632e-07 (37.6 s)
+[   261.6s]   [amg-cg/geo_lin] it 140 relres 1.171e-07 (40.6 s)
+[   264.5s]   [amg-cg/geo_lin] it 150 relres 5.243e-08 (43.5 s)
+[   267.4s]   [amg-cg/geo_lin] it 160 relres 2.361e-08 (46.4 s)
+[   270.3s] AMG-CG [geo_lin]: 169 it, 49.07 s (290 ms/it, V-cycle 234 ms), relres 9.60e-09, err vs x_true 5.56e-07
+[   270.5s] peak device memory 78.9 GB (mempool 64.1 GB), host maxrss 290.7 GB, total 271 s
+[   270.5s] wrote results/stage3_p1_160x160x480_full_kernel_geo_lin.json
++ set +x
+stage 3c done 2026-10-02T12:54:10+02:00

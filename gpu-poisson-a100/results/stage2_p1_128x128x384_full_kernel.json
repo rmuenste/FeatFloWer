@@ -1,0 +1,109 @@
+{
+ "tag": "stage2-full-kernel",
+ "timestamp": "2026-10-02T12:23:48",
+ "host": "tardis",
+ "slurm_job": "147433",
+ "python": "3.13.5",
+ "numpy": "2.3.1",
+ "scipy": "1.16.0",
+ "pyamg": "5.3.0",
+ "cupy": "14.2.0",
+ "device": "NVIDIA A100 80GB PCIe",
+ "device_memory_total_gb": 85.093777408,
+ "cuda_runtime": 12090,
+ "cuda_driver": 13000,
+ "compute_capability": "80",
+ "instance": "/scratch/rmuenste/gpu-poisson/p1_128x128x384.npz",
+ "grid": [
+  128,
+  128,
+  384
+ ],
+ "h": 0.0078125,
+ "nu": 25165824,
+ "nnz": 2610809224,
+ "nnz_per_row": 103.74423758188884,
+ "shift": 1e-06,
+ "storage": "full",
+ "matvec": "kernel",
+ "nnz_stored": 2610809224,
+ "fine_operator_gb": 31.531037288,
+ "matvec_seconds": 0.024928188323974608,
+ "matvec_effective_GBps": 1264.874802701772,
+ "device_used_gb_after_baseline": 32.89055232,
+ "amg_variants": {
+  "sa_bsr_lin": {
+   "variant": "sa_bsr_lin",
+   "description": "SA on the 4x4 cell blocks, B=[1,x,y,z] in the P1-disc basis (coarse space reproduces linears)",
+   "levels": 4,
+   "sizes": [
+    25165824,
+    946688,
+    38700,
+    1436
+   ],
+   "nnz_per_level": [
+    2685001600,
+    98967488,
+    3803760,
+    136944
+   ],
+   "operator_complexity": 1.0383270505313666,
+   "grid_complexity": 1.0392128626505535,
+   "host_setup_s": 129.03205823898315,
+   "host_maxrss_gb_after_setup": 172.250168,
+   "device_setup_s": 8.282099962234497,
+   "hierarchy_device_gb": 8.79014664,
+   "omega": [
+    0.8782699866566619,
+    0.8005113587554182,
+    0.7355697335289556
+   ],
+   "sweeps": [
+    2,
+    2
+   ],
+   "omega_factor": 1.3333333333333333,
+   "device_used_gb_after_setup": 42.109632512,
+   "cg": {
+    "iters": 11,
+    "converged": true,
+    "seconds": 1.469574213027954,
+    "seconds_per_iter": 0.133597655729814,
+    "final_relres": 6.6628271416264335e-09,
+    "true_relres": 6.66282714200954e-09,
+    "hist_every_10": [
+     0.011833673327302537,
+     6.6628271416264335e-09
+    ],
+    "rel_err_vs_x_true": 1.1300938634402442e-08,
+    "vcycle_seconds": 0.11481881141662598
+   }
+  }
+ },
+ "amg_cg": {
+  "variant": "sa_bsr_lin",
+  "levels": 4,
+  "operator_complexity": 1.0383270505313666,
+  "grid_complexity": 1.0392128626505535,
+  "host_setup_s": 129.03205823898315,
+  "device_setup_s": 8.282099962234497,
+  "hierarchy_device_gb": 8.79014664,
+  "iters": 11,
+  "converged": true,
+  "seconds": 1.469574213027954,
+  "seconds_per_iter": 0.133597655729814,
+  "final_relres": 6.6628271416264335e-09,
+  "true_relres": 6.66282714200954e-09,
+  "hist_every_10": [
+   0.011833673327302537,
+   6.6628271416264335e-09
+  ],
+  "rel_err_vs_x_true": 1.1300938634402442e-08,
+  "vcycle_seconds": 0.11481881141662598
+ },
+ "peak_device_memory_gb": 43.527307264,
+ "device_mempool_total_gb": 32.135018496,
+ "host_maxrss_gb": 172.250168,
+ "total_seconds": 201.4501757621765
+}

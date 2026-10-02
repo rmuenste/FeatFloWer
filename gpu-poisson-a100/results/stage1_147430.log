@@ -1,0 +1,187 @@
+stage 1 on tardis, job 147430, 2026-10-02T12:09:43+02:00
+name, memory.total [MiB], memory.used [MiB]
+NVIDIA A100 80GB PCIe, 81920 MiB, 0 MiB
++ python3 gpu_amg_cg.py --instance instances/p1_20x20x60.npz --storage full --validate-sym --rough-rhs --block-jacobi --amg sa_csr_spec,sa_csr_mean,sa_bsr_mean,sa_bsr_lin,geo_lin,geo_lin_jac --pyamg-cpu-solve --tag stage1 --out results/gpu_p1_20x20x60.json
+[     1.1s] device NVIDIA A100 80GB PCIe (85.1 GB), cupy 14.2.0
+[     1.5s] loaded instances/p1_20x20x60.npz in 0.4 s
+[     1.5s] instance (20, 20, 60): nu 96,000 nnz 9,491,988 (98.9/row), CSR f64/i32 0.11 GB
+[     1.5s] cpu reference /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/p1_20x20x60.cpu.json: Jacobi-CG 139 it (rough RHS), cond 456, nnz match True
+[     1.7s] [op] full storage, cuSPARSE, 1 row slab(s)
+[     1.7s] [op] storage=full matvec=cusparse nnz_stored=9,491,988 (0.1 GB), upload 0.2 s
+[     1.7s] matvec 0.10 ms (1143 GB/s effective on stored bytes); device used 0.6 GB
+[     1.9s] [op] storage=sym matvec=kernel nnz_stored=4,793,994 (0.1 GB), upload 0.2 s
+[     2.3s] [validate-sym] max rel diff full vs sym matvec: 1.80e-16 (other matvec 0.08 ms)
+[     2.4s] Jacobi-CG on the stored b (tol 1e-08, cap 20000)
+[     2.8s] Jacobi-CG: 72 it, 0.20 s, relres 9.11e-09, err vs x_true 4.22e-08
+[     2.9s] Jacobi-CG rough RHS (cpu_reference.py RHS): 139 it, 0.06 s
+[     3.2s] block-Jacobi(4x4)-CG: 72 it, 0.04 s
+[     3.2s] host scipy CSR for pyamg: index dtype int32, 0.0 s, maxrss 1.3 GB
+[     3.7s] [amg] sa_csr_spec: 2 levels, n=[96000, 980], OC=1.004, GC=1.010, setup 0.6 s, maxrss 1.6 GB
+[     5.3s] [amg] pyamg CPU cg solve (its own smoothers): 11 iterations, 1.5 s
+[     5.5s] [vcycle] 2 levels on device, 0.02 GB, omega=[0.883], coarse n=980, setup 0.3 s
+[     5.8s]   [amg-cg/sa_csr_spec] it 10 relres 3.979e-05 (0.0 s)
+[     5.8s]   [amg-cg/sa_csr_spec] it 20 relres 5.395e-08 (0.0 s)
+[     5.8s] AMG-CG [sa_csr_spec]: 23 it, 0.03 s (1 ms/it, V-cycle 1 ms), relres 6.70e-09, err vs x_true 2.06e-08
+[     6.3s] [amg] sa_csr_mean: 2 levels, n=[96000, 980], OC=1.002, GC=1.010, setup 0.4 s, maxrss 1.7 GB
+[     6.3s] [vcycle] 2 levels on device, 0.02 GB, omega=[0.883], coarse n=980, setup 0.0 s
+[     6.3s]   [amg-cg/sa_csr_mean] it 10 relres 4.474e-05 (0.0 s)
+[     6.3s]   [amg-cg/sa_csr_mean] it 20 relres 1.336e-07 (0.0 s)
+[     6.3s] AMG-CG [sa_csr_mean]: 25 it, 0.04 s (1 ms/it, V-cycle 1 ms), relres 8.05e-09, err vs x_true 3.76e-08
+[     6.4s] [amg] tobsr 0.1 s, blocks 598,792
+/home/user/rmuenste/.local/lib/python3.13/site-packages/pyamg/aggregation/aggregation.py:233: UserWarning: Having less target vectors, B.shape[1], than blocksize of A can degrade convergence factors.
+  warn('Having less target vectors, B.shape[1], than blocksize of A '
+[     6.7s] [amg] sa_bsr_mean: 2 levels, n=[96000, 980], OC=1.002, GC=1.010, setup 0.4 s, maxrss 1.7 GB
+[     6.8s] [vcycle] 2 levels on device, 0.02 GB, omega=[0.883], coarse n=980, setup 0.0 s
+[     6.8s]   [amg-cg/sa_bsr_mean] it 10 relres 4.474e-05 (0.0 s)
+[     6.8s]   [amg-cg/sa_bsr_mean] it 20 relres 1.336e-07 (0.0 s)
+[     6.8s] AMG-CG [sa_bsr_mean]: 25 it, 0.04 s (1 ms/it, V-cycle 1 ms), relres 8.05e-09, err vs x_true 3.76e-08
+[     6.9s] [amg] tobsr 0.1 s, blocks 598,792
+[     7.3s] [amg] sa_bsr_lin: 2 levels, n=[96000, 3920], OC=1.036, GC=1.041, setup 0.5 s, maxrss 1.7 GB
+[     7.9s] [vcycle] 2 levels on device, 0.15 GB, omega=[0.883], coarse n=3920, setup 0.6 s
+[     7.9s]   [amg-cg/sa_bsr_lin] it 10 relres 2.377e-08 (0.0 s)
+[     7.9s] AMG-CG [sa_bsr_lin]: 11 it, 0.02 s (1 ms/it, V-cycle 1 ms), relres 7.57e-09, err vs x_true 1.35e-08
+[     8.0s] [amg] tobsr 0.1 s, blocks 598,792
+[     8.0s] [amg] geometric levels: (20, 20, 60) -> ... -> (3, 3, 8) (3 coarsenings)
+[     8.1s] [amg] geo_lin: 4 levels, n=[96000, 12000, 1500, 288], OC=1.129, GC=1.144, setup 0.1 s, maxrss 1.8 GB
+[     9.0s] [vcycle] 4 levels on device, 0.02 GB, omega=[0.883, 0.927, 0.811], coarse n=288, setup 0.9 s
+[     9.2s]   [amg-cg/geo_lin] it 10 relres 1.961e-04 (0.0 s)
+[     9.2s]   [amg-cg/geo_lin] it 20 relres 4.108e-07 (0.1 s)
+[     9.2s] AMG-CG [geo_lin]: 27 it, 0.07 s (3 ms/it, V-cycle 2 ms), relres 5.13e-09, err vs x_true 5.77e-08
+[     9.3s] [amg] tobsr 0.1 s, blocks 598,792
+[     9.3s] [amg] geometric levels: (20, 20, 60) -> ... -> (3, 3, 8) (3 coarsenings)
+[    10.5s] [amg] geo_lin_jac: 4 levels, n=[96000, 12000, 1500, 288], OC=1.556, GC=1.144, setup 1.3 s, maxrss 1.8 GB
+[    10.6s] [vcycle] 4 levels on device, 0.11 GB, omega=[0.883, 0.664, 0.635], coarse n=288, setup 0.1 s
+[    10.6s] AMG-CG [geo_lin_jac]: 6 it, 0.02 s (3 ms/it, V-cycle 3 ms), relres 2.77e-09, err vs x_true 2.90e-09
+[    10.8s] peak device memory 0.6 GB (mempool 0.1 GB), host maxrss 1.8 GB, total 11 s
+[    10.8s] wrote results/gpu_p1_20x20x60.json
++ python3 gpu_amg_cg.py --instance instances/p1_40x40x120.npz --storage full --validate-sym --rough-rhs --block-jacobi --amg sa_csr_spec,sa_csr_mean,sa_bsr_mean,sa_bsr_lin,geo_lin,geo_lin_jac --pyamg-cpu-solve --tag stage1 --out results/gpu_p1_40x40x120.json
+[     0.4s] device NVIDIA A100 80GB PCIe (85.1 GB), cupy 14.2.0
+[     2.5s] loaded instances/p1_40x40x120.npz in 2.0 s
+[     2.5s] instance (40, 40, 120): nu 768,000 nnz 79,017,708 (102.9/row), CSR f64/i32 0.95 GB
+[     2.5s] cpu reference /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/p1_40x40x120.cpu.json: Jacobi-CG 274 it (rough RHS), cond 1.9e+03, nnz match True
+[     3.4s] [op] full storage, cuSPARSE, 1 row slab(s)
+[     3.4s] [op] storage=full matvec=cusparse nnz_stored=79,017,708 (1.0 GB), upload 0.9 s
+[     3.4s] matvec 0.70 ms (1365 GB/s effective on stored bytes); device used 1.4 GB
+[     4.1s] [op] storage=sym matvec=kernel nnz_stored=39,892,854 (0.5 GB), upload 0.7 s
+[     4.2s] [validate-sym] max rel diff full vs sym matvec: 1.78e-16 (other matvec 0.57 ms)
+[     4.2s] Jacobi-CG on the stored b (tol 1e-08, cap 20000)
+[     4.3s] Jacobi-CG: 141 it, 0.14 s, relres 8.58e-09, err vs x_true 7.23e-08
+[     4.6s] Jacobi-CG rough RHS (cpu_reference.py RHS): 274 it, 0.28 s
+[     5.7s] block-Jacobi(4x4)-CG: 140 it, 0.19 s
+[     5.7s] host scipy CSR for pyamg: index dtype int32, 0.0 s, maxrss 6.0 GB
+[    10.1s] [amg] sa_csr_spec: 3 levels, n=[768000, 7840, 133], OC=1.005, GC=1.010, setup 4.4 s, maxrss 7.7 GB
+[    19.9s] [amg] pyamg CPU cg solve (its own smoothers): 13 iterations, 9.7 s
+[    20.0s] [vcycle] 3 levels on device, 0.07 GB, omega=[0.88, 1.143], coarse n=133, setup 0.2 s
+[    20.1s]   [amg-cg/sa_csr_spec] it 10 relres 1.327e-04 (0.0 s)
+[    20.1s]   [amg-cg/sa_csr_spec] it 20 relres 8.965e-07 (0.1 s)
+[    20.2s]   [amg-cg/sa_csr_spec] it 30 relres 6.797e-09 (0.1 s)
+[    20.2s] AMG-CG [sa_csr_spec]: 30 it, 0.13 s (4 ms/it, V-cycle 3 ms), relres 6.80e-09, err vs x_true 9.31e-08
+[    23.7s] [amg] sa_csr_mean: 3 levels, n=[768000, 7840, 334], OC=1.003, GC=1.011, setup 3.5 s, maxrss 7.8 GB
+[    23.8s] [vcycle] 3 levels on device, 0.07 GB, omega=[0.88, 1.15], coarse n=334, setup 0.1 s
+[    23.8s]   [amg-cg/sa_csr_mean] it 10 relres 6.845e-05 (0.0 s)
+[    23.8s]   [amg-cg/sa_csr_mean] it 20 relres 4.751e-07 (0.1 s)
+[    23.9s] AMG-CG [sa_csr_mean]: 28 it, 0.12 s (4 ms/it, V-cycle 3 ms), relres 9.34e-09, err vs x_true 3.68e-08
+[    24.6s] [amg] tobsr 0.7 s, blocks 4,984,792
+/home/user/rmuenste/.local/lib/python3.13/site-packages/pyamg/aggregation/aggregation.py:233: UserWarning: Having less target vectors, B.shape[1], than blocksize of A can degrade convergence factors.
+  warn('Having less target vectors, B.shape[1], than blocksize of A '
+[    26.7s] [amg] sa_bsr_mean: 3 levels, n=[768000, 7840, 334], OC=1.002, GC=1.011, setup 2.8 s, maxrss 7.8 GB
+[    26.8s] [vcycle] 3 levels on device, 0.07 GB, omega=[0.88, 1.15], coarse n=334, setup 0.1 s
+[    26.9s]   [amg-cg/sa_bsr_mean] it 10 relres 6.837e-05 (0.0 s)
+[    26.9s]   [amg-cg/sa_bsr_mean] it 20 relres 4.739e-07 (0.1 s)
+[    27.0s] AMG-CG [sa_bsr_mean]: 28 it, 0.12 s (4 ms/it, V-cycle 3 ms), relres 9.30e-09, err vs x_true 3.66e-08
+[    27.7s] [amg] tobsr 0.7 s, blocks 4,984,792
+[    31.0s] [amg] sa_bsr_lin: 3 levels, n=[768000, 31360, 1336], OC=1.040, GC=1.043, setup 4.1 s, maxrss 7.8 GB
+[    31.3s] [vcycle] 3 levels on device, 0.28 GB, omega=[0.88, 0.806], coarse n=1336, setup 0.3 s
+[    31.4s]   [amg-cg/sa_bsr_lin] it 10 relres 2.101e-08 (0.0 s)
+[    31.4s] AMG-CG [sa_bsr_lin]: 11 it, 0.05 s (4 ms/it, V-cycle 3 ms), relres 6.72e-09, err vs x_true 9.67e-09
+[    32.1s] [amg] tobsr 0.7 s, blocks 4,984,792
+[    32.1s] [amg] geometric levels: (40, 40, 120) -> ... -> (3, 3, 8) (4 coarsenings)
+[    32.6s] [amg] geo_lin: 5 levels, n=[768000, 96000, 12000, 1500, 288], OC=1.136, GC=1.143, setup 1.2 s, maxrss 7.8 GB
+[    32.8s] [vcycle] 5 levels on device, 0.15 GB, omega=[0.88, 0.922, 0.765, 0.717], coarse n=288, setup 0.2 s
+[    32.9s]   [amg-cg/geo_lin] it 10 relres 2.501e-03 (0.0 s)
+[    32.9s]   [amg-cg/geo_lin] it 20 relres 8.839e-05 (0.1 s)
+[    33.0s]   [amg-cg/geo_lin] it 30 relres 3.644e-06 (0.2 s)
+[    33.0s]   [amg-cg/geo_lin] it 40 relres 1.716e-07 (0.2 s)
+[    33.1s] AMG-CG [geo_lin]: 49 it, 0.25 s (5 ms/it, V-cycle 4 ms), relres 9.44e-09, err vs x_true 1.71e-07
+[    33.8s] [amg] tobsr 0.7 s, blocks 4,984,792
+[    33.8s] [amg] geometric levels: (40, 40, 120) -> ... -> (3, 3, 8) (4 coarsenings)
+[    46.1s] [amg] geo_lin_jac: 5 levels, n=[768000, 96000, 12000, 1500, 288], OC=1.673, GC=1.143, setup 13.0 s, maxrss 7.8 GB
+[    46.7s] [vcycle] 5 levels on device, 0.99 GB, omega=[0.88, 0.652, 0.619, 0.84], coarse n=288, setup 0.6 s
+[    46.8s] AMG-CG [geo_lin_jac]: 6 it, 0.03 s (5 ms/it, V-cycle 5 ms), relres 2.61e-09, err vs x_true 2.05e-09
+[    47.0s] peak device memory 2.5 GB (mempool 1.0 GB), host maxrss 7.8 GB, total 47 s
+[    47.0s] wrote results/gpu_p1_40x40x120.json
++ python3 gpu_amg_cg.py --instance instances/p1_40x40x120.npz --storage full --matvec kernel --amg geo_lin --tag stage1-full-kernel --out results/stage1_p1_40x40x120_full_kernel.json
+[     0.4s] device NVIDIA A100 80GB PCIe (85.1 GB), cupy 14.2.0
+[     1.3s] loaded instances/p1_40x40x120.npz in 0.9 s
+[     1.3s] instance (40, 40, 120): nu 768,000 nnz 79,017,708 (102.9/row), CSR f64/i32 0.95 GB
+[     1.3s] cpu reference /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/p1_40x40x120.cpu.json: Jacobi-CG 274 it (rough RHS), cond 1.9e+03, nnz match True
+[     2.2s] [op] storage=full matvec=kernel nnz_stored=79,017,708 (1.0 GB), upload 0.9 s
+[     2.2s] matvec 0.73 ms (1309 GB/s effective on stored bytes); device used 1.4 GB
+[     2.3s] Jacobi-CG on the stored b (tol 1e-08, cap 20000)
+[     2.4s] Jacobi-CG: 141 it, 0.14 s, relres 8.58e-09, err vs x_true 7.23e-08
+[     2.4s] host scipy CSR for pyamg: index dtype int32, 0.0 s, maxrss 3.3 GB
+[     3.1s] [amg] tobsr 0.7 s, blocks 4,984,792
+[     3.1s] [amg] geometric levels: (40, 40, 120) -> ... -> (3, 3, 8) (4 coarsenings)
+[     3.6s] [amg] geo_lin: 5 levels, n=[768000, 96000, 12000, 1500, 288], OC=1.136, GC=1.143, setup 1.2 s, maxrss 4.2 GB
+[     3.9s] [vcycle] 5 levels on device, 0.15 GB, omega=[0.88, 0.922, 0.765, 0.717], coarse n=288, setup 0.3 s
+[     4.0s]   [amg-cg/geo_lin] it 10 relres 2.501e-03 (0.0 s)
+[     4.1s]   [amg-cg/geo_lin] it 20 relres 8.839e-05 (0.1 s)
+[     4.1s]   [amg-cg/geo_lin] it 30 relres 3.644e-06 (0.1 s)
+[     4.2s]   [amg-cg/geo_lin] it 40 relres 1.716e-07 (0.2 s)
+[     4.2s] AMG-CG [geo_lin]: 49 it, 0.25 s (5 ms/it, V-cycle 4 ms), relres 9.44e-09, err vs x_true 1.71e-07
+[     4.4s] peak device memory 1.7 GB (mempool 1.0 GB), host maxrss 4.3 GB, total 4 s
+[     4.4s] wrote results/stage1_p1_40x40x120_full_kernel.json
++ python3 gpu_amg_cg.py --instance instances/p1_40x40x120.npz --storage sym --amg geo_lin,sa_bsr_lin --tag stage1-sym --out results/stage1_p1_40x40x120_sym.json
+[     0.4s] device NVIDIA A100 80GB PCIe (85.1 GB), cupy 14.2.0
+[     1.2s] loaded instances/p1_40x40x120.npz in 0.9 s
+[     1.2s] instance (40, 40, 120): nu 768,000 nnz 79,017,708 (102.9/row), CSR f64/i32 0.95 GB
+[     1.2s] cpu reference /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/p1_40x40x120.cpu.json: Jacobi-CG 274 it (rough RHS), cond 1.9e+03, nnz match True
+[     2.2s] [op] storage=sym matvec=cusparse nnz_stored=39,892,854 (0.5 GB), upload 0.9 s
+[     2.2s] matvec 0.57 ms (851 GB/s effective on stored bytes); device used 1.0 GB
+[     2.2s] Jacobi-CG on the stored b (tol 1e-08, cap 20000)
+[     2.3s] Jacobi-CG: 141 it, 0.12 s, relres 8.58e-09, err vs x_true 7.23e-08
+[     2.3s] host scipy CSR for pyamg: index dtype int32, 0.0 s, maxrss 3.1 GB
+[     3.0s] [amg] tobsr 0.7 s, blocks 4,984,792
+[     3.0s] [amg] geometric levels: (40, 40, 120) -> ... -> (3, 3, 8) (4 coarsenings)
+[     3.5s] [amg] geo_lin: 5 levels, n=[768000, 96000, 12000, 1500, 288], OC=1.136, GC=1.143, setup 1.2 s, maxrss 3.4 GB
+[     3.8s] [vcycle] 5 levels on device, 0.15 GB, omega=[0.88, 0.922, 0.765, 0.717], coarse n=288, setup 0.3 s
+[     3.9s]   [amg-cg/geo_lin] it 10 relres 2.501e-03 (0.0 s)
+[     3.9s]   [amg-cg/geo_lin] it 20 relres 8.839e-05 (0.1 s)
+[     4.0s]   [amg-cg/geo_lin] it 30 relres 3.644e-06 (0.1 s)
+[     4.0s]   [amg-cg/geo_lin] it 40 relres 1.716e-07 (0.2 s)
+[     4.1s] AMG-CG [geo_lin]: 49 it, 0.22 s (5 ms/it, V-cycle 4 ms), relres 9.44e-09, err vs x_true 1.71e-07
+[     4.8s] [amg] tobsr 0.7 s, blocks 4,984,792
+[     8.2s] [amg] sa_bsr_lin: 3 levels, n=[768000, 31360, 1336], OC=1.040, GC=1.043, setup 4.1 s, maxrss 4.7 GB
+[     8.4s] [vcycle] 3 levels on device, 0.28 GB, omega=[0.88, 0.806], coarse n=1336, setup 0.3 s
+[     8.5s]   [amg-cg/sa_bsr_lin] it 10 relres 2.101e-08 (0.0 s)
+[     8.5s] AMG-CG [sa_bsr_lin]: 11 it, 0.04 s (4 ms/it, V-cycle 3 ms), relres 6.72e-09, err vs x_true 9.67e-09
+[     8.7s] peak device memory 1.3 GB (mempool 0.5 GB), host maxrss 4.7 GB, total 9 s
+[     8.7s] wrote results/stage1_p1_40x40x120_sym.json
++ python3 gpu_amg_cg.py --instance instances/p1_40x40x120.npz --storage full --no-jacobi --amg geo_lin,sa_bsr_lin --omega-factor 1.0 --tag stage1-omega1 --out results/stage1_p1_40x40x120_omega1.json
+[     0.4s] device NVIDIA A100 80GB PCIe (85.1 GB), cupy 14.2.0
+[     1.3s] loaded instances/p1_40x40x120.npz in 0.9 s
+[     1.3s] instance (40, 40, 120): nu 768,000 nnz 79,017,708 (102.9/row), CSR f64/i32 0.95 GB
+[     1.3s] cpu reference /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/p1_40x40x120.cpu.json: Jacobi-CG 274 it (rough RHS), cond 1.9e+03, nnz match True
+[     2.2s] [op] full storage, cuSPARSE, 1 row slab(s)
+[     2.2s] [op] storage=full matvec=cusparse nnz_stored=79,017,708 (1.0 GB), upload 0.9 s
+[     2.2s] matvec 0.70 ms (1364 GB/s effective on stored bytes); device used 1.4 GB
+[     2.2s] host scipy CSR for pyamg: index dtype int32, 0.0 s, maxrss 3.3 GB
+[     2.9s] [amg] tobsr 0.7 s, blocks 4,984,792
+[     2.9s] [amg] geometric levels: (40, 40, 120) -> ... -> (3, 3, 8) (4 coarsenings)
+[     3.4s] [amg] geo_lin: 5 levels, n=[768000, 96000, 12000, 1500, 288], OC=1.136, GC=1.143, setup 1.2 s, maxrss 4.1 GB
+[     3.7s] [vcycle] 5 levels on device, 0.15 GB, omega=[0.66, 0.692, 0.574, 0.538], coarse n=288, setup 0.3 s
+[     3.8s]   [amg-cg/geo_lin] it 10 relres 3.569e-03 (0.0 s)
+[     3.9s]   [amg-cg/geo_lin] it 20 relres 1.961e-04 (0.1 s)
+[     3.9s]   [amg-cg/geo_lin] it 30 relres 1.241e-05 (0.2 s)
+[     4.0s]   [amg-cg/geo_lin] it 40 relres 8.538e-07 (0.2 s)
+[     4.0s]   [amg-cg/geo_lin] it 50 relres 6.358e-08 (0.3 s)
+[     4.0s] AMG-CG [geo_lin]: 57 it, 0.29 s (5 ms/it, V-cycle 4 ms), relres 8.07e-09, err vs x_true 1.53e-07
+[     4.7s] [amg] tobsr 0.7 s, blocks 4,984,792
+[     8.1s] [amg] sa_bsr_lin: 3 levels, n=[768000, 31360, 1336], OC=1.040, GC=1.043, setup 4.1 s, maxrss 5.4 GB
+[     8.4s] [vcycle] 3 levels on device, 0.28 GB, omega=[0.66, 0.605], coarse n=1336, setup 0.3 s
+[     8.5s]   [amg-cg/sa_bsr_lin] it 10 relres 1.442e-07 (0.0 s)
+[     8.5s] AMG-CG [sa_bsr_lin]: 13 it, 0.06 s (4 ms/it, V-cycle 3 ms), relres 8.70e-09, err vs x_true 1.35e-08
+[     8.7s] peak device memory 1.7 GB (mempool 1.0 GB), host maxrss 5.4 GB, total 9 s
+[     8.7s] wrote results/stage1_p1_40x40x120_omega1.json
++ set +x
+stage 1 done 2026-10-02T12:11:08+02:00
