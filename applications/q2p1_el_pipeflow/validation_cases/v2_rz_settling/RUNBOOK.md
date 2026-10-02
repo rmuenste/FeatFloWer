@@ -503,3 +503,21 @@ done
 Sweep-3 wall times (np=28, nx): φ=0.05 10.6 h, 0.10 16.3 h, 0.15 20.6 h,
 0.20 24.2 h, U₀ 37 min. Each rundir stays ≈30 MB (OutputFreq 10 t.u.,
 BackUpFreq 1000). `/data/warehouse17` was at 95% (249 GB free) when staged.
+
+### G0 result — build twin PASS (2026-10-02, job 147442, nx-05, 14 s)
+
+Tier-2 `momentum_conservation` on the worktree binary vs job 137542
+(`run_mom_periodicfix.log`, Aug-3 fixed binary): 702 PERIODIC_COMM
+lines on both; EL_MOMENTUM_ELEMINT (60 lines), EL_FEEDBACK_CONSERVATION
+(60), EL_NEWTON_PAIR (60), EL_VOLUME_CONSERVATION (60) and EL_MEAN_SLIP
+(120) are BITWISE IDENTICAL to the reference. Final step: drift_rel
+5.319670E-08, feedback residual 5.082198E-21, Newton-pair mismatch
+1.3e-29/-7.9e-30/0. The pe pin move e14c6cd -> ce3bb5f is a no-op on
+the EL solver path, as expected from the unchanged pe files. Log:
+`build-el-rz-postfix/applications/q2p1_el_pipeflow/run_g0_twin.log`.
+
+### G1 — smoke SUBMITTED (job 147443, short partition, phi=0.20, 200 steps)
+
+Binary `build-el-rz-postfix/applications/q2p1_el_pipeflow/q2p1_el_pipeflow`
+via `tools/el_slurm_submit.sh` with EL_BIN set. Gates as listed above.
+Production (U0 + four phi) NOT submitted — owner decision.
