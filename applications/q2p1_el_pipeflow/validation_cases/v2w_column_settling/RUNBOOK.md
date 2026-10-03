@@ -181,3 +181,27 @@ Staged by `stage_rungs.sh` from the same case and clouds:
   N = 40 ×3 + N = 120 ×3 (the DNS two-rung discriminator shape), long
   1-12:00:00, 109 ranks / 2 nodes / 200 GB.
 Each rung is analysed against ITS OWN u_t. Jobs: k15_ut=147639 k15_n20_s1=147640 k15_n20_s2=147641 k15_n20_s3=147642 k15_n40_s1=147643 k15_n40_s2=147644 k15_n40_s3=147645 k15_n80_s1=147646 k15_n80_s2=147647 k15_n80_s3=147648 k15_n120_s1=147649 k15_n120_s2=147650 k15_n120_s3=147651 l3_ut=147652 l3_n40_s1=147653 l3_n40_s2=147654 l3_n40_s3=147655 l3_n120_s1=147656 l3_n120_s2=147657 l3_n120_s3=147658
+
+## 9. Kernel-width rung k15 RESULT (2026-10-04, jobs 147639–147651, all COMPLETED, 1 h 25–1 h 32 each)
+
+δ = 1.5 d at level 2 (δ/h = 6), same twelve clouds, own u_t. Clean: no NaN,
+Newton-pair worst 5.5e-15, stable hindered settling at every rung (spread
+0.026–0.045, saturating).
+
+- u_t(k15) = **0.31890** vs 0.35734 at δ = 2.5 d (−10.8%): the narrower
+  kernel samples a fluid more disturbed by the particle itself (stronger
+  self-voidage / self-induced velocity), as the V1b self-voidage picture
+  predicts in the wrong direction for "narrower is more accurate".
+- Seed means U/u_t: 0.984 / 0.964 / 0.917 / 0.860 at N = 20/40/80/120
+  (δ = 2.5 d: 0.965 / 0.935 / 0.870 / 0.805; DNS 0.892 / 0.826 / 0.689 / 0.588).
+- **n = 1.15** through origin (rms 0.012; seed span at N = 40 widened to
+  0.040) vs 1.72 at δ = 2.5 d vs DNS 4.57.
+
+Reading: narrowing the kernel moves the EL hindrance law AWAY from DNS. Kernel
+smearing is therefore not the mechanism behind the slope deficit; the wider
+kernel helps, by coupling each particle to more of the cloud-scale return
+flow and by letting the cloud's reaction force act on a larger fluid volume.
+The deficit sits in what the point-particle closure can represent (local
+voidage factor ε^−χ, no resolved near-field / wake interactions), or in the
+resolution of the return flow — which the l3 rung (section 8) tests. Row
+`v2w_k15_exponent` RECORDED.
