@@ -131,3 +131,43 @@ expected well under 1 h per run.
   Analysis once complete:
   `for d in /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer-el/build-el-rz-postfix/applications/q2p1_el_rundir_v2w_n*_s*; do python3 tools/el_particle_log_merge.py $d; done`
   then `python3 tools/d32_ladder_analysis.py /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer-el/build-el-rz-postfix/applications/q2p1_el_rundir_v2w_n*_s* --window 15 25 --ut 0.35734 --area 36.0 --radius 0.5`.
+
+## 7. Ladder RESULT (2026-10-03, jobs 147526/147573–147583, med, 109 ranks, 1 h 30–1 h 49 each)
+
+Eleven first submissions died at 7 s on mixed nx+worldgames allocations (OFI
+modex failure, known cluster defect); resubmitted with `--exclude=worldgames`
+(helper fixed, commit 2a46e23b). All twelve runs then completed: no NaN,
+Newton-pair worst 7e-15, hard contacts 0–13 per sample (N = 120), velocity
+spread 0.014–0.027 saturating in time, clouds coherent — stable hindered
+settling at every rung, no clustering (the walled column suppresses the
+periodic-box instability for EL exactly as it did for DNS).
+
+| N | φ_cloud | U/u_t EL (3 seeds) | U/u_t DNS (3 seeds) | EL/DNS |
+|---:|---:|---|---|---:|
+| 20 | 0.019–0.021 | 0.963 / 0.966 / 0.966 | 0.895 / 0.901 / 0.879 | 1.08 |
+| 40 | 0.039–0.048 | 0.928 / 0.938 / 0.938 | 0.802 / 0.842 / 0.834 | 1.13 |
+| 80 | 0.077–0.080 | 0.870 / 0.877 / 0.864 | 0.684 / 0.706 / 0.678 | 1.26 |
+| 120 | 0.113–0.119 | 0.812 / 0.800 / 0.803 | 0.597 / 0.561 / 0.605 | 1.37 |
+
+Fit (tools/d32_ladder_analysis.py, window t = 15–25, u_t = 0.35734):
+through-origin n = 1.72; free-intercept n = 1.78, U/ut(phi->0) = 1.005 (rms ln-residual 0.005). DNS in the same column: 4.57 (free
+intercept 4.31); unbounded Richardson–Zaki/Rowe 2.7–4.65.
+
+Reading: the EL closure set (Di Felice local-voidage hindrance + kernel-smoothed
+two-way coupling, no lift) produces a clean power law but with an exponent
+~2.7× smaller than the resolved spheres. The EL/DNS ratio grows monotonically
+with φ (1.08 → 1.37): the deficit is in the slope, not an offset, so it is a
+collective-interaction deficit, not the single-particle u_t gap (which the
+ratio already divides out). Candidate mechanisms, in the order the data
+suggests: (i) the confinement-driven return flow that carries the DNS
+hindrance (row d32_wide_attribution) is weakened in EL because the cloud's
+reaction force is smeared over kernels of 2.5 d in a 6 d column, so the
+resolved backflow through the cloud is smaller; (ii) Di Felice ε^−χ at local
+ε ≈ 0.9–0.98 adds only a few percent; (iii) no resolved near-field
+interactions. This is the first D5.1 same-physics twin and its deliverable is
+exactly this closure deficit; it is NOT a pass/fail against RZ. Verdict rows:
+mechanism PASS (hindered, stable, power-law collapse), quantitative RECORDED
+(n = 1.72 vs DNS 4.57).
+
+Next rungs that would discriminate (i) from (ii): a kernel-width rung
+(δ = 1.5 d) and a level-3 resolution rung, both from the same clouds.
