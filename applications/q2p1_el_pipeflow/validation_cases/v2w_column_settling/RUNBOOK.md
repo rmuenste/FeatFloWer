@@ -171,3 +171,13 @@ mechanism PASS (hindered, stable, power-law collapse), quantitative RECORDED
 
 Next rungs that would discriminate (i) from (ii): a kernel-width rung
 (δ = 1.5 d) and a level-3 resolution rung, both from the same clouds.
+
+## 8. Discriminator rungs SUBMITTED (2026-10-03, owner go-ahead)
+
+Staged by `stage_rungs.sh` from the same case and clouds:
+- **k15** — kernel width δ = 1.5 d (δ/h = 6 at level 2), u_t + all twelve
+  clouds, med 06:00:00, 109 ranks / 2 nodes / 40 GB.
+- **l3** — MaxMeshLevel 3 (h = d/8 = the DNS cell size, δ/h = 20), u_t +
+  N = 40 ×3 + N = 120 ×3 (the DNS two-rung discriminator shape), long
+  1-12:00:00, 109 ranks / 2 nodes / 200 GB.
+Each rung is analysed against ITS OWN u_t. Jobs: k15_ut=147639 k15_n20_s1=147640 k15_n20_s2=147641 k15_n20_s3=147642 k15_n40_s1=147643 k15_n40_s2=147644 k15_n40_s3=147645 k15_n80_s1=147646 k15_n80_s2=147647 k15_n80_s3=147648 k15_n120_s1=147649 k15_n120_s2=147650 k15_n120_s3=147651 l3_ut=147652 l3_n40_s1=147653 l3_n40_s2=147654 l3_n40_s3=147655 l3_n120_s1=147656 l3_n120_s2=147657 l3_n120_s3=147658
