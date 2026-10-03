@@ -1,0 +1,3343 @@
+hypre A (build + small instance) on tardis, job 147459, 2026-10-02T13:51:12+02:00
+Currently Loaded Modulefiles:
+ 1) gcc/13.2.0   2) cuda/12.6   3) openmpi/4.1.6   4) python/3.13.5  
+/sfw/openmpi/gcc13.2.x/4.1.6/ucx-threaded-noverbs/bin/mpicc
+/sfw/cuda/12.6/bin/nvcc
+/sfw/gcc/13.2.0-static-gmp-mpfr-mpc-isl/bin/gcc
+/sfw/python/3.13.5/bin/python3
+name, memory.total [MiB], memory.used [MiB], driver_version
+NVIDIA A100 80GB PCIe, 81920 MiB, 0 MiB, 580.159.04
+/dev/sda4       1.7T  220G  1.4T  14% /scratch
+               total        used        free      shared  buff/cache   available
+Mem:             502           8         400           0          96         494
+total 93371700
+drwxr-xr-x 5 rmuenste lsiii        4096 Oct  2 13:50 .
+drwxr-xr-x 3 rmuenste lsiii        4096 Oct  2 12:12 ..
+drwxr-xr-x 2 rmuenste lsiii        4096 Oct  2 13:50 bin
+drwxr-xr-x 6 rmuenste lsiii        4096 Oct  2 13:28 hypre-src
+-rw-r--r-- 1 rmuenste lsiii 31933692872 Oct  2 12:14 p1_128x128x384.npz
+-rw-r--r-- 1 rmuenste lsiii 63678885944 Oct  2 12:31 p1_160x160x480.npz
+drwxr-xr-x 2 rmuenste lsiii        4096 Oct  2 12:29 tmp
+/scratch/rmuenste/gpu-poisson/hypre-src/src/configure
+configure: ./configure --prefix=/scratch/rmuenste/gpu-poisson/hypre-cuda --with-cuda --with-cuda-home=/sfw/cuda/12.6 --with-gpu-arch=80 --enable-unified-memory=no --enable-shared --enable-mixedint --enable-bigint=no --enable-cusparse --enable-curand --enable-cublas --without-umpire --with-MPI CC=mpicc CXX=mpicxx
+configure rc=0 (3 s)
+checking the hostname... tardis
+checking the architecture... LINUX
+configure: creating ./config.status
+config.status: creating config/Makefile.config
+config.status: creating HYPRE_config.h
+58:/* #undef HYPRE_BIGINT */
+96:#define HYPRE_HAVE_MPI 1
+99:#define HYPRE_HAVE_MPI_COMM_F2C 1
+120:#define HYPRE_MIXEDINT 1
+168:#define HYPRE_USING_CUBLAS 1
+171:#define HYPRE_USING_CUDA 1
+174:#define HYPRE_USING_CUDA_STREAMS 1
+177:#define HYPRE_USING_CURAND 1
+183:#define HYPRE_USING_CUSPARSE 1
+297:/* #undef HYPRE_USING_UNIFIED_MEMORY */
+make rc=0 (199 s)
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c error.c
+mpicxx -shared  -o libHYPRE_utilities-3.1.0.so F90_HYPRE_error.o F90_HYPRE_general.o HYPRE_handle.o HYPRE_version.o amg_linklist.o binsearch.o exchange_data.o fortran_matrix.o ap.o log.o complex.o error.o int_array.o hopscotch_hash.o matrix_stats.o magma.o memory_tracker.o merge_sort.o mmio.o prefix_sum.o qsort.o unique.o utilities.o mpistubs.o qsplit.o random.o state.o threading.o timer.o timing.o caliper_instrumentation.o printf.o multiprecision.o device_markers.obj device_utils.obj general.obj handle.obj int_array_device.obj memory.obj omp_device.obj stl_ops.obj -Wl,-soname,libHYPRE_utilities-3.1.0.so
+install rc=0
+total 118812
+drwxr-xr-x 2 rmuenste lsiii      4096 Oct  2 13:54 .
+drwxr-xr-x 4 rmuenste lsiii      4096 Oct  2 13:54 ..
+-rwxr-xr-x 1 rmuenste lsiii 121652536 Oct  2 13:54 libHYPRE-3.1.0.so
+lrwxrwxrwx 1 rmuenste lsiii        17 Oct  2 13:54 libHYPRE.so -> libHYPRE-3.1.0.so
+121M	/scratch/rmuenste/gpu-poisson/hypre-cuda
+build record -> /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_build.txt
+make test/ij rc=0
+-rwxr-xr-x 1 rmuenste lsiii 261624 Oct  2 13:54 ./ij
+== ij -solver 1 -n 50 50 50 (AMG-PCG, 7-pt Laplacian, device memory/exec by default in a GPU build)
+  wall clock time = 0.027184 seconds
+  wall clock time = 0.004773 seconds
+  wall clock time = 0.010702 seconds
+     Complexity:   grid = 1.364248
+                 memory = 3.372777
+  wall clock time = 0.349942 seconds
+  wall clock time = 0.010169 seconds
+Iterations = 15
+Final Relative Residual Norm = 5.527346e-09
+== ij -solver 1 -n 100 100 100 -agg_nl 1 -pmis -interptype 6 -relax 18
+  wall clock time = 0.017573 seconds
+  wall clock time = 0.022731 seconds
+  wall clock time = 0.016309 seconds
+     Complexity:   grid = 1.078849
+  wall clock time = 0.126856 seconds
+  wall clock time = 0.027931 seconds
+Iterations = 30
+Final Relative Residual Norm = 8.656765e-09
+driver compile: mpicc -O2 -Wall -Wno-unused-result -o /scratch/rmuenste/gpu-poisson/hypre_boomer_pcg hypre_boomer_pcg.c -I/scratch/rmuenste/gpu-poisson/hypre-cuda/include -I/sfw/cuda/12.6/include -L/scratch/rmuenste/gpu-poisson/hypre-cuda/lib -lHYPRE -L/sfw/cuda/12.6/lib64 -lcudart -lcusparse -lcurand -lcublas -lm -Wl,-rpath,/scratch/rmuenste/gpu-poisson/hypre-cuda/lib -Wl,-rpath,/sfw/cuda/12.6/lib64
+-rwxr-xr-x 1 rmuenste lsiii 48856 Oct  2 13:54 /scratch/rmuenste/gpu-poisson/hypre_boomer_pcg
+[   4.4s] wrote /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120.cand.f64 (0.02 GB, 0 s)
+[   4.4s] wrote /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120.meta.txt; done
+
+===== variant jacobi (1 rank(s)) : --jacobi --rough-rhs --no-amg
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 1 MPI ranks, label 'jacobi', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] [direct] migrated to device in 0.0 s
+[     0.8s] matrix assembled in 0.3 s
+[     0.8s] [devmem] matrix on device             used 1.40 GB of 85.1 GB (peak 1.40), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__jacobi.json (matrix_on_device)
+[     0.9s] matvec 0.64 ms (1492 GB/s effective on 1.0 GB)
+[     0.9s] [jacobi-cg] setup 0.000 s
+[     0.9s] [devmem] after DiagScale setup        used 1.44 GB of 85.1 GB (peak 1.44), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.0s] [jacobi-cg] 141 it (converged), solve 0.132 s (0.9 ms/it), final relres 8.583e-09, true relres 8.583e-09, rel err vs x_true 7.228e-08
+[     1.0s] [devmem] after solve                  used 1.45 GB of 85.1 GB (peak 1.45), host maxrss 2.2 GB
+[     1.0s] [devmem] after PCG destroy            used 1.43 GB of 85.1 GB (peak 1.45), host maxrss 2.2 GB
+[     1.0s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__jacobi.json (jacobi_done)
+[     1.0s] [jacobi-cg/rough] setup 0.000 s
+[     1.0s] [devmem] after DiagScale setup        used 1.46 GB of 85.1 GB (peak 1.46), host maxrss 2.2 GB
+<b,b>: 7.659496e+05
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.2s] [jacobi-cg/rough] 274 it (converged), solve 0.230 s (0.8 ms/it), final relres 9.453e-09, true relres 9.453e-09, rel err vs x_true 0.000e+00
+[     1.2s] [devmem] after solve                  used 1.46 GB of 85.1 GB (peak 1.46), host maxrss 2.2 GB
+[     1.2s] [devmem] after PCG destroy            used 1.44 GB of 85.1 GB (peak 1.46), host maxrss 2.2 GB
+[     1.2s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__jacobi.json (rough_done)
+[     1.2s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__jacobi.json (done)
+variant jacobi rc=0 (1 s)
+
+===== variant nf4_pmis_exti_l1jac (1 rank(s)) : 
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 1 MPI ranks, label 'nf4_pmis_exti_l1jac', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] [direct] migrated to device in 0.0 s
+[     0.8s] matrix assembled in 0.3 s
+[     0.8s] [devmem] matrix on device             used 1.40 GB of 85.1 GB (peak 1.40), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_pmis_exti_l1jac.json (matrix_on_device)
+[     0.8s] matvec 0.64 ms (1492 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 5
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = multipass
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1    3848    92692  0.006     7   40    24.1   3.428e-05   2.015e+00
+  2     680    31074  0.067    13   81    45.7   1.739e-04   3.685e+00
+  3     103     3655  0.345    12   59    35.5   1.266e+00   7.355e+00
+  4      17      231  0.799     8   17    13.6   1.904e+00   9.602e+00
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 3848     0   10   0.4   1.348e-03   1.000e+00   0.000e+00   1.000e+00
+  1   3848 x 680      1    4   4.0   7.368e-03   6.176e-01   2.103e-01   1.000e+00
+  2    680 x 103      0    4   3.9   1.809e-03   5.316e-01   0.000e+00   1.000e+00
+  3    103 x 17       0    4   2.8   3.913e-03   1.556e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.006052
+               operator = 1.001615
+                 memory = 1.005864
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     1.3s] [amg-cg] setup 0.429 s
+[amg-cg] 5 levels, OC 1.002, GC 1.006, nnz(P) 3.36e+05, nnz(R) 0, hierarchy est. 0.0 GB; sizes: 768000 3848 680 103 17
+[     1.3s] [devmem] after AMG setup              used 1.49 GB of 85.1 GB (peak 1.49), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.4s] [amg-cg] 46 it (converged), solve 0.130 s (2.8 ms/it), final relres 7.636e-09, true relres 7.636e-09, rel err vs x_true 2.829e-08
+[     1.4s] [devmem] after solve                  used 1.50 GB of 85.1 GB (peak 1.50), host maxrss 2.2 GB
+[     1.4s] [devmem] after AMG destroy            used 1.44 GB of 85.1 GB (peak 1.50), host maxrss 2.2 GB
+[     1.4s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_pmis_exti_l1jac.json (done)
+variant nf4_pmis_exti_l1jac rc=0 (2 s)
+
+===== variant nf1_pmis_exti_l1jac (1 rank(s)) : --num-functions 1
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 1 MPI ranks, label 'nf1_pmis_exti_l1jac', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] [direct] migrated to device in 0.0 s
+[     0.8s] matrix assembled in 0.3 s
+[     0.8s] [devmem] matrix on device             used 1.40 GB of 85.1 GB (peak 1.40), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf1_pmis_exti_l1jac.json (matrix_on_device)
+[     0.8s] matvec 0.64 ms (1492 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 5
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = multipass
+ measures are determined locally
+
+ Interpolation = extended+i
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1    7563   207677  0.004     7   87    27.5  -2.112e-02   2.041e+00
+  2    1460    62750  0.029     8  122    43.0   2.109e-04   3.218e+00
+  3     292    10976  0.129    12  119    37.6   1.630e-01   7.048e+00
+  4      52     1080  0.399     8   52    20.8   2.756e-01   1.027e+01
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 7563     0   21   0.5   1.459e-04   1.000e+00   0.000e+00   1.000e+00
+  1   7563 x 1460     0    4   3.8   5.315e-03   7.298e-01   0.000e+00   1.013e+00
+  2   1460 x 292      0    4   3.9   2.936e-03   6.200e-01   0.000e+00   1.000e+00
+  3    292 x 52       0    4   3.6   2.011e-03   2.785e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.012197
+               operator = 1.003575
+                 memory = 1.008487
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     1.1s] [amg-cg] setup 0.236 s
+[amg-cg] 5 levels, OC 1.004, GC 1.012, nnz(P) 3.88e+05, nnz(R) 0, hierarchy est. 0.0 GB; sizes: 768000 7563 1460 292 52
+[     1.1s] [devmem] after AMG setup              used 1.49 GB of 85.1 GB (peak 1.49), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.2s] [amg-cg] 46 it (converged), solve 0.130 s (2.8 ms/it), final relres 8.522e-09, true relres 8.522e-09, rel err vs x_true 2.927e-08
+[     1.2s] [devmem] after solve                  used 1.50 GB of 85.1 GB (peak 1.50), host maxrss 2.2 GB
+[     1.2s] [devmem] after AMG destroy            used 1.44 GB of 85.1 GB (peak 1.50), host maxrss 2.2 GB
+[     1.2s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf1_pmis_exti_l1jac.json (done)
+variant nf1_pmis_exti_l1jac rc=0 (2 s)
+
+===== variant nf4_exte18 (1 rank(s)) : --interp 18
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 1 MPI ranks, label 'nf4_exte18', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.5s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.5s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] [direct] migrated to device in 0.0 s
+[     0.8s] matrix assembled in 0.3 s
+[     0.8s] [devmem] matrix on device             used 1.40 GB of 85.1 GB (peak 1.40), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_exte18.json (matrix_on_device)
+[     0.8s] matvec 0.64 ms (1492 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 5
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = multipass
+ measures are determined locally
+
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1    3848    92692  0.006     7   40    24.1   3.428e-05   2.015e+00
+  2     680    31054  0.067    13   80    45.7   1.748e-04   3.705e+00
+  3     106     3880  0.345    15   62    36.6   1.174e+00   6.961e+00
+  4      13      133  0.787     6   13    10.2   1.813e+00   1.120e+01
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 3848     0   10   0.4   1.348e-03   1.000e+00   0.000e+00   1.000e+00
+  1   3848 x 680      1    4   4.0   4.590e-03   6.127e-01   1.860e-01   1.000e+00
+  2    680 x 106      0    4   3.9   1.922e-03   5.904e-01   0.000e+00   1.000e+00
+  3    106 x 13       0    4   2.8   1.195e-03   2.079e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.006051
+               operator = 1.001617
+                 memory = 1.005865
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     1.1s] [amg-cg] setup 0.237 s
+[amg-cg] 5 levels, OC 1.002, GC 1.006, nnz(P) 3.36e+05, nnz(R) 0, hierarchy est. 0.0 GB; sizes: 768000 3848 680 106 13
+[     1.1s] [devmem] after AMG setup              used 1.49 GB of 85.1 GB (peak 1.49), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.2s] [amg-cg] 46 it (converged), solve 0.129 s (2.8 ms/it), final relres 7.687e-09, true relres 7.687e-09, rel err vs x_true 2.863e-08
+[     1.2s] [devmem] after solve                  used 1.50 GB of 85.1 GB (peak 1.50), host maxrss 2.2 GB
+[     1.2s] [devmem] after AMG destroy            used 1.44 GB of 85.1 GB (peak 1.50), host maxrss 2.2 GB
+[     1.2s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_exte18.json (done)
+variant nf4_exte18 rc=0 (1 s)
+
+===== variant nf4_jacobi7 (1 rank(s)) : --relax 7
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 1 MPI ranks, label 'nf4_jacobi7', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] [direct] migrated to device in 0.0 s
+[     0.8s] matrix assembled in 0.3 s
+[     0.8s] [devmem] matrix on device             used 1.40 GB of 85.1 GB (peak 1.40), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_jacobi7.json (matrix_on_device)
+[     0.8s] matvec 0.64 ms (1492 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 5
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = multipass
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1    3848    92692  0.006     7   40    24.1   3.428e-05   2.015e+00
+  2     680    31074  0.067    13   81    45.7   1.739e-04   3.685e+00
+  3     103     3655  0.345    12   59    35.5   1.266e+00   7.355e+00
+  4      17      231  0.799     8   17    13.6   1.904e+00   9.602e+00
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 3848     0   10   0.4   1.348e-03   1.000e+00   0.000e+00   1.000e+00
+  1   3848 x 680      1    4   4.0   7.368e-03   6.176e-01   2.103e-01   1.000e+00
+  2    680 x 103      0    4   3.9   1.809e-03   5.316e-01   0.000e+00   1.000e+00
+  3    103 x 17       0    4   2.8   3.913e-03   1.556e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.006052
+               operator = 1.001615
+                 memory = 1.005864
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:      7    7     7 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     1.1s] [amg-cg] setup 0.235 s
+[amg-cg] 5 levels, OC 1.002, GC 1.006, nnz(P) 3.36e+05, nnz(R) 0, hierarchy est. 0.0 GB; sizes: 768000 3848 680 103 17
+[     1.1s] [devmem] after AMG setup              used 1.49 GB of 85.1 GB (peak 1.49), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.2s] [amg-cg] 30 it (converged), solve 0.089 s (3.0 ms/it), final relres 9.939e-09, true relres 9.939e-09, rel err vs x_true 5.487e-08
+[     1.2s] [devmem] after solve                  used 1.50 GB of 85.1 GB (peak 1.50), host maxrss 2.2 GB
+[     1.2s] [devmem] after AMG destroy            used 1.44 GB of 85.1 GB (peak 1.50), host maxrss 2.2 GB
+[     1.2s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_jacobi7.json (done)
+variant nf4_jacobi7 rc=0 (2 s)
+
+===== variant nf4_agg0 (1 rank(s)) : --agg-levels 0
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 1 MPI ranks, label 'nf4_agg0', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] [direct] migrated to device in 0.0 s
+[     0.8s] matrix assembled in 0.3 s
+[     0.8s] [devmem] matrix on device             used 1.40 GB of 85.1 GB (peak 1.40), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0.json (matrix_on_device)
+[     0.8s] matvec 0.64 ms (1492 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 5
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1   23545  1326431  0.002    16   83    56.3   3.721e-06   4.982e-01
+  2    2773   187937  0.024    16  119    67.8   3.692e-05   7.060e-01
+  3     417    21489  0.124    15  115    51.5   1.940e-01   1.590e+00
+  4      51     1227  0.472    10   42    24.1   3.622e-01   4.514e+00
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 23545    0    4   0.9   3.615e-03   7.579e-01   0.000e+00   1.000e+00
+  1  23545 x 2773     0    4   4.0   1.974e-03   6.498e-01   0.000e+00   1.000e+00
+  2   2773 x 417      0    4   3.8   1.589e-03   5.164e-01   0.000e+00   1.000e+00
+  3    417 x 51       0    4   2.2   2.802e-03   3.287e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.034878
+               operator = 1.019452
+                 memory = 1.029485
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     1.1s] [amg-cg] setup 0.295 s
+[amg-cg] 5 levels, OC 1.019, GC 1.035, nnz(P) 7.93e+05, nnz(R) 0, hierarchy est. 0.0 GB; sizes: 768000 23545 2773 417 51
+[     1.1s] [devmem] after AMG setup              used 1.52 GB of 85.1 GB (peak 1.52), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.2s] [amg-cg] 24 it (converged), solve 0.076 s (3.1 ms/it), final relres 7.801e-09, true relres 7.801e-09, rel err vs x_true 1.214e-08
+[     1.2s] [devmem] after solve                  used 1.53 GB of 85.1 GB (peak 1.53), host maxrss 2.2 GB
+[     1.2s] [devmem] after AMG destroy            used 1.44 GB of 85.1 GB (peak 1.53), host maxrss 2.2 GB
+[     1.2s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0.json (done)
+variant nf4_agg0 rc=0 (1 s)
+
+===== variant nf4_agg0_theta05 (1 rank(s)) : --agg-levels 0 --theta 0.5
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 1 MPI ranks, label 'nf4_agg0_theta05', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] [direct] migrated to device in 0.0 s
+[     0.8s] matrix assembled in 0.3 s
+[     0.8s] [devmem] matrix on device             used 1.40 GB of 85.1 GB (peak 1.40), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_theta05.json (matrix_on_device)
+[     0.8s] matvec 0.64 ms (1492 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 7
+
+ Strength Threshold = 0.500000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1   60275  3590607  0.001    16   93    59.6   2.017e-06   5.193e-01
+  2   13858  1368174  0.007    23  168    98.7  -3.471e-03   4.497e-01
+  3    3265   396941  0.037    18  265   121.6  -9.993e-06   4.163e-01
+  4     677    72981  0.159    21  253   107.8   5.561e-03   1.059e+00
+  5     118     6532  0.469    23   94    55.4   1.637e-01   2.950e+00
+  6      21      349  0.791    10   21    16.6   4.349e-01   4.356e+00
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 60275    0    4   0.7   1.619e-02   4.545e-01   0.000e+00   1.000e+00
+  1  60275 x 13858    0    4   3.9   4.294e-03   9.999e-01   0.000e+00   1.000e+00
+  2  13858 x 3265     0    4   3.8   2.255e-03   9.999e-01   0.000e+00   1.024e+00
+  3   3265 x 677      0    4   3.6   2.619e-03   9.993e-01   0.000e+00   1.000e+00
+  4    677 x 118      0    4   3.4   3.498e-03   9.323e-01   0.000e+00   1.000e+00
+  5    118 x 21       0    4   2.7   4.746e-03   2.452e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.101841
+               operator = 1.068789
+                 memory = 1.079420
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     1.1s] [amg-cg] setup 0.265 s
+[amg-cg] 7 levels, OC 1.069, GC 1.102, nnz(P) 8.4e+05, nnz(R) 0, hierarchy est. 0.1 GB; sizes: 768000 60275 13858 3265 677 118 21
+[     1.1s] [devmem] after AMG setup              used 1.58 GB of 85.1 GB (peak 1.58), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.2s] [amg-cg] 23 it (converged), solve 0.080 s (3.5 ms/it), final relres 6.566e-09, true relres 6.566e-09, rel err vs x_true 3.322e-08
+[     1.2s] [devmem] after solve                  used 1.58 GB of 85.1 GB (peak 1.58), host maxrss 2.2 GB
+[     1.2s] [devmem] after AMG destroy            used 1.44 GB of 85.1 GB (peak 1.58), host maxrss 2.2 GB
+[     1.2s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_theta05.json (done)
+variant nf4_agg0_theta05 rc=0 (2 s)
+
+===== variant nf4_agg0_theta07 (1 rank(s)) : --agg-levels 0 --theta 0.7
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 1 MPI ranks, label 'nf4_agg0_theta07', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] [direct] migrated to device in 0.0 s
+[     0.8s] matrix assembled in 0.3 s
+[     0.8s] [devmem] matrix on device             used 1.40 GB of 85.1 GB (peak 1.40), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_theta07.json (matrix_on_device)
+[     0.8s] matvec 0.64 ms (1492 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 8
+
+ Strength Threshold = 0.700000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1   60275  3590607  0.001    16   93    59.6   2.017e-06   5.193e-01
+  2   19911  1901853  0.005    24  177    95.5  -2.529e-02   4.455e-01
+  3    6100   665908  0.018    13  249   109.2  -1.126e-02   3.829e-01
+  4    1535   143499  0.061    20  251    93.5   1.562e-04   8.088e-01
+  5     294    15884  0.184    14  138    54.0   4.627e-02   3.539e+00
+  6      51     1083  0.416     7   40    21.2   3.258e-01   1.032e+01
+  7       7       47  0.959     6    7     6.7   2.587e+00   1.256e+01
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 60275    0    4   0.7   1.619e-02   4.545e-01   0.000e+00   1.000e+00
+  1  60275 x 19911    0    4   3.4   4.791e-03   9.999e-01   0.000e+00   1.000e+00
+  2  19911 x 6100     0    4   2.7   5.038e-03   1.170e+00   0.000e+00   1.221e+00
+  3   6100 x 1535     0    4   2.5   4.979e-03   1.001e+00   0.000e+00   1.074e+00
+  4   1535 x 294      0    4   2.0   7.329e-03   9.987e-01   0.000e+00   1.000e+00
+  5    294 x 51       0    4   1.7   9.227e-03   6.741e-01   0.000e+00   1.000e+00
+  6     51 x 7        0    3   1.3   1.693e-02   2.485e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.114809
+               operator = 1.079968
+                 memory = 1.090167
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18     9 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     1.1s] [amg-cg] setup 0.269 s
+[amg-cg] 8 levels, OC 1.080, GC 1.115, nnz(P) 8.06e+05, nnz(R) 0, hierarchy est. 0.1 GB; sizes: 768000 60275 19911 6100 1535 294 51 7
+[     1.1s] [devmem] after AMG setup              used 1.59 GB of 85.1 GB (peak 1.59), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.2s] [amg-cg] 26 it (converged), solve 0.092 s (3.5 ms/it), final relres 8.671e-09, true relres 8.671e-09, rel err vs x_true 6.715e-08
+[     1.2s] [devmem] after solve                  used 1.60 GB of 85.1 GB (peak 1.60), host maxrss 2.2 GB
+[     1.2s] [devmem] after AMG destroy            used 1.44 GB of 85.1 GB (peak 1.60), host maxrss 2.2 GB
+[     1.2s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_theta07.json (done)
+variant nf4_agg0_theta07 rc=0 (1 s)
+
+===== variant nf4_agg0_ext14 (1 rank(s)) : --agg-levels 0 --interp 14
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 1 MPI ranks, label 'nf4_agg0_ext14', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] [direct] migrated to device in 0.0 s
+[     0.8s] matrix assembled in 0.3 s
+[     0.8s] [devmem] matrix on device             used 1.40 GB of 85.1 GB (peak 1.40), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_ext14.json (matrix_on_device)
+[     0.8s] matvec 0.64 ms (1492 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 5
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+ measures are determined locally
+
+ Interpolation = extended
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1   23545  1333885  0.002    16   83    56.7   3.193e-06   5.545e-01
+  2    2682   179260  0.025    17  119    66.8   3.363e-05   8.675e-01
+  3     418    20942  0.120    12  123    50.1   4.448e-03   1.836e+00
+  4      47      975  0.441    10   47    20.7   3.611e-01   4.326e+00
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 23545    0    4   0.9   3.713e-03   7.527e-01   0.000e+00   1.000e+00
+  1  23545 x 2682     0    4   3.9   1.824e-03   6.432e-01   0.000e+00   1.000e+00
+  2   2682 x 418      0    4   3.8   2.314e-03   5.525e-01   0.000e+00   1.000e+00
+  3    418 x 47       0    4   2.1   1.851e-03   3.892e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.034755
+               operator = 1.019427
+                 memory = 1.029450
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     1.1s] [amg-cg] setup 0.265 s
+[amg-cg] 5 levels, OC 1.019, GC 1.035, nnz(P) 7.92e+05, nnz(R) 0, hierarchy est. 0.0 GB; sizes: 768000 23545 2682 418 47
+[     1.1s] [devmem] after AMG setup              used 1.52 GB of 85.1 GB (peak 1.52), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.2s] [amg-cg] 24 it (converged), solve 0.075 s (3.1 ms/it), final relres 5.577e-09, true relres 5.577e-09, rel err vs x_true 8.447e-09
+[     1.2s] [devmem] after solve                  used 1.53 GB of 85.1 GB (peak 1.53), host maxrss 2.2 GB
+[     1.2s] [devmem] after AMG destroy            used 1.44 GB of 85.1 GB (peak 1.53), host maxrss 2.2 GB
+[     1.2s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_ext14.json (done)
+variant nf4_agg0_ext14 rc=0 (2 s)
+
+===== variant nf4_agg0_sweeps2 (1 rank(s)) : --agg-levels 0 --sweeps 2
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 1 MPI ranks, label 'nf4_agg0_sweeps2', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] [direct] migrated to device in 0.0 s
+[     0.8s] matrix assembled in 0.3 s
+[     0.8s] [devmem] matrix on device             used 1.40 GB of 85.1 GB (peak 1.40), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_sweeps2.json (matrix_on_device)
+[     0.8s] matvec 0.64 ms (1492 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 5
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1   23545  1326431  0.002    16   83    56.3   3.721e-06   4.982e-01
+  2    2773   187937  0.024    16  119    67.8   3.692e-05   7.060e-01
+  3     417    21489  0.124    15  115    51.5   1.940e-01   1.590e+00
+  4      51     1227  0.472    10   42    24.1   3.622e-01   4.514e+00
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 23545    0    4   0.9   3.615e-03   7.579e-01   0.000e+00   1.000e+00
+  1  23545 x 2773     0    4   4.0   1.974e-03   6.498e-01   0.000e+00   1.000e+00
+  2   2773 x 417      0    4   3.8   1.589e-03   5.164e-01   0.000e+00   1.000e+00
+  3    417 x 51       0    4   2.2   2.802e-03   3.287e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.034878
+               operator = 1.019452
+                 memory = 1.029485
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            2    2     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0   0
+                   Post-CG relaxation (up):   0   0
+                             Coarsest grid:   0
+
+[     1.1s] [amg-cg] setup 0.268 s
+[amg-cg] 5 levels, OC 1.019, GC 1.035, nnz(P) 7.93e+05, nnz(R) 0, hierarchy est. 0.0 GB; sizes: 768000 23545 2773 417 51
+[     1.1s] [devmem] after AMG setup              used 1.52 GB of 85.1 GB (peak 1.52), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.2s] [amg-cg] 18 it (converged), solve 0.091 s (5.0 ms/it), final relres 9.656e-09, true relres 9.656e-09, rel err vs x_true 4.463e-08
+[     1.2s] [devmem] after solve                  used 1.53 GB of 85.1 GB (peak 1.53), host maxrss 2.2 GB
+[     1.2s] [devmem] after AMG destroy            used 1.44 GB of 85.1 GB (peak 1.53), host maxrss 2.2 GB
+[     1.2s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_sweeps2.json (done)
+variant nf4_agg0_sweeps2 rc=0 (1 s)
+
+===== variant nf4_agg0_pmax8 (1 rank(s)) : --agg-levels 0 --pmax 8
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 1 MPI ranks, label 'nf4_agg0_pmax8', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] [direct] migrated to device in 0.0 s
+[     0.8s] matrix assembled in 0.3 s
+[     0.8s] [devmem] matrix on device             used 1.40 GB of 85.1 GB (peak 1.40), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_pmax8.json (matrix_on_device)
+[     0.8s] matvec 0.64 ms (1491 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 4
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1   23545  2329273  0.004    28  133    98.9   4.455e-06   4.920e-01
+  2    1783   213059  0.067    32  197   119.5   9.508e-05   6.660e-01
+  3     114     7164  0.551    38   85    62.8   3.216e-01   1.784e+00
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 23545    0    8   1.8   2.777e-03   6.322e-01   0.000e+00   1.000e+00
+  1  23545 x 1783     0    8   7.8   4.606e-04   5.527e-01   0.000e+00   1.000e+00
+  2   1783 x 114      0    8   4.8   2.121e-03   4.174e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.033128
+               operator = 1.032265
+                 memory = 1.051731
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     1.1s] [amg-cg] setup 0.260 s
+[amg-cg] 4 levels, OC 1.032, GC 1.033, nnz(P) 1.54e+06, nnz(R) 0, hierarchy est. 0.0 GB; sizes: 768000 23545 1783 114
+[     1.1s] [devmem] after AMG setup              used 1.55 GB of 85.1 GB (peak 1.55), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.2s] [amg-cg] 23 it (converged), solve 0.072 s (3.1 ms/it), final relres 8.837e-09, true relres 8.837e-09, rel err vs x_true 1.238e-08
+[     1.2s] [devmem] after solve                  used 1.56 GB of 85.1 GB (peak 1.56), host maxrss 2.2 GB
+[     1.2s] [devmem] after AMG destroy            used 1.44 GB of 85.1 GB (peak 1.56), host maxrss 2.2 GB
+[     1.2s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_pmax8.json (done)
+variant nf4_agg0_pmax8 rc=0 (2 s)
+
+===== variant nf1_agg0 (1 rank(s)) : --agg-levels 0 --num-functions 1
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 1 MPI ranks, label 'nf1_agg0', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] [direct] migrated to device in 0.0 s
+[     0.8s] matrix assembled in 0.3 s
+[     0.8s] [devmem] matrix on device             used 1.40 GB of 85.1 GB (peak 1.40), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf1_agg0.json (matrix_on_device)
+[     0.9s] matvec 0.64 ms (1492 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 5
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+ measures are determined locally
+
+ Interpolation = extended+i
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1   33291  1700131  0.002    11   98    51.1  -1.048e-01   4.986e-01
+  2    5000   320146  0.013    14  180    64.0  -5.374e-02   7.014e-01
+  3     860    46444  0.063    10  188    54.0   7.563e-03   1.931e+00
+  4      73     1931  0.362    10   59    26.5   1.610e-01   4.117e+00
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 33291    0    4   0.9   3.620e-03   7.579e-01   0.000e+00   1.000e+00
+  1  33291 x 5000     0    4   4.0   1.514e-03   8.292e-01   0.000e+00   2.098e+00
+  2   5000 x 860      0    4   3.8   2.610e-03   6.002e-01   0.000e+00   1.105e+00
+  3    860 x 73       0    4   2.6   1.263e-03   3.266e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.051073
+               operator = 1.026180
+                 memory = 1.036771
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     1.1s] [amg-cg] setup 0.259 s
+[amg-cg] 5 levels, OC 1.026, GC 1.051, nnz(P) 8.37e+05, nnz(R) 0, hierarchy est. 0.0 GB; sizes: 768000 33291 5000 860 73
+[     1.1s] [devmem] after AMG setup              used 1.53 GB of 85.1 GB (peak 1.53), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.2s] [amg-cg] 24 it (converged), solve 0.076 s (3.2 ms/it), final relres 8.211e-09, true relres 8.211e-09, rel err vs x_true 1.258e-08
+[     1.2s] [devmem] after solve                  used 1.54 GB of 85.1 GB (peak 1.54), host maxrss 2.2 GB
+[     1.2s] [devmem] after AMG destroy            used 1.44 GB of 85.1 GB (peak 1.54), host maxrss 2.2 GB
+[     1.2s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf1_agg0.json (done)
+variant nf1_agg0 rc=0 (1 s)
+
+===== variant nf4_agg0_theta05_jac7 (1 rank(s)) : --agg-levels 0 --theta 0.5 --relax 7
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 1 MPI ranks, label 'nf4_agg0_theta05_jac7', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.1s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] [direct] migrated to device in 0.0 s
+[     0.8s] matrix assembled in 0.3 s
+[     0.8s] [devmem] matrix on device             used 1.40 GB of 85.1 GB (peak 1.40), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_theta05_jac7.json (matrix_on_device)
+[     0.8s] matvec 0.64 ms (1492 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 7
+
+ Strength Threshold = 0.500000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1   60275  3590607  0.001    16   93    59.6   2.017e-06   5.193e-01
+  2   13858  1368174  0.007    23  168    98.7  -3.471e-03   4.497e-01
+  3    3265   396941  0.037    18  265   121.6  -9.993e-06   4.163e-01
+  4     677    72981  0.159    21  253   107.8   5.561e-03   1.059e+00
+  5     118     6532  0.469    23   94    55.4   1.637e-01   2.950e+00
+  6      21      349  0.791    10   21    16.6   4.349e-01   4.356e+00
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 60275    0    4   0.7   1.619e-02   4.545e-01   0.000e+00   1.000e+00
+  1  60275 x 13858    0    4   3.9   4.294e-03   9.999e-01   0.000e+00   1.000e+00
+  2  13858 x 3265     0    4   3.8   2.255e-03   9.999e-01   0.000e+00   1.024e+00
+  3   3265 x 677      0    4   3.6   2.619e-03   9.993e-01   0.000e+00   1.000e+00
+  4    677 x 118      0    4   3.4   3.498e-03   9.323e-01   0.000e+00   1.000e+00
+  5    118 x 21       0    4   2.7   4.746e-03   2.452e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.101841
+               operator = 1.068789
+                 memory = 1.079420
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:      7    7     7 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     1.2s] [amg-cg] setup 0.309 s
+[amg-cg] 7 levels, OC 1.069, GC 1.102, nnz(P) 8.4e+05, nnz(R) 0, hierarchy est. 0.1 GB; sizes: 768000 60275 13858 3265 677 118 21
+[     1.2s] [devmem] after AMG setup              used 1.58 GB of 85.1 GB (peak 1.58), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.2s] [amg-cg] 19 it (converged), solve 0.068 s (3.6 ms/it), final relres 9.813e-09, true relres 9.813e-09, rel err vs x_true 7.942e-08
+[     1.2s] [devmem] after solve                  used 1.58 GB of 85.1 GB (peak 1.58), host maxrss 2.2 GB
+[     1.2s] [devmem] after AMG destroy            used 1.44 GB of 85.1 GB (peak 1.58), host maxrss 2.2 GB
+[     1.2s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_theta05_jac7.json (done)
+variant nf4_agg0_theta05_jac7 rc=0 (2 s)
+
+===== variant nf4_aggint5 (1 rank(s)) : --agg-interp 5
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 1 MPI ranks, label 'nf4_aggint5', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] [direct] migrated to device in 0.0 s
+[     0.8s] matrix assembled in 0.3 s
+[     0.8s] [devmem] matrix on device             used 1.40 GB of 85.1 GB (peak 1.40), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_aggint5.json (matrix_on_device)
+[     0.8s] matvec 0.64 ms (1492 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 5
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = matrix-matrix 2-stage extended
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1    3848   289730  0.020    20  111    75.3   4.406e-06   1.377e+00
+  2     532    35158  0.124    17  129    66.1   2.821e-04   2.149e+00
+  3      83     2761  0.401    12   63    33.3   4.786e-01   5.015e+00
+  4      12      120  0.833     8   12    10.0   1.056e+00   2.505e+00
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 3848     0   15   1.7   1.053e-04   1.000e+00   0.000e+00   1.000e+00
+  1   3848 x 532      0    4   3.7   4.135e-03   7.765e-01   0.000e+00   1.000e+00
+  2    532 x 83       0    4   3.6   3.030e-03   5.581e-01   0.000e+00   1.000e+00
+  3     83 x 12       0    4   0.9   2.461e-03   7.248e-02   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.005827
+               operator = 1.004148
+                 memory = 1.021213
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     1.1s] [amg-cg] setup 0.271 s
+[amg-cg] 5 levels, OC 1.004, GC 1.006, nnz(P) 1.35e+06, nnz(R) 0, hierarchy est. 0.0 GB; sizes: 768000 3848 532 83 12
+[     1.1s] [devmem] after AMG setup              used 1.52 GB of 85.1 GB (peak 1.52), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.2s] [amg-cg] 43 it (converged), solve 0.123 s (2.9 ms/it), final relres 8.075e-09, true relres 8.075e-09, rel err vs x_true 2.120e-08
+[     1.2s] [devmem] after solve                  used 1.53 GB of 85.1 GB (peak 1.53), host maxrss 2.2 GB
+[     1.2s] [devmem] after AMG destroy            used 1.44 GB of 85.1 GB (peak 1.53), host maxrss 2.2 GB
+[     1.3s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_aggint5.json (done)
+variant nf4_aggint5 rc=0 (1 s)
+
+===== variant nf4_aggint7 (1 rank(s)) : --agg-interp 7
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 1 MPI ranks, label 'nf4_aggint7', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] [direct] migrated to device in 0.0 s
+[     0.8s] matrix assembled in 0.3 s
+[     0.8s] [devmem] matrix on device             used 1.40 GB of 85.1 GB (peak 1.40), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_aggint7.json (matrix_on_device)
+[     0.9s] matvec 0.64 ms (1493 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 5
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = matrix-matrix 2-stage extended+e
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1    3848   289730  0.020    20  111    75.3  -1.146e-04   1.149e+00
+  2     519    34213  0.127    20  130    65.9   6.072e-04   2.041e+00
+  3      86     3018  0.408    12   67    35.1   5.560e-01   4.559e+00
+  4       7       49  1.000     7    7     7.0   1.363e+00   5.125e+00
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 3848     0   15   1.7   2.922e-05   1.000e+00   0.000e+00   1.000e+00
+  1   3848 x 519      0    4   3.8   3.599e-03   7.830e-01   0.000e+00   1.000e+00
+  2    519 x 86       0    4   3.7   1.406e-03   5.385e-01   0.000e+00   1.000e+00
+  3     86 x 7        0    4   1.3   1.660e-03   1.246e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.005807
+               operator = 1.004138
+                 memory = 1.021208
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18     9 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     1.1s] [amg-cg] setup 0.293 s
+[amg-cg] 5 levels, OC 1.004, GC 1.006, nnz(P) 1.35e+06, nnz(R) 0, hierarchy est. 0.0 GB; sizes: 768000 3848 519 86 7
+[     1.1s] [devmem] after AMG setup              used 1.52 GB of 85.1 GB (peak 1.52), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.3s] [amg-cg] 43 it (converged), solve 0.124 s (2.9 ms/it), final relres 9.546e-09, true relres 9.546e-09, rel err vs x_true 2.555e-08
+[     1.3s] [devmem] after solve                  used 1.53 GB of 85.1 GB (peak 1.53), host maxrss 2.2 GB
+[     1.3s] [devmem] after AMG destroy            used 1.44 GB of 85.1 GB (peak 1.53), host maxrss 2.2 GB
+[     1.3s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_aggint7.json (done)
+variant nf4_aggint7 rc=0 (2 s)
+
+===== variant nf4_aggint8 (1 rank(s)) : --agg-interp 8
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 1 MPI ranks, label 'nf4_aggint8', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] [direct] migrated to device in 0.0 s
+[     0.8s] matrix assembled in 0.3 s
+[     0.8s] [devmem] matrix on device             used 1.40 GB of 85.1 GB (peak 1.40), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_aggint8.json (matrix_on_device)
+[     0.8s] matvec 0.64 ms (1492 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 5
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = matrix-matrix multipass
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1    3848    92692  0.006     7   40    24.1   3.449e-05   1.901e+00
+  2     680    31072  0.067    12   81    45.7   1.741e-04   3.495e+00
+  3     103     3681  0.347    13   62    35.7   1.188e+00   7.624e+00
+  4      12      128  0.889     8   12    10.7   1.791e+00   9.956e+00
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 3848     0   10   0.4   1.123e-03   1.000e+00   0.000e+00   1.000e+00
+  1   3848 x 680      1    4   4.0   7.128e-03   6.600e-01   2.096e-01   1.000e+00
+  2    680 x 103      0    4   3.9   2.401e-03   6.141e-01   0.000e+00   1.000e+00
+  3    103 x 12       0    4   2.8   1.642e-03   1.503e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.006046
+               operator = 1.001614
+                 memory = 1.005863
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     1.1s] [amg-cg] setup 0.233 s
+[amg-cg] 5 levels, OC 1.002, GC 1.006, nnz(P) 3.36e+05, nnz(R) 0, hierarchy est. 0.0 GB; sizes: 768000 3848 680 103 12
+[     1.1s] [devmem] after AMG setup              used 1.49 GB of 85.1 GB (peak 1.49), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.2s] [amg-cg] 46 it (converged), solve 0.129 s (2.8 ms/it), final relres 8.140e-09, true relres 8.140e-09, rel err vs x_true 3.019e-08
+[     1.2s] [devmem] after solve                  used 1.50 GB of 85.1 GB (peak 1.50), host maxrss 2.2 GB
+[     1.2s] [devmem] after AMG destroy            used 1.44 GB of 85.1 GB (peak 1.50), host maxrss 2.2 GB
+[     1.2s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_aggint8.json (done)
+variant nf4_aggint8 rc=0 (2 s)
+
+===== variant nf4_theta05 (1 rank(s)) : --theta 0.5
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 1 MPI ranks, label 'nf4_theta05', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.5s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.5s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] [direct] migrated to device in 0.0 s
+[     0.8s] matrix assembled in 0.3 s
+[     0.8s] [devmem] matrix on device             used 1.40 GB of 85.1 GB (peak 1.40), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_theta05.json (matrix_on_device)
+[     0.8s] matvec 0.64 ms (1492 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 7
+
+ Strength Threshold = 0.500000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = multipass
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1   11664   325916  0.002     8   46    27.9   9.053e-06   9.404e-01
+  2    3848   211120  0.014    12  116    54.9  -1.105e-03   1.568e+00
+  3    1031    80473  0.076    16  166    78.1   1.475e-04   2.210e+00
+  4     264    18796  0.270    22  126    71.2   2.372e-01   3.357e+00
+  5      61     2067  0.555    16   57    33.9   1.478e+00   8.708e+00
+  6      10       94  0.940     7   10     9.4   1.915e+00   1.298e+01
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 11664    0    8   0.4   7.381e-03   1.000e+00   0.000e+00   1.000e+00
+  1  11664 x 3848     1    4   3.2   1.392e-02   1.000e+00   1.203e-01   1.000e+00
+  2   3848 x 1031     1    4   3.5   9.913e-03   9.999e-01   6.848e-02   1.001e+00
+  3   1031 x 264      0    4   3.5   4.278e-03   9.343e-01   0.000e+00   1.000e+00
+  4    264 x 61       0    4   3.2   2.528e-03   6.467e-01   0.000e+00   1.000e+00
+  5     61 x 10       0    4   2.2   6.362e-03   2.324e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.021977
+               operator = 1.008080
+                 memory = 1.012262
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     1.1s] [amg-cg] setup 0.240 s
+[amg-cg] 7 levels, OC 1.008, GC 1.022, nnz(P) 3.3e+05, nnz(R) 0, hierarchy est. 0.0 GB; sizes: 768000 11664 3848 1031 264 61 10
+[     1.1s] [devmem] after AMG setup              used 1.50 GB of 85.1 GB (peak 1.50), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.2s] [amg-cg] 36 it (converged), solve 0.111 s (3.1 ms/it), final relres 8.800e-09, true relres 8.800e-09, rel err vs x_true 4.255e-08
+[     1.2s] [devmem] after solve                  used 1.50 GB of 85.1 GB (peak 1.50), host maxrss 2.2 GB
+[     1.2s] [devmem] after AMG destroy            used 1.44 GB of 85.1 GB (peak 1.50), host maxrss 2.2 GB
+[     1.2s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_theta05.json (done)
+variant nf4_theta05 rc=0 (1 s)
+
+===== variant nf4_sweeps2 (1 rank(s)) : --sweeps 2
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 1 MPI ranks, label 'nf4_sweeps2', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] [direct] migrated to device in 0.0 s
+[     0.8s] matrix assembled in 0.3 s
+[     0.8s] [devmem] matrix on device             used 1.40 GB of 85.1 GB (peak 1.40), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_sweeps2.json (matrix_on_device)
+[     0.8s] matvec 0.64 ms (1492 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 5
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = multipass
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1    3848    92692  0.006     7   40    24.1   3.428e-05   2.015e+00
+  2     680    31074  0.067    13   81    45.7   1.739e-04   3.685e+00
+  3     103     3655  0.345    12   59    35.5   1.266e+00   7.355e+00
+  4      17      231  0.799     8   17    13.6   1.904e+00   9.602e+00
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 3848     0   10   0.4   1.348e-03   1.000e+00   0.000e+00   1.000e+00
+  1   3848 x 680      1    4   4.0   7.368e-03   6.176e-01   2.103e-01   1.000e+00
+  2    680 x 103      0    4   3.9   1.809e-03   5.316e-01   0.000e+00   1.000e+00
+  3    103 x 17       0    4   2.8   3.913e-03   1.556e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.006052
+               operator = 1.001615
+                 memory = 1.005864
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            2    2     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0   0
+                   Post-CG relaxation (up):   0   0
+                             Coarsest grid:   0
+
+[     1.1s] [amg-cg] setup 0.235 s
+[amg-cg] 5 levels, OC 1.002, GC 1.006, nnz(P) 3.36e+05, nnz(R) 0, hierarchy est. 0.0 GB; sizes: 768000 3848 680 103 17
+[     1.1s] [devmem] after AMG setup              used 1.49 GB of 85.1 GB (peak 1.49), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.2s] [amg-cg] 34 it (converged), solve 0.154 s (4.5 ms/it), final relres 7.036e-09, true relres 7.036e-09, rel err vs x_true 3.128e-08
+[     1.2s] [devmem] after solve                  used 1.50 GB of 85.1 GB (peak 1.50), host maxrss 2.2 GB
+[     1.2s] [devmem] after AMG destroy            used 1.44 GB of 85.1 GB (peak 1.50), host maxrss 2.2 GB
+[     1.2s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_sweeps2.json (done)
+variant nf4_sweeps2 rc=0 (2 s)
+
+===== variant nf4_ij (1 rank(s)) : --ij
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 1 MPI ranks, label 'nf4_ij', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.7s] [devmem] after IJ SetValues (stash)   used 2.44 GB of 85.1 GB (peak 2.44), host maxrss 1.9 GB
+[     0.8s] [ij] 1 SetValues2 chunks, Assemble 0.1 s
+[     0.8s] [ij] ParCSR global nnz 79017708
+[     0.8s] matrix assembled in 0.3 s
+[     0.8s] [devmem] matrix on device             used 1.41 GB of 85.1 GB (peak 2.44), host maxrss 1.9 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_ij.json (matrix_on_device)
+[     0.8s] matvec 0.72 ms (1320 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 5
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = multipass
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1    3848    92692  0.006     7   40    24.1   3.428e-05   2.015e+00
+  2     680    31074  0.067    13   81    45.7   1.739e-04   3.685e+00
+  3     103     3655  0.345    12   59    35.5   1.266e+00   7.355e+00
+  4      17      231  0.799     8   17    13.6   1.904e+00   9.602e+00
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 3848     0   10   0.4   1.348e-03   1.000e+00   0.000e+00   1.000e+00
+  1   3848 x 680      1    4   4.0   7.368e-03   6.176e-01   2.103e-01   1.000e+00
+  2    680 x 103      0    4   3.9   1.809e-03   5.316e-01   0.000e+00   1.000e+00
+  3    103 x 17       0    4   2.8   3.913e-03   1.556e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.006052
+               operator = 1.001615
+                 memory = 1.005864
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     1.1s] [amg-cg] setup 0.283 s
+[amg-cg] 5 levels, OC 1.002, GC 1.006, nnz(P) 3.36e+05, nnz(R) 0, hierarchy est. 0.0 GB; sizes: 768000 3848 680 103 17
+[     1.1s] [devmem] after AMG setup              used 1.49 GB of 85.1 GB (peak 2.44), host maxrss 1.9 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.3s] [amg-cg] 46 it (converged), solve 0.130 s (2.8 ms/it), final relres 7.636e-09, true relres 7.636e-09, rel err vs x_true 2.829e-08
+[     1.3s] [devmem] after solve                  used 1.50 GB of 85.1 GB (peak 2.44), host maxrss 1.9 GB
+[     1.3s] [devmem] after AMG destroy            used 1.44 GB of 85.1 GB (peak 2.44), host maxrss 1.9 GB
+[     1.3s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_ij.json (done)
+variant nf4_ij rc=0 (1 s)
+
+===== variant nf4_spmv_hypre (1 rank(s)) : --spmv-vendor 0
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 1 MPI ranks, label 'nf4_spmv_hypre', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] [direct] migrated to device in 0.0 s
+[     0.8s] matrix assembled in 0.3 s
+[     0.8s] [devmem] matrix on device             used 1.40 GB of 85.1 GB (peak 1.40), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_spmv_hypre.json (matrix_on_device)
+[     0.8s] matvec 0.69 ms (1381 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 5
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = multipass
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1    3848    92692  0.006     7   40    24.1   3.428e-05   2.015e+00
+  2     680    31074  0.067    13   81    45.7   1.739e-04   3.685e+00
+  3     103     3655  0.345    12   59    35.5   1.266e+00   7.355e+00
+  4      17      231  0.799     8   17    13.6   1.904e+00   9.602e+00
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 3848     0   10   0.4   1.348e-03   1.000e+00   0.000e+00   1.000e+00
+  1   3848 x 680      1    4   4.0   7.368e-03   6.176e-01   2.103e-01   1.000e+00
+  2    680 x 103      0    4   3.9   1.809e-03   5.316e-01   0.000e+00   1.000e+00
+  3    103 x 17       0    4   2.8   3.913e-03   1.556e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.006052
+               operator = 1.001615
+                 memory = 1.005864
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     1.1s] [amg-cg] setup 0.235 s
+[amg-cg] 5 levels, OC 1.002, GC 1.006, nnz(P) 3.36e+05, nnz(R) 0, hierarchy est. 0.0 GB; sizes: 768000 3848 680 103 17
+[     1.1s] [devmem] after AMG setup              used 1.48 GB of 85.1 GB (peak 1.48), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.2s] [amg-cg] 46 it (converged), solve 0.143 s (3.1 ms/it), final relres 7.636e-09, true relres 7.636e-09, rel err vs x_true 2.829e-08
+[     1.2s] [devmem] after solve                  used 1.49 GB of 85.1 GB (peak 1.49), host maxrss 2.2 GB
+[     1.2s] [devmem] after AMG destroy            used 1.43 GB of 85.1 GB (peak 1.49), host maxrss 2.2 GB
+[     1.2s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_spmv_hypre.json (done)
+variant nf4_spmv_hypre rc=0 (2 s)
+
+===== variant nf4_keepT0 (1 rank(s)) : --keep-transpose 0
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 1 MPI ranks, label 'nf4_keepT0', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.5s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.5s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] [direct] migrated to device in 0.0 s
+[     0.8s] matrix assembled in 0.3 s
+[     0.8s] [devmem] matrix on device             used 1.40 GB of 85.1 GB (peak 1.40), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_keepT0.json (matrix_on_device)
+[     0.8s] matvec 0.64 ms (1491 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 5
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = multipass
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1    3848    92692  0.006     7   40    24.1   3.428e-05   2.015e+00
+  2     680    31074  0.067    13   81    45.7   1.739e-04   3.685e+00
+  3     103     3655  0.345    12   59    35.5   1.266e+00   7.355e+00
+  4      17      231  0.799     8   17    13.6   1.904e+00   9.602e+00
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 3848     0   10   0.4   1.348e-03   1.000e+00   0.000e+00   1.000e+00
+  1   3848 x 680      1    4   4.0   7.368e-03   6.176e-01   2.103e-01   1.000e+00
+  2    680 x 103      0    4   3.9   1.809e-03   5.316e-01   0.000e+00   1.000e+00
+  3    103 x 17       0    4   2.8   3.913e-03   1.556e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.006052
+               operator = 1.001615
+                 memory = 1.005864
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     1.1s] [amg-cg] setup 0.277 s
+[amg-cg] 5 levels, OC 1.002, GC 1.006, nnz(P) 3.36e+05, nnz(R) 0, hierarchy est. 0.0 GB; sizes: 768000 3848 680 103 17
+[     1.1s] [devmem] after AMG setup              used 1.48 GB of 85.1 GB (peak 1.48), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.3s] [amg-cg] 46 it (converged), solve 0.175 s (3.8 ms/it), final relres 7.636e-09, true relres 7.636e-09, rel err vs x_true 2.829e-08
+[     1.3s] [devmem] after solve                  used 1.49 GB of 85.1 GB (peak 1.49), host maxrss 2.2 GB
+[     1.3s] [devmem] after AMG destroy            used 1.44 GB of 85.1 GB (peak 1.49), host maxrss 2.2 GB
+[     1.3s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_keepT0.json (done)
+variant nf4_keepT0 rc=0 (1 s)
+
+===== variant nf4_2ranks (2 rank(s)) : 
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 2 MPI ranks, label 'nf4_2ranks', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.89 GB of 85.1 GB (peak 0.89), host maxrss 0.3 GB
+[     0.4s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 2 ranks, planes/rank ~20, max local nnz 39508854 (0.04 G, < 2^31)
+[     0.4s] local rows read in 0.2 s (host maxrss 0.7 GB)
+[     0.6s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 19200
+[     0.6s] [direct] migrated to device in 0.0 s
+[     0.6s] matrix assembled in 0.2 s
+[     0.6s] [devmem] matrix on device             used 1.86 GB of 85.1 GB (peak 1.86), host maxrss 1.2 GB
+[     0.6s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_2ranks.json (matrix_on_device)
+[     0.7s] matvec 1.42 ms (668 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 2
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 5
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = multipass
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1    3852    92802  0.006     5   41    24.1   3.231e-05   2.267e+00
+  2     677    31167  0.068    11   85    46.0   2.039e-04   3.518e+00
+  3     100     3576  0.358    12   57    35.8   1.222e+00   6.957e+00
+  4      14      166  0.847     9   14    11.9   1.705e+00   1.095e+01
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 3852     0   10   0.4   1.063e-03   1.000e+00   0.000e+00   1.000e+00
+  1   3852 x 677      1    4   4.0   7.681e-03   6.123e-01   1.271e-01   1.000e+00
+  2    677 x 100      0    4   3.9   1.021e-03   6.481e-01   0.000e+00   1.000e+00
+  3    100 x 14       0    4   3.1   2.092e-03   2.014e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.006046
+               operator = 1.001616
+                 memory = 1.005866
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     1.2s] [amg-cg] setup 0.555 s
+[amg-cg] 5 levels, OC 1.002, GC 1.006, nnz(P) 3.36e+05, nnz(R) 0, hierarchy est. 0.0 GB; sizes: 768000 3852 677 100 14
+[     1.2s] [devmem] after AMG setup              used 1.97 GB of 85.1 GB (peak 1.97), host maxrss 1.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     1.9s] [amg-cg] 46 it (converged), solve 0.683 s (14.8 ms/it), final relres 7.570e-09, true relres 7.570e-09, rel err vs x_true 2.771e-08
+[     1.9s] [devmem] after solve                  used 1.98 GB of 85.1 GB (peak 1.98), host maxrss 1.2 GB
+[     1.9s] [devmem] after AMG destroy            used 1.91 GB of 85.1 GB (peak 1.98), host maxrss 1.2 GB
+[     1.9s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_2ranks.json (done)
+variant nf4_2ranks rc=0 (3 s)
+
+===== variant nf4_nodal1_DEVICE (1 rank(s)) : --nodal 1
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 1 MPI ranks, label 'nf4_nodal1_DEVICE', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] [direct] migrated to device in 0.0 s
+[     0.8s] matrix assembled in 0.3 s
+[     0.8s] [devmem] matrix on device             used 1.40 GB of 85.1 GB (peak 1.40), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_nodal1_DEVICE.json (matrix_on_device)
+[     0.8s] matvec 0.64 ms (1492 GB/s effective on 1.0 GB)
+[tardis:2058137:0:2058137] Caught signal 11 (Segmentation fault: invalid permissions for mapped object at address 0x7f21a4600000)
+==== backtrace (tid:2058137) ====
+ 0 0x000000000003fb30 __GI___sigaction()  :0
+ 1 0x0000000000354c80 hypre_BoomerAMGCreateNodalA()  ???:0
+ 2 0x00000000003b5975 hypre_BoomerAMGSetup()  ???:0
+ 3 0x00000000002b0360 hypre_PCGSetup()  ???:0
+ 4 0x000000000040644a run_pcg()  hypre_boomer_pcg.c:0
+ 5 0x0000000000405138 main()  ???:0
+ 6 0x000000000002a610 __libc_start_call_main()  ???:0
+ 7 0x000000000002a6c0 __libc_start_main_alias_2()  :0
+ 8 0x0000000000405595 _start()  ???:0
+=================================
+[tardis:2058137] *** Process received signal ***
+[tardis:2058137] Signal: Segmentation fault (11)
+[tardis:2058137] Signal code:  (-6)
+[tardis:2058137] Failing at address: 0xc0e001f6799
+[tardis:2058137] [ 0] /lib64/libc.so.6(+0x3fb30)[0x7f221f23fb30]
+[tardis:2058137] [ 1] /scratch/rmuenste/gpu-poisson/hypre-cuda/lib/libHYPRE-3.1.0.so(hypre_BoomerAMGCreateNodalA+0x250)[0x7f223e354c80]
+[tardis:2058137] [ 2] /scratch/rmuenste/gpu-poisson/hypre-cuda/lib/libHYPRE-3.1.0.so(hypre_BoomerAMGSetup+0x2005)[0x7f223e3b5975]
+[tardis:2058137] [ 3] /scratch/rmuenste/gpu-poisson/hypre-cuda/lib/libHYPRE-3.1.0.so(hypre_PCGSetup+0x150)[0x7f223e2b0360]
+[tardis:2058137] [ 4] /scratch/rmuenste/gpu-poisson/hypre_boomer_pcg[0x40644a]
+[tardis:2058137] [ 5] /scratch/rmuenste/gpu-poisson/hypre_boomer_pcg[0x405138]
+[tardis:2058137] [ 6] /lib64/libc.so.6(+0x2a610)[0x7f221f22a610]
+[tardis:2058137] [ 7] /lib64/libc.so.6(__libc_start_main+0x80)[0x7f221f22a6c0]
+[tardis:2058137] [ 8] /scratch/rmuenste/gpu-poisson/hypre_boomer_pcg[0x405595]
+[tardis:2058137] *** End of error message ***
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun noticed that process rank 0 with PID 2058137 on node tardis exited on signal 11 (Segmentation fault).
+--------------------------------------------------------------------------
+variant nf4_nodal1_DEVICE rc=139 (3 s)
+
+===== variant host_nf4 (1 rank(s)) : --host
+[     0.0s] hypre 3.1.0 (2026/01/23), HOST execution, 1 MPI ranks, label 'host_nf4', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] matrix assembled in 0.2 s
+[     0.8s] [devmem] matrix on device             used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4.json (matrix_on_device)
+[     1.3s] matvec 46.79 ms (20 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 5
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = multipass
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1    3825    91935  0.006     6   44    24.0   3.065e-05   1.989e+00
+  2     674    30546  0.067     8   84    45.3   1.834e-04   3.296e+00
+  3      93     3189  0.369    10   57    34.3   1.232e+00   7.836e+00
+  4      10       98  0.980     9   10     9.8   2.170e+00   9.098e+00
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 3825     0   10   0.4   1.532e-03   1.000e+00   0.000e+00   1.000e+00
+  1   3825 x 674      1    4   4.0   5.979e-03   6.050e-01   6.872e-02   1.000e+00
+  2    674 x 93       0    4   3.9   3.413e-03   4.975e-01   0.000e+00   1.000e+00
+  3     93 x 10       0    4   2.5  -6.781e-02   1.352e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.005992
+               operator = 1.001592
+                 memory = 1.005834
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     2.3s] [amg-cg] setup 0.921 s
+[amg-cg] 5 levels, OC 1.002, GC 1.006, nnz(P) 3.35e+05, nnz(R) 0, hierarchy est. 0.0 GB; sizes: 768000 3825 674 93 10
+[     2.3s] [devmem] after AMG setup              used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     9.1s] [amg-cg] 45 it (converged), solve 6.828 s (151.7 ms/it), final relres 9.422e-09, true relres 9.422e-09, rel err vs x_true 3.199e-08
+[     9.1s] [devmem] after solve                  used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[     9.1s] [devmem] after AMG destroy            used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[     9.1s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4.json (done)
+variant host_nf4 rc=0 (9 s)
+
+===== variant host_nf4_nodal1 (1 rank(s)) : --host --nodal 1
+[     0.0s] hypre 3.1.0 (2026/01/23), HOST execution, 1 MPI ranks, label 'host_nf4_nodal1', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] matrix assembled in 0.2 s
+[     0.8s] [devmem] matrix on device             used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_nodal1.json (matrix_on_device)
+[     1.3s] matvec 46.64 ms (20 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 5
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = multipass
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1   15236  2839158  0.012    31  467   186.3  -4.461e-01   8.161e+00
+  2    1852   124648  0.036    14  191    67.3  -4.132e-01   5.728e+00
+  3     228     6660  0.128     9  105    29.2   1.217e-01   1.231e+01
+  4      16      154  0.602     7   16     9.6   1.262e+00   1.148e+01
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 15236    0   10   1.3  -5.290e-01   1.000e+00  -5.424e-01   1.000e+00
+  1  15236 x 1852     0    4   1.0  -6.315e-02   8.721e-01  -6.315e-02   1.000e+00
+  2   1852 x 228      0    4   1.0  -3.846e-03   5.034e-01  -3.846e-03   1.000e+00
+  3    228 x 16       0    4   0.5  -1.132e-01   1.043e-01  -4.665e-02   1.000e+00
+
+
+     Complexity:   grid = 1.022568
+               operator = 1.037594
+                 memory = 1.050672
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     3.8s] [amg-cg] setup 2.473 s
+[amg-cg] 5 levels, OC 1.038, GC 1.023, nnz(P) 1.03e+06, nnz(R) 0, hierarchy est. 0.0 GB; sizes: 768000 15236 1852 228 16
+[     3.8s] [devmem] after AMG setup              used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[    11.7s] [amg-cg] 50 it (converged), solve 7.882 s (157.6 ms/it), final relres 9.683e-09, true relres 9.683e-09, rel err vs x_true 4.916e-08
+[    11.7s] [devmem] after solve                  used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[    11.7s] [devmem] after AMG destroy            used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[    11.7s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_nodal1.json (done)
+variant host_nf4_nodal1 rc=0 (12 s)
+
+===== variant host_nf4_nodal1_agg0 (1 rank(s)) : --host --nodal 1 --agg-levels 0
+[     0.0s] hypre 3.1.0 (2026/01/23), HOST execution, 1 MPI ranks, label 'host_nf4_nodal1_agg0', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] matrix assembled in 0.2 s
+[     0.8s] [devmem] matrix on device             used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_nodal1_agg0.json (matrix_on_device)
+[     1.3s] matvec 46.67 ms (20 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 6
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1   94448 19405338  0.002    56  326   205.5  -8.911e-02   6.267e-01
+  2    8856  1235018  0.016    40  301   139.5  -2.945e-02   6.994e-01
+  3    1028    79504  0.075    21  270    77.3   9.364e-02   1.826e+00
+  4     104     3448  0.319    10   89    33.2   1.280e-01   2.559e+00
+  5      16      148  0.578     4   15     9.2   1.284e-01   2.234e+00
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 94448    0    4   2.1  -1.638e-01   7.238e-01  -3.783e-02   1.000e+00
+  1  94448 x 8856     0    4   1.6  -7.294e-02   6.124e-01  -1.816e-02   1.000e+00
+  2   8856 x 1028     0    4   1.3  -4.702e-01   5.519e-01  -7.717e-02   1.000e+00
+  3   1028 x 104      0    4   0.8  -3.513e-01   3.180e-01  -1.159e-01   1.000e+00
+  4    104 x 16       0    3   0.3  -3.643e-02   5.236e-02  -3.856e-02   1.000e+00
+
+
+     Complexity:   grid = 1.136005
+               operator = 1.262263
+                 memory = 1.283684
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     6.3s] [amg-cg] setup 4.995 s
+[amg-cg] 6 levels, OC 1.262, GC 1.136, nnz(P) 1.69e+06, nnz(R) 0, hierarchy est. 0.3 GB; sizes: 768000 94448 8856 1028 104 16
+[     6.3s] [devmem] after AMG setup              used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[    10.9s] [amg-cg] 24 it (converged), solve 4.562 s (190.1 ms/it), final relres 7.529e-09, true relres 7.529e-09, rel err vs x_true 1.300e-08
+[    10.9s] [devmem] after solve                  used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[    10.9s] [devmem] after AMG destroy            used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[    10.9s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_nodal1_agg0.json (done)
+variant host_nf4_nodal1_agg0 rc=0 (11 s)
+
+===== variant host_nf4_hmis_agg0 (1 rank(s)) : --host --coarsen 10 --agg-levels 0
+[     0.0s] hypre 3.1.0 (2026/01/23), HOST execution, 1 MPI ranks, label 'host_nf4_hmis_agg0', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] matrix assembled in 0.2 s
+[     0.8s] [devmem] matrix on device             used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_hmis_agg0.json (matrix_on_device)
+[     1.3s] matvec 46.73 ms (20 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 6
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = HMIS 
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1   48000  2945002  0.001    12   71    61.4   4.000e-06   5.520e-01
+  2    9838   863652  0.009    27  130    87.8   1.202e-05   3.589e-01
+  3    1597   150633  0.059    21  158    94.3   6.435e-05   5.125e-01
+  4     239    15919  0.279    20  100    66.6   2.092e-01   1.032e+00
+  5      39      949  0.624    14   39    24.3   4.091e-01   2.583e+00
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 48000    0    4   0.8   1.313e-02   3.320e-01   0.000e+00   1.000e+00
+  1  48000 x 9838     0    4   4.0   2.989e-03   4.681e-01   0.000e+00   1.000e+00
+  2   9838 x 1597     0    4   4.0   1.993e-03   5.093e-01   0.000e+00   1.000e+00
+  3   1597 x 239      0    4   4.0  -8.408e-01   6.714e-01   0.000e+00   1.000e+00
+  4    239 x 39       0    4   3.4  -9.029e-01   3.490e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.077751
+               operator = 1.050320
+                 memory = 1.060780
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     2.8s] [amg-cg] setup 1.499 s
+[amg-cg] 6 levels, OC 1.050, GC 1.078, nnz(P) 8.27e+05, nnz(R) 0, hierarchy est. 0.1 GB; sizes: 768000 48000 9838 1597 239 39
+[     2.8s] [devmem] after AMG setup              used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[     6.2s] [amg-cg] 21 it (converged), solve 3.352 s (159.6 ms/it), final relres 5.857e-09, true relres 5.857e-09, rel err vs x_true 2.463e-08
+[     6.2s] [devmem] after solve                  used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[     6.2s] [devmem] after AMG destroy            used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[     6.2s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_hmis_agg0.json (done)
+variant host_nf4_hmis_agg0 rc=0 (7 s)
+
+===== variant host_nf4_nodal4 (1 rank(s)) : --host --nodal 4
+[     0.0s] hypre 3.1.0 (2026/01/23), HOST execution, 1 MPI ranks, label 'host_nf4_nodal4', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] matrix assembled in 0.2 s
+[     0.8s] [devmem] matrix on device             used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_nodal4.json (matrix_on_device)
+[     1.3s] matvec 46.69 ms (20 GB/s effective on 1.0 GB)
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 5
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = multipass
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1   15236  2839158  0.012    31  467   186.3  -4.461e-01   8.161e+00
+  2    2008   141878  0.035    16  195    70.7  -5.169e-01   6.028e+00
+  3     272     8986  0.121     9  123    33.0   1.284e-01   8.449e+00
+  4      32      414  0.404     7   32    12.9   2.315e-01   9.622e+00
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 15236    0   10   1.3  -5.290e-01   1.000e+00  -5.424e-01   1.000e+00
+  1  15236 x 2008     0    4   1.0  -6.055e-02   7.365e-01  -6.010e-02   1.000e+00
+  2   2008 x 272      0    4   1.0  -2.698e-02   4.614e-01  -2.698e-02   1.000e+00
+  3    272 x 32       0    4   0.7  -2.256e-02   1.063e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.022849
+               operator = 1.037845
+                 memory = 1.050925
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     3.8s] [amg-cg] setup 2.530 s
+[amg-cg] 5 levels, OC 1.038, GC 1.023, nnz(P) 1.03e+06, nnz(R) 0, hierarchy est. 0.0 GB; sizes: 768000 15236 2008 272 32
+[     3.8s] [devmem] after AMG setup              used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[    11.5s] [amg-cg] 48 it (converged), solve 7.584 s (158.0 ms/it), final relres 9.225e-09, true relres 9.225e-09, rel err vs x_true 4.067e-08
+[    11.5s] [devmem] after solve                  used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[    11.5s] [devmem] after AMG destroy            used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[    11.5s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_nodal4.json (done)
+variant host_nf4_nodal4 rc=0 (12 s)
+
+===== variant host_nf4_nodal1_gm3 (1 rank(s)) : --host --nodal 1 --interp-vectors 3 --interp-vec-variant 2
+[     0.0s] hypre 3.1.0 (2026/01/23), HOST execution, 1 MPI ranks, label 'host_nf4_nodal1_gm3', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] matrix assembled in 0.2 s
+[     0.8s] [devmem] matrix on device             used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_nodal1_gm3.json (matrix_on_device)
+[     1.3s] matvec 46.74 ms (20 GB/s effective on 1.0 GB)
+[     1.3s] [amg] 3 interpolation vectors (x,y,z), GM/LN variant 2, qmax 0
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 6
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = multipass
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1   26663 10673549  0.015    56  986   400.3  -1.340e+00   7.839e+00
+  2    3255   787967  0.074    36  643   242.1  -1.146e+00   1.382e+01
+  3     441    56189  0.289    32  289   127.4  -1.215e+01   2.568e+02
+  4      98     5022  0.523    19   97    51.2  -1.652e+03   1.444e+03
+  5      21      259  0.587     7   21    12.3  -8.230e-01   3.180e+04
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 26663    0   40   3.5  -5.290e-01   1.000e+00  -5.231e-01   2.653e+00
+  1  26663 x 3255     0   16   2.9  -1.865e-01   8.727e-01  -1.865e-01   2.556e+00
+  2   3255 x 441      0   16   3.5  -6.042e+01   7.330e+00  -1.317e+02   2.632e+00
+  3    441 x 98       0   16   0.9  -1.363e+02   1.128e+02  -5.715e+00   2.736e+00
+  4     98 x 21       0    8   1.0  -2.836e+00   9.871e-01  -2.836e+00   1.729e+00
+
+
+     Complexity:   grid = 1.039685
+               operator = 1.145828
+                 memory = 1.180363
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     5.1s] [amg-cg] setup 3.765 s
+[amg-cg] 6 levels, OC 1.146, GC 1.040, nnz(P) 2.73e+06, nnz(R) 0, hierarchy est. 0.2 GB; sizes: 768000 26663 3255 441 98 21
+[     5.1s] [devmem] after AMG setup              used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[    13.1s] [amg-cg] 46 it (converged), solve 7.984 s (173.6 ms/it), final relres 8.598e-09, true relres 8.598e-09, rel err vs x_true 3.750e-08
+[    13.1s] [devmem] after solve                  used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[    13.1s] [devmem] after AMG destroy            used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[    13.1s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_nodal1_gm3.json (done)
+variant host_nf4_nodal1_gm3 rc=0 (13 s)
+
+===== variant host_nf4_nodal1_gm4 (1 rank(s)) : --host --nodal 1 --interp-vectors 4 --interp-vec-variant 2
+[     0.0s] hypre 3.1.0 (2026/01/23), HOST execution, 1 MPI ranks, label 'host_nf4_nodal1_gm4', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] matrix assembled in 0.2 s
+[     0.8s] [devmem] matrix on device             used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_nodal1_gm4.json (matrix_on_device)
+[     1.3s] matvec 46.66 ms (20 GB/s effective on 1.0 GB)
+[     1.3s] [amg] 4 interpolation vectors (e,x,y,z), GM/LN variant 2, qmax 0
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 6
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = multipass
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1   30472 12732616  0.014    62 1075   417.8  -1.712e+00   9.761e+00
+  2    3704  1069090  0.078    43  739   288.6  -2.363e+01   3.201e+04
+  3     624   113146  0.291    41  399   181.3  -5.659e+00   1.635e+04
+  4     160    13496  0.527    22  141    84.3  -1.276e+03   1.198e+03
+  5      16      238  0.930    13   16    14.9   1.295e+00   1.936e+04
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 30472    0   50   4.0  -5.290e-01   1.000e+00  -5.231e-01   3.486e+00
+  1  30472 x 3704     0   20   3.6  -2.124e+02   2.209e+03  -3.304e+02   2.634e+03
+  2   3704 x 624      0   20   3.4  -2.490e+01   1.268e+01  -3.996e+01   1.916e+01
+  3    624 x 160      0   20   1.3  -9.267e+01   7.497e+01  -6.130e-01   3.683e+00
+  4    160 x 16       0   10   1.3  -2.396e+00   9.988e-01  -2.396e+00   3.661e+00
+
+
+     Complexity:   grid = 1.045542
+               operator = 1.176272
+                 memory = 1.215146
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     5.4s] [amg-cg] setup 4.064 s
+[amg-cg] 6 levels, OC 1.176, GC 1.046, nnz(P) 3.07e+06, nnz(R) 0, hierarchy est. 0.2 GB; sizes: 768000 30472 3704 624 160 16
+[     5.4s] [devmem] after AMG setup              used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[    13.8s] [amg-cg] 47 it (converged), solve 8.338 s (177.4 ms/it), final relres 8.057e-09, true relres 8.057e-09, rel err vs x_true 4.560e-08
+[    13.8s] [devmem] after solve                  used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[    13.8s] [devmem] after AMG destroy            used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[    13.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_nodal1_gm4.json (done)
+variant host_nf4_nodal1_gm4 rc=0 (14 s)
+
+===== variant host_nf4_nodal1_ln3 (1 rank(s)) : --host --nodal 1 --interp-vectors 3 --interp-vec-variant 3
+[     0.0s] hypre 3.1.0 (2026/01/23), HOST execution, 1 MPI ranks, label 'host_nf4_nodal1_ln3', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] matrix assembled in 0.2 s
+[     0.8s] [devmem] matrix on device             used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_nodal1_ln3.json (matrix_on_device)
+[     1.3s] matvec 46.73 ms (20 GB/s effective on 1.0 GB)
+[     1.3s] [amg] 3 interpolation vectors (x,y,z), GM/LN variant 3, qmax 0
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 6
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = multipass
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1   26663 16941825  0.024    61 1762   635.4  -1.002e+00   7.066e+00
+  2    3220   906928  0.087    34  872   281.7  -9.887e-01   9.057e+00
+  3     448    62578  0.312    33  324   139.7  -2.443e+00   4.182e+01
+  4      84     4268  0.605    12   81    50.8  -3.644e+01   1.225e+02
+  5       7       49  1.000     7    7     7.0   2.028e+00   1.688e+02
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 26663    0   40   5.4  -4.940e-01   1.000e+00  -4.710e-01   2.579e+00
+  1  26663 x 3220     0   16   2.9  -9.078e-01   7.661e-01  -8.839e-01   2.484e+00
+  2   3220 x 448      0   16   3.7  -1.438e+00   2.780e+00  -1.919e-01   2.674e+00
+  3    448 x 84       0   12   0.9  -2.450e+00   3.333e+00  -1.090e-01   2.332e+00
+  4     84 x 7        0    4   0.9  -5.403e-01   9.606e-01  -5.403e-01   2.384e+00
+
+
+     Complexity:   grid = 1.039612
+               operator = 1.226730
+                 memory = 1.278610
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18     9 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     6.9s] [amg-cg] setup 5.552 s
+[amg-cg] 6 levels, OC 1.227, GC 1.040, nnz(P) 4.1e+06, nnz(R) 0, hierarchy est. 0.3 GB; sizes: 768000 26663 3220 448 84 7
+[     6.9s] [devmem] after AMG setup              used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.5 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[    15.5s] [amg-cg] 46 it (converged), solve 8.584 s (186.6 ms/it), final relres 8.821e-09, true relres 8.821e-09, rel err vs x_true 4.290e-08
+[    15.5s] [devmem] after solve                  used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.5 GB
+[    15.5s] [devmem] after AMG destroy            used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.5 GB
+[    15.5s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_nodal1_ln3.json (done)
+variant host_nf4_nodal1_ln3 rc=0 (16 s)
+
+===== variant host_nf4_nodal1_gm3_q4 (1 rank(s)) : --host --nodal 1 --interp-vectors 3 --interp-vec-variant 2 --interp-vec-qmax 4
+[     0.0s] hypre 3.1.0 (2026/01/23), HOST execution, 1 MPI ranks, label 'host_nf4_nodal1_gm3_q4', bin /scratch/rmuenste/gpu-poisson/bin/p1_40x40x120
+[     0.2s] [devmem] after HYPRE_Initialize       used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 0.3 GB
+[     0.6s] instance 40x40x120: nu 768000 nnz 79017708 (102.9/row); 1 ranks, planes/rank ~40, max local nnz 79017708 (0.08 G, < 2^31)
+[     0.6s] local rows read in 0.4 s (host maxrss 1.2 GB)
+[     0.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 79017708, max offd cols/rank 0
+[     0.8s] matrix assembled in 0.2 s
+[     0.8s] [devmem] matrix on device             used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[     0.8s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_nodal1_gm3_q4.json (matrix_on_device)
+[     1.3s] matvec 46.75 ms (20 GB/s effective on 1.0 GB)
+[     1.3s] [amg] 3 interpolation vectors (x,y,z), GM/LN variant 2, qmax 4
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 6
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = multipass
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  768000 79017708  0.000    32  108   102.9   1.000e-06   6.000e-01
+  1   26663 10617091  0.015    56  982   398.2  -1.340e+00   7.839e+00
+  2    3255   788767  0.074    36  642   242.3  -1.143e+00   1.396e+01
+  3     427    52003  0.285    32  280   121.8  -1.228e+01   4.021e+03
+  4      70     2464  0.503    17   70    35.2  -2.381e-01   1.897e+03
+  5      14      138  0.704     7   12     9.9   8.619e-01   4.963e+01
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 768000 x 26663    0   22   3.5  -5.290e-01   1.000e+00  -5.231e-01   2.653e+00
+  1  26663 x 3255     0   16   2.9  -1.899e-01   8.727e-01  -8.209e-02   2.556e+00
+  2   3255 x 427      0   16   3.5  -6.329e+00   2.452e+02  -1.437e+00   5.313e+02
+  3    427 x 70       0   16   0.6  -2.594e-01   1.140e+00  -1.273e-01   2.727e+00
+  4     70 x 14       0    4   0.3   2.853e-03   9.107e-01   0.000e+00   1.661e+00
+
+
+     Complexity:   grid = 1.039621
+               operator = 1.145037
+                 memory = 1.179313
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[     5.1s] [amg-cg] setup 3.796 s
+[amg-cg] 6 levels, OC 1.145, GC 1.040, nnz(P) 2.71e+06, nnz(R) 0, hierarchy est. 0.2 GB; sizes: 768000 26663 3255 427 70 14
+[     5.1s] [devmem] after AMG setup              used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+<b,b>: 2.037499e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[    13.1s] [amg-cg] 46 it (converged), solve 7.978 s (173.4 ms/it), final relres 8.544e-09, true relres 8.544e-09, rel err vs x_true 3.732e-08
+[    13.1s] [devmem] after solve                  used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[    13.1s] [devmem] after AMG destroy            used 0.45 GB of 85.1 GB (peak 0.45), host maxrss 2.2 GB
+[    13.1s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_nodal1_gm3_q4.json (done)
+variant host_nf4_nodal1_gm3_q4 rc=0 (13 s)
+wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120.json: 31 AMG variants, primary nf4_pmis_exti_l1jac, jacobi yes, peak device 2.44 GB
+[  44.0s] wrote /scratch/rmuenste/gpu-poisson/bin/p1_128x128x384.rough.f64 (0.20 GB, 0 s)
+[  44.5s] wrote /scratch/rmuenste/gpu-poisson/bin/p1_128x128x384.cand.f64 (0.81 GB, 0 s)
+[  44.5s] wrote /scratch/rmuenste/gpu-poisson/bin/p1_128x128x384.meta.txt; done
+
+===== variant jacobi (3 rank(s)) : --jacobi --no-amg
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 3 MPI ranks, label 'jacobi', bin /scratch/rmuenste/gpu-poisson/bin/p1_128x128x384
+[     0.4s] [devmem] after HYPRE_Initialize       used 1.33 GB of 85.1 GB (peak 1.33), host maxrss 0.3 GB
+[     4.4s] instance 128x128x384: nu 25165824 nnz 2610809224 (103.7/row); 3 ranks, planes/rank ~42, max local nnz 881660132 (0.88 G, < 2^31)
+[     4.4s] local rows read in 4.0 s (host maxrss 10.8 GB)
+[     7.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 2610809224, max offd cols/rank 393216
+[     9.1s] [direct] migrated to device in 1.3 s
+[     9.1s] matrix assembled in 4.8 s
+[     9.1s] [devmem] matrix on device             used 32.89 GB of 85.1 GB (peak 32.89), host maxrss 20.9 GB
+[     9.1s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_128x128x384__jacobi.json (matrix_on_device)
+[     9.8s] matvec 58.52 ms (537 GB/s effective on 31.4 GB)
+[     9.8s] [jacobi-cg] setup 0.003 s
+[     9.8s] [devmem] after DiagScale setup        used 34.02 GB of 85.1 GB (peak 34.02), host maxrss 20.9 GB
+<b,b>: 1.886715e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[    36.9s] [jacobi-cg] 423 it (converged), solve 26.957 s (63.7 ms/it), final relres 9.151e-09, true relres 9.151e-09, rel err vs x_true 2.500e-07
+[    36.9s] [devmem] after solve                  used 34.05 GB of 85.1 GB (peak 34.05), host maxrss 20.9 GB
+[    36.9s] [devmem] after PCG destroy            used 33.43 GB of 85.1 GB (peak 34.05), host maxrss 20.9 GB
+[    36.9s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_128x128x384__jacobi.json (jacobi_done)
+[    36.9s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_128x128x384__jacobi.json (done)
+variant jacobi rc=0 (38 s)
+
+===== variant nf4_pmis_exti_l1jac (3 rank(s)) : 
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 3 MPI ranks, label 'nf4_pmis_exti_l1jac', bin /scratch/rmuenste/gpu-poisson/bin/p1_128x128x384
+[     0.4s] [devmem] after HYPRE_Initialize       used 1.33 GB of 85.1 GB (peak 1.33), host maxrss 0.3 GB
+[     4.4s] instance 128x128x384: nu 25165824 nnz 2610809224 (103.7/row); 3 ranks, planes/rank ~42, max local nnz 881660132 (0.88 G, < 2^31)
+[     4.4s] local rows read in 4.0 s (host maxrss 10.8 GB)
+[     7.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 2610809224, max offd cols/rank 393216
+[     9.2s] [direct] migrated to device in 1.3 s
+[     9.2s] matrix assembled in 4.8 s
+[     9.2s] [devmem] matrix on device             used 32.89 GB of 85.1 GB (peak 32.89), host maxrss 20.9 GB
+[     9.2s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_128x128x384__nf4_pmis_exti_l1jac.json (matrix_on_device)
+[     9.8s] matvec 58.53 ms (537 GB/s effective on 31.4 GB)
+
+
+ Num MPI tasks = 3
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 6
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = multipass
+ measures are determined locally
+
+ Interpolation = extended+i
+ Number of functions = 4
+ Functions filtering is off
+
+Operator Matrix Information:
+
+              nonzero              entries/row          row sums
+lev     rows    entries sparse   min  max     avg      min         max
+=========================================================================
+  0 25165824 2610809224  0.000    32  107   103.7   1.000e-06   1.875e-01
+  1   120896    3245980  0.000     6   43    26.8   2.929e-05   6.491e-01
+  2    19429    1162467  0.003    11   95    59.8   1.410e-04   1.144e+00
+  3     2266     155004  0.030     9  124    68.4   1.466e-03   2.380e+00
+  4      334      16832  0.151    10  106    50.4   2.060e-01   5.084e+00
+  5       42        818  0.464     7   38    19.5   9.205e-01   1.396e+01
+
+
+Interpolation Matrix Information:
+                          entries/row        min        max            row sums
+lev     rows x cols     min  max  avgW     weight      weight       min         max
+======================================================================================
+  0 25165824 x 120896     0   11   0.4   1.063e-03   1.000e+00   0.000e+00   1.000e+00
+  1   120896 x 19429      1    4   4.0   6.211e-03   7.217e-01   1.962e-01   1.000e+00
+  2    19429 x 2266       0    4   4.0   2.147e-03   7.559e-01   0.000e+00   1.000e+00
+  3     2266 x 334        0    4   3.9   3.693e-03   5.575e-01   0.000e+00   1.000e+00
+  4      334 x 42         0    4   3.1   2.445e-03   3.813e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.005681
+               operator = 1.001755
+                 memory = 1.006007
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[    13.3s] [amg-cg] setup 3.473 s
+[amg-cg] 6 levels, OC 1.002, GC 1.006, nnz(P) 1.11e+07, nnz(R) 0, hierarchy est. 0.2 GB; sizes: 25165824 120896 19429 2266 334 42
+[    13.3s] [devmem] after AMG setup              used 35.23 GB of 85.1 GB (peak 35.23), host maxrss 20.9 GB
+<b,b>: 1.886715e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[    24.3s] [amg-cg] 45 it (converged), solve 10.867 s (241.5 ms/it), final relres 9.718e-09, true relres 9.718e-09, rel err vs x_true 2.505e-08
+[    24.3s] [devmem] after solve                  used 35.25 GB of 85.1 GB (peak 35.25), host maxrss 20.9 GB
+[    24.3s] [devmem] after AMG destroy            used 33.45 GB of 85.1 GB (peak 35.25), host maxrss 20.9 GB
+[    24.3s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_128x128x384__nf4_pmis_exti_l1jac.json (done)
+variant nf4_pmis_exti_l1jac rc=0 (24 s)
+
+===== variant nf1_pmis_exti_l1jac (3 rank(s)) : --num-functions 1
+[     0.0s] hypre 3.1.0 (2026/01/23), DEVICE execution (CUDA), 3 MPI ranks, label 'nf1_pmis_exti_l1jac', bin /scratch/rmuenste/gpu-poisson/bin/p1_128x128x384
+[     0.4s] [devmem] after HYPRE_Initialize       used 1.33 GB of 85.1 GB (peak 1.33), host maxrss 0.3 GB
+[     4.4s] instance 128x128x384: nu 25165824 nnz 2610809224 (103.7/row); 3 ranks, planes/rank ~42, max local nnz 881660132 (0.88 G, < 2^31)
+[     4.4s] local rows read in 4.0 s (host maxrss 10.8 GB)
+[     7.8s] [direct] ParCSR on host (diagonal first in every row): global nnz 2610809224, max offd cols/rank 393216
+[     9.1s] [direct] migrated to device in 1.3 s
+[     9.1s] matrix assembled in 4.8 s
+[     9.1s] [devmem] matrix on device             used 32.89 GB of 85.1 GB (peak 32.89), host maxrss 20.9 GB
+[     9.2s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_128x128x384__nf1_pmis_exti_l1jac.json (matrix_on_device)
+[     9.8s] matvec 58.51 ms (537 GB/s effective on 31.4 GB)
+
+
+ Num MPI tasks = 3
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 6
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 0.900000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = multipass
+ measures are determined locally
+
+ Interpolation = extended+i
+
+Operator Matrix Information:
+
+              nonzero              entries/row          row sums
+lev     rows    entries sparse   min  max     avg      min         max
+=========================================================================
+  0 25165824 2610809224  0.000    32  107   103.7   1.000e-06   1.875e-01
+  1   159978    4477580  0.000     7   82    28.0  -8.983e-03   6.817e-01
+  2    27956    1533622  0.002     6  119    54.9   1.440e-04   1.118e+00
+  3     4341     251545  0.013     8  155    57.9   1.108e-03   2.252e+00
+  4      605      26023  0.071     7  127    43.0   6.536e-02   5.432e+00
+  5       60       1340  0.372     7   54    22.3   1.385e-01   1.579e+01
+
+
+Interpolation Matrix Information:
+                          entries/row        min        max            row sums
+lev     rows x cols     min  max  avgW     weight      weight       min         max
+======================================================================================
+  0 25165824 x 159978     0   17   0.4   1.756e-04   1.000e+00   0.000e+00   1.000e+00
+  1   159978 x 27956      0    4   3.9   4.658e-03   8.548e-01   0.000e+00   1.022e+00
+  2    27956 x 4341       0    4   3.9   2.684e-03   7.662e-01   0.000e+00   1.000e+00
+  3     4341 x 605        0    4   3.8   1.961e-03   5.665e-01   0.000e+00   1.000e+00
+  4      605 x 60         0    4   3.1   1.779e-03   3.706e-01   0.000e+00   1.000e+00
+
+
+     Complexity:   grid = 1.007667
+               operator = 1.002409
+                 memory = 1.006868
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18    18 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+[    13.3s] [amg-cg] setup 3.513 s
+[amg-cg] 6 levels, OC 1.002, GC 1.008, nnz(P) 1.16e+07, nnz(R) 0, hierarchy est. 0.2 GB; sizes: 25165824 159978 27956 4341 605 60
+[    13.3s] [devmem] after AMG setup              used 35.15 GB of 85.1 GB (peak 35.15), host maxrss 20.9 GB
+<b,b>: 1.886715e+02
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+
+
+[    24.6s] [amg-cg] 46 it (converged), solve 11.133 s (242.0 ms/it), final relres 7.543e-09, true relres 7.543e-09, rel err vs x_true 2.393e-08
+[    24.6s] [devmem] after solve                  used 35.18 GB of 85.1 GB (peak 35.18), host maxrss 20.9 GB
+[    24.6s] [devmem] after AMG destroy            used 33.45 GB of 85.1 GB (peak 35.18), host maxrss 20.9 GB
+[    24.6s] wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_128x128x384__nf1_pmis_exti_l1jac.json (done)
+variant nf1_pmis_exti_l1jac rc=0 (25 s)
+wrote /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_128x128x384.json: 2 AMG variants, primary nf4_pmis_exti_l1jac, jacobi yes, peak device 35.25 GB
+/scratch/rmuenste/gpu-poisson:
+total 93371752
+drwxr-xr-x 6 rmuenste lsiii        4096 Oct  2 13:54 .
+drwxr-xr-x 3 rmuenste lsiii        4096 Oct  2 12:12 ..
+drwxr-xr-x 2 rmuenste lsiii        4096 Oct  2 13:57 bin
+-rwxr-xr-x 1 rmuenste lsiii       48856 Oct  2 13:54 hypre_boomer_pcg
+drwxr-xr-x 4 rmuenste lsiii        4096 Oct  2 13:54 hypre-cuda
+drwxr-xr-x 6 rmuenste lsiii        4096 Oct  2 13:28 hypre-src
+-rw-r--r-- 1 rmuenste lsiii 31933692872 Oct  2 12:14 p1_128x128x384.npz
+-rw-r--r-- 1 rmuenste lsiii 63678885944 Oct  2 12:31 p1_160x160x480.npz
+drwxr-xr-x 2 rmuenste lsiii        4096 Oct  2 12:29 tmp
+
+/scratch/rmuenste/gpu-poisson/bin:
+total 33142320
+drwxr-xr-x 2 rmuenste lsiii        4096 Oct  2 13:57 .
+drwxr-xr-x 6 rmuenste lsiii        4096 Oct  2 13:54 ..
+-rw-r--r-- 1 rmuenste lsiii   201326592 Oct  2 13:57 p1_128x128x384.b.f64
+-rw-r--r-- 1 rmuenste lsiii   805306368 Oct  2 13:57 p1_128x128x384.cand.f64
+-rw-r--r-- 1 rmuenste lsiii 20886473792 Oct  2 13:57 p1_128x128x384.data.f64
+-rw-r--r-- 1 rmuenste lsiii 10443236896 Oct  2 13:57 p1_128x128x384.indices.i32
+-rw-r--r-- 1 rmuenste lsiii   201326600 Oct  2 13:57 p1_128x128x384.indptr.i64
+-rw-r--r-- 1 rmuenste lsiii         116 Oct  2 13:57 p1_128x128x384.meta.txt
+-rw-r--r-- 1 rmuenste lsiii   201326592 Oct  2 13:57 p1_128x128x384.rough.f64
+-rw-r--r-- 1 rmuenste lsiii   201326592 Oct  2 13:57 p1_128x128x384.xtrue.f64
+-rw-r--r-- 1 rmuenste lsiii     6144000 Oct  2 13:54 p1_40x40x120.b.f64
+-rw-r--r-- 1 rmuenste lsiii    24576000 Oct  2 13:54 p1_40x40x120.cand.f64
+-rw-r--r-- 1 rmuenste lsiii   632141664 Oct  2 13:54 p1_40x40x120.data.f64
+-rw-r--r-- 1 rmuenste lsiii   316070832 Oct  2 13:54 p1_40x40x120.indices.i32
+-rw-r--r-- 1 rmuenste lsiii     6144008 Oct  2 13:54 p1_40x40x120.indptr.i64
+-rw-r--r-- 1 rmuenste lsiii         150 Oct  2 13:54 p1_40x40x120.meta.txt
+-rw-r--r-- 1 rmuenste lsiii     6144000 Oct  2 13:54 p1_40x40x120.rough.f64
+-rw-r--r-- 1 rmuenste lsiii     6144000 Oct  2 13:54 p1_40x40x120.xtrue.f64
+/dev/sda4       1.7T  253G  1.4T  16% /scratch
+hypre A done 2026-10-02T13:59:25+02:00

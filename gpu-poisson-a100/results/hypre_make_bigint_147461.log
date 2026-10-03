@@ -1,0 +1,184 @@
+Making blas ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src-bigint/src/blas'
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dasum.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c daxpy.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dcopy.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c ddot.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dgemm.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dgemv.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dger.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dnrm2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c drot.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dscal.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dswap.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dsymm.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dsymv.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dsyr2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dsyr2k.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dsyrk.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dtrmm.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dtrmv.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dtrsm.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dtrsv.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c f2c.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c idamax.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c lsame.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c xerbla.c
+cp -fR ./_hypre_blas.h /scratch/rmuenste/gpu-poisson/hypre-src-bigint/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src-bigint/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src-bigint/src/blas'
+
+Making lapack ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src-bigint/src/lapack'
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dbdsqr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgebd2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgebrd.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgelq2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgelqf.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgels.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgeqr2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgeqrf.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgesvd.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgetrf.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgetri.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgetrs.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgetf2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlabad.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlabrd.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlacpy.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlae2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlaev2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlamch.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlange.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlanst.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlansy.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlapy2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlarfb.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlarf.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlarfg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlarft.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlartg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlas2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlascl.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlaset.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlasq1.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlasq2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlasq3.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlasq4.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlasq5.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlasq6.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlasr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlasrt.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlassq.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlaswp.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlasv2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlatrd.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dorg2l.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dorg2r.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dorgbr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dorgl2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dorglq.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dorgql.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dorgqr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dorgtr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dorm2r.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dormbr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dorml2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dormlq.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dormqr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dpotf2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dpotrf.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dpotrs.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dsteqr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dsterf.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dsyev.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dsygs2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dsygst.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dsygv.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dsytd2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dsytrd.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dtrtri.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dtrti2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c ieeeck.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c ilaenv.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c lsame.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c xerbla.c
+cp -fR ./_hypre_lapack.h /scratch/rmuenste/gpu-poisson/hypre-src-bigint/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src-bigint/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src-bigint/src/lapack'
+
+Making utilities ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src-bigint/src/utilities'
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c F90_HYPRE_error.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c F90_HYPRE_general.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c HYPRE_handle.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c HYPRE_version.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c amg_linklist.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c binsearch.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c exchange_data.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c fortran_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c ap.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c log.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c complex.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c error.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c int_array.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c hopscotch_hash.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c matrix_stats.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c magma.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c memory_tracker.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c merge_sort.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c mmio.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c prefix_sum.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c qsort.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c unique.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c utilities.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c mpistubs.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c qsplit.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c random.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c state.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c threading.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c timer.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c timing.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c caliper_instrumentation.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c printf.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c multiprecision.c
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c device_markers.c -o device_markers.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c device_utils.c -o device_utils.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c general.c -o general.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c handle.c -o handle.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c int_array_device.c -o int_array_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c memory.c -o memory.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c omp_device.c -o omp_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c stl_ops.c -o stl_ops.obj
+device_utils.c(2721): error: argument of type "HYPRE_Int *" (aka "long long *") is incompatible with parameter of type "hypre_int *" (aka "int *")
+     hypre_GetDevice(&device);
+                     ^
+
+1 error detected in the compilation of "device_utils.c".
+make[1]: *** [../config/Makefile.config:66: device_utils.obj] Error 2
+make[1]: *** Waiting for unfinished jobs....
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src-bigint/src/utilities'
+make: *** [Makefile:91: all] Error 1
+Making blas ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src-bigint/src/blas'
+cp -fR ./_hypre_blas.h /scratch/rmuenste/gpu-poisson/hypre-src-bigint/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src-bigint/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src-bigint/src/blas'
+
+Making lapack ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src-bigint/src/lapack'
+cp -fR ./_hypre_lapack.h /scratch/rmuenste/gpu-poisson/hypre-src-bigint/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src-bigint/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src-bigint/src/lapack'
+
+Making utilities ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src-bigint/src/utilities'
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c device_utils.c -o device_utils.obj
+device_utils.c(2721): error: argument of type "HYPRE_Int *" (aka "long long *") is incompatible with parameter of type "hypre_int *" (aka "int *")
+     hypre_GetDevice(&device);
+                     ^
+
+1 error detected in the compilation of "device_utils.c".
+make[1]: *** [../config/Makefile.config:66: device_utils.obj] Error 2
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src-bigint/src/utilities'
+make: *** [Makefile:91: all] Error 1

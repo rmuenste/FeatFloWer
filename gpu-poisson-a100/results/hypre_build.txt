@@ -1,0 +1,110 @@
+# CUDA hypre build record, job 147459, 2026-10-02T13:54:36+02:00, host tardis
+## source
+hypre v3.1.0, tag v3.1.0 = commit 9dc9e18aed6a945a95f966e57daacfb1c269f6ec (Release 3.1.0, 2026-01-23), github.com/hypre-space/hypre; source tree /scratch/rmuenste/gpu-poisson/hypre-src (scratch), install /scratch/rmuenste/gpu-poisson/hypre-cuda
+## configure line (run in /scratch/rmuenste/gpu-poisson/hypre-src/src)
+./configure --prefix=/scratch/rmuenste/gpu-poisson/hypre-cuda --with-cuda --with-cuda-home=/sfw/cuda/12.6 --with-gpu-arch=80 --enable-unified-memory=no --enable-shared --enable-mixedint --enable-bigint=no --enable-cusparse --enable-curand --enable-cublas --without-umpire --with-MPI CC=mpicc CXX=mpicxx
+## toolchain
+Currently Loaded Modulefiles:
+ 1) gcc/13.2.0   2) cuda/12.6   3) openmpi/4.1.6   4) python/3.13.5  
+gcc (GCC) 13.2.0
+Cuda compilation tools, release 12.6, V12.6.77
+Build cuda_12.6.r12.6/compiler.34841621_0
+gcc (GCC) 13.2.0
+mpirun (Open MPI) 4.1.6
+  Configure command line: '--prefix=/sfw/openmpi/gcc13.2.x/4.1.6/ucx-threaded-noverbs/' '--enable-mpi-fortran' '--enable-mpi-cxx' '--enable-shared' '--with-libfabric=/sfw/openmpi/extralibs-noverbs/libfabric' '--without-verbs' '--with-ucx=/sfw/openmpi/extralibs-noverbs/ucx' '--with-cma=/sfw/openmpi/extralibs-noverbs/ucx' '--with-pmi=/opt/slurm' '--with-slurm' '--with-cuda=/sfw/cuda/12.6' '--enable-mca-no-build=btl-uct' 'CC=gcc' 'CXX=g++' 'FC=gfortran' 'CFLAGS=-O3 -fpic -Wno-error=incompatible-pointer-types' 'CXXFLAGS=-O3 -fpic -Wno-error=incompatible-pointer-types' 'FCFLAGS=-O3 -fpic'
+name, driver_version, compute_cap
+NVIDIA A100 80GB PCIe, 580.159.04, 8.0
+## HYPRE_config.h (defined)
+#define HYPRE_FC_FUNC(name,NAME) name ## _
+#define HYPRE_FC_FUNC_(name,NAME) name ## _
+#define HAVE_INTTYPES_H 1
+#define HAVE_MPI_COMM_F2C 1
+#define HAVE_STDINT_H 1
+#define HAVE_STDIO_H 1
+#define HAVE_STDLIB_H 1
+#define HAVE_STRINGS_H 1
+#define HAVE_STRING_H 1
+#define HAVE_SYS_STAT_H 1
+#define HAVE_SYS_TYPES_H 1
+#define HAVE_UNISTD_H 1
+#define HYPRE_FMANGLE 0
+#define HYPRE_FMANGLE_BLAS 0
+#define HYPRE_FMANGLE_LAPACK 0
+#define HYPRE_HAVE_MPI 1
+#define HYPRE_HAVE_MPI_COMM_F2C 1
+#define HYPRE_LINUX 1
+#define HYPRE_MAXDIM 3
+#define HYPRE_MIXEDINT 1
+#define HYPRE_RELEASE_BUGS "https://github.com/hypre-space/hypre/issues"
+#define HYPRE_RELEASE_DATE "2026/01/23"
+#define HYPRE_RELEASE_NAME "hypre"
+#define HYPRE_RELEASE_NUMBER 30100
+#define HYPRE_RELEASE_TIME "00:00:00"
+#define HYPRE_RELEASE_VERSION "3.1.0"
+#define HYPRE_USING_CUBLAS 1
+#define HYPRE_USING_CUDA 1
+#define HYPRE_USING_CUDA_STREAMS 1
+#define HYPRE_USING_CURAND 1
+#define HYPRE_USING_CUSPARSE 1
+#define HYPRE_USING_DEVICE_MEMORY 1
+#define HYPRE_USING_GPU 1
+#define HYPRE_USING_HYPRE_BLAS 1
+#define HYPRE_USING_HYPRE_LAPACK 1
+#define HYPRE_WARP_SIZE 32
+#define PACKAGE_BUGREPORT ""
+#define PACKAGE_NAME "hypre"
+#define PACKAGE_STRING "hypre 3.1.0"
+#define PACKAGE_TARNAME "hypre"
+#define PACKAGE_URL ""
+#define PACKAGE_VERSION "3.1.0"
+#define STDC_HEADERS 1
+## HYPRE_config.h (GPU/int related, all)
+24:/* Define to 1 if you have the `MPI_Comm_f2c' function. */
+25:#define HAVE_MPI_COMM_F2C 1
+58:/* #undef HYPRE_BIGINT */
+79:/* #undef HYPRE_DEVICE_OPENMP_ALLOC */
+82:/* #undef HYPRE_DEVICE_OPENMP_CHECK */
+95:/* Define to 1 if an MPI library is found */
+96:#define HYPRE_HAVE_MPI 1
+98:/* Define to 1 if the routine MPI_Comm_f2c is found */
+99:#define HYPRE_HAVE_MPI_COMM_F2C 1
+120:#define HYPRE_MIXEDINT 1
+149:/* Disable MPI, enable serial codes. */
+168:#define HYPRE_USING_CUBLAS 1
+170:/* Define to 1 if executing on device with CUDA */
+171:#define HYPRE_USING_CUDA 1
+174:#define HYPRE_USING_CUDA_STREAMS 1
+177:#define HYPRE_USING_CURAND 1
+183:#define HYPRE_USING_CUSPARSE 1
+186:/* #undef HYPRE_USING_DEVICE_MALLOC_ASYNC */
+189:#define HYPRE_USING_DEVICE_MEMORY 1
+192:/* #undef HYPRE_USING_DEVICE_OPENMP */
+206:/* Define to 1 if executing on GPU device */
+207:#define HYPRE_USING_GPU 1
+209:/* Define to 1 if using GPU aware MPI */
+210:/* #undef HYPRE_USING_GPU_AWARE_MPI */
+236:/* Define to 1 if Node Aware MPI library is used */
+237:/* #undef HYPRE_USING_NODE_AWARE_MPI */
+252:/* #undef HYPRE_USING_OPENMP */
+281:/* Define to 1 if using UMPIRE */
+282:/* #undef HYPRE_USING_UMPIRE */
+284:/* Define to 1 if using UMPIRE for device memory */
+285:/* #undef HYPRE_USING_UMPIRE_DEVICE */
+287:/* Define to 1 if using UMPIRE for host memory */
+288:/* #undef HYPRE_USING_UMPIRE_HOST */
+290:/* Define to 1 if using UMPIRE for pinned memory */
+291:/* #undef HYPRE_USING_UMPIRE_PINNED */
+293:/* Define to 1 if using UMPIRE for unified memory */
+294:/* #undef HYPRE_USING_UMPIRE_UM */
+297:/* #undef HYPRE_USING_UNIFIED_MEMORY */
+299:/* GPU warp size */
+## installed
+total 118812
+drwxr-xr-x 2 rmuenste lsiii      4096 Oct  2 13:54 .
+drwxr-xr-x 4 rmuenste lsiii      4096 Oct  2 13:54 ..
+-rwxr-xr-x 1 rmuenste lsiii 121652536 Oct  2 13:54 libHYPRE-3.1.0.so
+lrwxrwxrwx 1 rmuenste lsiii        17 Oct  2 13:54 libHYPRE.so -> libHYPRE-3.1.0.so
+121M	/scratch/rmuenste/gpu-poisson/hypre-cuda
+559M	/scratch/rmuenste/gpu-poisson/hypre-src
+## driver compile line (hypre_boomer_pcg.c -> /scratch/rmuenste/gpu-poisson/hypre_boomer_pcg)
+mpicc -O2 -Wall -Wno-unused-result -o /scratch/rmuenste/gpu-poisson/hypre_boomer_pcg hypre_boomer_pcg.c -I/scratch/rmuenste/gpu-poisson/hypre-cuda/include -I/sfw/cuda/12.6/include -L/scratch/rmuenste/gpu-poisson/hypre-cuda/lib -lHYPRE -L/sfw/cuda/12.6/lib64 -lcudart -lcusparse -lcurand -lcublas -lm -Wl,-rpath,/scratch/rmuenste/gpu-poisson/hypre-cuda/lib -Wl,-rpath,/sfw/cuda/12.6/lib64

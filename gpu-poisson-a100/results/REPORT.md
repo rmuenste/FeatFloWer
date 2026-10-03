@@ -140,26 +140,51 @@ smoothers f32 (flexible CG absorbs the slight non-symmetry; the true residual eq
 1e-16). The symmetric-storage matvec uses f64 atomics, so runs are not bitwise reproducible (histories agree
 to ~1e-15). Timings are from a quiet, exclusively used node.
 
-## What a GPU BoomerAMG test would add, and what it needs (not executed, per README §9)
+## hypre BoomerAMG on the device (route 2, jobs 147458/147459/147461, 2026-10-02)
 
-BoomerAMG is the classical-AMG counterpart of what was measured here and the integration-relevant one
-(FeatFloWer already carries `USE_HYPRE`). It would answer three things the CuPy/PyAMG route cannot: (i) setup
-on the device — seconds instead of the 248 s single-threaded host setup — and no int32 index restriction
-(`--enable-bigint` or mixed-int builds); (ii) whether classical coarsening (PMIS + ext+i interpolation,
-l1-Jacobi relaxation, aggressive first-level coarsening) matches the 11 iterations of smoothed aggregation on
-the 4-dofs-per-cell P1-disc stencil — with the block structure passed as `HYPRE_BoomerAMGSetNumFunctions(4)`
-(unknown-based coarsening, the analogue of the sa_bsr variants) or the nodal-coarsening option, and the
-near-nullspace handled through the interpolation rather than explicit candidates; (iii) the memory of a
-classical hierarchy (operator complexity expected 1.3–1.6, i.e. 40–50 GB on top of the matrix): hypre holds
-the fine matrix in full (non-symmetric) storage, 63 GB at full size, so on one 80 GB A100 the realistic
-BoomerAMG test is the ½ grid (31 GB matrix, as in stage 2) or the ¾ grid, or the full size only with a
-unified-memory build. Needs: a CUDA build of hypre 3.1.0 in the user's space (`--with-cuda
---with-gpu-arch=80 --enable-unified-memory` [or device memory], cuda/12.6 + gcc 13.2, optionally
-`--enable-bigint`) — every installed `/sfw/hypre/v3.1.0/*` is CPU-only; a ~150-line C driver that reads the
-instance (the `.npz` arrays, or the harness's slab files) into a `HYPRE_IJMatrix` with
-`HYPRE_SetMemoryLocation(HYPRE_MEMORY_DEVICE)` and runs `HYPRE_PCG` + BoomerAMG with the GPU-recommended
-settings; one tardis job of the shape of stage 2/3 (instances are already on `/scratch/rmuenste/gpu-poisson/`,
-~1 h including build). The stage-2/3 JSONs give the Jacobi-CG and SA-AMG-CG numbers to compare against.
+Executed after the CuPy/PyAMG route per README §9 part C. hypre v3.1.0 (tag, 2026-01-23) built from source on
+tardis with `--with-cuda --with-gpu-arch=80 --enable-unified-memory=no --enable-mixedint` (cuda/12.6, gcc 13.2.0,
+openmpi/4.1.6; `results/hypre_build.txt`, configure/make logs `results/hypre_*_14745{8,9}.log`). Driver
+`hypre_boomer_pcg.c` (this folder): reads the instance from the harness's slab dumps (`npz_to_bin.py`), fills a
+`hypre_ParCSRMatrix` directly on the host, moves it to device memory, runs `HYPRE_PCG` to 1e-8 on the relative
+residual with either diagonal scaling (Jacobi-CG, the control shared with route 1) or BoomerAMG; per-variant
+JSONs `results/hypre_p1_<grid>__<label>.json`, merged by `hypre_merge_json.py` into `results/hypre_p1_<grid>.json`.
+A `--enable-bigint` rebuild (job 147461) does not compile in 3.1.0 with CUDA (`device_utils.c:2721`,
+`HYPRE_Int*` vs `hypre_int*`; `results/hypre_make_bigint_147461.log`), so the mixed-int build is used and every
+instance is split over enough MPI ranks on the one GPU to keep the local nnz below 2^31 (3 / 5 / 6 ranks for the
+½ / ¾ / full grid).
+
+| grid | unknowns / nnz | fine matrix on device (full ParCSR) | Jacobi-CG | best BoomerAMG-CG | peak device |
+|---|---|---|---|---|---|
+| ½: 128x128x384 | 25.2 M / 2.61 G | 31.4 GB | 423 it, 27.0 s (63.7 ms/it) | **22 it, 5.03 s** (setup 3.75 s + solve 5.03 s), 9 levels, operator complexity 1.074 | 38.2 GB |
+| ¾: 150x150x450 | 40.5 M / 4.29 G | 51.6 GB | 489 it, 37.4 s (76.4 ms/it) | all three variants **OOM during setup** | 55.9 GB (Jacobi) |
+| full: 160x160x480 | 49.15 M / 5.21 G | 63.4 GB | 500 it (cap), relres 2.1e-8, 43.7 s (87.5 ms/it) | all three variants **OOM during setup** | 67.9 GB (Jacobi) |
+
+Best ½-grid variant (`__best_jac7`): HMIS coarsening (type 8), ext+i interpolation (6, P_max 4), strong
+threshold 0.5, no aggressive coarsening, `NumFunctions 4` (unknown-based coarsening on the 4-dof P1-disc block),
+weighted-Jacobi relaxation (type 7), `KeepTranspose 1`, `ModRAP2 1`, vendor SpMV. Chebyshev (type 16) on the
+same hierarchy: 18 it / 7.33 s; the GPU-default recipe PMIS + ext+i + l1-Jacobi (type 18) with one aggressive
+level: 45 it / 10.9 s, operator complexity 1.002 (coarsens too hard: 25.2 M -> 121 k). On the 40x40x120
+instance 40+ variants were screened the same way (`results/hypre_p1_40x40x120__*.json`); nodal coarsening,
+GM/LN interpolation vectors and MPS rank sharing gave nothing better than the recipe above.
+
+Comparison with route 1 at the same ½ grid (full storage, stage 2): CuPy/PyAMG smoothed aggregation 11 it /
+1.41 s, peak 44.1 GB (setup 130 s on the host); hypre BoomerAMG 22 it / 5.03 s, peak 38.2 GB (setup 3.75 s on
+the device). Per iteration hypre is 0.23 s vs 0.13 s: the hypre fine matvec runs at 778 GB/s effective but every
+PCG iteration carries the device-memory bookkeeping of 3 ranks on one GPU, and the classical hierarchy needs
+twice the iterations of the block smoothed-aggregation hierarchy with the four explicit near-nullspace candidates.
+Setup is where hypre wins by two orders of magnitude (3.8 s vs 130 s; vs 248 s at full size).
+
+At the ¾ and full grid the fine matrix in hypre's full (non-symmetric) ParCSR storage leaves 29 GB / 17 GB of
+the 80 GB for setup, and BoomerAMG's setup transients (strength matrix, RAP products, the kept transposes)
+exceed that even for the `lean` variant with `KeepTranspose 0`; the Jacobi-CG control runs at both sizes and
+confirms the matrix itself fits. hypre has no symmetric storage, so on one 80 GB A100 the full D6.4 size with
+BoomerAMG needs either a unified-memory build (host spill, slower), two GPUs, or the route-1 symmetric storage.
+
+Reading for the D6.4 question: one pressure solve at the full size on one A100 is 2.4 s today (route 1,
+symmetric storage, host setup once per mesh); the integration-relevant library (hypre, already behind
+`USE_HYPRE`) solves the ½ grid in 5 s with a 4 s device setup but does not fit the full grid beside its own
+full-storage matrix. Both routes are bandwidth-bound on the fine matvec.
 
 ## Files
 
@@ -173,5 +198,8 @@ results/gpu_p1_160x160x480.json                       stage 3 deliverable (job 1
 results/stage3_p1_160x160x480_full_kernel.json        full storage, sa_bsr_lin OOM (job 147436)
 results/stage3_p1_160x160x480_full_kernel_geo_lin.json  full storage, geo_lin fits (job 147441)
 results/stage{0,1,2,2b,3,3c}_<jobid>.log, results/*_nvsmi_<jobid>.csv
+results/hypre_p1_<grid>.json, hypre_p1_<grid>__<label>.json  route 2 BoomerAMG (jobs 147459 ½ + small, 147461 ½/full/¾)
+results/hypre_build.txt, hypre_{configure,make,make_ij,ij_smoke}_<jobid>.log, hypreA_/hypreB_<jobid>.log, hypre*_nvsmi_*.csv
+hypre_boomer_pcg.c, npz_to_bin.py, hypre_merge_json.py, jobs/hypreA_build_small.sbatch, jobs/hypreB_scale.sbatch, cleanup_scratch.sh
 instances (NOT in the repo, node-local on tardis): /scratch/rmuenste/gpu-poisson/p1_128x128x384.npz (31.9 GB), p1_160x160x480.npz (63.7 GB)
 ```

@@ -1,0 +1,45 @@
+hypre A (build + small instance) on tardis, job 147458, 2026-10-02T13:50:03+02:00
+Currently Loaded Modulefiles:
+ 1) gcc/13.2.0   2) cuda/12.6   3) openmpi/4.1.6   4) python/3.13.5  
+/sfw/openmpi/gcc13.2.x/4.1.6/ucx-threaded-noverbs/bin/mpicc
+/sfw/cuda/12.6/bin/nvcc
+/sfw/gcc/13.2.0-static-gmp-mpfr-mpc-isl/bin/gcc
+/sfw/python/3.13.5/bin/python3
+name, memory.total [MiB], memory.used [MiB], driver_version
+NVIDIA A100 80GB PCIe, 81920 MiB, 0 MiB, 580.159.04
+/dev/sda4       1.7T  220G  1.4T  14% /scratch
+               total        used        free      shared  buff/cache   available
+Mem:             502           8         401           0          96         494
+total 93371696
+drwxr-xr-x 4 rmuenste lsiii        4096 Oct  2 13:50 .
+drwxr-xr-x 3 rmuenste lsiii        4096 Oct  2 12:12 ..
+drwxr-xr-x 2 rmuenste lsiii        4096 Oct  2 13:50 bin
+-rw-r--r-- 1 rmuenste lsiii 31933692872 Oct  2 12:14 p1_128x128x384.npz
+-rw-r--r-- 1 rmuenste lsiii 63678885944 Oct  2 12:31 p1_160x160x480.npz
+drwxr-xr-x 2 rmuenste lsiii        4096 Oct  2 12:29 tmp
+source from tarball (/data/warehouse17/rmuenste/gpu-poisson-hypre/hypre-v3.1.0-src.tar.gz), staging dir removed
+/scratch/rmuenste/gpu-poisson/hypre-src/src/configure
+configure: ./configure --prefix=/scratch/rmuenste/gpu-poisson/hypre-cuda --with-cuda --with-cuda-home=/sfw/cuda/12.6 --with-gpu-arch=80 --enable-unified-memory=no --enable-shared --enable-mixedint --enable-bigint=no --enable-cusparse --enable-curand --enable-cublas --with-MPI CC=mpicc CXX=mpicxx
+configure rc=1 (3 s)
+  --with-umpire-lib-dirs="/path-to-umpire-install/lib"
+  --with-umpire-libs="umpire camp"
+
+To opt out (not recommended), configure with --without-umpire.
+===============================================================
+grep: HYPRE_config.h: No such file or directory
+make rc=2 (0 s)
+install rc=2
+ls: cannot access '/scratch/rmuenste/gpu-poisson/hypre-cuda/lib': No such file or directory
+du: cannot access '/scratch/rmuenste/gpu-poisson/hypre-cuda': No such file or directory
+build record -> /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_build.txt
+make test/ij rc=2
+ls: cannot access './ij': No such file or directory
+== ij -solver 1 -n 50 50 50 (AMG-PCG, 7-pt Laplacian, device memory/exec by default in a GPU build)
+== ij -solver 1 -n 100 100 100 -agg_nl 1 -pmis -interptype 6 -relax 18
+driver compile: mpicc -O2 -Wall -Wno-unused-result -o /scratch/rmuenste/gpu-poisson/hypre_boomer_pcg hypre_boomer_pcg.c -I/scratch/rmuenste/gpu-poisson/hypre-cuda/include -I/sfw/cuda/12.6/include -L/scratch/rmuenste/gpu-poisson/hypre-cuda/lib -lHYPRE -L/sfw/cuda/12.6/lib64 -lcudart -lcusparse -lcurand -lcublas -lm -Wl,-rpath,/scratch/rmuenste/gpu-poisson/hypre-cuda/lib -Wl,-rpath,/sfw/cuda/12.6/lib64
+hypre_boomer_pcg.c:35:10: fatal error: HYPRE.h: No such file or directory
+   35 | #include "HYPRE.h"
+      |          ^~~~~~~~~
+compilation terminated.
+ls: cannot access '/scratch/rmuenste/gpu-poisson/hypre_boomer_pcg': No such file or directory
+DRIVER BUILD FAILED

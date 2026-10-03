@@ -1,0 +1,12 @@
+{
+  "library": "hypre", "hypre_version": "3.1.0", "hypre_release_date": "2026/01/23", "status": "done", "label": "nf1_best", "timestamp": "2026-10-02T14:02:01", "host": "tardis", "slurm_job": "147461",
+  "build": {"cuda": true, "mixedint": true, "bigint": false, "unified_memory": false, "sizeof_HYPRE_Int": 4, "sizeof_HYPRE_BigInt": 8},
+  "instance": "/scratch/rmuenste/gpu-poisson/bin/p1_128x128x384", "grid": [128, 128, 384], "h": 0.0078125, "nu": 25165824, "nnz": 2610809224, "nnz_per_row": 103.7442,
+  "execution": "device", "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate", "mpi_ranks": 3, "storage": "full (ParCSR diag+offd, f64 values, int32 local indices)", "fine_operator_gb": 31.430,
+  "settings": {"solver": "PCG (two-norm, rel. residual)", "tol": 1e-08, "max_iter": 500, "num_functions": 1, "nodal": 0, "nodal_diag": 0, "interp_vectors": 0, "interp_vec_variant": 2, "interp_vec_qmax": 0, "coarsen_type": 8, "interp_type": 6, "relax_type": 16, "num_sweeps": 1, "agg_num_levels": 0, "agg_interp_type": 0, "p_max_elmts": 4, "strong_threshold": 0.500, "max_levels": 25, "max_coarse_size": 9, "keep_transpose": 1, "mod_rap2": 1, "spmv_use_vendor": 1, "spgemm_use_vendor": 0, "cheby_order": 2, "cheby_fraction": 0.300, "cheby_variant": 0},
+  "jacobi_cg": null,
+  "jacobi_cg_rough_rhs": null,
+  "amg_cg": {"iters": 19, "converged": true, "setup_seconds": 4.564767, "seconds": 7.557353, "seconds_per_iter": 0.397755, "final_relres": 4.520008e-09, "true_relres": 4.520008e-09, "rel_err_vs_x_true": 1.108610e-07, "device_used_gb_after_setup": 38.729, "device_used_gb_after_solve": 38.744, "levels": 10, "operator_complexity": 1.075671, "grid_complexity": 1.103867, "nnz_P_total": 27919197, "nnz_R_total": 0, "hierarchy_gb_est_12B_per_nnz": 2.706, "sizes": [25165824, 2008366, 470859, 107231, 22264, 4322, 728, 125, 13, 1], "nnz_per_level": [2610809224, 124635170, 51522137, 16670411, 3961332, 690290, 77766, 5567, 137, 1], "hist_every_10": [1.000000e+00, 1.775201e-05]},
+  "device_memory_total_gb": 85.094, "peak_device_memory_gb": 38.744, "device_memory_samples": [["after HYPRE_Initialize", 1.351], ["matrix on device", 32.909], ["after AMG setup", 38.729], ["after solve", 38.744], ["after AMG destroy", 33.471]],
+  "host_maxrss_gb_rank0": 20.897, "total_seconds": 22.272
+}
