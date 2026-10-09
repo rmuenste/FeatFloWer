@@ -425,6 +425,11 @@ LOGICAL, ALLOCATABLE :: bCandidateElement(:)
 INTEGER, ALLOCATABLE :: CandidateList(:)
 INTEGER :: nCandidates, iCand, iVtx, j, iedge, iface
 
+! Per-element ownership of the local DOFs by particle IP (hoisted out of the
+! cubature loop; DALPHA_E holds the matching 0/1 alpha values)
+LOGICAL :: LOWN(NNBAS)
+REAL*8  :: DALPHA_E(NNBAS)
+
 COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
 COMMON /ERRCTL/ IER,ICHECK
 COMMON /CHAR/   SUB,FMT(3),CPARAM
@@ -604,14 +609,26 @@ IF (myid /= 0) THEN
     call ExitError('Error in ForcesLocalParticlesSerial_KVEL',1728)
   end if
 
+   ! Ownership of the element's DOFs by particle IP, evaluated once per
+   ! element and reused for NJALFA/NIALFA and in the cubature loop below
+   DO I=1,IDFL
+     IG=KDFG(I)
+     LOWN(I) = longIdMatch(IG, theParticles(IP)%bytes)
+     IF (LOWN(I)) THEN
+      DALPHA_E(I) = 1d0
+     ELSE
+      DALPHA_E(I) = 0d0
+     END IF
+   ENDDO
+
    NJALFA=0
    NIALFA=0
    DO I=1,IDFL
      IG=KDFG(I)
-     IF((ALPHA(IG) == 0).or.(.not. longIdMatch(IG, theParticles(IP)%bytes)))THEN
+     IF((ALPHA(IG) == 0).or.(.not. LOWN(I)))THEN
       NJALFA=NJALFA+1
      ENDIF
-     IF (longIdMatch(IG, theParticles(IP)%bytes)) THEN
+     IF (LOWN(I)) THEN
       NIALFA=NIALFA+1
      ENDIF
    ENDDO
@@ -727,11 +744,7 @@ IF (myid /= 0) THEN
       DU3Y=DU3Y+U3(IG)*DBI3
       DU3Z=DU3Z+U3(IG)*DBI4
 
-      IF (longIdMatch(IG, theParticles(IP)%bytes)) THEN
-       DALPHA = 1d0
-      ELSE
-       DALPHA = 0d0
-      END IF
+      DALPHA = DALPHA_E(I)
       DALV=DALV+DALPHA*DBI1
       DALX=DALX+DALPHA*DBI2
       DALY=DALY+DALPHA*DBI3
