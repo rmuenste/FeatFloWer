@@ -381,6 +381,7 @@ USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN
 USE var_QuadScalar, ONLY : myExport,Properties,FictKNPR_uint64, FictKNPR
 USE var_QuadScalar, ONLY : AlphaRelax
 USE var_QuadScalar, ONLY : ParticleVertexCache, bUseKVEL_Accel, myKVEL_Stats, mg_mesh
+USE var_QuadScalar, ONLY : FictKNPR_IP, bKVEL_IndexValid
 use cinterface
 use dem_query
 IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
@@ -429,6 +430,11 @@ INTEGER :: nCandidates, iCand, iVtx, j, iedge, iface
 ! cubature loop; DALPHA_E holds the matching 0/1 alpha values)
 LOGICAL :: LOWN(NNBAS)
 REAL*8  :: DALPHA_E(NNBAS)
+
+! Dense DOF -> particle index (FictKNPR_IP) usable for particle IP, and
+! guard against a particle ordering that differs from the cache build
+LOGICAL :: bUseIdx, bIdMismatch
+LOGICAL :: bWarnedIdMismatch = .FALSE.
 
 COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
 COMMON /ERRCTL/ IER,ICHECK
@@ -521,12 +527,34 @@ IF (myid /= 0) THEN
   DTrqForceZ = 0d0
 
   !========================================================================
+  ! Check that cache slot IP still describes particle IP (the cache is built
+  ! in QuadScalar_FictKnpr with the same getAllParticles ordering). On a
+  ! mismatch the particle is treated as uncached (all elements, longIdMatch).
+  !========================================================================
+  bUseIdx = .FALSE.
+  bIdMismatch = .FALSE.
+#ifdef ENABLE_FBM_ACCELERATION
+  if (bUseKVEL_Accel .and. allocated(ParticleVertexCache)) then
+    if (IP <= size(ParticleVertexCache)) then
+      bIdMismatch = .not. all(theParticles(IP)%bytes == &
+                              ParticleVertexCache(IP)%longId%bytes)
+      bUseIdx = bKVEL_IndexValid .and. (.not. bIdMismatch)
+      if (bIdMismatch .and. (.not. bWarnedIdMismatch)) then
+        write(*,'(A,I0,A)') 'KVEL: rank ', myid, &
+          ': particle ordering changed since cache build, using all elements'
+        bWarnedIdMismatch = .TRUE.
+      end if
+    end if
+  end if
+#endif
+
+  !========================================================================
   ! Build KVEL Candidate Element Set
   !========================================================================
   nCandidates = 0
 
 #ifdef ENABLE_FBM_ACCELERATION
-  if (bUseKVEL_Accel .and. allocated(ParticleVertexCache)) then
+  if (bUseKVEL_Accel .and. allocated(ParticleVertexCache) .and. (.not. bIdMismatch)) then
 #else
   if (.FALSE.) then
 #endif
@@ -579,7 +607,7 @@ IF (myid /= 0) THEN
 
   ! Handle case when no candidates found
   if (nCandidates == 0) then
-    if (bUseKVEL_Accel .and. allocated(ParticleVertexCache)) then
+    if (bUseKVEL_Accel .and. allocated(ParticleVertexCache) .and. (.not. bIdMismatch)) then
       ! Cache is populated but particle has no DOFs on this rank
       ! Pack zero forces for this particle
       iPointer = 6*(IP-1)
@@ -617,7 +645,11 @@ IF (myid /= 0) THEN
    ! element and reused for NJALFA/NIALFA and in the cubature loop below
    DO I=1,IDFL
      IG=KDFG(I)
-     LOWN(I) = longIdMatch(IG, theParticles(IP)%bytes)
+     IF (bUseIdx) THEN
+      LOWN(I) = (FictKNPR_IP(IG) == IP)
+     ELSE
+      LOWN(I) = longIdMatch(IG, theParticles(IP)%bytes)
+     END IF
      IF (LOWN(I)) THEN
       DALPHA_E(I) = 1d0
      ELSE

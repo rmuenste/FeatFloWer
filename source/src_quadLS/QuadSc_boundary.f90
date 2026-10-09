@@ -61,6 +61,7 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
   use fbm, only: fbm_updateFBMGeom, report_and_reset_hashgrid_stats, myFBM
 #ifdef HAVE_PE
   use dem_query, only: getTotalParticles, numTotalParticles, getAllParticles, tParticleData, longIdMatch
+  use dem_query, only: compareLongId, sortParticleIds, findParticleId
 #endif
   include 'mpif.h'
 
@@ -77,6 +78,9 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
   logical :: isSilent
 #ifdef HAVE_PE
   type(tParticleData), dimension(:), allocatable :: cacheParticles
+  integer, dimension(:), allocatable :: idPerm
+  integer :: ndofTot
+  logical :: bDuplicateIds
 #endif
 
   ! Modern Fortran timing variables
@@ -194,17 +198,23 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
       end if
 
     end do
-
     ! ============================================================================
     ! Build KVEL Vertex Cache for Force Acceleration
     ! ============================================================================
     ! In the PE path, FictKNPR(i) is 0/1 (fluid/solid), NOT the particle index.
-    ! The actual particle identity is in FictKNPR_uint64(i). We must use
-    ! longIdMatch(dof_idx, theParticles(IP)%bytes) to map DOFs to particles.
+    ! The actual particle identity is in FictKNPR_uint64(i). The DOF -> particle
+    ! map is built in O(N_DOF): sort the particle system ids once, then look up
+    ! FictKNPR_uint64(i) of every solid DOF by binary search. This gives the
+    ! dense local index FictKNPR_IP(i) (0 = fluid / no cached particle) in the
+    ! getAllParticles ordering that the force routine uses. One counting pass
+    ! and one fill pass then build ParticleVertexCache with the DOFs of each
+    ! particle in ascending DOF order (same lists as the former per-particle
+    ! longIdMatch scans).
     ! Serial PE mode only: the parallel PE force path (ForcesLocalParticles /
     ! ForcesRemoteParticles) never reads the cache.
     ! ============================================================================
 #if defined(HAVE_PE) && defined(ENABLE_FBM_ACCELERATION) && defined(PE_SERIAL_MODE)
+    bKVEL_IndexValid = .FALSE.
     numCacheParticles = numTotalParticles()
     if (bUseKVEL_Accel .and. numCacheParticles > 0) then
 
@@ -221,82 +231,71 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
         deallocate(ParticleVertexCache)
       end if
 
-      allocate(ParticleVertexCache(numCacheParticles))
-
-      ! Pass 1: Count DOFs per particle using longIdMatch
-      DO IP = 1, numCacheParticles
-        ParticleVertexCache(IP)%nVertices = 0
-        ParticleVertexCache(IP)%particleID = IP
-
-        DO i = 1, nvt
-          if (FictKNPR(i) /= 0 .and. longIdMatch(i, cacheParticles(IP)%bytes)) then
-            ParticleVertexCache(IP)%nVertices = ParticleVertexCache(IP)%nVertices + 1
-          end if
-        END DO
-
-        DO i = 1, net
-          if (FictKNPR(nvt + i) /= 0 .and. longIdMatch(nvt + i, cacheParticles(IP)%bytes)) then
-            ParticleVertexCache(IP)%nVertices = ParticleVertexCache(IP)%nVertices + 1
-          end if
-        END DO
-
-        DO i = 1, nat
-          if (FictKNPR(nvt + net + i) /= 0 .and. longIdMatch(nvt + net + i, cacheParticles(IP)%bytes)) then
-            ParticleVertexCache(IP)%nVertices = ParticleVertexCache(IP)%nVertices + 1
-          end if
-        END DO
-
-        DO i = 1, nel
-          if (FictKNPR(nvt + net + nat + i) /= 0 .and. longIdMatch(nvt + net + nat + i, cacheParticles(IP)%bytes)) then
-            ParticleVertexCache(IP)%nVertices = ParticleVertexCache(IP)%nVertices + 1
-          end if
-        END DO
-
-        if (ParticleVertexCache(IP)%nVertices > 0) then
-          allocate(ParticleVertexCache(IP)%dofIndices(ParticleVertexCache(IP)%nVertices))
+      ! Sort the particle ids; duplicate ids would make the map ambiguous
+      allocate(idPerm(numCacheParticles))
+      call sortParticleIds(cacheParticles, numCacheParticles, idPerm)
+      bDuplicateIds = .FALSE.
+      DO IP = 2, numCacheParticles
+        if (compareLongId(cacheParticles(idPerm(IP-1))%bytes, &
+                          cacheParticles(idPerm(IP))%bytes) == 0) then
+          bDuplicateIds = .TRUE.
         end if
       END DO
 
-      ! Pass 2: Fill DOF indices
-      DO IP = 1, numCacheParticles
-        if (ParticleVertexCache(IP)%nVertices == 0) cycle
-        k = 0
+      if (bDuplicateIds) then
+        ! Leave the cache unallocated: the force routine then integrates over
+        ! all elements with longIdMatch (brute-force fallback).
+        if (myid == 1) then
+          write(*,'(A)') 'KVEL: duplicate particle system ids, cache disabled'
+        end if
+      else
+        ndofTot = nvt + net + nat + nel
+        if (allocated(FictKNPR_IP)) then
+          if (size(FictKNPR_IP) /= ndofTot) deallocate(FictKNPR_IP)
+        end if
+        if (.not. allocated(FictKNPR_IP)) allocate(FictKNPR_IP(ndofTot))
 
-        DO i = 1, nvt
-          if (FictKNPR(i) /= 0 .and. longIdMatch(i, cacheParticles(IP)%bytes)) then
-            k = k + 1
+        allocate(ParticleVertexCache(numCacheParticles))
+        DO IP = 1, numCacheParticles
+          ParticleVertexCache(IP)%nVertices = 0
+          ParticleVertexCache(IP)%particleID = IP
+          ParticleVertexCache(IP)%longId%bytes = cacheParticles(IP)%bytes
+        END DO
+
+        ! Pass 1: dense particle index per DOF and DOF count per particle
+        DO i = 1, ndofTot
+          IP = 0
+          if (FictKNPR(i) /= 0) then
+            IP = findParticleId(FictKNPR_uint64(i)%bytes, cacheParticles, &
+                                idPerm, numCacheParticles)
+          end if
+          FictKNPR_IP(i) = IP
+          if (IP > 0) then
+            ParticleVertexCache(IP)%nVertices = ParticleVertexCache(IP)%nVertices + 1
+          end if
+        END DO
+
+        DO IP = 1, numCacheParticles
+          if (ParticleVertexCache(IP)%nVertices > 0) then
+            allocate(ParticleVertexCache(IP)%dofIndices(ParticleVertexCache(IP)%nVertices))
+          end if
+          ParticleVertexCache(IP)%nVertices = 0
+        END DO
+
+        ! Pass 2: fill DOF indices (ascending DOF order per particle)
+        DO i = 1, ndofTot
+          IP = FictKNPR_IP(i)
+          if (IP > 0) then
+            k = ParticleVertexCache(IP)%nVertices + 1
+            ParticleVertexCache(IP)%nVertices = k
             ParticleVertexCache(IP)%dofIndices(k) = i
           end if
         END DO
 
-        DO i = 1, net
-          if (FictKNPR(nvt + i) /= 0 .and. longIdMatch(nvt + i, cacheParticles(IP)%bytes)) then
-            k = k + 1
-            ParticleVertexCache(IP)%dofIndices(k) = nvt + i
-          end if
-        END DO
+        bKVEL_IndexValid = .TRUE.
+      end if
 
-        DO i = 1, nat
-          if (FictKNPR(nvt + net + i) /= 0 .and. longIdMatch(nvt + net + i, cacheParticles(IP)%bytes)) then
-            k = k + 1
-            ParticleVertexCache(IP)%dofIndices(k) = nvt + net + i
-          end if
-        END DO
-
-        DO i = 1, nel
-          if (FictKNPR(nvt + net + nat + i) /= 0 .and. longIdMatch(nvt + net + nat + i, cacheParticles(IP)%bytes)) then
-            k = k + 1
-            ParticleVertexCache(IP)%dofIndices(k) = nvt + net + nat + i
-          end if
-        END DO
-      END DO
-
-      ! Count local cached DOFs and reduce across all ranks
-      k = 0
-      DO IP = 1, numCacheParticles
-        k = k + ParticleVertexCache(IP)%nVertices
-      END DO
-
+      deallocate(idPerm)
       deallocate(cacheParticles)
     end if
 #endif
@@ -338,6 +337,32 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
         end if
       end if
     end if
+
+#if defined(HAVE_PE) && defined(PE_SERIAL_MODE)
+    ! Verify the dense index against the brute-force ownership test the force
+    ! routine would otherwise use: FictKNPR_IP(i) == IP <=> longIdMatch(i, id_IP)
+    ! (O(N_p * N_DOF), debug builds only; rank-local, no collectives)
+    if (bUseKVEL_Accel .and. bKVEL_IndexValid .and. allocated(ParticleVertexCache)) then
+      k = 0
+      do IP = 1, size(ParticleVertexCache)
+        do i = 1, nvt+net+nat+nel
+          if (longIdMatch(i, ParticleVertexCache(IP)%longId%bytes) .neqv. &
+              (FictKNPR_IP(i) == IP)) then
+            k = k + 1
+          end if
+        end do
+      end do
+
+      if (myid == 1) then
+        if (k == 0) then
+          write(*,'(A)') 'DEBUG_FBM: Index verification PASSED - FictKNPR_IP matches longIdMatch'
+        else
+          write(*,'(A,I0,A)') 'DEBUG_FBM: Index verification FAILED - ', k, &
+            ' mismatches between FictKNPR_IP and longIdMatch'
+        end if
+      end if
+    end if
+#endif
 #endif
 
   end if ! myid /= 0
