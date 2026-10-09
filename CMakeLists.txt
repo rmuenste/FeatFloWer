@@ -251,17 +251,23 @@ option(SED_BENCH
   OFF
 )
 
-option(ENABLE_FBM_ACCELERATION
+# FBM acceleration (HashGrid alpha + KVEL force) defaults to ON whenever PE is
+# enabled and can still be switched OFF explicitly (pure brute-force baseline).
+# With USE_PE=OFF it is always OFF: cmake_dependent_option shadows it with a
+# normal OFF variable and hides (but keeps) any cached value, so turning PE on
+# later picks up the cached value or, in a fresh tree, the ON default.
+# NOTE: build trees configured before the default changed keep their cached
+# ENABLE_FBM_ACCELERATION=OFF; see the status message below.
+cmake_dependent_option(
+  ENABLE_FBM_ACCELERATION
   "Enable FBM acceleration techniques (HashGrid alpha + KVEL force). Requires USE_PE."
-  OFF
+  ON               # Default when USE_PE=ON
+  "USE_PE"         # Only available with PE
+  OFF              # Value when USE_PE=OFF
 )
 
-if(NOT USE_PE AND ENABLE_FBM_ACCELERATION)
-  message(STATUS "ENABLE_FBM_ACCELERATION requested with USE_PE=OFF; forcing ENABLE_FBM_ACCELERATION=OFF.")
-  set(ENABLE_FBM_ACCELERATION OFF CACHE BOOL
-    "Enable FBM acceleration techniques (HashGrid alpha + KVEL force). Requires USE_PE."
-    FORCE
-  )
+if(NOT USE_PE AND "$CACHE{ENABLE_FBM_ACCELERATION}")
+  message(STATUS "ENABLE_FBM_ACCELERATION requested with USE_PE=OFF; using ENABLE_FBM_ACCELERATION=OFF.")
 endif()
 
 
@@ -695,11 +701,13 @@ endif()
 if(ENABLE_FBM_ACCELERATION)
   add_definitions(-DENABLE_FBM_ACCELERATION)
   message(STATUS "FBM acceleration enabled (HashGrid + KVEL). Control at runtime via q2p1_param.dat")
-else()
+elseif(USE_PE)
   message(STATUS "==============================================")
   message(STATUS "FBM ACCELERATION DISABLED")
   message(STATUS "  - Pure baseline (brute-force) build")
   message(STATUS "  - For correctness verification only")
+  message(STATUS "  - Default is ON with USE_PE=ON; an older build tree keeps a")
+  message(STATUS "    cached OFF. Use -DENABLE_FBM_ACCELERATION=ON to enable.")
   message(STATUS "==============================================")
 endif()
 

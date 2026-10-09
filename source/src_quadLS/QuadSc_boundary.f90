@@ -201,8 +201,10 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
     ! In the PE path, FictKNPR(i) is 0/1 (fluid/solid), NOT the particle index.
     ! The actual particle identity is in FictKNPR_uint64(i). We must use
     ! longIdMatch(dof_idx, theParticles(IP)%bytes) to map DOFs to particles.
+    ! Serial PE mode only: the parallel PE force path (ForcesLocalParticles /
+    ! ForcesRemoteParticles) never reads the cache.
     ! ============================================================================
-#if defined(HAVE_PE) && defined(ENABLE_FBM_ACCELERATION)
+#if defined(HAVE_PE) && defined(ENABLE_FBM_ACCELERATION) && defined(PE_SERIAL_MODE)
     numCacheParticles = numTotalParticles()
     if (bUseKVEL_Accel .and. numCacheParticles > 0) then
 

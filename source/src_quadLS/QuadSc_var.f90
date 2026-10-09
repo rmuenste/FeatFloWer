@@ -363,7 +363,16 @@ MODULE var_QuadScalar
   TYPE(tVertexCache), ALLOCATABLE :: ParticleVertexCache(:)
 
   ! Runtime acceleration control flags (read from q2p1_param.dat)
+  ! The HashGrid alpha query defaults to ON only in serial PE mode. In parallel
+  ! PE mode shadow copies created by the last PE synchronize() wait in PE's
+  ! HashGrids bodiesToAdd_ list until the next findContacts() and are invisible
+  ! to the accelerated query, so the baseline linear search is the default
+  ! there (opt-in: SimPar@UseHashGridAccel = Yes). See fbm_acceleration_usage.md.
+#ifdef PE_SERIAL_MODE
   LOGICAL :: bUseHashGridAccel = .TRUE.
+#else
+  LOGICAL :: bUseHashGridAccel = .FALSE.
+#endif
   LOGICAL :: bUseKVEL_Accel = .TRUE.
 
   ! Statistics for performance monitoring
