@@ -36,7 +36,9 @@ The retained replacements are:
 ## Corrected Information
 
 - Documented that `ENABLE_FBM_ACCELERATION` defaults to `OFF` and must be
-  enabled explicitly.
+  enabled explicitly. Superseded (2026-10-09): it now defaults to `ON` with
+  `USE_PE=ON` (forced `OFF` with `USE_PE=OFF`); the FBM acceleration notes,
+  `build_guide.md` and Guides 02-07 were updated accordingly.
 - Reconciled Guide 05 with the repository's active CTest support.
 - Listed both included `featflower-test` definitions.
 - Corrected the Guide 01 baseline path in its documentation and YAML

@@ -25,8 +25,9 @@ For this application family, these options are essential:
 
 Important dependency rule:
 
-- `ENABLE_FBM_ACCELERATION` depends on PE/HashGrid integration.
-- In current build logic, if `USE_PE=OFF`, FBM acceleration is forced/stays `OFF`.
+- `ENABLE_FBM_ACCELERATION` depends on PE/HashGrid integration (it defaults to `ON` only when `USE_PE=ON`).
+- In current build logic, if `USE_PE=OFF`, FBM acceleration is always `OFF`; passing
+  `-DENABLE_FBM_ACCELERATION=OFF` is redundant but harmless.
 
 ---
 
@@ -226,13 +227,14 @@ cmake -S . -B build-sse-make-mod -G "Unix Makefiles" \
 Recommended validation:
 
 ```bash
-rg -n "ENABLE_FBM_ACCELERATION:BOOL|USE_CGAL:BOOL|USE_CGAL_LOCAL:BOOL|USE_HYPRE:BOOL|USE_PE:BOOL" \
+rg -n "ENABLE_FBM_ACCELERATION:|USE_CGAL:BOOL|USE_CGAL_LOCAL:BOOL|USE_HYPRE:BOOL|USE_PE:BOOL" \
   build-sse-ninja-mod/CMakeCache.txt
 ```
 
 Expected values:
 
-- `ENABLE_FBM_ACCELERATION:BOOL=OFF`
+- `ENABLE_FBM_ACCELERATION:INTERNAL=OFF` (with `USE_PE=OFF` the option is hidden; the
+  line is absent if the flag was never passed; the effective value is `OFF` either way)
 - `USE_CGAL:BOOL=ON`
 - `USE_CGAL_LOCAL:BOOL=ON` (when using the local-CGAL recipe above)
 - `USE_HYPRE:BOOL=ON`

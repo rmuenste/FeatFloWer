@@ -234,9 +234,11 @@ By default, applications are built. This requires the `FullC0ntact` subdirectory
     cmake -DUSE_SYSTEM_BLASLAPACK=ON ..
     ```
 
-## 6. Acceleration Techniques (PE Serial Mode)
+## 6. Acceleration Techniques (FBM + PE)
 
-When using PE serial mode (`USE_PE=ON` + `USE_PE_SERIAL_MODE=ON`), two independent acceleration layers reduce the cost of the FBM coupling each timestep.
+Two independent acceleration layers reduce the cost of the FBM coupling each timestep. Both are compiled with `ENABLE_FBM_ACCELERATION`, which is **ON by default whenever `USE_PE=ON`** and always OFF with `USE_PE=OFF`. They are fully active in PE serial mode (`USE_PE=ON` + `USE_PE_SERIAL_MODE=ON`); in parallel PE mode see the notes in 6.2 and 6.3.
+
+**Existing build trees** keep their cached value: a tree configured before the default changed still has `ENABLE_FBM_ACCELERATION:BOOL=OFF` (CMake prints a hint). Reconfigure with `-DENABLE_FBM_ACCELERATION=ON` or start a fresh build directory.
 
 ### 6.1. Runtime Control via Parameter File
 
@@ -247,7 +249,7 @@ SimPar@UseHashGridAccel = Yes
 SimPar@UseKVELAccel = Yes
 ```
 
-Default values (when not specified): both `Yes` (enabled).
+Default values (when not specified): `UseKVELAccel = Yes`; `UseHashGridAccel = Yes` in PE serial builds and `No` in parallel PE builds.
 
 To disable an acceleration for testing, set to `No`:
 ```
@@ -263,18 +265,21 @@ The FBM geometry query `fbm_getFictKnprFC2` — which classifies every mesh DOF 
 *   On timestep 1 the brute-force baseline (`verifyAllParticles`) is used because the HashGrid is not yet built.
 *   From timestep 2 onwards, `checkAllParticles` (HashGrid lookup) is called if enabled.
 *   To verify correctness, build with `-DPE_VERIFY_HASHGRID=ON`, which runs both paths in parallel and reports any mismatches (at significant cost).
+*   **Parallel PE mode:** off by default. Shadow copies created by the last PE `synchronize()` are not yet in PE's HashGrid (they wait in `bodiesToAdd_` until the next `findContacts()`), so the accelerated query misses them for one fluid step. Opt in with `SimPar@UseHashGridAccel = Yes` only after verification.
+*   **Known limitations (all modes):** bodies added between PE steps are invisible until the next PE step; bodies hashed before integration can be missed if they moved far relative to their grid cell span. Details: `docs/md_docs/fbm_acceleration_usage.md`.
 
 ### 6.3. Force Integration Acceleration (KVEL/KEEL/KAAL candidate elements)
 
 The hydrodynamic force integral over boundary elements is accelerated by restricting the element loop to a candidate set: only elements topologically adjacent to DOFs inside the particle.
 
 *   **Runtime control:** `SimPar@UseKVELAccel` in `q2p1_param.dat`
-*   When disabled, the full brute-force element loop is used — identical physics, useful for correctness comparison.
+*   When disabled, the full brute-force element loop is used — same boundary elements, different summation order (results agree to round-off), useful for correctness comparison.
 *   Can achieve 10,000x+ reduction in element evaluations for many-particle systems.
+*   PE serial mode only: the parallel PE force path always loops over all elements, and the KVEL cache is not built there.
 
 ### 6.4. Pure Baseline Builds (Compile-Time Disable)
 
-For final correctness verification, you can compile out all acceleration code:
+For final correctness verification, you can compile out all acceleration code (it is ON by default with `USE_PE=ON`, so it must be switched off explicitly):
 
 ```bash
 cmake -DUSE_PE=ON -DUSE_PE_SERIAL_MODE=ON -DENABLE_FBM_ACCELERATION=OFF ..
@@ -287,14 +292,15 @@ This produces a pure brute-force binary where the acceleration code paths are ne
 
 | Layer | Runtime Control | Compile-Time Control | Default (runtime) | Default (compile) |
 |---|---|---|---|---|
-| Alpha / HashGrid | `SimPar@UseHashGridAccel` | `-DENABLE_FBM_ACCELERATION` | ON | ON |
-| Force / KVEL | `SimPar@UseKVELAccel` | `-DENABLE_FBM_ACCELERATION` | ON | ON |
+| Alpha / HashGrid | `SimPar@UseHashGridAccel` | `-DENABLE_FBM_ACCELERATION` | ON (serial PE), OFF (parallel PE) | ON with `USE_PE=ON` |
+| Force / KVEL | `SimPar@UseKVELAccel` | `-DENABLE_FBM_ACCELERATION` | ON (serial PE only) | ON with `USE_PE=ON` |
 | HashGrid verification | N/A (debug only) | `-DPE_VERIFY_HASHGRID=ON` | N/A | OFF |
+| KVEL vs brute-force debug | N/A (debug only) | `-DDEBUG_FBM_OPTIMIZATION=ON` | N/A | OFF |
 
-**Required CMake flags:** `-DUSE_PE=ON -DUSE_PE_SERIAL_MODE=ON`
+**Required CMake flags:** `-DUSE_PE=ON -DUSE_PE_SERIAL_MODE=ON` (no extra flag needed for the accelerations)
 
 **Recommended testing workflow:**
-1. Build with `-DENABLE_FBM_ACCELERATION=ON` (default)
+1. Build with `-DENABLE_FBM_ACCELERATION=ON` (default with `USE_PE=ON`)
 2. Run with both flags `Yes` (accelerated)
 3. Run with both flags `No` (brute-force, same binary)
 4. Compare results to verify correctness

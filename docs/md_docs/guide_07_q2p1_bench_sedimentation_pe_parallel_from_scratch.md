@@ -161,6 +161,10 @@ Expected configure banner:
 - `SED_BENCH: sedimentation benchmark output enabled`
 - `nlohmann/json will be downloaded to: ...`
 - **no** `PE SERIAL MODE ENABLED` line
+- `FBM acceleration enabled (HashGrid + KVEL). ...` (`ENABLE_FBM_ACCELERATION` defaults to
+  `ON` with `USE_PE=ON`; in parallel PE mode this changes nothing at runtime by default: the
+  KVEL cache is serial-only and `SimPar@UseHashGridAccel` defaults to `No`, see
+  `fbm_acceleration_usage.md`)
 
 Verify the cache:
 

@@ -46,6 +46,13 @@ make -j8
 - **`PE_VERIFY_HASHGRID=ON`** - Enable runtime verification
 - **`PE_VERIFY_HASHGRID=OFF`** - Disable verification (default, for production runs)
 
+In a FeatFloWer build, `ENABLE_FBM_ACCELERATION` (default `ON` with `USE_PE=ON`)
+forces `PE_USE_ACCELERATED_POINT_QUERY=ON`. The accelerated query is only
+called when `SimPar@UseHashGridAccel = Yes`, which is the default in serial PE
+mode and **not** in parallel PE mode (set it explicitly there to verify; see
+the parallel-mode reason and the known limitations in
+`fbm_acceleration_usage.md`). Verification so far covers serial PE runs only.
+
 ## Output Format
 
 ### Immediate Mismatch Detection
@@ -207,6 +214,8 @@ cmake -DPE_USE_ACCELERATED_POINT_QUERY=ON -DPE_VERIFY_HASHGRID=ON ..
 1. Verification not enabled during build
 2. No particles in simulation
 3. No point queries being executed
+4. Parallel PE build without `SimPar@UseHashGridAccel = Yes` (the HashGrid
+   query is off by default there)
 
 **Check:**
 ```bash

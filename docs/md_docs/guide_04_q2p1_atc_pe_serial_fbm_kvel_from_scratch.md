@@ -8,7 +8,8 @@ It documents the exact configuration that was validated for `q2p1_ATC`:
 - `-DPE_USE_JSON=ON`
 - `-DUSE_CGAL=ON`
 - `-DPE_USE_EIGEN=ON`
-- `-DENABLE_FBM_ACCELERATION=ON` (HashGrid + KVEL force acceleration)
+- `-DENABLE_FBM_ACCELERATION=ON` (HashGrid + KVEL force acceleration; the default with
+  `USE_PE=ON`, kept explicit here so older build trees with a cached `OFF` are switched on)
 
 ## 1) Environment Setup (GCC 13 validated stack)
 
@@ -177,6 +178,8 @@ Expected values:
 ## 6) Notes About FBM/KVEL Acceleration
 
 `-DENABLE_FBM_ACCELERATION=ON` enables compile-time acceleration code paths (HashGrid alpha + KVEL force).
+It is the default whenever `USE_PE=ON`; pass `-DENABLE_FBM_ACCELERATION=OFF` for a pure brute-force baseline.
+See `fbm_acceleration_usage.md` for runtime defaults and known limitations.
 Runtime behavior is controlled via the application parameter file (`q2p1_param.dat`), as indicated by configure output.
 
 ## 7) Known Warnings Seen in This Configuration

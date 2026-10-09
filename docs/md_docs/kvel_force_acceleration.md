@@ -13,6 +13,12 @@ set**: only elements that are topologically adjacent to DOFs known to be inside
 the particle are tested. This reduces the work from O(NEL × N_particles) to
 O(N_boundary_elements × N_particles).
 
+The KVEL code is compiled with `ENABLE_FBM_ACCELERATION`, which is **ON by
+default** whenever `USE_PE=ON` (see `fbm_acceleration_usage.md`). It is used
+only in **serial PE mode** (`USE_PE_SERIAL_MODE=ON`): the parallel PE force path
+(`ForcesLocalParticles` / `ForcesRemoteParticles`) integrates over all elements
+and does not read the cache, so the cache is not built there.
+
 ---
 
 ## Key Data Structures
@@ -62,16 +68,31 @@ TYPE tVertexCache
   INTEGER :: nVertices
   INTEGER, ALLOCATABLE :: dofIndices(:)
   INTEGER :: particleID
+  TYPE(tUint64) :: longId          ! PE system id of particle IP at build time
 END TYPE tVertexCache
 
 TYPE(tVertexCache), ALLOCATABLE :: ParticleVertexCache(:)
 ```
 
 Allocated as `ParticleVertexCache(1:N_particles)`. For each particle it holds
-the list of local DOF indices (corner vertices nvt, edge midpoints net, face
-midpoints nat) that are inside that particle. This allows the force routine to
-look up "which DOFs belong to particle IP" in O(1) rather than scanning the
-full DOF array.
+the list of local DOF indices (corner vertices, edge midpoints, face midpoints
+and element centres, in ascending DOF order) that are inside that particle.
+This allows the force routine to look up "which DOFs belong to particle IP"
+in O(1) rather than scanning the full DOF array.
+
+### `FictKNPR_IP` — Dense Local Particle Index per DOF
+
+```fortran
+INTEGER, ALLOCATABLE :: FictKNPR_IP(:)   ! (var_QuadScalar)
+LOGICAL :: bKVEL_IndexValid
+```
+
+Built together with the cache: `FictKNPR_IP(i) = IP` if `FictKNPR_uint64(i)`
+holds the system id of particle `IP` in the `getAllParticles()` ordering,
+`0` otherwise (fluid DOF, or a body that is not in the particle list, e.g. a
+box). `bKVEL_IndexValid` is `.TRUE.` only after a successful build in the
+current timestep. `FictKNPR` and `FictKNPR_uint64` are not modified; all
+other consumers (boundary conditions, output, `dem_query`) keep using them.
 
 ---
 
@@ -100,19 +121,29 @@ compares `FictKNPR_uint64(idx)%bytes` against `longFictId` byte-by-byte.
 This is the canonical way to ask "does DOF `idx` belong to the particle
 identified by `longFictId`?".
 
-**Usage in the force routine:** the element boundary check at each cubature
-point uses:
+**Usage in the force routine:** `ForcesLocalParticlesSerial_KVEL` evaluates
+the ownership of each local DOF of an element once per element and reuses it
+for the boundary-element test (`NJALFA`/`NIALFA`) and for the alpha gradient
+in the cubature loop:
 
 ```fortran
-IF (longIdMatch(IG, theParticles(IP)%bytes)) THEN
-  DALPHA = 1d0
-ELSE
-  DALPHA = 0d0
-END IF
+DO I=1,IDFL
+  IG=KDFG(I)
+  IF (bUseIdx) THEN
+   LOWN(I) = (FictKNPR_IP(IG) == IP)        ! integer compare (dense index)
+  ELSE
+   LOWN(I) = longIdMatch(IG, theParticles(IP)%bytes)
+  END IF
+  ...  DALPHA_E(I) = 1d0 or 0d0
+ENDDO
 ```
 
 where `theParticles(IP)%bytes` is the 8 × c_short representation of the PE
-system ID for particle `IP`, obtained via `getAllParticles()`.
+system ID for particle `IP`, obtained via `getAllParticles()`. `bUseIdx` is set
+per particle only if the index is valid and `ParticleVertexCache(IP)%longId`
+still equals `theParticles(IP)%bytes`; in that case the integer compare is
+exactly equivalent to `longIdMatch`. The brute-force reference
+`ForcesLocalParticlesSerial_Standard` keeps calling `longIdMatch` directly.
 
 ---
 
@@ -126,14 +157,16 @@ therefore use `FictKNPR(i) == IP` directly.
 The PE path (`QuadScalar_FictKnpr` with `fbm_getFictKnprFC2`) only sets
 `FictKNPR(dof) = 1` for any inside DOF — there is no particle-index
 discrimination in the integer flag. All particle identity information lives
-in `FictKNPR_uint64`. The cache must therefore use `longIdMatch`:
+in `FictKNPR_uint64`. The cache must therefore be keyed by the system id
+(`longIdMatch` semantics), which is what the dense index `FictKNPR_IP` encodes:
 
 ```fortran
 ! WRONG for PE path:
 if (FictKNPR(i) == IP) then ...
 
-! CORRECT for PE path:
+! CORRECT for PE path (equivalent forms):
 if (FictKNPR(i) /= 0 .and. longIdMatch(i, cacheParticles(IP)%bytes)) then ...
+if (FictKNPR_IP(i) == IP) then ...
 ```
 
 ---
@@ -141,22 +174,33 @@ if (FictKNPR(i) /= 0 .and. longIdMatch(i, cacheParticles(IP)%bytes)) then ...
 ## Cache Building (`QuadScalar_FictKnpr`)
 
 The cache is rebuilt each timestep immediately after the alpha field computation
-loop, inside `if (myid /= 0)` (i.e. on all worker ranks). Steps:
+loop, inside `if (myid /= 0)` (i.e. on all worker ranks), when
+`bUseKVEL_Accel` is set and there are particles. The work is O(N_DOF)
+(plus O(N_solid · log N_p) for the lookups) instead of the former
+2 · N_p · N_DOF `longIdMatch` scans. Steps:
 
 1. **Get particle list** via `numTotalParticles()` + `getAllParticles()` —
-   same ordering as `ForcesLocalParticlesSerial` will use later.
-2. **Allocate** `ParticleVertexCache(1:numCacheParticles)`.
-3. **Pass 1 — count:** for each particle `IP`, scan all corner, edge and face
-   DOFs. For each DOF where `FictKNPR(i) /= 0 .and. longIdMatch(i, cacheParticles(IP)%bytes)`,
-   increment `nVertices`. Then allocate `dofIndices(nVertices)`.
-4. **Pass 2 — fill:** repeat the scan and store the DOF indices.
-
-The `FictKNPR(i) /= 0` pre-check is a cheap early-out; `longIdMatch` is only
-called for DOFs that are inside *any* particle.
+   same ordering as `ForcesLocalParticlesSerial` will use later (no PE step
+   happens between classification and the force computation).
+2. **Sort the particle ids** (`sortParticleIds`, merge sort over the 8 shorts,
+   `dem_query.f90`). If two particles share an id the cache is left
+   unallocated and the force routine falls back to all elements.
+3. **Pass 1 — index and count:** for every DOF with `FictKNPR(i) /= 0`, find
+   `FictKNPR_uint64(i)` by binary search (`findParticleId`) and store the
+   result in `FictKNPR_IP(i)`; count the DOFs per particle. Then allocate
+   `dofIndices(nVertices)`.
+4. **Pass 2 — fill:** one more pass over the DOFs in ascending order appends
+   each solid DOF to its particle's list. The lists are identical (content
+   and order) to the former per-particle scans.
 
 Location: `source/src_quadLS/QuadSc_boundary.f90`, subroutine
 `QuadScalar_FictKnpr`, after the totalInside counting loop (inside
-`#ifdef HAVE_PE`).
+`#if defined(HAVE_PE) && defined(ENABLE_FBM_ACCELERATION) && defined(PE_SERIAL_MODE)`).
+
+With `DEBUG_FBM_OPTIMIZATION`, the routine additionally checks
+`FictKNPR_IP(i) == IP` against `longIdMatch(i, id_IP)` for every DOF and
+particle (O(N_p · N_DOF), debug builds only) and prints
+`DEBUG_FBM: Index verification PASSED/FAILED`.
 
 ---
 
@@ -173,38 +217,54 @@ cache using the mesh connectivity arrays:
 
 A boolean flag array `bCandidateElement(NEL)` prevents duplicates. The result
 is `CandidateList(1:nCandidates)` containing only elements touching the
-particle surface.
+particle surface. Both arrays are allocated once per call; after each
+particle only the flags listed in `CandidateList` are reset.
 
-If `nCandidates == 0` (particle not on this subdomain), all elements are used
-as fallback — this is correct since such ranks have no inside DOFs and the
-element loop will skip everything via the `NJALFA == 27` check anyway.
+If `nCandidates == 0`:
 
-Location: `source/src_quadLS/QuadSc_force_serial.f90`, lines ~201–269.
+- **cache populated** (the normal case): the particle has no inside DOFs on
+  this rank; the rank contributes zero force for it and skips to the next
+  particle (`cycle`), without touching any element.
+- **no cache** (`bUseKVEL_Accel = .FALSE.` at build time, duplicate ids, or the
+  particle ordering changed since the cache was built): all elements are used
+  as candidates, i.e. the brute-force loop.
+
+**Known limitation:** element-centre DOFs (`ivt > NVT+NET+NAT`) are cached but
+not mapped to candidate elements. An element whose *only* inside DOF is its
+centre is therefore skipped by KVEL while `ForcesLocalParticlesSerial_Standard`
+integrates it. This is rare for resolved particles but means KVEL and Standard
+can differ by more than round-off in such configurations.
+
+Location: `source/src_quadLS/QuadSc_force_serial.f90`, subroutine
+`ForcesLocalParticlesSerial_KVEL`.
 
 ---
 
 ## MPI Reporting
 
-Because the print `if (myid == 1)` only shows rank 1's local cache (which may
-be empty if the particle is in a different subdomain), the cache count and force
-stats are aggregated across ranks:
+The cache build itself uses no MPI communication (`QuadScalar_FictKnpr` is
+reached with rank-asymmetric control flow; see the deadlock note there), and
+the cache size is not reported. The candidate statistics are aggregated:
 
-- **Cache size:** `MPI_Reduce(k, reducedVal, 1, MPI_INT, MPI_SUM, 0, ...)` in
-  `QuadScalar_FictKnpr` after `end if ! myid /= 0`. Printed by rank 0.
 - **Candidate elements:** `COMM_SUMMN` on `myKVEL_Stats%nCandidateElements`
-  after `ForcesLocalParticlesSerial` returns. Printed by rank 0.
+  inside `ForcesLocalParticlesSerial_KVEL`. Printed by rank 0 as
+  `KVEL: <candidates> candidates vs <NEL*N_p> brute-force (<ratio>x speedup)`.
 
 ---
 
 ## Runtime Control
 
 ```fortran
-LOGICAL :: bUseKVEL_Accel = .FALSE.   ! source/src_quadLS/QuadSc_var.f90
+LOGICAL :: bUseKVEL_Accel = .TRUE.   ! source/src_quadLS/QuadSc_var.f90
 ```
 
-Set to `.TRUE.` to enable the optimization. When `.FALSE.` the candidate
-building block is skipped and the force loop falls through to the full
-element scan — identical physics, useful for correctness comparison.
+Set from `SimPar@UseKVELAccel = Yes|No` in `q2p1_param.dat` (default `Yes`).
+When `No`, no cache is built and `ForcesLocalParticlesSerial` calls the
+brute-force `ForcesLocalParticlesSerial_Standard`. Both variants integrate the
+same boundary elements (up to the element-centre limitation above), but in a
+different element order, so the forces agree to round-off, not bitwise.
+With `DEBUG_FBM_OPTIMIZATION=ON` both variants run every step and are
+compared (tolerance 1e-10); the Standard result is used.
 
 ---
 
@@ -218,9 +278,9 @@ QuadScalar_FictKnpr (each timestep)
   │         ├─ sets FictKNPR(i) = 0 (fluid) or 1 (solid)
   │         └─ sets FictKNPR_uint64(i)%bytes = PE system ID (or -1 if fluid)
   │
-  └─ [HAVE_PE] Build ParticleVertexCache
+  └─ [serial PE + ENABLE_FBM_ACCELERATION] Build ParticleVertexCache
        ├─ getAllParticles(cacheParticles)       ← same order as force routine
-       ├─ for each particle: longIdMatch(i, cacheParticles(IP)%bytes)
+       ├─ sort ids, binary search per solid DOF → FictKNPR_IP(i)
        └─ ParticleVertexCache(IP)%dofIndices(:) = inside DOFs for particle IP
 
 ForcesLocalParticlesSerial (each timestep)
@@ -228,8 +288,11 @@ ForcesLocalParticlesSerial (each timestep)
   ├─ getAllParticles(theParticles)              ← same order as cache
   │
   └─ for each particle IP:
+       ├─ check ParticleVertexCache(IP)%longId == theParticles(IP)%bytes
        ├─ use ParticleVertexCache(IP)%dofIndices to look up inside DOFs
        ├─ use kvel/keel/kaal to find adjacent candidate elements
-       └─ integrate force only over candidate elements
-            (full element scan if cache is empty on this rank)
+       └─ integrate force only over candidate elements, ownership via
+            FictKNPR_IP(IG) == IP
+            (zero force if the particle has no DOFs on this rank;
+             full element scan with longIdMatch if there is no usable cache)
 ```

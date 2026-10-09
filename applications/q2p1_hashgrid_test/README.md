@@ -33,10 +33,17 @@ cd build_test_baseline
 cmake -DCMAKE_BUILD_TYPE=Release \
       -DUSE_PE=ON \
       -DUSE_PE_SERIAL_MODE=ON \
+      -DENABLE_FBM_ACCELERATION=OFF \
       -DPE_USE_ACCELERATED_POINT_QUERY=OFF \
       -DBUILD_APPLICATIONS=ON \
       ..
+```
 
+`-DENABLE_FBM_ACCELERATION=OFF` is required here: the option defaults to `ON` with
+`USE_PE=ON` and then forces `PE_USE_ACCELERATED_POINT_QUERY=ON`. In an existing build
+directory the forced cache value persists, so use a fresh directory for the baseline.
+
+```bash
 make -j8 q2p1_hashgrid_test
 ```
 

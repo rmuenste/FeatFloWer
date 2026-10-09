@@ -157,7 +157,7 @@ FeatFloWer supports three modes for rigid body physics, configured at build time
 **Implementation details:**
 - Preprocessor flag: `-DPE_SERIAL_MODE`
 - Forces still synchronized via `COMM_SUMMN` in CFD layer
-- Alpha field computation checks all particles (efficient for small counts)
+- Alpha field computation checks all particles (efficient for small counts); `ENABLE_FBM_ACCELERATION` (default ON with `USE_PE=ON`) adds HashGrid alpha + KVEL force acceleration, see `docs/md_docs/fbm_acceleration_usage.md`
 - Deterministic serial PE ensures consistency across domains
 
 ## Development Workflow

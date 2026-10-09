@@ -106,6 +106,14 @@ The configure banner should show:
 - `SED_BENCH is ON`
 - `nlohmann/json will be downloaded to: ...`
 - `Found MPI_C`, `Found MPI_CXX`, `Found MPI_Fortran`
+- `FBM acceleration enabled (HashGrid + KVEL). Control at runtime via q2p1_param.dat`
+
+`ENABLE_FBM_ACCELERATION` is `ON` by default with `USE_PE=ON`, so this build uses the
+HashGrid alpha query and the KVEL force integration. Results agree with the brute-force
+path to round-off, not bitwise. To reproduce a pre-default (brute-force) binary add
+`-DENABLE_FBM_ACCELERATION=OFF`, or keep the binary and set
+`SimPar@UseHashGridAccel = No` / `SimPar@UseKVELAccel = No` in `q2p1_param.dat`
+(see `fbm_acceleration_usage.md`).
 
 **Agent/automation example:**
 
