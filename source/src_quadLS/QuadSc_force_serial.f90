@@ -491,6 +491,16 @@ IF (myid /= 0) THEN
   end if
 
   !========================================================================
+  ! Candidate element work arrays: allocated once per call. After each
+  ! particle only the entries listed in CandidateList are reset.
+  !========================================================================
+  if (allocated(bCandidateElement)) deallocate(bCandidateElement)
+  if (allocated(CandidateList)) deallocate(CandidateList)
+  allocate(bCandidateElement(NEL))
+  allocate(CandidateList(NEL))
+  bCandidateElement = .FALSE.
+
+  !========================================================================
   ! MAIN PARTICLE LOOP
   !========================================================================
   DO IP = 1,numParticles
@@ -513,10 +523,6 @@ IF (myid /= 0) THEN
   !========================================================================
   ! Build KVEL Candidate Element Set
   !========================================================================
-  allocate(bCandidateElement(NEL))
-  allocate(CandidateList(NEL))
-
-  bCandidateElement = .FALSE.
   nCandidates = 0
 
 #ifdef ENABLE_FBM_ACCELERATION
@@ -575,8 +581,6 @@ IF (myid /= 0) THEN
   if (nCandidates == 0) then
     if (bUseKVEL_Accel .and. allocated(ParticleVertexCache)) then
       ! Cache is populated but particle has no DOFs on this rank
-      deallocate(bCandidateElement)
-      deallocate(CandidateList)
       ! Pack zero forces for this particle
       iPointer = 6*(IP-1)
       forceArray(iPointer+1) = 0.0d0
@@ -784,9 +788,10 @@ IF (myid /= 0) THEN
 
   end do ! candidate elements
 
-  ! Cleanup candidate lists
-  deallocate(bCandidateElement)
-  deallocate(CandidateList)
+  ! Reset only the candidate flags set for this particle
+  DO iCand = 1, nCandidates
+    bCandidateElement(CandidateList(iCand)) = .FALSE.
+  END DO
 
   !========================================================================
   ! Post-processing
@@ -814,6 +819,9 @@ IF (myid /= 0) THEN
   forceArray(iPointer+6) = DTrqForceZ
 
   END DO ! particles
+
+  deallocate(bCandidateElement)
+  deallocate(CandidateList)
 
 END IF ! myid /= 0
 
