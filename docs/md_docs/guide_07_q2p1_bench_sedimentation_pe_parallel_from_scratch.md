@@ -146,6 +146,7 @@ cmake -S . -B build-pe-parallel -G Ninja \
   -DPE_USE_JSON=ON \
   -DSED_BENCH=ON \
   -DPE_VERIFY_HASHGRID=OFF \
+  "-DCMAKE_CXX_FLAGS=-Dpe_CONSTRAINT_SOLVER=pe::response::HardContactAndFluid" \
   -DCMAKE_C_COMPILER=mpicc \
   -DCMAKE_CXX_COMPILER=mpicxx \
   -DCMAKE_Fortran_COMPILER=mpifort
@@ -154,6 +155,13 @@ cmake -S . -B build-pe-parallel -G Ninja \
 **The critical difference from Guide 02: there is no `-DUSE_PE_SERIAL_MODE=ON`.** Everything
 else is the same. `-DPE_USE_JSON=ON` remains **mandatory** — the processor grid is read from
 `example.json`, and without JSON support it silently stays at its default.
+
+The solver flag is required here exactly as in Guide 02: FBM-coupled particles need
+`pe_CONSTRAINT_SOLVER=pe::response::HardContactAndFluid` (HCAF) in `CMAKE_CXX_FLAGS`. pe's
+default, `HardContactEulerLagrange`, discards the FBM forces, so the sphere stays motionless
+with no error message (see `dns_practitioners_guide.md`, section 1). Check with
+`grep -c "pe_CONSTRAINT_SOLVER=pe::response::HardContactAndFluid" build-pe-parallel/build.ninja`
+(expected: a count > 0).
 
 Expected configure banner:
 
@@ -528,6 +536,14 @@ Regression criterion: **terminal velocity within ~0.1% of the serial reference.*
 - **Fix:** ensure `pz` divides the z element-layer count (36 here) and that the mesh was cut
   uniformly on the bounding box in ascending z. Re-run the section 6c cover check.
 
+**Issue:** The sphere does not move; its velocity (`Velocity:` / `DNS_PART_STATE`) and force stay
+exactly zero
+- **Cause:** PE built with its default solver `HardContactEulerLagrange`, which discards the FBM
+  forces; nothing fails or warns
+- **Fix:** reconfigure with
+  `-DCMAKE_CXX_FLAGS=-Dpe_CONSTRAINT_SOLVER=pe::response::HardContactAndFluid` and rebuild
+  (section 4)
+
 **Issue:** `grep SED_BENCH_VEL` returns nothing
 - **Cause:** not a failure — that output exists only in the serial force path
 - **Fix:** use `grep "^Velocity:"` instead (section 10)
@@ -559,6 +575,7 @@ Serial vs parallel at a glance:
 | | Guide 02 (serial) | Guide 04 (parallel) |
 |---|---|---|
 | CMake | `+ -DUSE_PE_SERIAL_MODE=ON` | (omit it) |
+| PE solver | `HardContactAndFluid` via `CMAKE_CXX_FLAGS` | same |
 | `HAVE_MPI` in PE | `0` | `1` |
 | Partition reader | `PartitionReader2.f90` | `PartitionReader.f90` |
 | Mesh layout | `sub0001/GRID<myid>.tri` | `sub<myid>/GRID0001.tri` |

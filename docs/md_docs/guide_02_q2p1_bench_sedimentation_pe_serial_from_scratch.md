@@ -92,12 +92,27 @@ cmake -S . -B build-ninja-release -G Ninja \
   -DPE_USE_JSON=ON \
   -DSED_BENCH=ON \
   -DPE_VERIFY_HASHGRID=OFF \
+  "-DCMAKE_CXX_FLAGS=-Dpe_CONSTRAINT_SOLVER=pe::response::HardContactAndFluid" \
   -DCMAKE_C_COMPILER=mpicc \
   -DCMAKE_CXX_COMPILER=mpicxx \
   -DCMAKE_Fortran_COMPILER=mpifort
 ```
 
 **Important:** `-DPE_USE_JSON=ON` is **required** for PE Serial Mode. `-DSED_BENCH=ON` enables the sedimentation benchmark output (e.g. `SED_BENCH_VEL` lines). `-DPE_VERIFY_HASHGRID=OFF` disables hashgrid verification overhead. The setup functions (`setupParticleBenchSerial`, etc.) load runtime configuration from `example.json` via `SimulationConfig::loadFromFile()`. Without JSON support, this function is a no-op and all parameters remain at default values.
+
+**Required: the `HardContactAndFluid` (HCAF) solver.** FBM-coupled particles need
+`pe_CONSTRAINT_SOLVER=pe::response::HardContactAndFluid`, passed via `CMAKE_CXX_FLAGS` as above.
+pe's default, `HardContactEulerLagrange`, is the Euler-Lagrange solver: the outer driver owns
+gravity and buoyancy and the FBM forces are discarded. Without the flag the build and the run
+succeed, but the sphere never moves and `SED_BENCH_FORCE` / `SED_BENCH_VEL` stay exactly zero,
+with no error message (see `dns_practitioners_guide.md`, section 1). The macro is compiled into
+the whole PE library, so changing it needs a reconfigure and rebuilds all C++ sources. If you
+already pass other C++ flags, add the define to the same `CMAKE_CXX_FLAGS` string. Check:
+
+```bash
+grep -c "pe_CONSTRAINT_SOLVER=pe::response::HardContactAndFluid" build-ninja-release/build.ninja
+# Expected: a count > 0
+```
 
 The configure banner should show:
 
@@ -131,6 +146,7 @@ bash -c '
     -DPE_USE_JSON=ON \
     -DSED_BENCH=ON \
     -DPE_VERIFY_HASHGRID=OFF \
+    "-DCMAKE_CXX_FLAGS=-Dpe_CONSTRAINT_SOLVER=pe::response::HardContactAndFluid" \
     -DCMAKE_C_COMPILER=mpicc \
     -DCMAKE_CXX_COMPILER=mpicxx \
     -DCMAKE_Fortran_COMPILER=mpifort
@@ -452,6 +468,13 @@ build-ninja-release/
 **Issue:** All parameters at default values despite `example.json`
 - **Cause:** PE built without JSON support (`HAVE_JSON` not defined)
 - **Fix:** Reconfigure with `-DPE_USE_JSON=ON` and rebuild (see Section 2)
+
+**Issue:** The sphere does not move; `SED_BENCH_FORCE` and `SED_BENCH_VEL` stay exactly zero
+- **Cause:** PE built with its default solver `HardContactEulerLagrange`, which discards the FBM
+  forces; nothing fails or warns
+- **Fix:** Reconfigure with
+  `-DCMAKE_CXX_FLAGS=-Dpe_CONSTRAINT_SOLVER=pe::response::HardContactAndFluid` and rebuild
+  (see Section 2)
 
 **Issue:** Partition count mismatch errors at runtime
 - **Cause:** Mesh partitioned to different count than parameter file expects
