@@ -1118,7 +1118,7 @@ DO  ! Iterate the meltvolume
 
 END DO
 
-if (myid.eq.1) write(*,'(A,F7.3("cm"))') 'Initial meltheight is:',HeightIterate
+if (myid.eq.1) write(*,'(A,F7.3,"cm")') 'Initial meltheight is:',HeightIterate
 
 if (allocated(mg_MassMat)) DEALLOCATE(mg_MassMat)
 if (allocated(mg_LMassMat)) DEALLOCATE(mg_LMassMat)

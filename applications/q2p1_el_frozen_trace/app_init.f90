@@ -494,8 +494,8 @@ DO ILEV=NLMIN+1,NLMAX
  showid = 1
 
  IF (myid.eq.showid) THEN
-   WRITE(MTERM,'(10(2XA8))') 'ILEV','NVT','NAT','NEL','NET','NDOF'
-   WRITE(MFILE,'(10(2XA8))') 'ILEV','NVT','NAT','NEL','NET','NDOF'
+   WRITE(MTERM,'(10(2X,A8))') 'ILEV','NVT','NAT','NEL','NET','NDOF'
+   WRITE(MFILE,'(10(2X,A8))') 'ILEV','NVT','NAT','NEL','NET','NDOF'
  END IF
 
  DO II=NLMIN,NLMAX
@@ -508,8 +508,8 @@ DO ILEV=NLMIN+1,NLMAX
  NEL=mg_mesh%level(II)%nel
 
  IF (myid.eq.showid) THEN
-   WRITE(MTERM,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
-   WRITE(MFILE,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
+   WRITE(MTERM,'(10(2X,I8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
+   WRITE(MFILE,'(10(2X,I8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
  END IF
 
  if(.not.allocated(mg_mesh%level(II)%dvol))then
@@ -1120,10 +1120,10 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
      WRITE(mfile,'(A,D12.4)') "OutputFreq = ", DTGMV
      WRITE(mterm,'(A,D12.4)') "OutputFreq = ", DTGMV
 
-     WRITE(mfile,'(A,5(A6I1))') "Matrix Renewal scheme : ","  M = ",myMatrixRenewal%M,&
+     WRITE(mfile,'(A,5(A6,I1))') "Matrix Renewal scheme : ","  M = ",myMatrixRenewal%M,&
        ", D = ",myMatrixRenewal%D,", K = ",myMatrixRenewal%K,", S = ",myMatrixRenewal%S,&
        ", C = ",myMatrixRenewal%C
-     WRITE(mterm,'(A,5(A6I1))') "Matrix Renewal scheme : ","  M = ",myMatrixRenewal%M,&
+     WRITE(mterm,'(A,5(A6,I1))') "Matrix Renewal scheme : ","  M = ",myMatrixRenewal%M,&
        ", D = ",myMatrixRenewal%D,", K = ",myMatrixRenewal%K,", S = ",myMatrixRenewal%S,&
        ", C = ",myMatrixRenewal%C
 

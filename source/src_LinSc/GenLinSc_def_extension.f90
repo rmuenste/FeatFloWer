@@ -557,11 +557,11 @@ IF (nINL.EQ.0) THEN
 !  WRITE(MFILE,5)
  END IF
 
- WRITE(MTERM,'(A8$)') "INL"
- WRITE(MFILE,'(A8$)') "INL"
+ WRITE(MTERM,'(A8,$)') "INL"
+ WRITE(MFILE,'(A8,$)') "INL"
  DO iFld=1,lSc%nOfFields
-  WRITE(MTERM,'(2X,A14$)') TRIM(lSc%fld(iFld)%cName)
-  WRITE(MFILE,'(2X,A14$)') TRIM(lSc%fld(iFld)%cName)
+  WRITE(MTERM,'(2X,A14,$)') TRIM(lSc%fld(iFld)%cName)
+  WRITE(MFILE,'(2X,A14,$)') TRIM(lSc%fld(iFld)%cName)
  END DO
  WRITE(MTERM,*)
  WRITE(MFILE,*)
@@ -569,11 +569,11 @@ IF (nINL.EQ.0) THEN
  WRITE(MTERM,5)
  WRITE(MFILE,5)
 
- WRITE(MTERM,'(A8$)') "Criteria"
- WRITE(MFILE,'(A8$)') "Criteria"
+ WRITE(MTERM,'(A8,$)') "Criteria"
+ WRITE(MFILE,'(A8,$)') "Criteria"
  DO iFld=1,lSc%nOfFields
-  WRITE(MTERM,'(6X,ES10.3$)') RhsScalar(iFld)
-  WRITE(MFILE,'(6X,ES10.3$)') RhsScalar(iFld)
+  WRITE(MTERM,'(6X,ES10.3,$)') RhsScalar(iFld)
+  WRITE(MFILE,'(6X,ES10.3,$)') RhsScalar(iFld)
  END DO
  WRITE(MTERM,*)
  WRITE(MFILE,*)
@@ -581,26 +581,26 @@ IF (nINL.EQ.0) THEN
  WRITE(MTERM,5)
  WRITE(MFILE,5)
  
- WRITE(MTERM,'(I8$)') 0
- WRITE(MFILE,'(I8$)') 0
+ WRITE(MTERM,'(I8,$)') 0
+ WRITE(MFILE,'(I8,$)') 0
  DO iFld=1,lSc%nOfFields
-  WRITE(MTERM,'(6X,ES10.3$)') DefScalar(iFld)
-  WRITE(MFILE,'(6X,ES10.3$)') DefScalar(iFld)
+  WRITE(MTERM,'(6X,ES10.3,$)') DefScalar(iFld)
+  WRITE(MFILE,'(6X,ES10.3,$)') DefScalar(iFld)
  END DO
  WRITE(MTERM,*)
  WRITE(MFILE,*)
  
 ELSE
 
- WRITE(MTERM,'(I8$)') nINL
- WRITE(MFILE,'(I8$)') nINL
+ WRITE(MTERM,'(I8,$)') nINL
+ WRITE(MFILE,'(I8,$)') nINL
  DO iFld=1,lSc%nOfFields
-  WRITE(MTERM,'(6X,ES10.3$)') DefScalar(iFld)
-  WRITE(MFILE,'(6X,ES10.3$)') DefScalar(iFld)
+  WRITE(MTERM,'(6X,ES10.3,$)') DefScalar(iFld)
+  WRITE(MFILE,'(6X,ES10.3,$)') DefScalar(iFld)
  END DO
- WRITE(MTERM,'(2I5,2XES10.3)') &
+ WRITE(MTERM,'(2I5,2X,ES10.3)') &
  lSc%prm%MGprmOut(1)%UsedIterCycle,lSc%prm%MGprmOut(1)%nIterCoarse,lSc%prm%MGprmOut(1)%RhoMG1
- WRITE(MFILE,'(2I5,2XES10.3)') &
+ WRITE(MFILE,'(2I5,2X,ES10.3)') &
  lSc%prm%MGprmOut(1)%UsedIterCycle,lSc%prm%MGprmOut(1)%nIterCoarse,lSc%prm%MGprmOut(1)%RhoMG1
 END IF
 
@@ -670,11 +670,11 @@ DO
     CASE ("Fields")
     READ(string(iEq+1:),*) myParam%cField
 !    myParam%cField = TRIM(ADJUSTL(param))
-    IF (myid.eq.showid) write(mterm,'(A$)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= "
-    IF (myid.eq.showid) write(mfile,'(A$)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= "
+    IF (myid.eq.showid) write(mterm,'(A,$)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= "
+    IF (myid.eq.showid) write(mfile,'(A,$)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= "
     do ifld=1,myParam%nOfFields-1
-     IF (myid.eq.showid) write(mterm,'(A$)') TRIM(myParam%cField(iFld))//","
-     IF (myid.eq.showid) write(mfile,'(A$)') TRIM(myParam%cField(iFld))//","
+     IF (myid.eq.showid) write(mterm,'(A,$)') TRIM(myParam%cField(iFld))//","
+     IF (myid.eq.showid) write(mfile,'(A,$)') TRIM(myParam%cField(iFld))//","
     END DO
     IF (myid.eq.showid) write(mterm,'(A)') TRIM(myParam%cField(myParam%nOfFields))
     IF (myid.eq.showid) write(mfile,'(A)') TRIM(myParam%cField(myParam%nOfFields))

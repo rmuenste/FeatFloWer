@@ -263,9 +263,9 @@ c      ! Output the solution in GMV or GiD format
       READ (char_dt,'(D9.2)') dt
 
       IF (myid.eq.showid) 
-     *   write(MFILE,"(2(A8G12.4),I5)") "dMaxSTF=",dVal,"dt=",dt,IR
+     *   write(MFILE,"(2(A8,G12.4),I5)") "dMaxSTF=",dVal,"dt=",dt,IR
       IF (myid.eq.showid) 
-     *   write(MTERM,"(2(A8G12.4),I5)") "dMaxSTF=",dVal,"dt=",dt,IR
+     *   write(MTERM,"(2(A8,G12.4),I5)") "dMaxSTF=",dVal,"dt=",dt,IR
 
       END
 
@@ -290,8 +290,8 @@ c      ! Output the solution in GMV or GiD format
       READ (char_dt,'(D9.2)') dt
 
       IF (myid.eq.showid) 
-     *   write(MFILE,"(2(A8G12.4))") "timenvs=",time,"dt=",dt
+     *   write(MFILE,"(2(A8,G12.4))") "timenvs=",time,"dt=",dt
       IF (myid.eq.showid) 
-     *   write(MTERM,"(2(A8G12.4))") "timenvs=",time,"dt=",dt
+     *   write(MTERM,"(2(A8,G12.4))") "timenvs=",time,"dt=",dt
 
       END

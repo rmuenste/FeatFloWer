@@ -415,8 +415,8 @@ END IF
  showid = 1
 
  IF (myid.eq.showid) THEN
-   WRITE(MTERM,'(10(2XA8))') 'ILEV','NVT','NAT','NEL','NET','NDOF'
-   WRITE(MFILE,'(10(2XA8))') 'ILEV','NVT','NAT','NEL','NET','NDOF'
+   WRITE(MTERM,'(10(2X,A8))') 'ILEV','NVT','NAT','NEL','NET','NDOF'
+   WRITE(MFILE,'(10(2X,A8))') 'ILEV','NVT','NAT','NEL','NET','NDOF'
  END IF
 
  DO II=NLMIN,NLMAX
@@ -429,8 +429,8 @@ END IF
  NEL=mg_mesh%level(II)%nel
 
  IF (myid.eq.showid) THEN
-   WRITE(MTERM,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
-   WRITE(MFILE,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
+   WRITE(MTERM,'(10(2X,I8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
+   WRITE(MFILE,'(10(2X,I8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
  END IF
 
  if(.not.allocated(mg_mesh%level(II)%dvol))then
