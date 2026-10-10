@@ -598,6 +598,17 @@ IF (myid /= 0) THEN
                 CandidateList(nCandidates) = IEL
               END IF
             END DO
+
+          ELSE
+            ! Element-centre DOF: it belongs to exactly one element. Without
+            ! this branch an element whose only inside DOF is its centre was
+            ! never a candidate and lost its force contribution.
+            IEL = ivt - NVT - NET - NAT
+            IF (.not. bCandidateElement(IEL)) THEN
+              bCandidateElement(IEL) = .TRUE.
+              nCandidates = nCandidates + 1
+              CandidateList(nCandidates) = IEL
+            END IF
           END IF
         END DO
 

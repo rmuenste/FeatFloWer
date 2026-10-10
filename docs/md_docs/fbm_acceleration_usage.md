@@ -123,8 +123,7 @@ SimPar@UseKVELAccel = No
 
 Compare forces/positions/velocities. They agree to round-off, not bitwise:
 KVEL sums the element contributions in a different order than the
-brute-force loop (and see the element-centre limitation in
-`kvel_force_acceleration.md`); the HashGrid may differ from the baseline in
+brute-force loop; the HashGrid may differ from the baseline in
 the cases listed under *Known Limitations*.
 
 ### 2. Final Verification (Pure Baseline Build)

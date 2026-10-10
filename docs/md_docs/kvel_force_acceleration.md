@@ -214,6 +214,7 @@ cache using the mesh connectivity arrays:
 | Corner vertex (`ivt <= NVT`) | `mg_mesh%level(NLMAX)%kvel(j, ivt)` | `nvel` entries per vertex |
 | Edge midpoint (`NVT < ivt <= NVT+NET`) | `mg_mesh%level(NLMAX)%keel(j, iedge)` | `neel` entries per edge |
 | Face midpoint (`NVT+NET < ivt <= NVT+NET+NAT`) | `mg_mesh%level(NLMAX)%kaal(j, iface)` | `naal` entries per face |
+| Element centre (`ivt > NVT+NET+NAT`) | the element itself, `IEL = ivt - NVT - NET - NAT` | 1 |
 
 A boolean flag array `bCandidateElement(NEL)` prevents duplicates. The result
 is `CandidateList(1:nCandidates)` containing only elements touching the
@@ -229,11 +230,11 @@ If `nCandidates == 0`:
   particle ordering changed since the cache was built): all elements are used
   as candidates, i.e. the brute-force loop.
 
-**Known limitation:** element-centre DOFs (`ivt > NVT+NET+NAT`) are cached but
-not mapped to candidate elements. An element whose *only* inside DOF is its
-centre is therefore skipped by KVEL while `ForcesLocalParticlesSerial_Standard`
-integrates it. This is rare for resolved particles but means KVEL and Standard
-can differ by more than round-off in such configurations.
+Element-centre DOFs map to their own element. Before this was added, an
+element whose *only* inside DOF was its centre was never a candidate, so KVEL
+returned no force contribution for it while `ForcesLocalParticlesSerial_Standard`
+integrated it (e.g. Fz = 0 instead of 4.06 for particles smaller than the DOF
+spacing; `DEBUG_FBM_OPTIMIZATION` reported "Force comparison FAILED").
 
 Location: `source/src_quadLS/QuadSc_force_serial.f90`, subroutine
 `ForcesLocalParticlesSerial_KVEL`.
@@ -261,7 +262,7 @@ LOGICAL :: bUseKVEL_Accel = .TRUE.   ! source/src_quadLS/QuadSc_var.f90
 Set from `SimPar@UseKVELAccel = Yes|No` in `q2p1_param.dat` (default `Yes`).
 When `No`, no cache is built and `ForcesLocalParticlesSerial` calls the
 brute-force `ForcesLocalParticlesSerial_Standard`. Both variants integrate the
-same boundary elements (up to the element-centre limitation above), but in a
+same boundary elements, but in a
 different element order, so the forces agree to round-off, not bitwise.
 With `DEBUG_FBM_OPTIMIZATION=ON` both variants run every step and are
 compared (tolerance 1e-10); the Standard result is used.
