@@ -838,8 +838,8 @@ IF (nINL.EQ.0) THEN
  WRITE(MFILE,'(A8,5(2X,A14))') "INL",TRIM(C1),TRIM(C2),TRIM(C3)
  WRITE(*,5)
  WRITE(MFILE,5)
- WRITE(*,'(A8,6XA10,5(6X,D11.4))') "Criteria"," ",DefScalar*myScalar%prm%defCrit,RhsScalar
- WRITE(MFILE,'(A8,6XA10,5(6X,D11.4))') "Criteria"," ",DefScalar*myScalar%prm%defCrit,RhsScalar
+ WRITE(*,'(A8,6X,A10,5(6X,D11.4))') "Criteria"," ",DefScalar*myScalar%prm%defCrit,RhsScalar
+ WRITE(MFILE,'(A8,6X,A10,5(6X,D11.4))') "Criteria"," ",DefScalar*myScalar%prm%defCrit,RhsScalar
  WRITE(*,5)
  WRITE(MFILE,5)
  WRITE(*,'(I8,5(6X,D11.4))') 0,ResScalar,DefScalar

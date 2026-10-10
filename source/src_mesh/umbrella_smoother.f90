@@ -190,10 +190,10 @@ module umbrella_smoother
   ALLOCATE(myVol(nel+1))
   ALLOCATE(DXXX(nvt))
   
-  if (myid.eq.1) write(*,'(A$)') 'MeshSmoothening:{'
+  if (myid.eq.1) write(*,'(A,$)') 'MeshSmoothening:{'
   DO iProjStep=1,nProjStep
   
-   if (myid.eq.1) write(*,'(I0,A1$)') iProjStep," "
+   if (myid.eq.1) write(*,'(I0,A1,$)') iProjStep," "
 
    myVol = 0e0
    CALL  SETARE(myVol,nel,kvert,dcorvg)

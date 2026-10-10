@@ -283,7 +283,7 @@ C *** Standard dimensioning for workspace concept
       ! Hydrodynamic variables
       READ(1,'(G12.5)') timens
       DO I=1,NAT
-       READ(1,'(3(1XG12.5))') du_x(i),du_y(i),du_z(i)
+       READ(1,'(3(1X,G12.5))') du_x(i),du_y(i),du_z(i)
       END DO
       DO I=1,NEL
        READ(1,'(G12.5)') dp  (i)
@@ -338,7 +338,7 @@ C
 !      *                       (dp  (i),i=1,NEL)
       WRITE(2,'(G12.5)') timens
       DO I=1,NAT
-       WRITE(2,'(3(1XG12.5))') du_x(i),du_y(i),du_z(i)
+       WRITE(2,'(3(1X,G12.5))') du_x(i),du_y(i),du_z(i)
       END DO
       DO I=1,NEL
        WRITE(2,'(G12.5)') dp  (i)
@@ -384,7 +384,7 @@ C
 !      *                   (DUL(kpL +i-1),i=1,npL)
       READ(1,'(G12.5)') timens
       DO I=1,nuL
-       READ(1,'(3(1XG12.5))') DUL(ku1L+i-1),DUL(ku2L+i-1),DUL(ku3L+i-1)
+       READ(1,'(3(1X,G12.5))') DUL(ku1L+i-1),DUL(ku2L+i-1),DUL(ku3L+i-1)
       END DO
       DO I=1,npL
        READ(1,'(G12.5)') DUL(kpL +i-1)

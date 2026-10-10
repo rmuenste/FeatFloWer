@@ -599,8 +599,8 @@ IF (nINL.EQ.0) THEN
  WRITE(MFILE,'(A8,5(2X,A14))') "INL",TRIM(C1),TRIM(C2),TRIM(C3)
  WRITE(*,5)
  WRITE(MFILE,5)
- WRITE(*,'(A8,6XA10,5(6X,ES10.3))') "Criteria"," ",DefScalar*myScalar%prm%defCrit,RhsScalar
- WRITE(MFILE,'(A8,6XA10,5(6X,ES10.3))') "Criteria"," ",DefScalar*myScalar%prm%defCrit,RhsScalar
+ WRITE(*,'(A8,6X,A10,5(6X,ES10.3))') "Criteria"," ",DefScalar*myScalar%prm%defCrit,RhsScalar
+ WRITE(MFILE,'(A8,6X,A10,5(6X,ES10.3))') "Criteria"," ",DefScalar*myScalar%prm%defCrit,RhsScalar
  WRITE(*,5)
  WRITE(MFILE,5)
  WRITE(*,'(I8,5(6X,ES10.3))') 0,ResScalar,DefScalar
@@ -1523,8 +1523,8 @@ IF (mySetup%bConvergenceEstimator) THEN
  SELECT CASE (mySigma%HeatRunMode)
  CASE (HEAT_RUN_MODE_PID)
   IF (myid.eq.1) then
-    write(MTERM,'(A$)') 'Convergence: '
-    write(MFILE,'(A$)') 'Convergence: '
+    write(MTERM,'(A,$)') 'Convergence: '
+    write(MFILE,'(A,$)') 'Convergence: '
   END IF
       
   ConvergedSolution = .TRUE.
@@ -1554,13 +1554,13 @@ IF (mySetup%bConvergenceEstimator) THEN
     IF (.not.mySigma%mySegment(iSeg)%ConvergenceDetector%Converged) THEN
      ConvergedSolution=.false.
      IF (myid.eq.1) then
-      write(MTERM,'(A$)') "F"
-      write(MFILE,'(A$)') "F"
+      write(MTERM,'(A,$)') "F"
+      write(MFILE,'(A,$)') "F"
      END IF
     ELSE
      IF (myid.eq.1) then
-      write(MTERM,'(A$)') "T"
-      write(MFILE,'(A$)') "T"
+      write(MTERM,'(A,$)') "T"
+      write(MFILE,'(A,$)') "T"
      END IF
     END IF
    END IF

@@ -385,7 +385,7 @@ C
 !!!!!!!!!!!! Visual OUTPUT !!!!!!!!!!!!!!!!!!!!
 	   if (20*iel/nel.ge.iString) THEN
 	    DO i=iStringPos+1,20*iel/nel
-	     IF (myid.eq.1) write(*,'(A$)') '%'
+	     IF (myid.eq.1) write(*,'(A,$)') '%'
 	    END DO
 	    iString=20*iel/nel+1
 	    iStringPos=iString-1

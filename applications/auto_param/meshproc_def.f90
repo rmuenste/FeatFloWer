@@ -409,7 +409,7 @@ DO iel=1,nel
 do iat = 1,6
  if (karea(iat,iel).eq.iarea) then
   if (kNeighE(2,iarea).eq.0) then
-   if (bShow) write(*,'(2I0,A$)') kk,iarea,' :'
+   if (bShow) write(*,'(2I0,A,$)') kk,iarea,' :'
    ind = kfaces(:,iarea)
 ! ! !    write(*,*) iel,'ind= ',ind
    DO jat=1,4
@@ -438,17 +438,17 @@ do iat = 1,6
          goto 99
         else
          kFaceNeigh(jat,iarea) = larea
-         if (bShow) write(*,'(A,I1,A$)') ' f',iCount,' '
+         if (bShow) write(*,'(A,I1,A,$)') ' f',iCount,' '
         end if
        end if
       end if
      end do
      if (iCount.eq.0) then
-      if (bShow) write(*,'(A,I1,A$)') '  ',iCount,' '
+      if (bShow) write(*,'(A,I1,A,$)') '  ',iCount,' '
      end if
     else
      kFaceNeigh(jat,iarea) = jarea
-     if (bShow) write(*,'(A,I1,A$)') ' F',0,' '
+     if (bShow) write(*,'(A,I1,A,$)') ' F',0,' '
     end if 
    END DO
    kk = kk + 1 

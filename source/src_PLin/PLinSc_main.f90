@@ -154,8 +154,8 @@ IF  (PLinLS%prm%NLmax.EQ.1) GOTO 1
  CALL COMM_Maximum(DEFU)
  CALL COMM_Maximum(RESU)
 
- IF (myid.eq.showID) write(MTERM,'(I2,2(1XG12.4))') INL,DEFU/DEFU0,RESU
- IF (myid.eq.showID) write(MFILE,'(I2,2(1XG12.4))') INL,DEFU/DEFU0,RESU
+ IF (myid.eq.showID) write(MTERM,'(I2,2(1X,G12.4))') INL,DEFU/DEFU0,RESU
+ IF (myid.eq.showID) write(MFILE,'(I2,2(1X,G12.4))') INL,DEFU/DEFU0,RESU
  IF ((DEFU/DEFU0.LE.PLinLS%prm%defCrit).AND.&
      (INL.GE.PLinLS%prm%NLmin)) INLComplete = 1
  IF  (INL.EQ.PLinLS%prm%NLmax) INLComplete = 1
@@ -277,8 +277,8 @@ DO INL = 1,PLinLS%prm%NLmax
 
  CALL COMM_Maximum(DEFU)
 
- IF (myid.eq.showID) write(MTERM,'(I2,2(1XG12.4))') INL,DEFU/DEFU0,RESU
- IF (myid.eq.showID) write(MFILE,'(I2,2(1XG12.4))') INL,DEFU/DEFU0,RESU
+ IF (myid.eq.showID) write(MTERM,'(I2,2(1X,G12.4))') INL,DEFU/DEFU0,RESU
+ IF (myid.eq.showID) write(MFILE,'(I2,2(1X,G12.4))') INL,DEFU/DEFU0,RESU
  IF ((DEFU/DEFU0.LE.PLinLS%prm%defCrit).AND.&
      (INL.GE.PLinLS%prm%NLmin)) INLComplete = 1
  IF  (INL.EQ.PLinLS%prm%NLmax) INLComplete = 1
