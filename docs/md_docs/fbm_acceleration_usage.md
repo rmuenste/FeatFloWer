@@ -38,31 +38,29 @@ Controls KVEL/KEEL/KAAL candidate element acceleration for force integration.
 
 In parallel PE builds (`USE_PE=ON`, `USE_PE_SERIAL_MODE=OFF`) the HashGrid
 query is **off by default** and must be requested explicitly with
-`SimPar@UseHashGridAccel = Yes`. Reason: the accelerated query
-(`pointInsideParticlesAccelerated` in PE) only sees bodies that are stored in
-the HashGrids data structure. PE's `simulationStep()` runs `findContacts()`
-first and `synchronize()` last; shadow copies created in that
-`synchronize()` (a particle entering a rank's halo) are added to the coarse
-detector's `bodiesToAdd_` list and only inserted into the grid at the next
-`findContacts()`. `HashGrids::getBodiesNearPoint` does not scan
-`bodiesToAdd_`, so during the following fluid step the DOFs of such a particle
-are classified as fluid on that rank, while the baseline linear search
-(`pointInsideParticles`, local bodies then shadow copies) finds them. The
-HashGrid path has not been verified in parallel PE mode.
+`SimPar@UseHashGridAccel = Yes`. Reason: the HashGrid path has not been
+verified in parallel PE mode. Until pe `11ec5d3` (pe PR #42) it also missed
+shadow copies created in the `synchronize()` at the end of a PE step (a
+particle entering a rank's halo): they wait in the coarse detector's
+`bodiesToAdd_` list until the next `findContacts()`, and
+`HashGrids::getBodiesNearPoint` did not return them. That is fixed with the
+current `libs/pe` pin; the remaining caveat is the stale hashing below.
 
 With the default, a parallel PE build with `ENABLE_FBM_ACCELERATION=ON`
 classifies DOFs exactly like a build without acceleration.
 
 ## Known Limitations of the HashGrid Query (All Modes)
 
-These apply to serial PE mode as well and are not fixed:
+These apply to serial PE mode as well:
 
-1. **Bodies added between PE steps are invisible.** Any body added to PE after
-   the last `findContacts()` (e.g. particle insertion during the run) waits in
-   `bodiesToAdd_` and is not returned by the accelerated query until the next
-   PE step. The first timestep is safe: the baseline is used until the
-   collision pipeline has run once (`collision_pipeline_initialized`).
-2. **Stale hashing after integration.** Bodies are hashed by their AABB in
+1. **Bodies added between PE steps (fixed in pe `11ec5d3`, PR #42).** A body
+   added to PE after the last `findContacts()` (e.g. particle reinsertion
+   during the run, or a shadow copy) waits in `bodiesToAdd_`. With older pe
+   pins `getBodiesNearPoint` did not return it, so the next fluid step
+   classified its interior as fluid; it now returns the pending bodies too.
+   The first timestep uses the baseline until the collision pipeline has run
+   once (`collision_pipeline_initialized`).
+2. **Stale hashing after integration (not fixed).** Bodies are hashed by their AABB in
    `findContacts()`, before the positions are integrated. The query visits the
    query point's cell plus its 26 neighbours, which covers a body only while
    its displacement since the last hashing plus its AABB size stays below the

@@ -372,10 +372,10 @@ MODULE var_QuadScalar
 
   ! Runtime acceleration control flags (read from q2p1_param.dat)
   ! The HashGrid alpha query defaults to ON only in serial PE mode. In parallel
-  ! PE mode shadow copies created by the last PE synchronize() wait in PE's
-  ! HashGrids bodiesToAdd_ list until the next findContacts() and are invisible
-  ! to the accelerated query, so the baseline linear search is the default
-  ! there (opt-in: SimPar@UseHashGridAccel = Yes). See fbm_acceleration_usage.md.
+  ! PE mode it has not been verified yet, so the baseline linear search is the
+  ! default there (opt-in: SimPar@UseHashGridAccel = Yes). Shadow copies pending
+  ! in PE's HashGrids bodiesToAdd_ were invisible to the query before pe
+  ! 11ec5d3 (PR #42). See fbm_acceleration_usage.md.
 #ifdef PE_SERIAL_MODE
   LOGICAL :: bUseHashGridAccel = .TRUE.
 #else

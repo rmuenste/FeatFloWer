@@ -265,8 +265,8 @@ The FBM geometry query `fbm_getFictKnprFC2` — which classifies every mesh DOF 
 *   On timestep 1 the brute-force baseline (`verifyAllParticles`) is used because the HashGrid is not yet built.
 *   From timestep 2 onwards, `checkAllParticles` (HashGrid lookup) is called if enabled.
 *   To verify correctness, build with `-DPE_VERIFY_HASHGRID=ON`, which runs both paths in parallel and reports any mismatches (at significant cost).
-*   **Parallel PE mode:** off by default. Shadow copies created by the last PE `synchronize()` are not yet in PE's HashGrid (they wait in `bodiesToAdd_` until the next `findContacts()`), so the accelerated query misses them for one fluid step. Opt in with `SimPar@UseHashGridAccel = Yes` only after verification.
-*   **Known limitations (all modes):** bodies added between PE steps are invisible until the next PE step; bodies hashed before integration can be missed if they moved far relative to their grid cell span. Details: `docs/md_docs/fbm_acceleration_usage.md`.
+*   **Parallel PE mode:** off by default, because the HashGrid path has not been verified in parallel. (Shadow copies pending in `bodiesToAdd_` after `synchronize()` were invisible to the query with pe pins before `11ec5d3`; fixed by pe PR #42.) Opt in with `SimPar@UseHashGridAccel = Yes` only after verification.
+*   **Known limitations (all modes):** bodies hashed before integration can be missed if they moved far relative to their grid cell span. Details: `docs/md_docs/fbm_acceleration_usage.md`.
 
 ### 6.3. Force Integration Acceleration (KVEL/KEEL/KAAL candidate elements)
 
