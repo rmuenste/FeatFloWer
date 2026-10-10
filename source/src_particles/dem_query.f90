@@ -865,6 +865,130 @@ logical function longIdMatch(idx, longFictId)
 end function longIdMatch
 
 !================================================================================================
+!                              compareLongId
+!================================================================================================
+! Lexicographic order of two 8-short system ids: -1 (a < b), 0 (a == b, the
+! same equality test as longIdMatch) or +1 (a > b).
+!================================================================================================
+
+integer function compareLongId(a, b)
+  use iso_c_binding, only: c_short
+  implicit none
+  integer(c_short), dimension(8), intent(in) :: a, b
+  integer :: k
+
+  compareLongId = 0
+  do k = 1, 8
+    if (a(k) < b(k)) then
+      compareLongId = -1
+      return
+    else if (a(k) > b(k)) then
+      compareLongId = 1
+      return
+    end if
+  end do
+
+end function compareLongId
+
+!================================================================================================
+!                              sortParticleIds
+!================================================================================================
+! Returns a permutation perm(1:n) such that theParticles(perm(:))%bytes is in
+! ascending compareLongId order (bottom-up merge sort, O(n log n)).
+!================================================================================================
+
+subroutine sortParticleIds(theParticles, n, perm)
+  implicit none
+  integer, intent(in) :: n
+  type(tParticleData), dimension(n), intent(in) :: theParticles
+  integer, dimension(n), intent(out) :: perm
+
+  integer, allocatable, dimension(:) :: tmp
+  integer :: width, lo, mid, hi, i, j, k
+
+  do i = 1, n
+    perm(i) = i
+  end do
+  if (n < 2) return
+
+  allocate(tmp(n))
+  width = 1
+  do while (width < n)
+    lo = 1
+    do while (lo <= n)
+      mid = min(lo + width - 1, n)
+      hi  = min(lo + 2*width - 1, n)
+      if (mid < hi) then
+        i = lo
+        j = mid + 1
+        k = lo
+        do while (i <= mid .and. j <= hi)
+          if (compareLongId(theParticles(perm(j))%bytes, &
+                            theParticles(perm(i))%bytes) < 0) then
+            tmp(k) = perm(j)
+            j = j + 1
+          else
+            tmp(k) = perm(i)
+            i = i + 1
+          end if
+          k = k + 1
+        end do
+        do while (i <= mid)
+          tmp(k) = perm(i)
+          i = i + 1
+          k = k + 1
+        end do
+        do while (j <= hi)
+          tmp(k) = perm(j)
+          j = j + 1
+          k = k + 1
+        end do
+        perm(lo:hi) = tmp(lo:hi)
+      end if
+      lo = lo + 2*width
+    end do
+    width = 2*width
+  end do
+  deallocate(tmp)
+
+end subroutine sortParticleIds
+
+!================================================================================================
+!                              findParticleId
+!================================================================================================
+! Binary search of longId in theParticles sorted by perm (see sortParticleIds).
+! Returns the index IP into theParticles whose bytes equal longId, or 0.
+!================================================================================================
+
+integer function findParticleId(longId, theParticles, perm, n)
+  use iso_c_binding, only: c_short
+  implicit none
+  integer(c_short), dimension(8), intent(in) :: longId
+  integer, intent(in) :: n
+  type(tParticleData), dimension(n), intent(in) :: theParticles
+  integer, dimension(n), intent(in) :: perm
+
+  integer :: lo, hi, mid, c
+
+  findParticleId = 0
+  lo = 1
+  hi = n
+  do while (lo <= hi)
+    mid = (lo + hi) / 2
+    c = compareLongId(longId, theParticles(perm(mid))%bytes)
+    if (c == 0) then
+      findParticleId = perm(mid)
+      return
+    else if (c < 0) then
+      hi = mid - 1
+    else
+      lo = mid + 1
+    end if
+  end do
+
+end function findParticleId
+
+!================================================================================================
 !                              Function convertSystemId
 !================================================================================================
 

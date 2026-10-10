@@ -358,12 +358,29 @@ MODULE var_QuadScalar
     INTEGER :: nVertices                    ! Number of cached DOF indices
     INTEGER, ALLOCATABLE :: dofIndices(:)   ! DOF indices (1..ndof)
     INTEGER :: particleID                   ! Particle index for debugging
+    TYPE(tUint64) :: longId                 ! PE system id of particle IP at build time
   END TYPE tVertexCache
 
   TYPE(tVertexCache), ALLOCATABLE :: ParticleVertexCache(:)
 
+  ! Dense local particle index per DOF (serial PE + ENABLE_FBM_ACCELERATION),
+  ! built with ParticleVertexCache in QuadScalar_FictKnpr: FictKNPR_IP(i) = IP
+  ! if FictKNPR_uint64(i) holds the system id of particle IP in the
+  ! getAllParticles ordering, 0 otherwise. Valid only while bKVEL_IndexValid.
+  INTEGER, ALLOCATABLE :: FictKNPR_IP(:)
+  LOGICAL :: bKVEL_IndexValid = .FALSE.
+
   ! Runtime acceleration control flags (read from q2p1_param.dat)
+  ! The HashGrid alpha query defaults to ON only in serial PE mode. In parallel
+  ! PE mode it has not been verified yet, so the baseline linear search is the
+  ! default there (opt-in: SimPar@UseHashGridAccel = Yes). Shadow copies pending
+  ! in PE's HashGrids bodiesToAdd_ were invisible to the query before pe
+  ! 11ec5d3 (PR #42). See fbm_acceleration_usage.md.
+#ifdef PE_SERIAL_MODE
   LOGICAL :: bUseHashGridAccel = .TRUE.
+#else
+  LOGICAL :: bUseHashGridAccel = .FALSE.
+#endif
   LOGICAL :: bUseKVEL_Accel = .TRUE.
 
   ! Statistics for performance monitoring

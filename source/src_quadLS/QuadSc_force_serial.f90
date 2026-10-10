@@ -381,6 +381,7 @@ USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN
 USE var_QuadScalar, ONLY : myExport,Properties,FictKNPR_uint64, FictKNPR
 USE var_QuadScalar, ONLY : AlphaRelax
 USE var_QuadScalar, ONLY : ParticleVertexCache, bUseKVEL_Accel, myKVEL_Stats, mg_mesh
+USE var_QuadScalar, ONLY : FictKNPR_IP, bKVEL_IndexValid
 use cinterface
 use dem_query
 IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
@@ -424,6 +425,16 @@ real*8 :: dbuf1(2)
 LOGICAL, ALLOCATABLE :: bCandidateElement(:)
 INTEGER, ALLOCATABLE :: CandidateList(:)
 INTEGER :: nCandidates, iCand, iVtx, j, iedge, iface
+
+! Per-element ownership of the local DOFs by particle IP (hoisted out of the
+! cubature loop; DALPHA_E holds the matching 0/1 alpha values)
+LOGICAL :: LOWN(NNBAS)
+REAL*8  :: DALPHA_E(NNBAS)
+
+! Dense DOF -> particle index (FictKNPR_IP) usable for particle IP, and
+! guard against a particle ordering that differs from the cache build
+LOGICAL :: bUseIdx, bIdMismatch
+LOGICAL :: bWarnedIdMismatch = .FALSE.
 
 COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
 COMMON /ERRCTL/ IER,ICHECK
@@ -486,6 +497,16 @@ IF (myid /= 0) THEN
   end if
 
   !========================================================================
+  ! Candidate element work arrays: allocated once per call. After each
+  ! particle only the entries listed in CandidateList are reset.
+  !========================================================================
+  if (allocated(bCandidateElement)) deallocate(bCandidateElement)
+  if (allocated(CandidateList)) deallocate(CandidateList)
+  allocate(bCandidateElement(NEL))
+  allocate(CandidateList(NEL))
+  bCandidateElement = .FALSE.
+
+  !========================================================================
   ! MAIN PARTICLE LOOP
   !========================================================================
   DO IP = 1,numParticles
@@ -506,16 +527,34 @@ IF (myid /= 0) THEN
   DTrqForceZ = 0d0
 
   !========================================================================
+  ! Check that cache slot IP still describes particle IP (the cache is built
+  ! in QuadScalar_FictKnpr with the same getAllParticles ordering). On a
+  ! mismatch the particle is treated as uncached (all elements, longIdMatch).
+  !========================================================================
+  bUseIdx = .FALSE.
+  bIdMismatch = .FALSE.
+#ifdef ENABLE_FBM_ACCELERATION
+  if (bUseKVEL_Accel .and. allocated(ParticleVertexCache)) then
+    if (IP <= size(ParticleVertexCache)) then
+      bIdMismatch = .not. all(theParticles(IP)%bytes == &
+                              ParticleVertexCache(IP)%longId%bytes)
+      bUseIdx = bKVEL_IndexValid .and. (.not. bIdMismatch)
+      if (bIdMismatch .and. (.not. bWarnedIdMismatch)) then
+        write(*,'(A,I0,A)') 'KVEL: rank ', myid, &
+          ': particle ordering changed since cache build, using all elements'
+        bWarnedIdMismatch = .TRUE.
+      end if
+    end if
+  end if
+#endif
+
+  !========================================================================
   ! Build KVEL Candidate Element Set
   !========================================================================
-  allocate(bCandidateElement(NEL))
-  allocate(CandidateList(NEL))
-
-  bCandidateElement = .FALSE.
   nCandidates = 0
 
 #ifdef ENABLE_FBM_ACCELERATION
-  if (bUseKVEL_Accel .and. allocated(ParticleVertexCache)) then
+  if (bUseKVEL_Accel .and. allocated(ParticleVertexCache) .and. (.not. bIdMismatch)) then
 #else
   if (.FALSE.) then
 #endif
@@ -559,6 +598,17 @@ IF (myid /= 0) THEN
                 CandidateList(nCandidates) = IEL
               END IF
             END DO
+
+          ELSE
+            ! Element-centre DOF: it belongs to exactly one element. Without
+            ! this branch an element whose only inside DOF is its centre was
+            ! never a candidate and lost its force contribution.
+            IEL = ivt - NVT - NET - NAT
+            IF (.not. bCandidateElement(IEL)) THEN
+              bCandidateElement(IEL) = .TRUE.
+              nCandidates = nCandidates + 1
+              CandidateList(nCandidates) = IEL
+            END IF
           END IF
         END DO
 
@@ -568,10 +618,8 @@ IF (myid /= 0) THEN
 
   ! Handle case when no candidates found
   if (nCandidates == 0) then
-    if (bUseKVEL_Accel .and. allocated(ParticleVertexCache)) then
+    if (bUseKVEL_Accel .and. allocated(ParticleVertexCache) .and. (.not. bIdMismatch)) then
       ! Cache is populated but particle has no DOFs on this rank
-      deallocate(bCandidateElement)
-      deallocate(CandidateList)
       ! Pack zero forces for this particle
       iPointer = 6*(IP-1)
       forceArray(iPointer+1) = 0.0d0
@@ -604,14 +652,30 @@ IF (myid /= 0) THEN
     call ExitError('Error in ForcesLocalParticlesSerial_KVEL',1728)
   end if
 
+   ! Ownership of the element's DOFs by particle IP, evaluated once per
+   ! element and reused for NJALFA/NIALFA and in the cubature loop below
+   DO I=1,IDFL
+     IG=KDFG(I)
+     IF (bUseIdx) THEN
+      LOWN(I) = (FictKNPR_IP(IG) == IP)
+     ELSE
+      LOWN(I) = longIdMatch(IG, theParticles(IP)%bytes)
+     END IF
+     IF (LOWN(I)) THEN
+      DALPHA_E(I) = 1d0
+     ELSE
+      DALPHA_E(I) = 0d0
+     END IF
+   ENDDO
+
    NJALFA=0
    NIALFA=0
    DO I=1,IDFL
      IG=KDFG(I)
-     IF((ALPHA(IG) == 0).or.(.not. longIdMatch(IG, theParticles(IP)%bytes)))THEN
+     IF((ALPHA(IG) == 0).or.(.not. LOWN(I)))THEN
       NJALFA=NJALFA+1
      ENDIF
-     IF (longIdMatch(IG, theParticles(IP)%bytes)) THEN
+     IF (LOWN(I)) THEN
       NIALFA=NIALFA+1
      ENDIF
    ENDDO
@@ -727,11 +791,7 @@ IF (myid /= 0) THEN
       DU3Y=DU3Y+U3(IG)*DBI3
       DU3Z=DU3Z+U3(IG)*DBI4
 
-      IF (longIdMatch(IG, theParticles(IP)%bytes)) THEN
-       DALPHA = 1d0
-      ELSE
-       DALPHA = 0d0
-      END IF
+      DALPHA = DALPHA_E(I)
       DALV=DALV+DALPHA*DBI1
       DALX=DALX+DALPHA*DBI2
       DALY=DALY+DALPHA*DBI3
@@ -771,9 +831,10 @@ IF (myid /= 0) THEN
 
   end do ! candidate elements
 
-  ! Cleanup candidate lists
-  deallocate(bCandidateElement)
-  deallocate(CandidateList)
+  ! Reset only the candidate flags set for this particle
+  DO iCand = 1, nCandidates
+    bCandidateElement(CandidateList(iCand)) = .FALSE.
+  END DO
 
   !========================================================================
   ! Post-processing
@@ -801,6 +862,9 @@ IF (myid /= 0) THEN
   forceArray(iPointer+6) = DTrqForceZ
 
   END DO ! particles
+
+  deallocate(bCandidateElement)
+  deallocate(CandidateList)
 
 END IF ! myid /= 0
 
