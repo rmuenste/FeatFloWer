@@ -307,9 +307,9 @@ C
 
 !       WRITE(*,*) myid,"ok!"
 !       STOP
-      IF (MSHOW.GE.2) WRITE(MTERM,'(10(2XA8))')
+      IF (MSHOW.GE.2) WRITE(MTERM,'(10(2X,A8))')
      *'ILEV','NVT','NAT','NEL','NET','NDOF'
-      IF (MSHOW.GE.0) WRITE(MFILE,'(10(2XA8))')
+      IF (MSHOW.GE.0) WRITE(MFILE,'(10(2X,A8))')
      *'ILEV','NVT','NAT','NEL','NET','NDOF'
 C
       DO 11  II=NLMIN,NLMAX
@@ -385,9 +385,9 @@ C
 !       KNABD(II)=NABD
 !       KNVBD(II)=NVBD
 
-      IF (MSHOW.GE.2) WRITE(MTERM,'(10(2XI8))')
+      IF (MSHOW.GE.2) WRITE(MTERM,'(10(2X,I8))')
      *ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
-      IF (MSHOW.GE.0) WRITE(MFILE,'(10(2XI8))')
+      IF (MSHOW.GE.0) WRITE(MFILE,'(10(2X,I8))')
      *ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
 C
       CALL ZNEW(NEL+1,2,LVOL,'VVOL ')

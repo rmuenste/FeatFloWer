@@ -58,7 +58,7 @@ implicit none
   WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF))//"_key",'.prf'
   offset = 0
   IF (myid.eq.1) then
-   WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
+   WRITE(*,'(A,$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
   end if
   
 !   IF (myid.eq.1) write(*,*) "datasize = ",datasize, DataSizeThresholdMPI,nChunks
@@ -156,7 +156,7 @@ implicit none
     WRITE(cPOutFile(7:),'(I0,A,I0,A,I0,A)') iOut,'/'//ADJUSTL(TRIM(cF))//"_comp",iComp,'_chunk_',iChunk,'.prf'
     offset = 0
     IF (myid.eq.1) then
-     WRITE(*,'(A$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
+     WRITE(*,'(A,$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
     end if
     
     CALL MPI_File_open(myid, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
@@ -243,7 +243,7 @@ implicit none
   WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF))//"_key",'.prf'
   offset = 0
   IF (myid.eq.1) then
-   WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
+   WRITE(*,'(A,$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
   end if
   
 !   IF (myid.eq.1) write(*,*) "datasize = ",datasize, DataSizeThresholdMPI,nChunks
@@ -278,7 +278,7 @@ implicit none
     WRITE(cPOutFile(7:),'(I0,A,I0,A,I0,A)') iOut,'/'//ADJUSTL(TRIM(cF))//"_comp",iComp,'_chunk_',iChunk,'.prf'
     offset = 0
     IF (myid.eq.1) then
-     WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
+     WRITE(*,'(A,$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
     end if
     
     CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
@@ -567,7 +567,7 @@ deallocate(ElementOffsets)
     WRITE(cPOutFile(7:),'(I0,A,I0,A,I0,A)') iOut,'/'//ADJUSTL(TRIM(cF))//"_comp",1,'_chunk_',iChunk,'.prf'
    offset = 0
    IF (myid.eq.1) then
-    WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
+    WRITE(*,'(A,$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
    end if
    
    CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
@@ -641,7 +641,7 @@ deallocate(ElementOffsets)
     WRITE(cPOutFile(7:),'(I0,A,I0,A,I0,A)') iOut,'/'//ADJUSTL(TRIM(cF))//"_comp",iComp,'_chunk_',iChunk,'.prf'
     offset = 0
     IF (myid.eq.1) then
-     WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
+     WRITE(*,'(A,$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
     end if
     
     CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
@@ -754,7 +754,7 @@ deallocate(ElementOffsets)
     WRITE(cPOutFile(7:),'(I0,A,I0,A,I0,A)') iOut,'/'//ADJUSTL(TRIM(cF))//"_comp",iComp,'_chunk_',iChunk,'.prf'
     offset = 0
     IF (myid.eq.1) then
-     WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
+     WRITE(*,'(A,$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
     end if
     
     CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
@@ -931,7 +931,7 @@ deallocate(ElementOffsets)
     WRITE(cPOutFile(7:),'(I0,A,I0,A,I0,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_comp',iComp,'_chunk_',iChunk,'.prf'
     offset = 0
     IF (myid.eq.1) then
-     WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
+     WRITE(*,'(A,$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
     end if
     CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
     
@@ -1023,7 +1023,7 @@ deallocate(ElementOffsets)
     WRITE(cPOutFile(7:),'(I0,A,I0,A,I0,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_comp',iComp,'_chunk_',iChunk,'.prf'
     offset = 0
     IF (myid.eq.1) then
-     WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
+     WRITE(*,'(A,$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
     end if
 
     CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
@@ -1105,7 +1105,7 @@ deallocate(ElementOffsets)
    WRITE(cPOutFile(7:),'(I0,A,I0,A,I0,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_comp',1,'_chunk_',iChunk,'.prf'
    offset = 0
    IF (myid.eq.1) then
-    WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
+    WRITE(*,'(A,$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
    end if
    CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
 
@@ -1169,7 +1169,7 @@ deallocate(ElementOffsets)
 
    IF (bExists) THEN
     IF (myid.eq.1) then
-     WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
+     WRITE(*,'(A,$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
     end if
 
     CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
@@ -1198,7 +1198,7 @@ deallocate(ElementOffsets)
     cPOutFile = '_dump/'
     WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_key','.prf'
     IF (myid.eq.1) then
-     WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
+     WRITE(*,'(A,$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
     end if
 
     allocate(iauxG(INT(ElementOffsets(subnodes+1))),jauxG(INT(ElementOffsets(subnodes+1))))
@@ -1411,7 +1411,7 @@ CONTAINS
     WRITE(cPOutFile(7:),'(I0,A,I0,A,I0,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_comp',iComp,'_chunk_',iChunk,'.prf'
     offset = 0
     IF (myid.eq.1) then
-     WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
+     WRITE(*,'(A,$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
     end if
     CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
 
@@ -1502,7 +1502,7 @@ CONTAINS
    WRITE(cPOutFile(7:),'(I0,A,I0,A,I0,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_comp',1,'_chunk_',iChunk,'.prf'
    offset = 0
    IF (myid.eq.1) then
-    WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
+    WRITE(*,'(A,$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
    end if
    CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
 
@@ -1566,7 +1566,7 @@ CONTAINS
 
    IF (bExists) THEN
     IF (myid.eq.1) then
-     WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
+     WRITE(*,'(A,$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
     end if
 
     CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
@@ -1595,7 +1595,7 @@ CONTAINS
     cPOutFile = '_dump/'
     WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_key','.prf'
     IF (myid.eq.1) then
-     WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
+     WRITE(*,'(A,$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
     end if
 
     allocate(iauxG(INT(ElementOffsets(subnodes+1))),jauxG(INT(ElementOffsets(subnodes+1))))
@@ -1899,7 +1899,7 @@ deallocate(ElementOffsets)
   WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_key','.prf'
   offset = 0
   IF (myid.eq.1) then
-   WRITE(*,'(A$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
+   WRITE(*,'(A,$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
   end if
   
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Output the key !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1937,7 +1937,7 @@ deallocate(ElementOffsets)
     WRITE(cPOutFile(7:),'(I0,A,I0,A,I0,A)') iOut,'/'//ADJUSTL(TRIM(cF))//"_comp",1,'_chunk_',iChunk,'.prf'
    offset = 0
    IF (myid.eq.1) then
-    WRITE(*,'(A$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
+    WRITE(*,'(A,$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
    end if
 
    CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
@@ -1981,7 +1981,7 @@ deallocate(ElementOffsets)
   WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//TRIM(ADJUSTL(cF))//'_key','.prf'
   offset = 0
   IF (myid.eq.1) then
-   WRITE(*,'(A$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
+   WRITE(*,'(A,$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
   end if
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Output the key !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -2021,7 +2021,7 @@ deallocate(ElementOffsets)
     WRITE(cPOutFile(7:),'(I0,A,I0,A,I0,A)') iOut,'/'//ADJUSTL(TRIM(cF))//"_comp",iComp,'_chunk_',iChunk,'.prf'
     offset = 0
     IF (myid.eq.1) then
-     WRITE(*,'(A$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
+     WRITE(*,'(A,$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
     end if
     
     CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
@@ -2080,7 +2080,7 @@ deallocate(ElementOffsets)
   WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF))//"_key",'.prf'
   offset = 0
   IF (myid.eq.1) then
-   WRITE(*,'(A$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
+   WRITE(*,'(A,$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
   end if
   
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Output the key !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -2176,7 +2176,7 @@ deallocate(ElementOffsets)
     WRITE(cPOutFile(7:),'(I0,A,I0,A,I0,A)') iOut,'/'//ADJUSTL(TRIM(cF))//"_comp",iComp,'_chunk_',iChunk,'.prf'
     offset = 0
     IF (myid.eq.1) then
-     WRITE(*,'(A$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
+     WRITE(*,'(A,$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
     end if
     
     CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
@@ -2211,7 +2211,7 @@ deallocate(ElementOffsets)
   cPOutFile = '_dump/'
   WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_key_idx','.prf'
   IF (myid.eq.1) then
-   WRITE(*,'(A$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
+   WRITE(*,'(A,$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
   end if
 
   allocate(iPos(knel(nlmin)),iDisp(knel(nlmin)))

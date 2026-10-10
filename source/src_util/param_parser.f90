@@ -1213,10 +1213,10 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
     WRITE(mfile,'(A,I1)') "ElemTransform = Q", Transform%ilint
     WRITE(mterm,'(A,I1)') "ElemTransform = Q", Transform%ilint
 
-    WRITE(mfile,'(A,5(A6I1))') "Matrix Renewal scheme : ","  M = ",myMatrixRenewal%M,&
+    WRITE(mfile,'(A,5(A6,I1))') "Matrix Renewal scheme : ","  M = ",myMatrixRenewal%M,&
       ", D = ",myMatrixRenewal%D,", K = ",myMatrixRenewal%K,", S = ",myMatrixRenewal%S,&
       ", C = ",myMatrixRenewal%C
-    WRITE(mterm,'(A,5(A6I1))') "Matrix Renewal scheme : ","  M = ",myMatrixRenewal%M,&
+    WRITE(mterm,'(A,5(A6,I1))') "Matrix Renewal scheme : ","  M = ",myMatrixRenewal%M,&
       ", D = ",myMatrixRenewal%D,", K = ",myMatrixRenewal%K,", S = ",myMatrixRenewal%S,&
       ", C = ",myMatrixRenewal%C
 

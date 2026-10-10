@@ -1415,7 +1415,7 @@ INTEGER iStringPos,iString
 IF (.NOT.(ALLOCATED(CC_EMat))) ALLOCATE(CC_EMat(NLMIN:NLMAX))
 
 DO ILEV = NLMIN,NLMAX
- IF (myid.eq.1) write(*,'(A,I1.1,A$)') " Lev",ILEV,": "
+ IF (myid.eq.1) write(*,'(A,I1.1,A,$)') " Lev",ILEV,": "
  iStringPos = 0
  iString = 1
 
@@ -2018,7 +2018,7 @@ IF (myid.eq.0) RETURN
 
 DO ILEV = NLMIN,NLMAX
 
- IF (myid.eq.1) write(*,'(A,I1.1,A$)') "Lev",ILEV,": "
+ IF (myid.eq.1) write(*,'(A,I1.1,A,$)') "Lev",ILEV,": "
 
  iStringPos = 0
  iString = 1
@@ -2161,11 +2161,11 @@ DO ILEV = NLMIN,NLMAX
 
 
   IF (my_mg_CCPiece(ILEV)%E(iel)%sym.EQ.-1.OR.my_mg_CCPiece(ILEV)%E(iel)%num.EQ.-1) then
-   IF (myid.eq.1) write(*,'(A$)') '\'
+   IF (myid.eq.1) write(*,'(A,$)') '\'
   ELSE
    if (20*iel/knel(1).ge.iString) THEN
     DO i=iStringPos+1,20*iel/knel(1)
-     IF (myid.eq.1) write(*,'(A$)') '%'
+     IF (myid.eq.1) write(*,'(A,$)') '%'
     END DO
     iString=20*iel/knel(1)+1
     iStringPos=iString-1
