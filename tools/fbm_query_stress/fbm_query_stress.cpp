@@ -338,6 +338,30 @@ static int stageD2() {
 }
 #endif
 
+
+// The inpr contract: both queries write the SOLID FLAG through inpr, and the identity
+// through the byte array. They must write the same flag for the same point. The
+// accelerated path used to write bytes[0] + 1 - the most significant byte of the
+// system id plus one - which equals 1 only while that byte is zero, i.e. below id 2^56.
+static int stageH() {
+   theWorld()->clear();
+   for (int i = 0; i < 40; ++i)
+      createSphere(9000+i, Vec3(60 + 3*i, 60, 60), real(0.4), granite)->setFixed(true);
+   SphereID s = createSphere(900, Vec3(2, 2, 2), real(0.7), granite);
+   theWorld()->simulationStep(real(0.001));
+   double p[3] = { s->getPosition()[0], s->getPosition()[1], s->getPosition()[2] };
+   int ia = -1, ib = -1; short int ba[8] = {}, bb[8] = {};
+   const bool ra = pointInsideParticlesAccelerated(0, &ia, p, ba);
+   const bool rb = pointInsideParticles(0, &ib, p, bb);
+   const bool ok = (ra && rb && ia == ib);
+   std::printf("[%-26s] grid=%-3s accelerated: hit=%d inpr=%d id=%llu | exhaustive: hit=%d inpr=%d id=%llu -> %s\n",
+               "H inpr contract", gridActive() ? "ON" : "off", int(ra), ia,
+               (unsigned long long)ByteArrayToUint64(ba), int(rb), ib,
+               (unsigned long long)ByteArrayToUint64(bb), ok ? "ok" : "FAIL");
+   if (!ok) std::printf("    the two paths disagree about the solid flag for a point inside a body\n");
+   return ok ? 0 : 1;
+}
+
 int main(int argc, char** argv) {
    theWorld()->setGravity(0, 0, 0);
    theWorld()->setDamping(1);
@@ -348,6 +372,7 @@ int main(int argc, char** argv) {
    rc |= stageC();
    rc |= stageE();
    rc |= stageG();
+   rc |= stageH();
 #if PE_USE_CGAL
    rc |= stageD();
    rc |= stageD2();

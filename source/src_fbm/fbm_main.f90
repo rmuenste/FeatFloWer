@@ -657,15 +657,20 @@ integer(kind=8) :: timing_start, timing_end, timing_rate, timing_max
      endif
    endif
 
-   ! If both found a particle, check if it's the same particle
+   ! If both found a particle, check if it's the same particle.
+   ! The identity is the full 8-byte pe system id. bytes(1) is its MOST SIGNIFICANT
+   ! byte (pe writes byte_array[i] = id >> (7-i)*8), which is zero for every ordinary
+   ! serial id - comparing only that byte could never see an ownership difference,
+   ! and differences do occur: two overlapping bodies make the accelerated and the
+   ! exhaustive traversal return different owners for the same point.
    if (accel_result .and. baseline_result) then
-     if (longFictId%bytes(1) /= baseline_bytes(1)) then
+     if (any(longFictId%bytes /= baseline_bytes)) then
        hashgrid_particle_mismatch_count = hashgrid_particle_mismatch_count + 1
        if (myid == 1) then
          write(*,'(A,I0,A,3F12.6)') 'HASHGRID PARTICLE MISMATCH at vertex ', vidx, &
                                      ' point: ', x, y, z
-         write(*,'(A,I0,A,I0)') '  Accelerated particle: ', longFictId%bytes(1)+1, &
-                                ' Baseline particle: ', baseline_bytes(1)+1
+         write(*,'(A,I0,A,I0)') '  Accelerated system id: ', fbm_bytesToUint64(longFictId%bytes), &
+                                ' Baseline system id: ', fbm_bytesToUint64(baseline_bytes)
        endif
      endif
    endif
@@ -681,6 +686,22 @@ integer(kind=8) :: timing_start, timing_end, timing_rate, timing_max
 end subroutine fbm_getFictKnprFC2
 !=========================================================================
 ! 
+!=========================================================================
+!=========================================================================
+! Reassemble a pe system id from the byte array pe fills through the C
+! interface: byte_array[i] = (id >> (7-i)*8) & 0xff, so bytes(1) is the most
+! significant byte and bytes(8) the least.
+!=========================================================================
+integer(kind=8) function fbm_bytesToUint64(bytes) result(id)
+use iso_c_binding, only: c_short
+implicit none
+integer(c_short), dimension(8), intent(in) :: bytes
+integer :: i
+id = 0_8
+do i = 1, 8
+  id = ior(ishft(id, 8), int(iand(int(bytes(i)), 255), kind=8))
+end do
+end function fbm_bytesToUint64
 !=========================================================================
 subroutine fbm_testBasicFBM(x,y,z, longFictId)
 ! 
