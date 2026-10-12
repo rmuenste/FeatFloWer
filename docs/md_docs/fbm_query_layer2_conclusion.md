@@ -18,16 +18,23 @@ worker holds all 70 bodies and pe's per-rank 32-body threshold is met globally.
 
 ## Result
 
-| stage | mode | compared | flag viol. | owner viol. | verdict |
-|---|---|---|---|---|---|
-| A1 lattice (refreshed) | must pass | 53 391 | 0 | 0 | ok |
-| A2 teeth (nudged, stale) | must differ | 53 391 | **336** | 0 | ok |
-| G sphere / box / capsule / ellipsoid / cylinder (stale) | must differ | 53 391 | 33 / 245 / 17 / 5 / 36 | 0 | ok |
-| R sphere / box / capsule / ellipsoid / cylinder (refreshed) | must pass | 53 391 | 0 | 0 | ok |
-| E overlapping pairs across a plane | must pass | 53 391 | 0 | **0** | ok |
-| P probes on the z = 1/3, 2/3 subdomain cuts | must pass | 53 391 | 0 | 0 | ok |
+How to read the table: a **miss** is a DOF the accelerated query classified fluid while the
+exhaustive query found it solid (or vice versa); an **owner mismatch** is a DOF both call solid
+but attribute to different bodies. *Verdict* stages run with a current index and expect **0**
+misses. *Control* stages run with a deliberately stale index and expect misses — a construction
+that finds none has no teeth, and the gate fails the run. The result is the **pair**: the same
+construction misses hundreds of DOFs without the refresh and none with it.
 
-Exit 0. Every miss is `accelerated=F exhaustive=T` at the predicted DOF planes
+| stage | kind | compared | misses found | expected | owner mismatches | verdict |
+|---|---|---|---|---|---|---|
+| A1 lattice, refreshed | verdict | 53 391 | 0 | 0 | 0 | pass |
+| A2 teeth, stale | control | 53 391 | **336** | > 0 | 0 | control confirmed |
+| G sphere / box / capsule / ellipsoid / cylinder, stale | control | 53 391 | 33 / 245 / 17 / 5 / 36 | > 0 | 0 | control confirmed |
+| R sphere / box / capsule / ellipsoid / cylinder, refreshed | verdict | 53 391 | 0 | 0 | 0 | pass |
+| E overlapping pairs across a plane | verdict | 53 391 | 0 | 0 | **0** | pass |
+| P probes on the z = 1/3, 2/3 subdomain cuts | verdict | 53 391 | 0 | 0 | 0 | pass |
+
+Exit 0 — the run as a whole is a pass. Every miss is `accelerated=F exhaustive=T` at the predicted DOF planes
 `x = 13/36, 19/36, 25/36`, just past `2·span, 3·span, 4·span`. On the real mesh the stale
 spatial index misses **hundreds of solid DOFs per step** for a body that has crossed a cell
 boundary; the one `refresh_spatial_index()` after `step_simulation()` (FF `dc82d7fb`,

@@ -270,6 +270,8 @@ subroutine fbm_query_gate_verdict(simTime, stageName, mode, minQueries)
   integer(kind=8) :: compared, viol
   logical :: failed, vacuous
   character(len=12) :: modeName
+  character(len=17) :: verdictWord
+  character(len=3)  :: expectedWord
 
   buf(1) = dble(fbm_gate_queries)
   buf(2) = dble(fbm_gate_flag_viol)
@@ -278,10 +280,13 @@ subroutine fbm_query_gate_verdict(simTime, stageName, mode, minQueries)
   compared = int(buf(1), kind=8)
   viol     = int(buf(2) + buf(3), kind=8)
 
+  ! What the stage EXPECTS, spelled out on the line: a verdict stage runs with a current
+  ! index and expects 0 misses; a control stage runs with a deliberately stale index and
+  ! expects misses, because a construction that finds none has no teeth.
   select case (mode)
-  case (FBM_GATE_MUST_PASS);    modeName = 'must_pass'
-  case (FBM_GATE_MUST_DIFFER);  modeName = 'must_differ'
-  case default;                 modeName = 'characterise'
+  case (FBM_GATE_MUST_PASS);    modeName = 'verdict';      expectedWord = '0'
+  case (FBM_GATE_MUST_DIFFER);  modeName = 'control';      expectedWord = '>0'
+  case default;                 modeName = 'characterise'; expectedWord = 'any'
   end select
 
   ! A green run that compared nothing is the failure mode this guard exists for:
@@ -292,13 +297,24 @@ subroutine fbm_query_gate_verdict(simTime, stageName, mode, minQueries)
   if (mode == FBM_GATE_MUST_PASS   .and. viol >  0) failed = .true.
   if (mode == FBM_GATE_MUST_DIFFER .and. viol == 0) failed = .true.
 
+  if (failed) then
+    verdictWord = 'FAIL'
+  else if (mode == FBM_GATE_MUST_DIFFER) then
+    verdictWord = 'control_confirmed'
+  else
+    verdictWord = 'pass'
+  end if
+
   if (myid == 1) then
-    write(*,'(A,ES16.8,A,A,A,A,A,I0,A,I0,A,I0,A,A)') &
+    ! misses: DOFs the accelerated query classified fluid while the exhaustive one found
+    ! them solid (or vice versa). owner_mismatches: both solid, different system id.
+    write(*,'(A,ES16.8,A,A,A,A,A,I0,A,I0,A,I0,A,A,A,A)') &
       'DNS_QUERY_GATE time= ', simTime, ' stage= ', trim(stageName), &
       ' mode= ', trim(modeName), ' compared= ', compared, &
-      ' flag_violations= ', int(buf(2), kind=8), &
-      ' owner_violations= ', int(buf(3), kind=8), &
-      ' verdict= ', merge('FAIL', 'ok  ', failed)
+      ' misses= ', int(buf(2), kind=8), &
+      ' owner_mismatches= ', int(buf(3), kind=8), &
+      ' expected_misses= ', trim(expectedWord), &
+      ' verdict= ', trim(verdictWord)
     if (failed) then
       if (vacuous) then
         write(*,'(A,I0,A)') 'DNS_QUERY_GATE FAILED (vacuous): fewer than ', minQueries, &

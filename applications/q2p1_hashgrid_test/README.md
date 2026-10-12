@@ -33,18 +33,21 @@ The program initialises exactly as a solver would, takes **one** particle step (
 activates pe's grid and arms the accelerated branch), runs the preflight assertions, then the
 stages from `SimPar@GateStageList`:
 
-| stage | construction | must |
-|---|---|---|
-| `A1` | all probes on the lattice, index refreshed | pass |
-| `A2` | A1 nudged one DOF pitch (`1/36`) past the planes, **no** refresh | **differ** |
-| `G` | per shape: lattice, refresh, nudge, no refresh | **differ** |
-| `R` | per shape: lattice, refresh, nudge, **refresh** | pass |
-| `E` | probe pairs overlapping a third of a diameter across a plane; full-id ownership | pass |
-| `P` | probes centred on the `z = 1/3`, `z = 2/3` subdomain cuts | pass |
+| stage | construction | kind | expected misses |
+|---|---|---|---|
+| `A1` | all probes on the lattice, index refreshed | verdict | 0 |
+| `A2` | A1 nudged one DOF pitch (`1/36`) past the planes, **no** refresh | **control** | **> 0** |
+| `G` | per shape: lattice, refresh, nudge, no refresh | **control** | **> 0** |
+| `R` | per shape: lattice, refresh, nudge, **refresh** | verdict | 0 |
+| `E` | probe pairs overlapping a third of a diameter across a plane; full-id ownership | verdict | 0 |
+| `P` | probes centred on the `z = 1/3`, `z = 2/3` subdomain cuts | verdict | 0 |
 
-`A2` and `G` are controls: they must *find* the stale-index defect, or the placement has missed
-the cell lattice and the passing stages prove nothing. A stage that compared fewer than 1000
-classifications is judged vacuous regardless of its violation count.
+A **miss** is a DOF the accelerated query classified fluid while the exhaustive one found it
+solid (or vice versa). Verdict stages expect none. Control stages run with a deliberately stale
+index and must *find* misses — otherwise the placement has missed the cell lattice and the
+passing stages prove nothing; the gate then fails the run. Each `DNS_QUERY_GATE` line carries
+`misses=`, `owner_mismatches=`, `expected_misses=` and `verdict= pass | control_confirmed | FAIL`.
+A stage that compared fewer than 1000 classifications is vacuous regardless of its counts.
 
 Exit codes: `0` green · `62` a verdict stage failed · `63` the gate compared nothing · `64` the
 preflight failed (grid inactive or mis-sized on some rank, fewer than 33 bodies, or
