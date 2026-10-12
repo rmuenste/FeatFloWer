@@ -21,42 +21,13 @@
 #include <vector>
 using namespace pe;
 
-// ---------------------------------------------------------------- comparison
-struct Stats {
-   long queries = 0, accelHits = 0, baseHits = 0, hitMiss = 0, idDiff = 0, inprDiff = 0;
-   std::vector<std::string> examples;
-};
+#include "fbm_query_stress_common.h"
+using namespace fbmstress;
 
-static bool gridActive() { return theCollisionSystem()->getCoarseDetector().isGridActive(); }
-
-static Stats sweep(const std::vector<Vec3>& pts) {
-   Stats s;
-   for (size_t i = 0; i < pts.size(); ++i) {
-      double pos[3] = { pts[i][0], pts[i][1], pts[i][2] };
-      int ia = 0, ib = 0;
-      short int ba[8] = {}, bb[8] = {};
-      const bool ra = pointInsideParticlesAccelerated(0, &ia, pos, ba);
-      const bool rb = pointInsideParticles(0, &ib, pos, bb);
-      const unsigned long long ida = ByteArrayToUint64(ba), idb = ByteArrayToUint64(bb);
-      ++s.queries; s.accelHits += ra; s.baseHits += rb;
-      bool bad = false;
-      if (ra != rb)                 { ++s.hitMiss;  bad = true; }
-      else if (ra && ida != idb)    { ++s.idDiff;   bad = true; }
-      if (ra && rb && ia != ib)     { ++s.inprDiff; }
-      if (bad && s.examples.size() < 6) {
-         char buf[256];
-         std::snprintf(buf, sizeof buf,
-            "point (%.12g, %.12g, %.12g): accel hit=%d id=%llu | baseline hit=%d id=%llu",
-            pts[i][0], pts[i][1], pts[i][2], int(ra), ida, int(rb), idb);
-         s.examples.push_back(buf);
-      }
-   }
-   return s;
-}
-
+// Report one stage. Stages that characterise rather than assert pass mustPass = false.
 static int report(const char* stage, const Stats& s, bool mustPass, bool wantGrid) {
    const bool active = gridActive();
-   const long bad = s.hitMiss + s.idDiff;
+   const long bad = s.bad();
    std::printf("[%-26s] grid=%-3s queries=%-7ld accelHits=%-7ld baseHits=%-7ld "
                "hit/miss=%-5ld idDiff=%-5ld inprDiff=%-5ld -> %s\n",
                stage, active ? "ON" : "off", s.queries, s.accelHits, s.baseHits,
@@ -65,24 +36,6 @@ static int report(const char* stage, const Stats& s, bool mustPass, bool wantGri
    for (size_t i = 0; i < s.examples.size(); ++i) std::printf("    %s\n", s.examples[i].c_str());
    if (wantGrid && !active) { std::printf("    ERROR: this stage requires an ACTIVE grid; it tested nothing\n"); return 1; }
    return (mustPass && bad) ? 1 : 0;
-}
-
-// ------------------------------------------------------------- point builders
-static void addSurfacePoints(std::vector<Vec3>& pts, const Vec3& c, real r, real eps) {
-   static const real d[7][3] = {{1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1},{0.577,0.577,0.577}};
-   for (int k = 0; k < 7; ++k) {
-      const Vec3 u(d[k][0], d[k][1], d[k][2]);
-      pts.push_back(c + u * (r - eps));          // just inside
-      pts.push_back(c + u * (r + eps));          // just outside
-   }
-   pts.push_back(c);                              // centre
-}
-
-static void addLattice(std::vector<Vec3>& pts, const Vec3& lo, const Vec3& hi, int n) {
-   for (int i = 0; i < n; ++i) for (int j = 0; j < n; ++j) for (int k = 0; k < n; ++k)
-      pts.push_back(Vec3(lo[0] + (hi[0]-lo[0])*i/(n-1.0),
-                         lo[1] + (hi[1]-lo[1])*j/(n-1.0),
-                         lo[2] + (hi[2]-lo[2])*k/(n-1.0)));
 }
 
 // Background bodies purely to push the body count over pe's gridActivationThreshold (32).
