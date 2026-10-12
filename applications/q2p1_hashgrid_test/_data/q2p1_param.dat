@@ -38,6 +38,7 @@ SimPar@UseKVELAccel = Yes
 SimPar@GateStageList = "A1,A2,G,R,E,P"
 SimPar@GateRefreshIndex = Yes
 SimPar@GateProbeReport = Yes
+SimPar@FbmOwnerTable = Yes
 ----------------- Velocity --------------------
 Velo@defCrit =1d-6
 Velo@epsCrit =1d-5

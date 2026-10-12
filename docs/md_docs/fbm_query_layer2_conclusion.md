@@ -45,6 +45,26 @@ Controls: `UseHashGridAccel = No` → preflight fails, exit 64. `GateRefreshInde
 first verdict stage fails with 2507 misses, exit 62. A run that compared fewer than 1000
 classifications is vacuous and fails regardless of its violation count.
 
+## Multiple ownership — measured
+
+Overlapping bodies give a DOF two owners that the velocity BC and the force attribution cannot
+both honour; today they take the minimum system id. `SimPar@FbmOwnerTable = Yes` fills a CSR
+exception table (module `fbm_ownership`) for DOFs inside two or more bodies — the canonical
+owner stays dense and unchanged, the first id of every row must equal it, and a run with no
+overlap allocates no payload. pe supplies owner-list forms of both queries on one shared
+containment helper, and the gate compares the two owner **sets** per DOF.
+
+| stage | multi-owned DOFs | nnz | max owners | canonical violations | owner-set mismatches |
+|---|---|---|---|---|---|
+| E overlapping pairs | **690** | 1380 | 2 | 0 | 0 |
+| every other verdict stage | 0 | 0 | 0 | 0 | 0 |
+| A2, G controls (stale) | 0 | 0 | 0 | 0 | 336, 33 / 245 / 17 / 5 / 36 — equal to the misses |
+
+So ~46 DOFs per overlapping pair at this resolution: the first measured size of what the table
+has to hold. Owner sets disagree exactly where the stale index drops a body and nowhere else.
+No consumer reads the table yet — it is diagnostic — but the decision whether one should is now a
+decision with a number behind it.
+
 ## What the harness forced us to learn
 
 1. **The construction must be polydisperse.** pe files a body in the grid whose span is
@@ -85,9 +105,9 @@ carries `q2p1_dns_drag`'s); and the deck-echo at `param_parser.f90:1406` segfaul
 - Stages C (rotated shapes, with a fixed box as a negative control), B (a second spacer
   size → two grids), D (asset-free triangle meshes), F (randomised, demoted) — the spine is
   green, these extend it.
-- The **multiply-owned DOF count** is not measured: stage E checks that both paths agree
-  on an owner, not how many DOFs have two. Sizing the CSR exception table needs a
-  multi-owner query.
+- A **consumer** for the ownership table (velocity BC in an overlap, force attribution) is
+  deliberately not written; the table and its count (690 DOFs for 15 pairs here) exist so
+  that choice can be made on a measurement.
 - **Parallel PE is untested** by this harness (serial PE throughout); its HashGrid default
   stays off.
 - DistanceMap stays deferred (needs `USE_CGAL` in the FF tree; Layer 1 D2 characterised it as

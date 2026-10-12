@@ -23,7 +23,7 @@ USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   bUseHashGridAccel, bUseKVEL_Accel, bPrintCFL, bPrintParticleCFL, &
   bPrintParticleReynolds, bPrintParticleState, cPartitionFormat, bRecursivePartitioning, myErrorCode, &
   bPeCheckpointOnDump, &
-  cGateStageList, bGateRefreshIndex, bGateProbeReport
+  cGateStageList, bGateRefreshIndex, bGateProbeReport, bFbmOwnerTable
 USE var_QuadScalar, ONLY: bApplyFAC3DMeshDeformation
 USE types, ONLY: tParamV, tParamP, tProperties
 
@@ -1115,6 +1115,8 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         bGateRefreshIndex = read_yes_no_param(string, iEq)
       CASE ("GateProbeReport")
         bGateProbeReport = read_yes_no_param(string, iEq)
+      CASE ("FbmOwnerTable")
+        bFbmOwnerTable = read_yes_no_param(string, iEq)
       CASE ("PartitionFormat")
        READ(string(iEq+1:),*) cParam2
        cPartitionFormat = normalize_partition_format(cParam2)
@@ -1376,6 +1378,9 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
     END IF
     IF (bGateProbeReport) THEN
       CALL write_param_str(mfile, mterm, "GateProbeReport = ", "ON")
+    END IF
+    IF (bFbmOwnerTable) THEN
+      CALL write_param_str(mfile, mterm, "FbmOwnerTable = ", "ON (multiple-ownership CSR table filled each sweep)")
     END IF
 #else
     CALL write_param_str(mfile, mterm, "FBM Acceleration = ", "DISABLED AT COMPILE TIME")

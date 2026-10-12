@@ -392,6 +392,10 @@ MODULE var_QuadScalar
   LOGICAL :: bGateRefreshIndex = .TRUE.
   LOGICAL :: bGateProbeReport = .FALSE.
 
+  ! Fill the multiple-ownership CSR table (module fbm_ownership) during the classification
+  ! sweep: one extra pe query per DOF. Default off, so production classification is untouched.
+  LOGICAL :: bFbmOwnerTable = .FALSE.
+
   ! Statistics for performance monitoring
   TYPE tKVEL_Stats
     INTEGER :: nCachedVertices

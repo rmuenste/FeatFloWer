@@ -16,11 +16,12 @@ module hashgrid_gate_driver
 
   use iso_c_binding, only: c_int, c_double
   use PP3D_MPI, only: myid, MPI_COMM_WORLD
-  use var_QuadScalar, only: cGateStageList, bGateRefreshIndex, myErrorCode
+  use var_QuadScalar, only: cGateStageList, bGateRefreshIndex, bFbmOwnerTable, myErrorCode
   use Transport_Q2P1, only: updateFBMGeometry
   use fbm, only: fbm_query_gate_reset, fbm_query_gate_verdict, fbm_gate_preflight, &
                  FBM_GATE_MUST_PASS, FBM_GATE_MUST_DIFFER
   use dem_query, only: fbm_gate_place_stage, fbm_gate_nudge
+  use fbm_ownership, only: fbm_own_report
 
   implicit none
   private
@@ -83,12 +84,19 @@ contains
 
   ! The real classification sweep (QuadScalar_FictKnpr over every Q2 DOF, then
   ! E013Max_SUPER), followed by the collective verdict. Both are rank-symmetric.
-  subroutine sweep_and_judge(simTime, name, mode)
+  ! expectMulti: the stage was built to overlap bodies on real DOFs, so the ownership
+  ! table must have rows - otherwise the overlap construction reached nothing.
+  subroutine sweep_and_judge(simTime, name, mode, expectMulti)
     real*8,           intent(in) :: simTime
     character(len=*), intent(in) :: name
     integer,          intent(in) :: mode
+    logical, optional, intent(in) :: expectMulti
+    logical :: em
+    em = .false.
+    if (present(expectMulti)) em = expectMulti
     call updateFBMGeometry()
     call fbm_query_gate_verdict(simTime, name, mode, MIN_COMPARED)
+    if (bFbmOwnerTable) call fbm_own_report(simTime, name, em)
   end subroutine sweep_and_judge
 
   subroutine run_one(simTime, token)
@@ -130,9 +138,10 @@ contains
 
     case ('E')
       ! Overlapping pairs across a plane. Both query paths own an overlap by the minimum
-      ! system id since pe 8ea90af, so the full 8-byte id must agree on every DOF.
+      ! system id since pe 8ea90af, so the full 8-byte id must agree on every DOF - and with
+      ! the ownership table on, the full owner SETS must agree and the table must be non-empty.
       call fbm_query_gate_reset(); call place(STAGE_OVERLAP, ALL_SHAPES); call refresh()
-      call sweep_and_judge(simTime, 'E_overlap', FBM_GATE_MUST_PASS)
+      call sweep_and_judge(simTime, 'E_overlap', FBM_GATE_MUST_PASS, expectMulti=.true.)
 
     case ('P')
       ! Probes centred on the z = 1/3 and z = 2/3 subdomain cuts: one body's interior DOFs

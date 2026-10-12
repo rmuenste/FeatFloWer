@@ -25,6 +25,7 @@ MODULE fbm
 use var_QuadScalar
 use dem_query
 use iso_c_binding
+use fbm_ownership, only: fbm_own_record, pointOwners, pointOwnersAccelerated, FBM_OWN_MAX
 
 integer, dimension(:), allocatable :: mykvel
 
@@ -50,6 +51,7 @@ integer(kind=8) :: hashgrid_baseline_time_ns = 0
 integer(kind=8) :: fbm_gate_queries = 0        ! DOF classifications compared
 integer(kind=8) :: fbm_gate_flag_viol = 0      ! solid flag disagreed
 integer(kind=8) :: fbm_gate_id_viol = 0        ! both solid, owner id disagreed
+integer(kind=8) :: fbm_gate_set_viol = 0       ! the two paths' owner SETS disagreed (FbmOwnerTable on)
 integer          :: fbm_gate_reported = 0      ! offenders printed on THIS rank
 integer, parameter :: fbm_gate_max_report = 8  ! per rank, per run
 #endif
@@ -187,6 +189,7 @@ subroutine fbm_query_gate_reset()
   fbm_gate_queries   = 0
   fbm_gate_flag_viol = 0
   fbm_gate_id_viol   = 0
+  fbm_gate_set_viol  = 0
   fbm_gate_reported  = 0
 #endif
 end subroutine fbm_query_gate_reset
@@ -266,8 +269,8 @@ subroutine fbm_query_gate_verdict(simTime, stageName, mode, minQueries)
   integer,          intent(in) :: minQueries  ! fewer compared classifications than this is vacuous
   integer :: ierr
 #ifdef FBM_QUERY_GATE
-  real*8  :: buf(3)
-  integer(kind=8) :: compared, viol
+  real*8  :: buf(4)
+  integer(kind=8) :: compared, viol, setViol
   logical :: failed, vacuous
   character(len=12) :: modeName
   character(len=17) :: verdictWord
@@ -276,9 +279,11 @@ subroutine fbm_query_gate_verdict(simTime, stageName, mode, minQueries)
   buf(1) = dble(fbm_gate_queries)
   buf(2) = dble(fbm_gate_flag_viol)
   buf(3) = dble(fbm_gate_id_viol)
-  call COMM_SUMMN(buf, 3)
+  buf(4) = dble(fbm_gate_set_viol)
+  call COMM_SUMMN(buf, 4)
   compared = int(buf(1), kind=8)
   viol     = int(buf(2) + buf(3), kind=8)
+  setViol  = int(buf(4), kind=8)
 
   ! What the stage EXPECTS, spelled out on the line: a verdict stage runs with a current
   ! index and expects 0 misses; a control stage runs with a deliberately stale index and
@@ -295,6 +300,7 @@ subroutine fbm_query_gate_verdict(simTime, stageName, mode, minQueries)
   vacuous = compared < int(minQueries, kind=8)
   failed  = vacuous
   if (mode == FBM_GATE_MUST_PASS   .and. viol >  0) failed = .true.
+  if (mode == FBM_GATE_MUST_PASS   .and. setViol > 0) failed = .true.   ! owner sets must agree too
   if (mode == FBM_GATE_MUST_DIFFER .and. viol == 0) failed = .true.
 
   if (failed) then
@@ -308,11 +314,12 @@ subroutine fbm_query_gate_verdict(simTime, stageName, mode, minQueries)
   if (myid == 1) then
     ! misses: DOFs the accelerated query classified fluid while the exhaustive one found
     ! them solid (or vice versa). owner_mismatches: both solid, different system id.
-    write(*,'(A,ES16.8,A,A,A,A,A,I0,A,I0,A,I0,A,A,A,A)') &
+    write(*,'(A,ES16.8,A,A,A,A,A,I0,A,I0,A,I0,A,I0,A,A,A,A)') &
       'DNS_QUERY_GATE time= ', simTime, ' stage= ', trim(stageName), &
       ' mode= ', trim(modeName), ' compared= ', compared, &
       ' misses= ', int(buf(2), kind=8), &
       ' owner_mismatches= ', int(buf(3), kind=8), &
+      ' owner_set_mismatches= ', setViol, &
       ' expected_misses= ', trim(expectedWord), &
       ' verdict= ', trim(verdictWord)
     if (failed) then
@@ -792,6 +799,11 @@ logical(c_bool) :: accel_result
 integer :: baseline_key
 integer(c_short), dimension(8) :: baseline_bytes
 
+! Multiple-ownership table (SimPar@FbmOwnerTable): every body containing the point,
+! from the path production uses, and under the gate from the exhaustive path too
+integer(c_int) :: nOwnA, nOwnB
+integer(c_long_long) :: ownA(FBM_OWN_MAX), ownB(FBM_OWN_MAX)
+
 #ifdef VERIFY_HASHGRID
 ! Variables for verification comparison
 logical(c_bool) :: baseline_result
@@ -828,6 +840,10 @@ integer(kind=8) :: timing_start, timing_end, timing_rate, timing_max
    longFictId%bytes(:) = -1
    accel_result = verifyAllParticles(cvidx, baseline_key, point, longFictId%bytes)
    key = baseline_key
+   if (bFbmOwnerTable) then
+     call pointOwners(point, FBM_OWN_MAX, ownA, nOwnA)
+     call fbm_own_record(vidx, nOwnA, ownA)
+   end if
  else
    ! HashGrid initialized AND runtime flag enabled - use accelerated version
    ! Call accelerated version (HashGrid)
@@ -836,6 +852,10 @@ integer(kind=8) :: timing_start, timing_end, timing_rate, timing_max
    call system_clock(timing_start, timing_rate, timing_max)
 #endif
    accel_result = checkAllParticles(cvidx, key, point, longFictId%bytes)
+   if (bFbmOwnerTable) then
+     call pointOwnersAccelerated(point, FBM_OWN_MAX, ownA, nOwnA)
+     call fbm_own_record(vidx, nOwnA, ownA)
+   end if
 #ifdef VERIFY_HASHGRID
    call system_clock(timing_end, timing_rate, timing_max)
    hashgrid_accel_time_ns = hashgrid_accel_time_ns + &
@@ -872,6 +892,21 @@ integer(kind=8) :: timing_start, timing_end, timing_rate, timing_max
          ' exhaustive= ', baseline_result
      endif
    endif
+
+   ! Owner SETS, not just the winner. The same minimum id can hide a second owner that one
+   ! path sees and the other does not; only the full list shows that.
+   if (bFbmOwnerTable) then
+     call pointOwners(point, FBM_OWN_MAX, ownB, nOwnB)
+     if (nOwnA /= nOwnB .or. any(ownA(1:min(int(nOwnA),FBM_OWN_MAX)) /= ownB(1:min(int(nOwnB),FBM_OWN_MAX)))) then
+       fbm_gate_set_viol = fbm_gate_set_viol + 1
+       if (fbm_gate_reported < fbm_gate_max_report) then
+         fbm_gate_reported = fbm_gate_reported + 1
+         write(*,'(A,I0,A,I0,A,3ES17.8,A,I0,A,I0)') &
+           'FBM_GATE_OWNERSET rank= ', myid, ' vertex= ', vidx, &
+           ' point= ', x, y, z, ' accelerated_owners= ', nOwnA, ' exhaustive_owners= ', nOwnB
+       endif
+     end if
+   end if
 
    ! If both found a particle, check if it's the same particle.
    ! The identity is the full 8-byte pe system id. bytes(1) is its MOST SIGNIFICANT

@@ -84,12 +84,36 @@ The preflight reads the live span back from pe and aborts if it is not the compu
 change to pe's `hierarchyFactor`, AABB padding or re-filing order fails the harness instead of
 silently defusing it.
 
+## Multiple ownership — the CSR exception table
+
+Overlapping bodies are real (contact), and a DOF inside two of them has two owners that the
+velocity BC and the force attribution cannot both honour; today they silently take one — the
+minimum system id, since pe #43. `SimPar@FbmOwnerTable = Yes` makes that ambiguity visible and
+countable without touching the hot path (module `fbm_ownership`, `source/src_fbm/`):
+
+- the **canonical owner stays dense and unchanged** — `FictKNPR` (flag) and `FictKNPR_uint64`
+  (minimum id), one per DOF;
+- only DOFs inside **two or more** bodies get a row: `FictOwn_row(i)` (one integer per DOF, 0 =
+  fluid or single owner, else the row), then CSR `FictOwn_dof(r)`, `FictOwn_ptr(r)`,
+  `FictOwn_id(k)` with ids ascending — so a run with no overlap allocates no payload;
+- invariant the gate asserts: the first id of every row equals the canonical owner, so a
+  consumer that ignores the table sees exactly today's behaviour.
+
+pe fills it through two new owner-list queries (`pointOwners`, `pointOwnersAccelerated`), the
+owner-list forms of the flag queries, built on the same containment helper. With the gate on,
+the harness compares the two **owner sets** per DOF — the same minimum id can hide a second
+owner that only one path sees — and reports `owner_set_mismatches=` on the `DNS_QUERY_GATE`
+line (a verdict stage fails on any). After each stage a `DNS_QUERY_OWNERS` line gives
+`multi_owned_dofs=`, `nnz=`, `max_owners_this_rank=`, `overflow=` (more than 16 owners on one
+DOF), `canonical_violations=` and a verdict; stage `E` additionally expects
+`multi_owned_dofs > 0`, or its overlap construction reached no DOF.
+
 ## Deck keys
 
 `SimPar@GateStageList = "A1,A2,G,R,E,P"` (quoted — the parser splits unquoted commas),
 `SimPar@GateRefreshIndex = Yes` (`No` turns every verdict stage into a control; a debugging knob),
 `SimPar@GateProbeReport = Yes` (pe prints `FBM_GATE_CONSTRUCTION` and one `FBM_GATE_PROBE` line
-per probe). `SimPar@UseHashGridAccel` must be `Yes`, and `stepsize_` in `pe_user_config.json`
+per probe), `SimPar@FbmOwnerTable = Yes` (fill and check the multiple-ownership table). `SimPar@UseHashGridAccel` must be `Yes`, and `stepsize_` in `pe_user_config.json`
 must equal `SimPar@TimeStep` or the first particle step aborts.
 
 ## Where things live
