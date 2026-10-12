@@ -1769,6 +1769,18 @@ logical, save :: bStepsizeChecked = .false.
     end if
   end if
   call step_simulation()
+
+  ! The spatial index is filed during contact detection, BEFORE the step integrates
+  ! positions, so right now the cell assignment is one step behind the geometry. Every
+  ! point classification that follows (the FBM alpha field) queries 27 cells around the
+  ! point, and a body is filed by its AABB minimum: a body whose minimum sits just below a
+  ! cell boundary can have its far surface two cells away from where it is filed, and an
+  ! interior point there is then classified as fluid. The failure depends on where that
+  ! minimum sits relative to the cell lattice, not on how far the body moved, so no
+  ! timestep bound avoids it. Re-filing costs one hash per body and moves a body between
+  ! cells only when its hash actually changed; it also leaves the next contact search with
+  ! an index that is already current.
+  call refresh_spatial_index()
 #endif
 
 end subroutine fbm_updateDefaultFC2

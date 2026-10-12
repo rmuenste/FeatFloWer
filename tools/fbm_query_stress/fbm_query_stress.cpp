@@ -237,14 +237,22 @@ static int stageG() {
          case 1: body = createBox      (700, c, 2*ex, 2*ex, 2*ex, granite); break;
          case 2: body = createCapsule  (700, c, ex*real(0.45), ex*real(1.1), granite); break;
          case 3: body = createEllipsoid(700, c, ex, ex*real(0.9), ex*real(0.8), granite); break;
-         default:body = createCylinder (700, c, ex*real(0.5), ex*real(1.2), granite); break;
+         default:body = createCylinder (700, c, ex, 2*ex, granite); break;  // radius ex -> AABB fills the cell span, like the other shapes
+      }
+      // put the body's REAL AABB minimum just below the cell boundary: assuming the
+      // half-extent is ex mis-places shapes whose AABB is not 2*ex wide (the cylinder)
+      {
+         const real aabbMinX = body->getAABB()[0];
+         const Vec3 q = body->getPosition();
+         body->setPosition(q[0] + (oldmin - aabbMinX), q[1], q[2]);
       }
       body->setLinearVel(disp / real(0.001), 0, 0);
       theWorld()->simulationStep(real(0.001));
       std::vector<Vec3> pts;
       const Vec3 p = body->getPosition();
+      const real halfX = (body->getAABB()[3] - body->getAABB()[0]) / 2;
       for (int j = 0; j <= 40; ++j)                     // a line through the advancing surface
-         pts.push_back(Vec3(p[0] + ex*real(0.999) - j*ex*real(0.05), p[1], p[2]));
+         pts.push_back(Vec3(p[0] + halfX*real(0.999) - j*halfX*real(0.05), p[1], p[2]));
       for (int j = -3; j <= 3; ++j)                     // and points straddling the next boundary
          pts.push_back(Vec3(2*h + j*real(1e-5), p[1], p[2]));
       char name[64]; std::snprintf(name, sizeof name, "G adversarial %s", names[k]);
@@ -362,6 +370,54 @@ static int stageH() {
    return ok ? 0 : 1;
 }
 
+
+// The same adversarial constructions, but with the spatial index refreshed after motion and
+// before the queries. If the stale cell assignment is the cause, these must all pass.
+static int stageR() {
+   theWorld()->clear();
+   const real bgSize = real(0.8);
+   for (int i = 0; i < 40; ++i)
+      createSphere(9000+i, Vec3(60 + 3*i, 60, 60), bgSize/2, granite)->setFixed(true);
+   const real h  = (bgSize + 2*contactThreshold) * std::sqrt(real(2));
+   const real ex = h/2 - contactThreshold - real(0.00005);
+   const real disp = 4*contactThreshold + real(0.0004);
+   const char* names[5] = { "sphere", "box", "capsule", "ellipsoid", "cylinder" };
+   int rc = 0;
+   for (int k = 0; k < 5; ++k) {
+      theWorld()->clear();
+      for (int i = 0; i < 40; ++i)
+         createSphere(9000+i, Vec3(60 + 3*i, 60, 60), bgSize/2, granite)->setFixed(true);
+      const real oldmin = h - real(0.00005);
+      const Vec3 c(oldmin + ex + contactThreshold, real(0.5), real(0.5));
+      BodyID body = 0;
+      switch (k) {
+         case 0: body = createSphere   (700, c, ex, granite); break;
+         case 1: body = createBox      (700, c, 2*ex, 2*ex, 2*ex, granite); break;
+         case 2: body = createCapsule  (700, c, ex*real(0.45), ex*real(1.1), granite); break;
+         case 3: body = createEllipsoid(700, c, ex, ex*real(0.9), ex*real(0.8), granite); break;
+         default:body = createCylinder (700, c, ex, 2*ex, granite); break;  // radius ex -> AABB fills the cell span, like the other shapes
+      }
+      // put the body's REAL AABB minimum just below the cell boundary: assuming the
+      // half-extent is ex mis-places shapes whose AABB is not 2*ex wide (the cylinder)
+      {
+         const real aabbMinX = body->getAABB()[0];
+         const Vec3 q = body->getPosition();
+         body->setPosition(q[0] + (oldmin - aabbMinX), q[1], q[2]);
+      }
+      body->setLinearVel(disp / real(0.001), 0, 0);
+      theWorld()->simulationStep(real(0.001));
+      theCollisionSystem()->getCoarseDetector().refreshSpatialIndex();   // <- the fix under test
+      std::vector<Vec3> pts;
+      const Vec3 p = body->getPosition();
+      const real halfX = (body->getAABB()[3] - body->getAABB()[0]) / 2;
+      for (int j = 0; j <= 40; ++j) pts.push_back(Vec3(p[0] + halfX*real(0.999) - j*halfX*real(0.05), p[1], p[2]));
+      for (int j = -3; j <= 3; ++j) pts.push_back(Vec3(2*h + j*real(1e-5), p[1], p[2]));
+      char name[64]; std::snprintf(name, sizeof name, "R refreshed %s", names[k]);
+      rc |= report(name, sweep(pts), true, true);
+   }
+   return rc;
+}
+
 int main(int argc, char** argv) {
    theWorld()->setGravity(0, 0, 0);
    theWorld()->setDamping(1);
@@ -373,6 +429,7 @@ int main(int argc, char** argv) {
    rc |= stageE();
    rc |= stageG();
    rc |= stageH();
+   rc |= stageR();
 #if PE_USE_CGAL
    rc |= stageD();
    rc |= stageD2();

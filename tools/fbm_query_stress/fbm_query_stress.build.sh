@@ -4,6 +4,9 @@
 set -e
 cd "$(dirname "$0")/../.."   # repo root
 TREE=${1:-build-twin-fbmaccel}
+# Headers MUST come from the same pe source the library was built from: a test TU that
+# includes different headers than the library links cleanly and is undefined behaviour.
+PE_SRC=${PE_SRC:-libs/pe}
 OUT=${2:-/tmp/rmuenste/fbm_query_stress}
 # two tree layouts: an FF build tree (libs/pe/...) or a standalone pe tree (./config.h)
 if [ -f "$TREE/libs/pe/config.h" ]; then CFG=$TREE/libs/pe/config.h; LIB=$TREE/libs/pe/lib/libpe.a; DEPS=$TREE/_deps
@@ -20,8 +23,8 @@ fi
   -DPE_SERIAL_MODE -DPE_USE_EIGEN -DMOBILE_INFINITE=1 \
   -Dpe_CONSTRAINT_SOLVER=pe::response::HardContactAndFluid \
   -include $CFG $CGALINC \
-  -Ilibs/pe -I$DEPS/eigen-src -I$DEPS/json-src/include \
+  -I$PE_SRC -I$DEPS/eigen-src -I$DEPS/json-src/include \
   tools/fbm_query_stress/fbm_query_stress.cpp $LIB \
   -lboost_thread -lboost_filesystem -lboost_program_options -lboost_random -lboost_system $CGALLIB \
   -o "$OUT"
-echo "built $OUT against $TREE"
+echo "built $OUT against $TREE (pe headers from $PE_SRC)"
