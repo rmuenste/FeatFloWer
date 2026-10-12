@@ -790,6 +790,9 @@ TYPE tErrorCodes
  INTEGER :: PARAM_FILE_READ_ERROR=59
  INTEGER :: SOLVER_RUNTIME_FAILURE=60
  INTEGER :: PARAMETER_CONFLICT=61
+ INTEGER :: FBM_QUERY_GATE_FAILED=62
+ INTEGER :: FBM_QUERY_GATE_VACUOUS=63   ! the gate compared nothing (accelerated path never ran)
+ INTEGER :: FBM_QUERY_GATE_NO_GRID=64   ! pe's hash grid inactive on some rank: the test exercises nothing
 END TYPE
 
 TYPE tMGSteps

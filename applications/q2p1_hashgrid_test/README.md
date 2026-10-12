@@ -1,174 +1,97 @@
-# HashGrid Acceleration Test Application
+# q2p1_hashgrid_test — the Layer-2 FBM classification gate
 
-## Purpose
+Does pe's accelerated point query (`pointInsideParticlesAccelerated`, HashGrid) agree with the
+exhaustive one (`pointInsideParticles`) on **every Q2 DOF of a real partitioned FeatFloWer
+mesh**, on the solid flag *and* the full 8-byte system id, on **every rank**? This application
+asks exactly that and nothing else. There is no fluid solve. It is Layer 2 of the three-layer
+verification of the FBM acceleration; Layer 1 is pe's own `tests/interface/pe_fbm_query_stress*`.
 
-This test application verifies that the HashGrid-accelerated point-inside queries produce identical results to the baseline linear search implementation.
+## Build
 
-## Test Setup
-
-- **Particles**: 1000 spheres arranged in a 10×10×10 grid
-- **Domain**: [0,1]³ unit cube
-- **Sphere radius**: 0.01
-- **Sphere spacing**: 0.1 (center-to-center)
-- **Material**: Iron (PE standard material)
-- **PE Mode**: Serial mode (no MPI within PE library)
-
-## Test Procedure
-
-The test performs a single CFD timestep with only alpha field computation (no NS solve). This exercises the point-inside query system for all mesh nodes against all 1000 spheres.
-
-### Success Criteria
-
-Both methods (accelerated ON/OFF) should produce **identical solid/fluid node counts**.
-
-## Build Instructions
-
-### 1. Build Baseline Version (no acceleration)
-
-```bash
-cd /path/to/ff-accel
-mkdir build_test_baseline
-cd build_test_baseline
-
-cmake -DCMAKE_BUILD_TYPE=Release \
-      -DUSE_PE=ON \
-      -DUSE_PE_SERIAL_MODE=ON \
-      -DENABLE_FBM_ACCELERATION=OFF \
-      -DPE_USE_ACCELERATED_POINT_QUERY=OFF \
-      -DBUILD_APPLICATIONS=ON \
-      ..
-```
-
-`-DENABLE_FBM_ACCELERATION=OFF` is required here: the option defaults to `ON` with
-`USE_PE=ON` and then forces `PE_USE_ACCELERATED_POINT_QUERY=ON`. In an existing build
-directory the forced cache value persists, so use a fresh directory for the baseline.
-
-```bash
-make -j8 q2p1_hashgrid_test
-```
-
-### 2. Build Accelerated Version
-
-```bash
-cd /path/to/ff-accel
-mkdir build_test_accelerated
-cd build_test_accelerated
-
-cmake -DCMAKE_BUILD_TYPE=Release \
-      -DUSE_PE=ON \
-      -DUSE_PE_SERIAL_MODE=ON \
-      -DPE_USE_ACCELERATED_POINT_QUERY=ON \
-      -DBUILD_APPLICATIONS=ON \
-      ..
-
-make -j8 q2p1_hashgrid_test
-```
-
-## Running the Test
-
-### Prerequisites
-
-You need a mesh file and corresponding partition. The test expects:
-- `_data/q2p1_param.dat` - Parameter file (already provided)
-- A mesh file (`.tri` format) - copy from another application or create
-- Partition files for the mesh
-
-Example setup (assuming 4 MPI processes):
-
-```bash
-cd applications/q2p1_hashgrid_test/_data
-
-# Copy a simple mesh from another application
-cp ../../q2p1_fc2/_data/cube.tri .
-
-# Update the mesh filename in your simulation parameters if needed
-```
-
-### Run Baseline
-
-```bash
-cd build_test_baseline/applications/q2p1_hashgrid_test
-mpirun -np 4 ./q2p1_hashgrid_test > ../../../output_baseline.txt 2>&1
-```
-
-### Run Accelerated
-
-```bash
-cd build_test_accelerated/applications/q2p1_hashgrid_test
-mpirun -np 4 ./q2p1_hashgrid_test > ../../../output_accelerated.txt 2>&1
-```
-
-### Compare Results
-
-```bash
-cd /path/to/ff-accel
-
-# Extract and compare solid node counts
-grep "Total dofs inside" output_baseline.txt
-grep "Total dofs inside" output_accelerated.txt
-
-# Full difference
-diff output_baseline.txt output_accelerated.txt
-```
-
-## Expected Output
-
-The test should print:
+A separate tree. The gate is a build option and is forced off without acceleration:
 
 ```
---HASHGRID TEST SETUP
-Domain: [0, 1]^3
-Spheres: 1000 (10x10x10 grid)
-Radius: 0.01
-Spacing: 0.1
-Material: Iron (density=7.874)
-
-Number of particles: 1000
-
-HASHGRID TEST: Computing alpha field
-> Total dofs inside: XXXXX
-> Dofs per Particle: YYY
-
-Test complete.
+cmake -DUSE_PE=ON ..                                       # step 1
+cmake -DUSE_PE_SERIAL_MODE=ON ..                           # step 2
+cmake -DENABLE_FBM_ACCELERATION=ON -DENABLE_FBM_QUERY_GATE=ON ..   # step 3
+cmake --build . --target q2p1_hashgrid_test_stage
+cd applications/q2p1_hashgrid_test && ./run_gate.sh        # mpirun -np 4
 ```
 
-The key metric is **"Total dofs inside"** - this count must be identical between baseline and accelerated runs.
+`ENABLE_FBM_QUERY_GATE` defines `FBM_QUERY_GATE`, which is what compiles FeatFloWer's
+comparison code in `fbm_getFictKnprFC2` for the first time (it used to sit behind
+`VERIFY_HASHGRID`, a symbol pe only ever defined for its own targets). A binary built without the
+option aborts at preflight rather than reporting a green run it could not have earned.
 
-## Verification Checklist
+## What runs
 
-- [ ] PE setup executed (see "HASHGRID TEST SETUP" in output)
-- [ ] 1000 particles created (see "Number of particles: 1000")
-- [ ] Alpha field computed (see "Total dofs inside" message)
-- [ ] No errors or warnings
-- [ ] Counts match between baseline and accelerated builds
+Mesh `QBOX9Z3`: the unit cube, 9³ hexes refined once (`MaxMeshLevel = 2`, 18³ cells), three z-slab
+subdomains, so `mpirun -np 4`. 37³ = 50 653 Q2 DOFs, ~17 800 per worker. Serial PE, so every
+worker holds the whole particle world.
 
-## Troubleshooting
+The program initialises exactly as a solver would, takes **one** particle step (that is what
+activates pe's grid and arms the accelerated branch), runs the preflight assertions, then the
+stages from `SimPar@GateStageList`:
 
-### HashGrid Not Activating
+| stage | construction | must |
+|---|---|---|
+| `A1` | all probes on the lattice, index refreshed | pass |
+| `A2` | A1 nudged one DOF pitch (`1/36`) past the planes, **no** refresh | **differ** |
+| `G` | per shape: lattice, refresh, nudge, no refresh | **differ** |
+| `R` | per shape: lattice, refresh, nudge, **refresh** | pass |
+| `E` | probe pairs overlapping a third of a diameter across a plane; full-id ownership | pass |
+| `P` | probes centred on the `z = 1/3`, `z = 2/3` subdomain cuts | pass |
 
-The HashGrid activates automatically when the particle count exceeds a threshold. With 1000 spheres, it should activate. To verify:
+`A2` and `G` are controls: they must *find* the stale-index defect, or the placement has missed
+the cell lattice and the passing stages prove nothing. A stage that compared fewer than 1000
+classifications is judged vacuous regardless of its violation count.
 
-Add diagnostic output in `libs/pe/src/interface/object_queries.cpp` to print which method is being used.
+Exit codes: `0` green · `62` a verdict stage failed · `63` the gate compared nothing · `64` the
+preflight failed (grid inactive or mis-sized on some rank, fewer than 33 bodies, or
+`SimPar@UseHashGridAccel = No`).
 
-### Different Counts
+## The construction (why the bodies look the way they do)
 
-If the counts differ:
+pe files a body in the grid whose cell span is `√hierarchyFactor = √2` times the body's AABB. A
+population of equal bodies therefore fills only 70.7 % of its cells, straddles at most two
+adjacent cells, and the 27-cell stencil always covers the cell a body was filed in — **no miss is
+possible**. The defect needs a body whose AABB fills a whole span, which only happens when
+*smaller* bodies set that span. So:
 
-1. Check that both builds are using PE_SERIAL_MODE
-2. Verify the CMake configuration (check for `PE_USE_ACCELERATED_POINT_QUERY`)
-3. Enable debug output in the point query code to trace the discrepancy
-4. Try with fewer spheres (e.g., 5×5×5 = 125) to test below the activation threshold
+- **40 spacers**, spheres of radius 0.06, created **first** and parked outside the mesh. They set
+  `span = (2r + 2·contactThreshold)·√2 = 0.16970564` and trip the 32-body activation threshold.
+  Order matters: only the first 32 pending bodies are re-filed when the threshold trips, and the
+  first of them creates the grid.
+- **30 probes**, cycling sphere / box / capsule / ellipsoid / cylinder, each sized by its x
+  **half-extent** `ex = span/2 − contactThreshold − 1e-5 = 0.08484282`, so its AABB is
+  `span − 2e-5`. Not by bounding radius: a cylinder inscribed in a sphere has an x-extent of only
+  `√3/2` of the diameter and would never fill the span — the artefact that made Layer 1's cylinder
+  look immune. pe asserts every probe's real AABB x-extent at creation.
+- Probes are placed by their **real** AABB minimum, `1e-5` below the planes `k·span`, on a 5×2×3
+  lattice with one z-row per subdomain. No probe is ever fixed: both queries skip fixed cylinders
+  and meshes.
+- The nudge is **one Q2 DOF pitch**, `1/36`, not Layer 1's few-`δ` shove. Layer 1 chose its query
+  points just inside the far surface; here the query points are the mesh's DOF planes `x = m/36`,
+  and a miss needs a DOF plane *beyond* the next cell boundary to lie inside the body. A smaller
+  nudge leaves the far surface inside the same cell and the stencil still covers the stale one —
+  the first run of this harness compared 53 391 DOFs after a `2e-5` nudge and, correctly, found
+  nothing, which is what the `A2` control exists to catch.
 
-### Build Errors
+The preflight reads the live span back from pe and aborts if it is not the computed one, so a
+change to pe's `hierarchyFactor`, AABB padding or re-filing order fails the harness instead of
+silently defusing it.
 
-- Ensure `USE_PE=ON` is set before enabling `USE_PE_SERIAL_MODE`
-- Use the two-step CMake configuration as shown above
-- Check that all PE library headers are up to date
+## Deck keys
 
-## Files
+`SimPar@GateStageList = "A1,A2,G,R,E,P"` (quoted — the parser splits unquoted commas),
+`SimPar@GateRefreshIndex = Yes` (`No` turns every verdict stage into a control; a debugging knob),
+`SimPar@GateProbeReport = Yes` (pe prints `FBM_GATE_CONSTRUCTION` and one `FBM_GATE_PROBE` line
+per probe). `SimPar@UseHashGridAccel` must be `Yes`, and `stepsize_` in `pe_user_config.json`
+must equal `SimPar@TimeStep` or the first particle step aborts.
 
-- `q2p1_hashgrid_test.f90` - Main program
-- `app_init.f90` - Initialization (mesh loading, PE setup)
-- `CMakeLists.txt` - Build configuration
-- `_data/q2p1_param.dat` - Parameter file
-- `README.md` - This file
+## Where things live
+
+Geometry and the C entry points: `libs/pe/pe/interface/fbm_gate_probe.h`,
+`libs/pe/src/interface/fbm_gate_probe.cpp`, the `GateProbe` branch of `setupHashGridTest`.
+Verdict, preflight, counters: `source/src_fbm/fbm_main.f90`. Fortran bindings:
+`source/src_particles/dem_query.f90`. Stage order: `hashgrid_gate_driver.f90` here.

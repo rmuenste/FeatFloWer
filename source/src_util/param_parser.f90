@@ -22,7 +22,8 @@ USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   bConstForce, ConstForce, skipFBMForce, skipFBMDynamics, bBinaryVtkOutput, &
   bUseHashGridAccel, bUseKVEL_Accel, bPrintCFL, bPrintParticleCFL, &
   bPrintParticleReynolds, bPrintParticleState, cPartitionFormat, bRecursivePartitioning, myErrorCode, &
-  bPeCheckpointOnDump
+  bPeCheckpointOnDump, &
+  cGateStageList, bGateRefreshIndex, bGateProbeReport
 USE var_QuadScalar, ONLY: bApplyFAC3DMeshDeformation
 USE types, ONLY: tParamV, tParamP, tProperties
 
@@ -1108,6 +1109,12 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         bUseHashGridAccel = read_yes_no_param(string, iEq)
       CASE ("UseKVELAccel")
         bUseKVEL_Accel = read_yes_no_param(string, iEq)
+      CASE ("GateStageList")
+        READ(string(iEq+1:),*) cGateStageList
+      CASE ("GateRefreshIndex")
+        bGateRefreshIndex = read_yes_no_param(string, iEq)
+      CASE ("GateProbeReport")
+        bGateProbeReport = read_yes_no_param(string, iEq)
       CASE ("PartitionFormat")
        READ(string(iEq+1:),*) cParam2
        cPartitionFormat = normalize_partition_format(cParam2)
@@ -1359,6 +1366,16 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
       CALL write_param_str(mfile, mterm, "UseKVELAccel = ", "ON")
     ELSE
       CALL write_param_str(mfile, mterm, "UseKVELAccel = ", "OFF")
+    END IF
+
+    CALL write_param_str(mfile, mterm, "GateStageList = ", TRIM(cGateStageList))
+    IF (bGateRefreshIndex) THEN
+      CALL write_param_str(mfile, mterm, "GateRefreshIndex = ", "ON")
+    ELSE
+      CALL write_param_str(mfile, mterm, "GateRefreshIndex = ", "OFF (every stage is a control)")
+    END IF
+    IF (bGateProbeReport) THEN
+      CALL write_param_str(mfile, mterm, "GateProbeReport = ", "ON")
     END IF
 #else
     CALL write_param_str(mfile, mterm, "FBM Acceleration = ", "DISABLED AT COMPILE TIME")

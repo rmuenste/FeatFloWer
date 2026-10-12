@@ -383,6 +383,15 @@ MODULE var_QuadScalar
 #endif
   LOGICAL :: bUseKVEL_Accel = .TRUE.
 
+  ! Layer-2 FBM classification gate (applications/q2p1_hashgrid_test, built with
+  ! ENABLE_FBM_QUERY_GATE). Which stages run, whether the index is refreshed where a
+  ! stage expects it (No turns every verdict stage into a control - a debugging knob),
+  ! and whether pe prints its per-probe construction report. Quote the list in the deck:
+  ! SimPar@GateStageList = "A1,A2,G,R,E,P".
+  CHARACTER(len=64) :: cGateStageList = 'A1,A2,G,R,E,P'
+  LOGICAL :: bGateRefreshIndex = .TRUE.
+  LOGICAL :: bGateProbeReport = .FALSE.
+
   ! Statistics for performance monitoring
   TYPE tKVEL_Stats
     INTEGER :: nCachedVertices

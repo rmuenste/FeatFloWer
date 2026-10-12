@@ -402,6 +402,64 @@ logical(c_bool) function isEllipsoid(idx) bind(C, name="isTypeEllipsoid")
 end interface
 
 !================================================================================================
+!                   Layer-2 FBM classification gate: construction and introspection
+! C++ implementation: libs/pe/src/interface/fbm_gate_probe.cpp (design in the matching header).
+! Used only by applications/q2p1_hashgrid_test. All take arguments by reference (C pointers).
+!
+! A note on the OLDER setParticle / getParticle / setRemoteParticle interfaces in this file:
+! they bind to C symbols that do not exist in pe and link only because nothing calls them.
+! In particular, nothing in pe's C surface can MOVE a body - setParticle2 writes force and
+! torque only - which is why the gate's prescribed motion lives on the C++ side below.
+!================================================================================================
+interface
+  integer(c_int) function fbm_gate_grid_active() bind(C, name="fbm_gate_grid_active_")
+    use iso_c_binding, only: c_int
+  end function
+end interface
+
+interface
+  integer(c_int) function fbm_gate_body_count() bind(C, name="fbm_gate_body_count_")
+    use iso_c_binding, only: c_int
+  end function
+end interface
+
+interface
+  ! Fills spans(1:min(n,nmax)) with the cell span of every grid in pe's hierarchy and returns
+  ! n; returns -1 (after printing both numbers) if the first span is not the one the spacers
+  ! were computed to set. That -1 is the harness's tripwire against a changed hierarchyFactor,
+  ! AABB padding or re-filing order in pe.
+  integer(c_int) function fbm_gate_grid_spans(spans, nmax) bind(C, name="fbm_gate_grid_spans_")
+    use iso_c_binding, only: c_int, c_double
+    real(c_double) :: spans(*)
+    integer(c_int), intent(in) :: nmax
+  end function
+end interface
+
+interface
+  ! stage: 0 park all, 1 lattice, 2 overlapping pairs, 3 centred on the subdomain cuts.
+  ! shapeFilter: -1 every probe, 0..4 only that shape (sphere, box, capsule, ellipsoid, cylinder).
+  subroutine fbm_gate_place_stage(stage, shapeFilter, nPlaced) bind(C, name="fbm_gate_place_stage_")
+    use iso_c_binding, only: c_int
+    integer(c_int), intent(in)  :: stage, shapeFilter
+    integer(c_int), intent(out) :: nPlaced
+  end subroutine
+end interface
+
+interface
+  ! Translates every probe by d without re-filing the spatial index. That staleness is the
+  ! thing under test; refresh_spatial_index() is the caller's decision.
+  subroutine fbm_gate_nudge(d) bind(C, name="fbm_gate_nudge_")
+    use iso_c_binding, only: c_double
+    real(c_double), intent(in) :: d(3)
+  end subroutine
+end interface
+
+interface
+  subroutine fbm_gate_probe_report() bind(C, name="fbm_gate_probe_report_")
+  end subroutine
+end interface
+
+!================================================================================================
 !                              pe checkpoint pairing (libs/pe/FF-WIRING.md)
 ! set_pe_checkpoint_identity: once per time step, the (timens, istep_ns) that write_time_sol
 !   puts into time.dmp, so a pe checkpoint written in this step names the FF dump it pairs with.

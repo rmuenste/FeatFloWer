@@ -1,0 +1,23 @@
+{
+  "timesteps_": 10,
+  "stepsize_": 0.001,
+  "substeps_": 1,
+  "processesX_": 1,
+  "processesY_": 1,
+  "processesZ_": 1,
+  "seed_": 12345,
+  "verbose_": false,
+  "vtk_": false,
+  "particleDensity_": 5.0,
+  "fluidViscosity_": 0.1,
+  "fluidDensity_": 1.0,
+  "gravity_": [0.0, 0.0, 0.0],
+  "visspacing_": 1000000,
+  "pointerspacing_": 1000000,
+  "resume_": false,
+  "useCheckpointer_": false,
+  "packingMethod_": "gate_probe",
+  "benchRadius_": 0.02,
+  "initialParticleVelocity_": [0.0, 0.0, 0.0],
+  "config_string": "q2p1_hashgrid_test: Layer-2 FBM classification gate on QBOX9Z3 - 40 spacer spheres set the HashGrid span, 30 probes fill it. stepsize_ must equal SimPar@TimeStep."
+}

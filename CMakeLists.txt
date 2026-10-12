@@ -727,6 +727,41 @@ if(DEBUG_FBM_OPTIMIZATION)
   message(STATUS "DEBUG_FBM_OPTIMIZATION: dual force computation + per-timestep debug output enabled")
 endif()
 
+# Layer-2 FBM classification gate. Runs the exhaustive query beside the
+# accelerated one for EVERY classified DOF, compares the solid flag and the full
+# 8-byte pe system id, reduces the mismatch count over ALL ranks and aborts the
+# run if any rank disagreed.
+#
+# This is a separate option from DEBUG_FBM_OPTIMIZATION (which compares FORCES
+# and leaves the classification alone) and from pe's own PE_VERIFY_HASHGRID.
+# The latter is worth spelling out: pe defines the compile symbol
+# VERIFY_HASHGRID with add_compile_definitions, which is directory-scoped to
+# pe's own targets, so FeatFloWer's Fortran #ifdef VERIFY_HASHGRID blocks have
+# never been compiled by any build of this project. ENABLE_FBM_QUERY_GATE is
+# what lights them, from the top level, where the Fortran targets can see it.
+#
+# Cost: one exhaustive query per DOF, i.e. a gate build classifies at baseline
+# speed. It is a verification build, not a production one.
+cmake_dependent_option(
+  ENABLE_FBM_QUERY_GATE
+  "Compare every accelerated FBM classification against the exhaustive query, reduce over all ranks and abort on mismatch. Requires ENABLE_FBM_ACCELERATION."
+  OFF
+  "USE_PE"
+  OFF
+)
+
+if(NOT ENABLE_FBM_ACCELERATION AND ENABLE_FBM_QUERY_GATE)
+  message(STATUS "ENABLE_FBM_QUERY_GATE requested with ENABLE_FBM_ACCELERATION=OFF; forcing OFF "
+    "(with no accelerated path there is nothing to compare against).")
+  set(ENABLE_FBM_QUERY_GATE OFF CACHE BOOL
+    "Compare every accelerated FBM classification against the exhaustive query" FORCE)
+endif()
+
+if(ENABLE_FBM_QUERY_GATE)
+  add_definitions(-DFBM_QUERY_GATE)
+  message(STATUS "FBM_QUERY_GATE: all-rank classification gate enabled (aborts on mismatch; baseline-speed classification)")
+endif()
+
 #=========================================================================
 #                         Add applications
 #=========================================================================
