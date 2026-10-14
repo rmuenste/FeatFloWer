@@ -96,7 +96,7 @@ CONTAINS
     END SELECT
 
     SELECT CASE (TRIM(el_drag_model))
-    CASE ('difelice', 'stokes', 'schiller_naumann')
+    CASE ('difelice', 'difelice_std', 'stokes', 'schiller_naumann')
       CONTINUE
     CASE DEFAULT
       WRITE(*,'(A,A)') 'Invalid ELDragModel: ', TRIM(el_drag_model)
