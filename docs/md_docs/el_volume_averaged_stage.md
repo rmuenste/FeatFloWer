@@ -45,3 +45,20 @@ collective displacement flow of a cloud is the physics the stage is for.
 Column (v2w decks + key): u_t job 149710, N=40 seed 1 job 149711 (level 2,
 109 ranks). Expected: sampled u_f at the particles moves toward −φu_p/ε and
 U/u_t at N=40 drops below the 0.928 of the single-phase run.
+
+## Fritz offload (2026-10-14)
+
+EL worktree on NHR@FAU Fritz, separate from the DNS clone:
+`/anvme/workspace/k115ce12-featflower/FF/FeatFloWer-el` on
+feature/el-volume-averaged (1fd573e2, pe c02cf28; fetched with
+`--recurse-submodules=no` because the merged history references an unpushed
+pe commit). Build `build-el-fritz/` (Unix Makefiles — no ninja on Fritz;
+gcc 14.2 + OpenMPI 4.1.8 from `~/ff-env-gcc14.sh`, parallel PE, serial mode
+OFF, ENABLE_FBM_ACCELERATION=ON, `Q2P1_MESH_DIR` = workspace mesh_repo);
+ldd prefixes as the guide §8 requires. Mesh fixture copied by rsync to
+`FeatFloWer-el/dkt_mesh_v1/coarseB` (+ DKT_B_108), case links recreated.
+Helpers: `tools/fritz_el_submit_np.sh` (`--export=NONE`, env sourced in the
+job), `tools/stage_fritz_rungs.sh` (variants cont / std / stdcont / all ×
+u_t + 12 clouds = 52 rundirs under build-el-fritz/applications, 639 MB).
+Twin job 4331912 (tier-2 momentum, 28 ranks, singlenode) pending.
+Workspace expires 2026-10-28 (10 extensions left).
