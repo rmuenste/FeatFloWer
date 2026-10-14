@@ -62,3 +62,21 @@ job), `tools/stage_fritz_rungs.sh` (variants cont / std / stdcont / all ×
 u_t + 12 clouds = 52 rundirs under build-el-fritz/applications, 639 MB).
 Twin job 4331912 (tier-2 momentum, 28 ranks, singlenode) pending.
 Workspace expires 2026-10-28 (10 extensions left).
+
+### Fritz twin PASS and ladder submission (2026-10-14)
+
+Tier-2 momentum twin on Fritz (job 4331912, 28 ranks) vs the branch
+reference log: EL_MEAN_SLIP, EL_CONTACT_STATS, EL_FEEDBACK_CONSERVATION,
+EL_NEWTON_PAIR, EL_VOLUME_CONSERVATION bitwise on every non-roundoff field;
+EL_MOMENTUM_ELEMINT worst relative difference 3.4e-7 (a printed 1e-8
+quantity, last digit); roundoff-level fields differ by ≤ 1e-16 absolute.
+Same signature as the DNS `fritz_build_twin` row (gcc 14.3 local vs 14.2
+Fritz, different OpenMPI). Certified for independent runs; no trajectory is
+ever restarted across machines.
+
+Submitted on Fritz (owner go-ahead): 52 jobs 4332057–4332108, multinode,
+109 ranks / 2 nodes / 04:00:00 each — variants cont, std, stdcont, all ×
+(u_t + the 12 DNS clouds). Ids in
+`build-el-fritz/applications/v2wF_ids.txt` on Fritz. Each variant is
+analysed against its own u_t with tools/d32_ladder_analysis.py after
+tools/el_particle_log_merge.py.
