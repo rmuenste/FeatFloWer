@@ -80,3 +80,39 @@ Submitted on Fritz (owner go-ahead): 52 jobs 4332057–4332108, multinode,
 `build-el-fritz/applications/v2wF_ids.txt` on Fritz. Each variant is
 analysed against its own u_t with tools/d32_ladder_analysis.py after
 tools/el_particle_log_merge.py.
+
+### Local continuity column pair RESULT (2026-10-14, jobs 149710 / 149711, med, 109 ranks, 1 h 26 / 1 h 34)
+
+`ELVolumeAveraged = continuity` on the VA binary (build-va, ee1ae990), level
+2, δ = 2.5 d, campaign Di Felice form, no pressure force; u_t + the N = 40
+seed-1 cloud (byte-identical to the campaign and pressure-force twins).
+Clean: no NaN, volume error ≤ 1.3e-15, Newton pair ≤ 1.6e-15; EL_VA_SOURCE
+ḡ removed to 2.8e-7 every step, ∫g before removal 2.4e-4 at N = 40.
+
+| run | u_t or U | U/u_t | ε seen | u_f at particles (z) |
+|---|---|---|---|---|
+| vac_ut | 0.35349 (campaign 0.35734, −1.1 %) | – | 0.9994 | 2.1e-4 |
+| vac_n40_s1 | 0.3146 ± 0.0016 | **0.890** | 0.976 | **7.9e-3** |
+| campaign twin (v2w_n40_s1) | 0.3342 | 0.928 | 0.976 | 5.6e-4 |
+| pressure-force twin (v2wpf_n40_s1) | 0.3202 | 0.903 | 0.976 | 5.4e-4 |
+
+Reading:
+- The return flow now exists at the particles: the kernel-sampled fluid
+  velocity at N = 40 rises from 5.6e-4 to 7.9e-3, which is exactly
+  −φ_seen u_p/ε_seen = 0.024 × 0.317 / 0.976 = 7.8e-3. The volume-averaged
+  continuity delivers the return flow the sampled voidage implies.
+- Single-cloud exponent estimate ln(U/u_t)/ln(1−φ_cloud), φ_cloud 0.047:
+  campaign 1.55, pressure force 2.11, continuity **2.41**; increments +0.56
+  and +0.86 against the bookkeeping's +0.65 (pressure) and +1.0 (return
+  flow). Same ordering and size; the six-cloud exponents come from Fritz
+  (v2wF_cont, and v2wF_all for both together, predicted ≈ 3.4 and ≈ 4.0
+  before the sampled-input offset of ≈ 0.6).
+- The lone particle settles 1.1 % slower, as in the tier-2 gate: with
+  div u = g it samples its own displacement flow. This is the self-induced
+  velocity that the undisturbed-field stage (U1) is to remove; it is
+  bounded by the 0.7 % the pressure force alone produces, and both are
+  small against the collective effect.
+
+Row `v2w_cont_n40_probe` RECORDED. The pressure-force rung itself is
+recorded on `feature/el-rz-postfix` (RUNBOOK section 11, commit 8df5a228,
+n = 2.36 over six clouds, +0.64 vs predicted +0.65).
