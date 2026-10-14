@@ -155,3 +155,72 @@ variants stdcont and all). Row `v2w_std_n40_probe` RECORDED.
 Local N = 40 seed-1 summary (same cloud, own u_t, windowed 15–25):
 campaign 0.928 → pressure force 0.903 → continuity 0.890 → standard form
 alone 0.977; DNS seed mean 0.826.
+
+### Fritz 4 × 13 factorial RESULT (completed 2026-10-15 00:55, jobs 4332057–4332108, all COMPLETED, 3 h 05 – 3 h 46 each, no timeouts)
+
+Four variants on the VA binary (build-el-fritz, twin-certified), level 2,
+δ = 2.5 d, each with its own u_t and the twelve byte-identical DNS clouds;
+analysed locally (tools/el_particle_log_merge.py + d32_ladder_analysis.py,
+window 15–25; Fritz python has no numpy). Keys: cont = `ELVolumeAveraged =
+continuity`; std = `ELDragModel = difelice_std`; stdcont = both; all = both
++ `ELFluidGravity = No` + `ELPressureForce = Yes`. Clean: no NaN, volume
+error ≤ 1.7e-15, Newton pair ≤ 8e-15 everywhere except the bottom-wall
+arrivals noted below.
+
+| variant | u_t | U/u_t seed means N = 20 / 40 / 80 / 120 | n (rms) | Δn vs campaign: measured / bookkeeping |
+|---|---|---|---|---|
+| campaign (local, 2026-10-03) | 0.3573 | 0.965 / 0.935 / 0.870 / 0.805 | 1.72 (0.005) | – |
+| pressure force (local, 6 clouds, RUNBOOK §11) | 0.3547 | – / 0.911 / – / 0.746 | 2.36 (0.007) | +0.64 / +0.65 |
+| cont | 0.3535 | 0.947 / 0.899 / 0.808 / 0.722 | **2.64** (0.006) | +0.92 / +1.00 |
+| std | 0.3696 | 0.983 / 0.978 / 0.953 / 0.925 | 0.61 (0.005) | −1.11 / −1.30 |
+| stdcont | 0.3657 | 0.968 / 0.941 / 0.885 / 0.827 | 1.52 (0.004) | −0.20 / −0.30 |
+| all | 0.3630 | 0.956 / 0.916 / 0.838 / 0.764 | 2.16 (0.005) | +0.44 / +0.35 |
+| DNS (same clouds) | 0.4061 | 0.892 / 0.826 / 0.689 / 0.588 | 4.57 | |
+
+Seed spans ≤ 0.015 at every rung; every variant is a clean power law
+(rms ln-residual ≤ 0.007).
+
+Reading:
+- All five measured increments agree with the finite-Re bookkeeping
+  (docs/md_docs/el_drag_convention_note.md, Re ≈ 80, χ 3.10, a 0.46) to
+  within 0.2 in n, in sign and size: pressure force +0.64 (+0.65), return
+  flow +0.92 (+1.00), standard form −1.11 (−1.30), standard + return flow
+  −0.20 (−0.30), standard + both +0.44 (+0.35). The bookkeeping is
+  validated as the accounting of what the fluid equations and the drag
+  convention each contribute to the hindrance exponent.
+- The bookkeeping's absolute level is 2.31 for the campaign set-up against
+  1.72 measured: a constant offset of ≈ 0.6 that no variant moves. It is
+  the sampled-input bias established by the kernel-width and level-3 rungs
+  (diluted voidage ε seen 0.927 vs 0.888 at N = 120, self-disturbed slip),
+  and it is the target of the undisturbed-field stage.
+- The physically complete campaign-form set — continuity + pressure force
+  with the campaign ε^(−χ) drag — was not part of the factorial. The
+  bookkeeping predicts 1.72 + 1.65 = **3.4** for it (3.96 absolute); with
+  the sampled-input offset removed, ≈ 4.0 against DNS 4.57. It is the
+  single most informative remaining rung (13 jobs); staged as `contpf`,
+  not submitted (owner decision).
+- Standard-form variants: `all` (the CFDEM-style combination) reaches 2.16,
+  short of the campaign form with the same physics because the ε²
+  difference between the conventions is worth 1.3 in n at this Re. Which
+  convention is right is a question for the drag-correlation literature
+  (Di Felice 1994 defines F₀ at the superficial flux), not for this ladder;
+  the ladder says the equations and the convention must be chosen
+  together.
+
+Bottom-wall arrivals (audit note, not a FAIL): the fastest particle of
+some clouds reaches the bottom wall at t ≈ 23.2–24.0 (campaign runs
+included; same clouds, same window). When it bounces the audit stays
+clean; when it comes to rest (z = 0.50, v = 0) `EL_NEWTON_PAIR` shows a
+fixed z mismatch of 4.1e-5 per audited step, and the impact step itself
+can show up to 3.5e-2 (std_n80_s2, a 0.31 bounce impulse). Six runs:
+all_n20_s1, stdcont_n20_s1, stdcont_n40_s3, std_n40_s2, std_n40_s3,
+std_n80_s2. The resting-contact wall impulse is not reported by
+`getElWallContactImpulse`, so the audit undercounts it; the particle
+dynamics are unaffected (it rests). Effect on the windowed U ≤ 0.2 %,
+below the seed span. The bounce height (0 to +0.19) varies with the
+penetration at detection, i.e. the bounce is pe's position correction,
+not restitution. To be fixed in the wall-impulse accounting before any
+case that relies on particles resting on a wall.
+
+Rows `v2w_cont_exponent`, `v2w_std_exponent`, `v2w_stdcont_exponent`,
+`v2w_all_exponent` RECORDED.
