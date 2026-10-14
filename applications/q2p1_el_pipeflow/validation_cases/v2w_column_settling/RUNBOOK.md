@@ -205,3 +205,27 @@ The deficit sits in what the point-particle closure can represent (local
 voidage factor ε^−χ, no resolved near-field / wake interactions), or in the
 resolution of the return flow — which the l3 rung (section 8) tests. Row
 `v2w_k15_exponent` RECORDED.
+
+## 10. Level-3 rung l3 RESULT (completed 2026-10-05, recorded 2026-10-14; jobs 147652–147658, 3 h 27 – 5 h 43 each)
+
+MaxMeshLevel 3 (h = d/8, the DNS cell size; δ = 2.5 d = 20 h), own u_t, the
+N = 40 and N = 120 triplets. Clean: no NaN, Newton pair ≤ 7e-15.
+
+- u_t(l3) = **0.35714** vs 0.35734 at level 2 (−0.06%).
+- U/u_t: N = 40 → 0.928 / 0.938 / 0.939; N = 120 → 0.812 / 0.800 / 0.803.
+  Level-2 twins of the same six clouds: 0.928 / 0.938 / 0.938 and
+  0.812 / 0.800 / 0.803. Particle-sampled voidage and velocity spread also
+  identical to three digits.
+- Two-rung exponent: **n = 1.73 at level 3, 1.73 at level 2** (rms 0.006 both).
+
+Reading: NULL RESULT, which is the informative outcome. Doubling the
+resolution of the return flow changes neither the single-particle velocity
+nor the collective hindrance. Together with section 9 (narrower kernel →
+weaker hindrance) the discriminators eliminate kernel smearing and
+resolution; what remains is the input the drag closure receives: the
+kernel-sampled voidage (diluted across the cloud edge: ε seen 0.927 vs
+1 − φ_cloud 0.888 at N = 120) and the self-disturbed slip velocity. Next:
+an undisturbed-field correction at the sampling → force boundary
+(el_transfer: EL_INTEGRATE_PARTICLE → EL_FORCES_FROM_PARTICLE), gated by
+the tier-2 bitwise twin with the key off, V1b (self-voidage bias must
+shrink) and this ladder. Row `v2w_l3_exponent` RECORDED.
