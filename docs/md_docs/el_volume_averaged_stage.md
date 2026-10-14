@@ -130,3 +130,28 @@ The three single-particle effects are independent and multiplicative at the
 0.1 % level. Final-time (not windowed) N = 20 seed-1 previews: cont
 U/u_t 0.894 (campaign seed mean 0.965, DNS 0.892), std 0.952. Six-cloud
 exponents per variant follow when the set completes.
+
+### Local standard-form column pair RESULT (2026-10-14, jobs 149717 / 149718, med, 109 ranks, 1 h 26 / 1 h 35)
+
+`ELDragModel = difelice_std` on the VA binary, continuity off, no pressure
+force; u_t + the N = 40 seed-1 cloud. Clean: no NaN, volume error ≤ 8.5e-16,
+Newton pair ≤ 2.5e-15.
+
+| run | u_t or U | U/u_t | u_f at particles (z) |
+|---|---|---|---|
+| vas_ut | 0.36964 (campaign 0.35734, +3.4 %; Fritz std_ut identical to all digits) | – | 6.7e-6 |
+| vas_n40_s1 | 0.3612 ± 0.0016 | **0.977** | 5.3e-4 |
+| campaign twin | 0.3342 | 0.928 | 5.6e-4 |
+
+Reading: the standard form alone weakens the hindrance, single-cloud
+exponent 0.47 vs 1.55 campaign (−1.08; bookkeeping −1.3). This is the
+expected sign: the ε² that the campaign form carries in the drag stands in
+for the two volume-averaged effects (pressure-gradient share and return
+flow) that the fluid equations omit. Removing it without adding them
+leaves almost no collective hindrance. The standard form is therefore only
+meaningful together with `continuity` and `ELPressureForce` (Fritz
+variants stdcont and all). Row `v2w_std_n40_probe` RECORDED.
+
+Local N = 40 seed-1 summary (same cloud, own u_t, windowed 15–25):
+campaign 0.928 → pressure force 0.903 → continuity 0.890 → standard form
+alone 0.977; DNS seed mean 0.826.
