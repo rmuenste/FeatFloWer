@@ -472,7 +472,14 @@ CONTAINS
     epsilon_new = MAX(1.0d0-el_field_data%alpha_p,el_eps_f_min)
     el_field_data%epsilon_f = el_eps_f_relax*el_field_data%epsilon_f_old + &
       (1.0d0-el_eps_f_relax)*epsilon_new
-    IF (dt.GT.0.0d0) THEN
+    IF (.NOT.el_field_data%history_valid) THEN
+      ! First finalisation: no valid history yet (epsilon_f_old is the
+      ! initialisation value 1). Seed the history from this field instead of
+      ! reporting a spurious -alpha/dt rate.
+      el_field_data%epsilon_f_old = el_field_data%epsilon_f
+      el_field_data%deps_f_dt = 0.0d0
+      el_field_data%history_valid = .TRUE.
+    ELSE IF (dt.GT.0.0d0) THEN
       el_field_data%deps_f_dt = &
         (el_field_data%epsilon_f-el_field_data%epsilon_f_old)/dt
     ELSE

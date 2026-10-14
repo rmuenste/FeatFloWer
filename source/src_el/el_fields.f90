@@ -5,6 +5,10 @@ MODULE EL_FIELDS
   TYPE tElFieldStorage
     INTEGER :: nel = 0
     INTEGER :: ndof = 0
+    ! .FALSE. until the first void-fraction finalisation: the initial
+    ! epsilon_f_old = 1 would otherwise produce a spurious d eps/dt = -alpha/dt
+    ! kick at step 1 (consumed by the volume-averaged continuity source).
+    LOGICAL :: history_valid = .FALSE.
     REAL*8, ALLOCATABLE :: alpha_p(:)
     REAL*8, ALLOCATABLE :: grad_alpha_p(:,:)   ! cell-averaged kernel gradient of alpha_p (3,nel)
     REAL*8, ALLOCATABLE :: epsilon_f(:)
@@ -38,6 +42,7 @@ CONTAINS
 
     el_field_data%nel = nel
     el_field_data%ndof = ndof
+    el_field_data%history_valid = .FALSE.
     ALLOCATE(el_field_data%alpha_p(nel))
     ALLOCATE(el_field_data%grad_alpha_p(3,nel))
     ALLOCATE(el_field_data%epsilon_f(nel))
@@ -119,6 +124,7 @@ CONTAINS
     IF (ALLOCATED(el_field_data%drag_B_source)) DEALLOCATE(el_field_data%drag_B_source)
     el_field_data%nel = 0
     el_field_data%ndof = 0
+    el_field_data%history_valid = .FALSE.
 
   END SUBROUTINE EL_RELEASE_FIELDS
 
