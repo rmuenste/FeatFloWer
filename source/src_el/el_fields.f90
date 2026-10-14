@@ -6,6 +6,7 @@ MODULE EL_FIELDS
     INTEGER :: nel = 0
     INTEGER :: ndof = 0
     REAL*8, ALLOCATABLE :: alpha_p(:)
+    REAL*8, ALLOCATABLE :: grad_alpha_p(:,:)   ! cell-averaged kernel gradient of alpha_p (3,nel)
     REAL*8, ALLOCATABLE :: epsilon_f(:)
     REAL*8, ALLOCATABLE :: epsilon_f_old(:)
     REAL*8, ALLOCATABLE :: deps_f_dt(:)
@@ -38,6 +39,7 @@ CONTAINS
     el_field_data%nel = nel
     el_field_data%ndof = ndof
     ALLOCATE(el_field_data%alpha_p(nel))
+    ALLOCATE(el_field_data%grad_alpha_p(3,nel))
     ALLOCATE(el_field_data%epsilon_f(nel))
     ALLOCATE(el_field_data%epsilon_f_old(nel))
     ALLOCATE(el_field_data%deps_f_dt(nel))
@@ -47,6 +49,7 @@ CONTAINS
     ALLOCATE(el_field_data%drag_B_source(ndof))
 
     el_field_data%alpha_p = 0.0d0
+    el_field_data%grad_alpha_p = 0.0d0
     el_field_data%epsilon_f = 1.0d0
     el_field_data%epsilon_f_old = 1.0d0
     el_field_data%deps_f_dt = 0.0d0
@@ -67,6 +70,7 @@ CONTAINS
     IF (PRESENT(advance_history)) update_history = advance_history
     IF (update_history) el_field_data%epsilon_f_old = el_field_data%epsilon_f
     el_field_data%alpha_p = 0.0d0
+    IF (ALLOCATED(el_field_data%grad_alpha_p)) el_field_data%grad_alpha_p = 0.0d0
     el_field_data%force_rhs = 0.0d0
     el_field_data%drag_B_ml = 0.0d0
 
@@ -104,6 +108,7 @@ CONTAINS
   SUBROUTINE EL_RELEASE_FIELDS()
 
     IF (ALLOCATED(el_field_data%alpha_p)) DEALLOCATE(el_field_data%alpha_p)
+    IF (ALLOCATED(el_field_data%grad_alpha_p)) DEALLOCATE(el_field_data%grad_alpha_p)
     IF (ALLOCATED(el_field_data%epsilon_f)) DEALLOCATE(el_field_data%epsilon_f)
     IF (ALLOCATED(el_field_data%epsilon_f_old)) DEALLOCATE(el_field_data%epsilon_f_old)
     IF (ALLOCATED(el_field_data%deps_f_dt)) DEALLOCATE(el_field_data%deps_f_dt)

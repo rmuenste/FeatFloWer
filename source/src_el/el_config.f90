@@ -55,6 +55,10 @@ MODULE EL_CONFIG
   ! (time ip fx fy fz tx ty tz px py pz vx vy vz); merge with
   ! tools/el_particle_log_merge.py. Collective-free by construction.
   INTEGER :: el_particle_log_freq = 0
+  ! Volume-averaged continuity (SimPar@ELVolumeAveraged): 'none' (default,
+  ! single-phase div u = 0) or 'continuity' (div u = -(d eps/dt + u.grad eps)/eps
+  ! imposed through the pressure Poisson right-hand side; EL_VOLUME_AVERAGED).
+  CHARACTER(LEN=32) :: el_volume_averaged = 'none'
   REAL*8 :: el_tavg_window = 0.5d0
   ! Mesoscale lane-mode filter for periodic settling boxes: each step,
   ! subtract from u_z its zero-mean x-binned and y-binned plane averages
@@ -80,6 +84,7 @@ CONTAINS
     CALL EL_LOWERCASE(el_prescribed_field)
     CALL EL_LOWERCASE(el_initial_field)
     CALL EL_LOWERCASE(el_domain_type)
+    CALL EL_LOWERCASE(el_volume_averaged)
     CALL EL_LOWERCASE(el_cylinder_axis)
 
     SELECT CASE (TRIM(el_kernel))
@@ -217,6 +222,13 @@ CONTAINS
       STOP 1
     END IF
 
+    SELECT CASE (TRIM(el_volume_averaged))
+    CASE ('none', 'continuity')
+    CASE DEFAULT
+      WRITE(*,'(A,A)') 'Invalid ELVolumeAveraged: ', TRIM(el_volume_averaged)
+      STOP 1
+    END SELECT
+
     IF (el_tavg_window.LE.0.0d0 .OR. el_tavg_window.GT.1.0d0) THEN
       WRITE(*,*) 'ELTAvgWindow must be in (0,1].'
       STOP 1
@@ -254,6 +266,7 @@ CONTAINS
       ' (bins ', el_meso_filter_bins, ')'
     WRITE(mfile,'(A,I0)') 'EL momentum audit freq    = ', el_momentum_audit_freq
     WRITE(mfile,'(A,I0)') 'EL particle log freq      = ', el_particle_log_freq
+    WRITE(mfile,'(A,A)') 'EL volume averaged        = ', TRIM(el_volume_averaged)
     WRITE(mfile,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
 
     IF (mterm.NE.mfile) THEN
@@ -283,6 +296,7 @@ CONTAINS
         ' (bins ', el_meso_filter_bins, ')'
       WRITE(mterm,'(A,I0)') 'EL momentum audit freq    = ', el_momentum_audit_freq
       WRITE(mterm,'(A,I0)') 'EL particle log freq      = ', el_particle_log_freq
+      WRITE(mterm,'(A,A)') 'EL volume averaged        = ', TRIM(el_volume_averaged)
       WRITE(mterm,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
     END IF
 

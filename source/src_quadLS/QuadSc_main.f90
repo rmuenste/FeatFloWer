@@ -31,6 +31,7 @@ use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS, EL_WRITE_PARTICLE_LOG, 
                           EL_CAPTURE_MOMENTUM_REFERENCE, el_momentum_reference_set, &
                           EL_WRITE_SS_RADIUS, EL_FLUID_PAIR_STAGE
 use EL_FIELDS, only: EL_APPLY_FLUID_FEEDBACK_SOURCE, el_field_data
+use EL_VA_CONTINUITY, only: EL_ADD_CONTINUITY_SOURCE, EL_VOLUME_AVERAGED_ACTIVE
 
 use, intrinsic :: ieee_arithmetic
 
@@ -794,6 +795,12 @@ IF (myid.ne.0) THEN
 
  ! Assemble the right hand side (RHS=1/k B^T U~)
  CALL Matdef_General_LinScalar(LinSc,QuadSc,PLinSc,1)
+
+ ! Euler-Lagrange volume-averaged continuity: div u = g (EL_VOLUME_AVERAGED)
+ IF (.NOT.enable_fbm .AND. EL_VOLUME_AVERAGED_ACTIVE()) THEN
+   CALL EL_ADD_CONTINUITY_SOURCE(LinSc%defP(NLMAX)%x, QuadSc%valU, QuadSc%valV, &
+     QuadSc%valW, mg_mesh, NLMAX, tstep, timens, itns, mfile)
+ END IF
 
 !  ! Assemble the right hand side (RHS:=RHS-C*Q)
 !  CALL Matdef_General_LinScalar(LinSc,QuadSc,PLinSc,2)

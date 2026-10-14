@@ -591,7 +591,7 @@ END SUBROUTINE get_global_domain_extents
                         el_pressure_force, el_lift_model, el_magnus, &
                         el_inertial_lift, el_inertial_lift_umax, &
                         el_prescribed_field, el_initial_field, el_shear_rate, &
-                        el_prescribed_umax, el_domain_type, &
+                        el_prescribed_umax, el_domain_type, el_volume_averaged, &
                         el_cylinder_center, el_cylinder_radius, &
                         el_cylinder_axis, &
                         el_apply_particle_forces, el_apply_fluid_feedback, &
@@ -794,6 +794,8 @@ END SUBROUTINE get_global_domain_extents
          READ(string(iEq+1:),*) el_prescribed_umax
        CASE ("ELDomainType")
          READ(string(iEq+1:),*) el_domain_type
+       CASE ("ELVolumeAveraged")
+         READ(string(iEq+1:),*) el_volume_averaged
        CASE ("ELCylinderCenter")
          READ(string(iEq+1:),*) el_cylinder_center
        CASE ("ELCylinderRadius")

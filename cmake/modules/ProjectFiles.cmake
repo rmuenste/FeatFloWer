@@ -303,6 +303,7 @@ ${CMAKE_SOURCE_DIR}/source/src_el/el_halo.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_quadrature.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_diagnostics.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_transfer.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_volume_averaged.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
@@ -331,6 +332,7 @@ ${CMAKE_SOURCE_DIR}/source/src_el/el_halo.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_quadrature.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_diagnostics.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_transfer.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_volume_averaged.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
