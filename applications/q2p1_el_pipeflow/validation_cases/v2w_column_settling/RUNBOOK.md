@@ -229,3 +229,21 @@ an undisturbed-field correction at the sampling → force boundary
 (el_transfer: EL_INTEGRATE_PARTICLE → EL_FORCES_FROM_PARTICLE), gated by
 the tier-2 bitwise twin with the key off, V1b (self-voidage bias must
 shrink) and this ladder. Row `v2w_l3_exponent` RECORDED.
+
+## 11. Model-A pressure-force rung pf SUBMITTED (2026-10-14, owner go-ahead; deck-only, binary = build-el-rz-postfix)
+
+Motivation (liggghts-public-34 survey, verified on our logs 2026-10-14): the EL
+fluid is plain incompressible NS and the particle gets ρ_f buoyancy only, so
+the suspension-weight share of the pressure gradient never reaches the
+particle (one power of ε lost from Di Felice's exponent) and no
+volume-averaged return flow exists (sampled u_f at particles ≈ 0 vs
+−φu_p/ε = 0.008 / 0.023 at N = 40 / 120; a second power lost). Ceiling under
+the current equations ≈ χ−1 = 2.1 at Re ≈ 80; measured 1.72.
+
+This rung tests the first of the two with existing keys: `ELFluidGravity =
+No` (pressure becomes dynamic; in a closed box the dropped uniform body force
+is a pure gradient) + `ELPressureForce = Yes` (particle gets −V∇p_dyn on top
+of the analytic (ρ_p−ρ_f)Vg). u_t + N = 40 ×3 + N = 120 ×3, level 2, δ = 2.5 d,
+own u_t. Expected: n rises toward ≈ χ ≈ 3; the volume-averaged continuity
+(worktree FeatFloWer-va, branch feature/el-volume-averaged) is the second
+step. Jobs: pf_ut=149697 pf_n40_s1=149698 pf_n40_s2=149699 pf_n40_s3=149700 pf_n120_s1=149701 pf_n120_s2=149702 pf_n120_s3=149703
