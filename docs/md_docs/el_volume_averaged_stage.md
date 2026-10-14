@@ -116,3 +116,17 @@ Reading:
 Row `v2w_cont_n40_probe` RECORDED. The pressure-force rung itself is
 recorded on `feature/el-rz-postfix` (RUNBOOK section 11, commit 8df5a228,
 n = 2.36 over six clouds, +0.64 vs predicted +0.65).
+
+### Fritz u_t preview (2026-10-14 17:30, four u_t runs + two N = 20 clouds finished, 46 to go)
+
+| variant | u_t | vs campaign 0.35734 | note |
+|---|---|---|---|
+| cont | 0.35349 | −1.1 % | identical to the local vac_ut to all printed digits (cross-machine) |
+| std | 0.36964 | +3.4 % | = Dallavalle ε = 1 fixed point 0.3686 within 0.3 %: the standard form's ε_eff^(−1.1) nearly cancels the lone-particle self-voidage bias that the campaign form's ε_eff^(−3.1) carries (ε_eff ≈ 0.975 → ratio ε^−2 = 1.05 in drag → +3.4 % in u_t at Re ≈ 80) |
+| stdcont | 0.36565 | +2.3 % | = std × cont (0.3696 × 0.989) |
+| all | 0.36295 | +1.6 % | = stdcont × pressure force (0.3656 × 0.993) |
+
+The three single-particle effects are independent and multiplicative at the
+0.1 % level. Final-time (not windowed) N = 20 seed-1 previews: cont
+U/u_t 0.894 (campaign seed mean 0.965, DNS 0.892), std 0.952. Six-cloud
+exponents per variant follow when the set completes.
