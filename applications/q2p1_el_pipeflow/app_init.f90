@@ -598,7 +598,7 @@ END SUBROUTINE get_global_domain_extents
                         el_wall_stress_diag, &
                         el_fluid_gravity, el_momentum_fix, &
                         el_meso_filter, el_meso_filter_bins, &
-                        el_write_diagnostics, el_momentum_audit_freq, &
+                        el_write_diagnostics, el_momentum_audit_freq, el_particle_log_freq, &
                         el_tavg_window, &
                         EL_VALIDATE_CONFIG, &
                         EL_PRINT_CONFIG
@@ -816,6 +816,8 @@ END SUBROUTINE get_global_domain_extents
          el_momentum_fix = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("ELMomentumAuditFreq")
          READ(string(iEq+1:),*) el_momentum_audit_freq
+       CASE ("ELParticleLogFreq")
+         READ(string(iEq+1:),*) el_particle_log_freq
        CASE ("ELMesoFilter")
          el_meso_filter = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("ELMesoFilterBins")

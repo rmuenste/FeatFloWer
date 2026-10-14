@@ -49,6 +49,12 @@ MODULE EL_CONFIG
   ! pseudo-turbulence (NaN blowup, see v2_rz_settling RUNBOOK part 4).
   LOGICAL :: el_momentum_fix = .FALSE.
   INTEGER :: el_momentum_audit_freq = 100
+  ! Per-particle trajectory log (SimPar@ELParticleLogFreq, 0 = off): every N
+  ! steps each worker appends its locally owned particles to
+  ! el_particles_rank<myid>.log in the DNS particle_force.log column layout
+  ! (time ip fx fy fz tx ty tz px py pz vx vy vz); merge with
+  ! tools/el_particle_log_merge.py. Collective-free by construction.
+  INTEGER :: el_particle_log_freq = 0
   REAL*8 :: el_tavg_window = 0.5d0
   ! Mesoscale lane-mode filter for periodic settling boxes: each step,
   ! subtract from u_z its zero-mean x-binned and y-binned plane averages
@@ -206,6 +212,11 @@ CONTAINS
       STOP 1
     END IF
 
+    IF (el_particle_log_freq.LT.0) THEN
+      WRITE(*,*) 'ELParticleLogFreq must be >= 0 (0 = off).'
+      STOP 1
+    END IF
+
     IF (el_tavg_window.LE.0.0d0 .OR. el_tavg_window.GT.1.0d0) THEN
       WRITE(*,*) 'ELTAvgWindow must be in (0,1].'
       STOP 1
@@ -242,6 +253,7 @@ CONTAINS
     WRITE(mfile,'(A,L1,A,I0,A)') 'EL meso filter            = ', el_meso_filter, &
       ' (bins ', el_meso_filter_bins, ')'
     WRITE(mfile,'(A,I0)') 'EL momentum audit freq    = ', el_momentum_audit_freq
+    WRITE(mfile,'(A,I0)') 'EL particle log freq      = ', el_particle_log_freq
     WRITE(mfile,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
 
     IF (mterm.NE.mfile) THEN
@@ -270,6 +282,7 @@ CONTAINS
       WRITE(mterm,'(A,L1,A,I0,A)') 'EL meso filter            = ', el_meso_filter, &
         ' (bins ', el_meso_filter_bins, ')'
       WRITE(mterm,'(A,I0)') 'EL momentum audit freq    = ', el_momentum_audit_freq
+      WRITE(mterm,'(A,I0)') 'EL particle log freq      = ', el_particle_log_freq
       WRITE(mterm,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
     END IF
 

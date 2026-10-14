@@ -379,3 +379,224 @@ result our periodic box does not represent. The V2 infrastructure gates
 (momentum conservation, Newton pairs, compensator drift) all PASS and
 stand; the RZ ratio rows stay FAIL-as-measured with this physics
 explanation. Remaining small-box phi points NOT submitted.
+
+## Post-fix re-run (sweep 4) — periodic Q2 coupling restored (staged 2026-10-02, NOT yet submitted)
+
+### Why this re-run exists
+
+On 2026-08-03 the DNS campaign (branch `feature/dns-validation`, D1.1b)
+proved that the Q2/E013 communicator held ZERO periodic DOF pairs:
+`myVERTLINK` was built with a non-periodic octree search, so every
+"fully periodic" CFD run — including ALL of sweeps 1–3 above and the
+lane-filter / small-box probes — was actually solved with traction-free
+(free-breathing) faces. Fixed on that branch (commits `6e26474d`,
+`59dc4758`, `9cc4769f`; DNS datasheet rows `d11_periodicity_absent`,
+`d11b_periodic_comm`, `d11_rh_collapse`). The fixed binary was already
+re-verified on the tier-2 `momentum_conservation` case (DNS row
+`d11_el_momentum_recheck`, job 137542: Newton-pair 5.08e-21, ELEMINT
+drift_rel 5.32e-8, 702 PERIODIC_COMM pairs on QBOX9).
+
+Consequence for THIS case: the sweep-3 FAIL (enhancement 2.6–3.3×) and
+the option-4 reframe ("a periodic box has no suppression mechanism")
+were measured in a box that was not periodic. Traction-free faces admit
+free in/outflow of fluid momentum and are a candidate driver of the
+plume instability. The reframe is therefore UNPROVEN until the sweep is
+repeated on a genuinely periodic box.
+
+Hypothesis branches (decide from the data, never re-tune):
+- (a) enhancement persists at the same band → the CIS reframe stands,
+  now on solid ground; annotate the sweep-3 rows accordingly.
+- (b) hindrance appears, or the enhancement changes materially →
+  re-attribute the FAIL to the traction-free faces; the RZ fit becomes
+  quotable again (or a new physics row is written).
+
+What the DNS campaign found in the meantime (context, NOT a gate):
+D3.2 settled N=20..120 clouds in a WALLED 6d column — stable hindered
+settling, confined exponent n = 4.57 (row `d32_phi_ladder`); in a 12d
+column the same clouds settle ENHANCED, growing with N (row
+`d32_wide_attribution`: the 6d exponent is a confinement law driven by
+collective return flow). The DNS campaign never ran the periodic RZ
+box: moving particles crossing periodic faces are unsupported in the
+FBM classifier (row `d31_periodic_indicator`). So DNS supports the
+"walls stabilize" reading but does not test the periodic claim; this
+re-run is the only direct test. (The d31 limitation is FBM-specific:
+the EL kernel/halo layer wraps particles — rows `pe_z_periodic_wrap`,
+`unit_periodic_contact`, Newton pairs through periodic images.)
+
+### Configuration — identical to sweep 3, binary is the ONLY change
+
+- Worktree `/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer-el`, branch
+  `feature/el-rz-postfix` (forked from `feature/dns-validation`
+  `d8751c7e`, which contains the EL code, the periodic fix, the
+  partition guard `CheckFaceClaimDecode`, the MUMPS-on-periodic refusal
+  and the pe/CFD stepsize guard; pe pin `ce3bb5f`, whose
+  `HardContactEulerLagrange.h` / `el_optional_api.h` /
+  `setup_el_terminal_velocity.h` are unchanged since the EL merge pin
+  `e14c6cd`).
+- Build `build-el-rz-postfix/` in the worktree: same options as the
+  certified `build-el-phase2-pe-gcc14` (Ninja, Release, USE_PE=ON,
+  PE_USE_MPI=ON, serial mode OFF, CGAL/HYPRE/MUMPS/BOOST/OPENMESH OFF,
+  ENABLE_FBM_ACCELERATION=ON, SED_BENCH=OFF, gcc 14.3.0 + OpenMPI 4.1.6
+  wrappers `/sfw/openmpi/gcc14.3.x/4.1.6/ucx-threaded-noverbs/bin`,
+  default pe_CONSTRAINT_SOLVER = HardContactEulerLagrange, i.e. NO
+  solver define — the DNS trees pass HardContactAndFluid, EL must not).
+  Binary: `build-el-rz-postfix/applications/q2p1_el_pipeflow/q2p1_el_pipeflow`.
+- Rundirs (staged by `stage_postfix_sweep.sh` in this directory into
+  `build-el-rz-postfix/applications/`): `q2p1_el_rundir_v2pf_smoke`
+  (φ=0.20, 200 steps), `..._v2pf_phi05/10/15/20` (50000 steps to
+  t=100), `..._v2pf_u0` (single particle, 5000 steps to t=10).
+  VERIFIED 2026-10-02: every `_data/q2p1_param.dat` is byte-identical to
+  the corresponding sweep-3 rundir
+  (`build-el-phase2-pe-gcc14/applications/q2p1_el_rundir_v2mfx_*`,
+  jobs 135866–135870) and every `example.json` is semantically identical
+  (same keys and values; only whitespace differs).
+- Prescription unchanged: `ELFluidGravity = No`, `ELMomentumFix = Yes`,
+  legacy convective form, `Periodic = Yes`, QBOX9 3×3×3 (axis-uniform,
+  3 ranks per periodic axis — satisfies the owner's periodic-partition
+  rule), np = 28. Pres coarse solver type 4 / Velo type 1 (not MUMPS).
+
+### Gates, in order (probe-first)
+
+- **G0 — build twin.** Stage tier-2 `momentum_conservation` from the
+  new build (`ninja q2p1_el_pipeflow_tier2_momentum_conservation_stage`)
+  and run it (np=28, 60 steps, ~20 s). Compare against job 137542's
+  `run_mom_periodicfix.log` (Aug-3 fixed binary, same tree family):
+  702 PERIODIC_COMM lines, EL_FEEDBACK_CONSERVATION residual ≤ 1e-10,
+  EL_MOMENTUM_ELEMINT drift_rel < 1e-5. Expect the EL diagnostic lines
+  to agree to all printed digits (the pe pin moved e14c6cd → ce3bb5f,
+  but the EL solver path is untouched); any drift is investigated
+  BEFORE the sweep.
+- **G1 — smoke** (`v2pf_smoke`): the sweep-3 smoke gates (N=3056,
+  achieved φ, `fully periodic PE decomposition` banner, ⟨ε⟩=0.80, no
+  OOB/clipping, max_overlap ≤ 1% d_p) PLUS 702 PERIODIC_COMM lines in
+  stdout. Record wall-time/step (sweep 3: ~1.7 s/step at np=28 on nx).
+- **G2 — production** (`u0` + four φ): the sweep-3 infrastructure table
+  (NaN, per-step mismatch_z, cumulative drift_z, Newton-pair_z,
+  max_overlap, ⟨ε_f⟩ vs 1−φ) must hold as before; then the physics.
+
+### Metric and verdict bookkeeping
+
+- Same metric as sweep 3: U_RZ = ⟨u_p,z⟩ − (uf_super,z + φ⟨u_p,z⟩) from
+  `EL_MEAN_SLIP_TAVG`, U₀ from the `u0` run, late window t=[50,100] and
+  early window t=[5,15]; plus the instability markers (Tgran history,
+  proximity-pair count, ⟨u_p,z⟩ oscillation).
+- Report side by side with the sweep-3 tables above (same φ, same
+  windows). Also report U₀ itself: the +16% co-flow bias over algebraic
+  Di Felice was measured traction-free and may move.
+- New datasheet rows carry the suffix `_postfix` and cross-reference
+  `d11_periodicity_absent`; the sweep-3 rows stay, annotated. Never
+  rewrite history.
+
+### Submission (owner decision — nothing submitted as of staging)
+
+```bash
+EL=/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer-el
+export EL_BIN=$EL/build-el-rz-postfix/applications/q2p1_el_pipeflow/q2p1_el_pipeflow
+R=$EL/build-el-rz-postfix/applications
+$EL/tools/el_slurm_submit.sh $R/q2p1_el_rundir_v2pf_smoke v2pf_smoke 01:00:00 short
+# after G1 passes:
+$EL/tools/el_slurm_submit.sh $R/q2p1_el_rundir_v2pf_u0    v2pf_u0    02:00:00 short
+for p in 05 10 15 20; do
+  $EL/tools/el_slurm_submit.sh $R/q2p1_el_rundir_v2pf_phi$p v2pf_phi$p 1-23:00:00 long
+done
+```
+Sweep-3 wall times (np=28, nx): φ=0.05 10.6 h, 0.10 16.3 h, 0.15 20.6 h,
+0.20 24.2 h, U₀ 37 min. Each rundir stays ≈30 MB (OutputFreq 10 t.u.,
+BackUpFreq 1000). `/data/warehouse17` was at 95% (249 GB free) when staged.
+
+### G0 result — build twin PASS (2026-10-02, job 147442, nx-05, 14 s)
+
+Tier-2 `momentum_conservation` on the worktree binary vs job 137542
+(`run_mom_periodicfix.log`, Aug-3 fixed binary): 702 PERIODIC_COMM
+lines on both; EL_MOMENTUM_ELEMINT (60 lines), EL_FEEDBACK_CONSERVATION
+(60), EL_NEWTON_PAIR (60), EL_VOLUME_CONSERVATION (60) and EL_MEAN_SLIP
+(120) are BITWISE IDENTICAL to the reference. Final step: drift_rel
+5.319670E-08, feedback residual 5.082198E-21, Newton-pair mismatch
+1.3e-29/-7.9e-30/0. The pe pin move e14c6cd -> ce3bb5f is a no-op on
+the EL solver path, as expected from the unchanged pe files. Log:
+`build-el-rz-postfix/applications/q2p1_el_pipeflow/run_g0_twin.log`.
+
+### G1 — smoke SUBMITTED (job 147443, short partition, phi=0.20, 200 steps)
+
+Binary `build-el-rz-postfix/applications/q2p1_el_pipeflow/q2p1_el_pipeflow`
+via `tools/el_slurm_submit.sh` with EL_BIN set. Gates as listed above.
+Production (U0 + four phi) NOT submitted — owner decision.
+
+### G1 result on the HEAD binary — gates PASS, but a pe-pin confound surfaced (2026-10-02, job 147443, nx-05, 5:05 wall)
+
+All listed gates hold: 702 PERIODIC_COMM pairs, `fully periodic PE
+decomposition` banner, 3056 spheres at achieved φ = 0.2000147,
+⟨ε_f⟩ = 0.7999853 (identical to sweep 3 to all digits), volume
+conservation 1.1e-15, Newton-pair ≤ 6e-19, EL_FLUID_PAIR mismatch
+1.1e-12, no NaN/OOB/clipping, ≈1.3 s/step incl. setup. At t = 0.4:
+⟨u_p,z⟩ = −2.1649e-3 vs pre-fix −2.3542e-3 (8% slower settling),
+uf_super,z = +8.391e-4 vs +9.519e-4, Tgran 3.17e-6 vs 4.84e-6 — the
+first periodic-vs-traction-free physics signal, NOT a verdict (200 steps).
+
+Anomaly: `EL_CONTACT_STATS ncontacts` = 0 at every sample, where sweep 3
+had 5571–5574 from step 1 (seeded configuration, lubrication OFF).
+Root cause traced in pe, not in the periodic fix:
+- At the EL-era pins (e14c6cd … 1fef6b8) `SphereBase::calcBoundingBox`
+  padded every sphere AABB by `lubricationThresh` = 1e-2 regardless of
+  the lubrication switch, and `MaxContacts::collideSphereSphere` (with
+  `PE_LUBRICATION_CONTACTS` defined through `pe/core/CollisionSystem.h`
+  → `HardContactLubricated.h`) emitted a *lubrication-type* contact for
+  every pair with gap < 1e-2. HardContactEulerLagrange's contact mask
+  filters by ownership only, so those proximity pairs entered the PGS
+  with positive gap: inert at these velocities (gdot_n + dist/dt > 0 ⇒
+  separating ⇒ no reaction), but counted in `getNumberOfContacts()`.
+  Hard contacts were and are generated only below `contactThreshold`
+  = 1e-8 (pe/core/Thresholds.h); max_overlap = 0 in every old run.
+- At the current pin ce3bb5f (pe PR #26, commits 4273f98/245b53b,
+  2026-08-20) the padding is `lubrication::aabbPadding(r)` = 0 when
+  lubrication is off, and the fine detector takes a fast path
+  (`!contactGenerationEnabled()` → `dist < contactThreshold` only). So
+  `ncontacts` now counts hard contacts only. Residual physics
+  difference: a pair that closes its gap within one step is stopped
+  pre-emptively by the old proximity constraint but caught after a
+  micro-penetration (≤ one step's displacement, then erp-corrected) by
+  the new pin. Sweep 3 used `ncontacts` as its clustering marker
+  (proximity pairs ~240 → ~550 at φ = 0.05); that marker is gone on the
+  HEAD binary.
+- Frozen-box twin, lubrication OFF (`kroupa_shear` smoke deck of job
+  135996, φ = 0.20, 500 steps, prescribed shear ⇒ no fluid solve ⇒
+  periodic fix irrelevant), HEAD binary, job 147445: EL_MEAN_SLIP (40),
+  EL_FORCE_BUDGET (500), EL_SUSP_STRESS (20) and the dp/expected fields
+  of EL_NEWTON_PAIR BITWISE identical to the certified log; Tgran
+  identical; differences only in `ncontacts` (0 vs 5526–5722), the
+  Newton audit roundoff (|mismatch| ≤ 7.4e-18 vs 6.3e-18) and
+  EL_VOLUME_CONSERVATION `rel_error` digits (both ≤ 1.8e-15, deposited
+  and expected identical). The proximity contacts carried no impulse.
+
+Decision: run sweep 4 on a binary with the EL-era pe so that the ONLY
+change vs sweep 3 is the periodic coupling, and the clustering marker
+keeps its meaning. That binary is the state the DNS campaign certified
+on 2026-08-03 (row `d11_el_momentum_recheck`): FF `23144a01`
+(= `9cc4769f` + a RUNBOOK edit) with pe `1fef6b8` (contact-relevant
+files identical to e14c6cd). Rebuilt reproducibly in a second worktree:
+`/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer-el-aug3` (detached at
+23144a01, pe 1fef6b8), build `build-aug3/` with the same cmake recipe;
+binary `build-aug3/applications/q2p1_el_pipeflow/q2p1_el_pipeflow`.
+G0 on that binary (job 147448, 14 s): 702 PERIODIC_COMM, all six EL
+streams incl. EL_CONTACT_STATS BITWISE vs job 137542. The HEAD-pin
+binary (`FeatFloWer-el/build-el-rz-postfix`) stays as the cross-check;
+if the sweep-4 verdict is later re-run on it, expect `ncontacts` = 0
+until genuine collisions occur and max_overlap no longer identically 0.
+
+Submission for sweep 4 therefore uses
+`EL_BIN=/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer-el-aug3/build-aug3/applications/q2p1_el_pipeflow/q2p1_el_pipeflow`
+with the commands listed above (same rundirs; the HEAD-binary smoke
+lives in `q2p1_el_rundir_v2pf_smoke`, the Aug-3-binary smoke in
+`q2p1_el_rundir_v2pf_smoke_aug3`).
+
+### G1 result on the Aug-3 binary — PASS, smoke bitwise vs the HEAD binary except `ncontacts` (2026-10-02, job 147449)
+
+`q2p1_el_rundir_v2pf_smoke_aug3`: 702 PERIODIC_COMM, banner, 3056
+spheres at φ = 0.2000147, no NaN/OOB/clipping, volume conservation
+1.1e-15, Newton-pair ≤ 6.2e-19. EL_MEAN_SLIP, EL_FORCE_BUDGET,
+EL_NEWTON_PAIR and EL_MOMENTUM_ELEMINT are BITWISE identical to job
+147443 (HEAD binary); EL_CONTACT_STATS reports 5571 proximity contacts
+(= sweep 3's step-1 count) with identical Tgran. The pe-pin difference
+is confirmed diagnostic-only over 200 steps; the Aug-3 binary carries
+the sweep-3 diagnostics semantics. **Sweep 4 is READY: submit the five
+production rundirs with `EL_BIN` = the aug3 binary (commands above).**
