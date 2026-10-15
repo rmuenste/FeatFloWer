@@ -36,6 +36,14 @@ MODULE EL_CONFIG
   LOGICAL :: el_fluid_gravity = .TRUE.
   LOGICAL :: el_drag_semi_implicit = .FALSE.
   LOGICAL :: el_pressure_force = .TRUE.
+  ! Feed the particle pressure force -V grad p back to the fluid (kernel
+  ! deposited with drag + lift). Without it the particle receives the
+  ! suspension-weight share of grad p but the fluid keeps its full -grad p
+  ! over the particle volume: an O(phi) momentum imbalance (liggghts-public
+  ! finding 2026-10-15). With it the cell-averaged fluid pressure force is
+  ! -eps grad p, i.e. the Model-A form. Default No keeps every certified
+  ! log bitwise; the pressure-force rungs are to be re-run with Yes.
+  LOGICAL :: el_pressure_feedback = .FALSE.
   LOGICAL :: el_magnus = .FALSE.
   LOGICAL :: el_write_diagnostics = .TRUE.
   ! Measured-leak momentum compensator (SimPar@ELMomentumFix): each step
@@ -247,6 +255,7 @@ CONTAINS
     WRITE(mfile,'(A,A)') 'EL drag model             = ', TRIM(el_drag_model)
     WRITE(mfile,'(A,A)') 'EL drag coupling          = ', TRIM(el_drag_coupling)
     WRITE(mfile,'(A,L1)') 'EL pressure force         = ', el_pressure_force
+    WRITE(mfile,'(A,L1)') 'EL pressure feedback      = ', el_pressure_feedback
     WRITE(mfile,'(A,A)') 'EL lift model             = ', TRIM(el_lift_model)
     WRITE(mfile,'(A,A)') 'EL inertial lift          = ', TRIM(el_inertial_lift)
     WRITE(mfile,'(A,ES14.6)') 'EL inertial lift umax     = ', el_inertial_lift_umax
@@ -277,6 +286,7 @@ CONTAINS
       WRITE(mterm,'(A,A)') 'EL drag model             = ', TRIM(el_drag_model)
       WRITE(mterm,'(A,A)') 'EL drag coupling          = ', TRIM(el_drag_coupling)
       WRITE(mterm,'(A,L1)') 'EL pressure force         = ', el_pressure_force
+      WRITE(mterm,'(A,L1)') 'EL pressure feedback      = ', el_pressure_feedback
       WRITE(mterm,'(A,A)') 'EL lift model             = ', TRIM(el_lift_model)
       WRITE(mterm,'(A,A)') 'EL inertial lift          = ', TRIM(el_inertial_lift)
       WRITE(mterm,'(A,ES14.6)') 'EL inertial lift umax     = ', el_inertial_lift_umax

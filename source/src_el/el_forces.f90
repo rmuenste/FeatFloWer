@@ -1,6 +1,7 @@
 MODULE EL_FORCES
 
   USE EL_CONFIG, ONLY: el_drag_model, el_eps_f_min, el_pressure_force, &
+                       el_pressure_feedback, &
                        el_lift_model, el_inertial_lift, &
                        el_inertial_lift_umax, el_prescribed_umax, &
                        el_cylinder_center, el_cylinder_radius, &
@@ -63,6 +64,10 @@ CONTAINS
     result%particle_total = result%drag + result%pressure + result%lift + &
                             result%grav_buoy
     result%feedback_force = result%drag + result%lift
+    ! Model-A reaction: the fluid loses what the particle gains from grad p
+    ! (cell-averaged -eps grad p). Keyed so certified logs stay bitwise.
+    IF (el_pressure_feedback) result%feedback_force = result%feedback_force + &
+                                                      result%pressure
 
   END SUBROUTINE EL_COMPUTE_PARTICLE_FORCES
 

@@ -105,8 +105,10 @@ Reading:
   campaign 1.55, pressure force 2.11, continuity **2.41**; increments +0.56
   and +0.86 against the bookkeeping's +0.65 (pressure) and +1.0 (return
   flow). Same ordering and size; the six-cloud exponents come from Fritz
-  (v2wF_cont, and v2wF_all for both together, predicted ≈ 3.4 and ≈ 4.0
-  before the sampled-input offset of ≈ 0.6).
+  (v2wF_cont predicted ≈ 3.4 before the sampled-input offset of ≈ 0.6;
+  v2wF_all runs the standard drag form and is predicted ≈ 2.1 — the
+  earlier ≈ 4.0 written here was the campaign-form value, corrected
+  2026-10-15).
 - The lone particle settles 1.1 % slower, as in the tier-2 gate: with
   div u = g it samples its own displacement flow. This is the self-induced
   velocity that the undisturbed-field stage (U1) is to remove; it is
@@ -224,3 +226,62 @@ case that relies on particles resting on a wall.
 
 Rows `v2w_cont_exponent`, `v2w_std_exponent`, `v2w_stdcont_exponent`,
 `v2w_all_exponent` RECORDED.
+
+### Peer corrections and the pressure-force feedback defect (liggghts-public-1e, 2026-10-15; verified in this tree)
+
+1. **The particle pressure force was never fed back to the fluid.**
+   `source/src_el/el_forces.f90`: `particle_total = drag + pressure + lift
+   + grav_buoy` but `feedback_force = drag + lift`. With `ELPressureForce
+   = Yes` the particle receives −V∇p and the fluid keeps its full −∇p over
+   the particle volume: an O(φ) momentum imbalance, ≈ 5 % in the column.
+   The Newton-pair audit could not see it because its expected impulse is
+   built from the particle-side sum (`el_transfer.f90`,
+   `el_pair_expected_impulse = dt*(drag_impl + lift + pressure +
+   grav_buoy)`), not from what was deposited. Consequence: the
+   pressure-force rung (RUNBOOK §11, n = 2.36) and the `all` variant
+   (2.16) ran an inconsistent momentum set; their agreement with the
+   bookkeeping increments is not evidence that the set was right.
+   Fix (this commit): new key `SimPar@ELPressureFeedback = Yes` adds the
+   pressure force to the deposited feedback, which makes the
+   cell-averaged fluid pressure force −ε∇p, the Model-A form (the
+   alternative, ε-weighting ∇p in the operator, is the same thing and
+   must not be combined with it). Default No keeps every certified log
+   bitwise. Gates: key-unset twin bitwise vs the branch reference; key-on
+   tier-2 with the audit; then the pressure-force rung and `contpf` are to
+   be re-run with the key on, and the §11 / `all` rows re-labelled
+   "inconsistent set" in the datasheet.
+2. **CFDEM's Di Felice uses χ(Re) by default** (DiFeliceDrag.C:103
+   `setSwitches(17,true)`; χ = 2 only if `voidageFunctionDiFelice` is set
+   false). The earlier survey note that CFDEM defaults to χ = 2 is
+   withdrawn; the ε² convention point is unchanged.
+3. **VTK output drops the EL fields at `OutputLevel = MAX+1`**
+   (`source/OutputProfiles.f90`: a field is written only if `SIZE(field)
+   == NoOfElem`, and at MAX+1 NoOfElem is the refined output mesh's
+   count). Use `OutputLevel = MAX` when ELAlphaP / ELEpsilonF / ELDepsFDt
+   are wanted.
+4. Peer's absolute bookkeeping (Re ≈ 80): camp 2.35, pf 3.01, cont 3.35,
+   std 1.02, stdcont 2.02, all 2.68 — the same increments as ours
+   (+0.66, +1.00, −1.33, −0.33, +0.33). Model-B references for the
+   unbounded exponent: DPMFoam Wen-Yu with the volume source 3.09 at
+   Ar 6338, Garside & Al-Dibouni 3.07; Richardson–Zaki with the wall term
+   at d/D = 1/6 gives 4.77, consistent with DNS 4.57 being a confinement
+   law. A DPMFoam twin of v2w on our clouds is running on their side.
+5. CFDEM gate for the continuity stage: with the flow solved, Σ ε U_z V
+   matches N V_p |w| to 0.7 % (their voidfractionTest, divided void
+   fraction; Gauss aborts, trilinear puts 1e10 into boundary cells).
+   Specs: LIGGGHTS-PUBLIC md_docs/case_specs/ (03_column,
+   04_voidfraction).
+
+**Gate for `ELPressureFeedback` (job 149907, 2026-10-15, tier-2 box, 28 ranks, three
+chained runs of 60 steps):** key unset → `run_g0_twin_va5.log` bitwise against
+`reference/run_g0_twin_va_2026-10-14.log` on all six streams. Pressure force
+on without / with feedback: `EL_FEEDBACK_CONSERVATION` rhs z 9.0587e-6 →
+9.1420e-6 (+0.92 %, the deposited pressure force), residual 1e-20 both;
+Newton pair unchanged (particle side); no NaN. `EL_MOMENTUM_ELEMINT` cannot
+see the change: in a closed box ∫u dV = ∮ x (u·n) dS = 0 by incompressibility,
+so the "fluid" entry is a discretisation residual whatever the forcing. The
+column re-run is the physical test. Staged locally on the VA binary, NOT
+submitted: `build-va/applications/q2p1_el_rundir_vapf_{ut,n40_s1..3,n120_s1..3}`
+(pressure force + feedback, campaign drag, continuity off), the like-for-like
+re-run of RUNBOOK §11; `contpf` on Fritz needs the key added and a rebuilt
+binary (after push).

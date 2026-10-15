@@ -588,7 +588,7 @@ END SUBROUTINE get_global_domain_extents
 #ifdef BUILD_Q2P1_EL_PIPEFLOW
    USE EL_CONFIG, ONLY: el_kernel, el_kernel_width_factor, el_eps_f_min, &
                         el_eps_f_relax, el_drag_model, el_drag_coupling, &
-                        el_pressure_force, el_lift_model, el_magnus, &
+                        el_pressure_force, el_pressure_feedback, el_lift_model, el_magnus, &
                         el_inertial_lift, el_inertial_lift_umax, &
                         el_prescribed_field, el_initial_field, el_shear_rate, &
                         el_prescribed_umax, el_domain_type, el_volume_averaged, &
@@ -778,6 +778,8 @@ END SUBROUTINE get_global_domain_extents
          READ(string(iEq+1:),*) el_drag_coupling
        CASE ("ELPressureForce")
          el_pressure_force = parse_yes_no_param(string, iEq, cName, cPar)
+       CASE ("ELPressureFeedback")
+         el_pressure_feedback = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("ELLiftModel")
          READ(string(iEq+1:),*) el_lift_model
        CASE ("ELInertialLift")
