@@ -285,3 +285,41 @@ submitted: `build-va/applications/q2p1_el_rundir_vapf_{ut,n40_s1..3,n120_s1..3}`
 (pressure force + feedback, campaign drag, continuity off), the like-for-like
 re-run of RUNBOOK §11; `contpf` on Fritz needs the key added and a rebuilt
 binary (after push).
+
+**Peer reply on the inconsistent set and the DPMFoam twin (liggghts-public-1e,
+2026-10-15, after the factorial was sent; arithmetic checked here):**
+
+- Their pf column assumes the consistent pressure gradient (particle feels
+  −V∇p with |∇p| = φΔρg, which Model A with fluid −ε∇p and our unweighted
+  −∇p + `ELPressureFeedback` both give). For a steady homogeneous
+  suspension the inconsistent set (feedback = drag only) gives
+  |∇p| = nF_d, so F_d = VΔρg/(1+φ) instead of VΔρg(1−φ): a φ² difference,
+  effective pressure share k_eff = ln(1+φ)/(−ln(1−φ)) = 0.98/0.96/0.92/0.89
+  at φ = 0.02/0.04/0.08/0.12 (checked). At Re ≈ 80 a unit of k is worth
+  ≈ 0.65 in n, so the inconsistent set lowered the fitted n by ≈ 0.06
+  (peer's corrected figure; their first message said 0.02–0.04). Prediction
+  for the staged re-runs: pf and `all` rise by ≈ 0.06, i.e. 2.36 → ≈ 2.42
+  and 2.16 → ≈ 2.22. The gap to DNS is untouched by the fix; the fix
+  matters in a bed (φ ≈ 0.6: Δp comes out at W/(1+φ) ≈ 0.63 W).
+- DPMFoam R1, homogeneous column, Wen–Yu, 12×12×4 cells: u_t 0.3967,
+  U/u_t 0.925/0.860/0.735/0.625 at φ 0.02/0.04/0.08/0.12, n = 3.69
+  (rms 0.002) against its own closure's 3.09. DPMFoam also sits 0.6 off its
+  bookkeeping, steeper rather than shallower. Clean window t = 8–20 only;
+  past t ≈ 25 at φ ≥ 0.08 the column layers (their reading: one-step
+  face-flux spikes from the return flow).
+- DPMFoam R2, our D3.2 clouds, 6d column, no-slip walls, 2×2×8 cells:
+  u_t 0.399 off-axis (the axis probe sits on a 4-cell corner and oscillates);
+  seed-mean U/u_t 0.917/0.850/0.717/0.552 at N = 20/40/80/120 (DNS
+  0.892/0.826/0.689/0.588; ours 0.965/0.935/0.870/0.805). The cloud
+  stretches upward (N = 120 window φ_cloud 0.076 vs 0.117 initial), so the
+  exponent depends on the φ definition: 6.29 with the window φ_cloud of
+  `d32_ladder_analysis.py`, 4.48 against the initial φ (DNS 4.57). For the
+  same-cloud comparison use U/u_t at equal N with the window φ_cloud next
+  to it. Open item for us: state which φ our n values use (the ladder tool
+  uses φ_cloud = N V_p/(A H_cloud) in the window) and report the initial-φ
+  fit alongside.
+- Ergun (for E2/G6): CFDEM fixed-bed slopes come out at 0.67–0.76 of its
+  own closures, plateaus within 3 %, U_mf 40–45 % high; mechanism open.
+  Treat the CFDEM Ergun numbers as "reference as run".
+- Details: LIGGGHTS-PUBLIC md_docs/case_specs/{03_column,05_ergun}/SPEC.md
+  §12; their RUNBOOK runs 61–88.
