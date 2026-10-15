@@ -4,7 +4,7 @@
 #   std     : ELDragModel = difelice_std
 #   stdcont : both
 #   all     : both + Model-A pressure force (ELFluidGravity=No, ELPressureForce=Yes)
-#   contpf  : campaign drag (difelice) + continuity + Model-A pressure force
+#   contpf  : campaign drag (difelice) + continuity + Model-A pressure force + ELPressureFeedback (consistent set)
 # VARIANTS="..." overrides the variant list (default: cont std stdcont all).
 set -eu
 W=/anvme/workspace/k115ce12-featflower/FF/FeatFloWer-el
@@ -16,7 +16,7 @@ apply() { # variant deck
     cont)    printf 'SimPar@ELVolumeAveraged = continuity\n' >> $2 ;;
     std)     sed -i 's/^SimPar@ELDragModel = .*/SimPar@ELDragModel = difelice_std/' $2 ;;
     stdcont) sed -i 's/^SimPar@ELDragModel = .*/SimPar@ELDragModel = difelice_std/' $2; printf 'SimPar@ELVolumeAveraged = continuity\n' >> $2 ;;
-    contpf)  sed -i 's/^SimPar@ELFluidGravity = .*/SimPar@ELFluidGravity = No/; s/^SimPar@ELPressureForce = .*/SimPar@ELPressureForce = Yes/' $2; printf 'SimPar@ELVolumeAveraged = continuity\n' >> $2 ;;
+    contpf)  sed -i 's/^SimPar@ELFluidGravity = .*/SimPar@ELFluidGravity = No/; s/^SimPar@ELPressureForce = .*/SimPar@ELPressureForce = Yes/' $2; printf 'SimPar@ELVolumeAveraged = continuity\nSimPar@ELPressureFeedback = Yes\n' >> $2 ;;
     all)     sed -i 's/^SimPar@ELDragModel = .*/SimPar@ELDragModel = difelice_std/; s/^SimPar@ELFluidGravity = .*/SimPar@ELFluidGravity = No/; s/^SimPar@ELPressureForce = .*/SimPar@ELPressureForce = Yes/' $2; printf 'SimPar@ELVolumeAveraged = continuity\n' >> $2 ;;
   esac
 }
