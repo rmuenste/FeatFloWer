@@ -89,10 +89,21 @@ At d/h = 0.72 the particle rides its own deposited momentum: +23 % at Re ≤ 1.3
 speed-up is entirely a fluid velocity at the particle of u_two − u_one (7.8e-3 for M-G2,
 0.069 for N-L2), which the current diagnostics do not print (§3).
 
-## 5. Level-3 resolution check
+## 5. Level-3 resolution check (jobs 150171-150173, `MaxMeshLevel 3`, 36³, h = 1/36)
 
-Pending: jobs 150171 (M-L2 two-way), 150172 (N-L2 one-way), 150173 (N-L2 two-way) at
-`MaxMeshLevel 3` (36³, h = 1/36, δ/h = 3.6, d/h = 1.44 for N).
+| run | level 2 | level 3 | change |
+|---|---:|---:|---:|
+| M-L2 two-way plateau | 0.106373 | 0.106372 | −1e-5 (two-way bias +0.17 % at both levels) |
+| N-L2 one-way plateau | 0.288091 | 0.285013 | −1.1 % |
+| N-L2 one-way ε inverted | 0.980 | 0.975 | → continuum 0.9724 (δ/h 1.8 → 3.6) |
+| N-L2 two-way plateau | 0.35757 | 0.354616 | −0.8 % |
+| N-L2 two-way/one-way − 1 | +24.1 % | +24.4 % | resolution-independent |
+
+Variant M is mesh-converged at level 2 (one-way at 1e-4, two-way bias unchanged to 1e-5). For
+variant N the sampled ε moves toward the continuum kernel estimate as the cell shrinks
+(0.980 → 0.975 → 0.9724 at δ/h 1.8 / 3.6 / ∞): the level-2 value is a cell-averaging artefact
+of d/h = 0.72, which is why the a-priori G4 prediction is 1.6–2.1 % low at level 2. The N two-way
+bias is set by the kernel width (2.5 d), not the mesh: +24 % at both levels.
 
 ## 6. Pitfalls
 
