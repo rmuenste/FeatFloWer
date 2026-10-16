@@ -43,11 +43,11 @@ u_z from `EL_MEAN_SLIP uf_super` (a domain mean: here exactly the quantity wante
 | window | ⟨u_z,super⟩ | / 4.24115e-4 |
 |---|---|---|
 | t ≥ 0.002 (spec window) | 4.1567e-4 | 0.980 (−2.0 %) |
-| t = 0.1 … 0.2 | 4.19e-4 | 0.988 (−1.2 %) |
+| t ≥ 0.1 (mean) | 4.1611e-4 | 0.981 (−1.9 %) |
 | step 2 (start-up) | 4.584e-4 | 1.081 |
 | min / max | 4.111e-4 / 4.584e-4 | 0.969 / 1.081 |
 
-PASS at the gate edge (−2.0 % on the spec window, −1.2 % late). CFDEM VB-b-divided: +0.7 %
+PASS at the gate edge (−2.0 % on the spec window, −1.9 % over the second half; single samples at t = 0.1 / 0.2 are −1.4 / −1.2 %). CFDEM VB-b-divided: +0.7 %
 with write scatter 0.85–1.16; VB-a −11 %. Discriminator for the deficit submitted as
 `VB_L2_ptight` (`Pres@MGCriterion1 1d-7`, `MGMaxIterCyc 60`; the deck's 1d-3 relative pressure
 defect reduction is the first suspect) — result in §4.
@@ -82,6 +82,24 @@ defect reduction is the first suspect) — result in §4.
 5. Level 3 VA takes 7.6 min on 11 ranks (the spec's 30-min worry is moot).
 6. `grep NaN` on VA logs matches the multigrid timer statistics (no fluid solve); harmless.
 
-## 4. Pressure-tolerance discriminator (VB_L2_ptight)
+## 4. Discriminators for the return-flow deficit (both NULL)
 
-Pending.
+| run (job) | change vs VB_L2 | ⟨u_z,super⟩ spec window | t ≥ 0.1 |
+|---|---|---|---|
+| VB_L2 (150195) | — | 4.15670e-4 (0.9801) | 4.16109e-4 (0.9811) |
+| VB_L2_ptight (150198) | `Pres@MGCriterion1 1d-7`, `MGMaxIterCyc 60` | 4.15670e-4 (0.9801) | 4.16109e-4 (0.9811) |
+| VB_L2_nl3 (150199) | + `Velo@NLmin 3`, `NLmax 6` | 4.15678e-4 (0.9801) | 4.16117e-4 (0.9811) |
+
+Neither the pressure tolerance nor the nonlinear iteration count moves the result (2e-5): the
+−2.0 % is a property of the discrete continuity source, not of solver convergence. What the
+discretisation implies (`el_volume_averaged.f90:86-106`): per element g = −(∂_tε + u·∇ε)/ε with
+ε = max(ε_el, 1e-3); the source enters only the constant P1 pressure dof of each element as
+(g − ḡ)·V/dt. Testing the discrete constraint with the P1 function z (its linear modes are
+constrained homogeneously) gives ∫u_z dV = −Σ_el z_c g_el V_el exactly at convergence, and the
+1/ε factor would make that an *excess* over N V_p|w| of order the |∂_tε|-weighted α, not a
+deficit; ∫α u_z dV is only ≈ 0.1 % of the integral. The sign therefore points elsewhere
+(candidates: the kernel-deposited ε vs the P1 constant-mode source near the top wall, where
+the cloud starts within one kernel radius; the ḡ removal's interaction with the cloud's
+asymmetric position; the diagnostic's own ε-weighting). Next discriminator is a code
+diagnostic printing Σ z_c g V, ∫u_z dV and the per-element constraint residual (binary change,
+own twin gate); not done here. Recorded as a FeatFloWer finding, gate PASS at the edge.
