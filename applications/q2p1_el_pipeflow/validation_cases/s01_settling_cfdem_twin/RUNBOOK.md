@@ -110,3 +110,19 @@ bias is set by the kernel width (2.5 d), not the mesh: +24 % at both levels.
 - `settling_post.py`'s "eps at particle (logged)" and "uf_intr co-flow" are domain means (§3).
 - `grep -i error` on the logs matches `EL_VOLUME_CONSERVATION ... rel_error=`; the runs are clean.
 - Spec deck keeps `OutputLevel = MAX+1` (drops EL VTK fields); harmless here, no VTK written.
+
+## 7. Peer confirmation (liggghts-public-1e, 2026-10-16)
+
+The domain-mean reading of `EL_MEAN_SLIP` was confirmed in our source and fixed in their spec
+(SPEC 4.3/6.6/8.1/8.2, pitfall 9.11) and in `settling_post.py` (prediction at the kernel
+self-voidage or `--eps`, inverted ε printed with a non-plateau warning, N gated at 2 %, brentq
+fallback without scipy). Their re-run over `runs/settling01` reproduces every number above:
+inverted ε 0.98035 / 0.98003 / 0.97993 (level 2), 0.97499 (level 3); G4 +2.09 / +1.64 / +0.76 %;
+two-way +0.85 / +0.19 / +0.17 / +0.05 % (M), +22.8 / +24.1 / +3.4 % (N). Cross-code Re_t with each
+side's ε inside Re: −3.4e-4 / −7.7e-5 / −9.8e-5 / −3.4e-5 (ours −3.2e-4 / −5.6e-5 / −7.8e-5 /
+−1.3e-5; the difference is the ε factor). All SPEC 8.3 rows are filled on their side (SPEC 11.2).
+
+Open on R1 (M two-way bias 1.5–3× CFDEM at matched scale), candidate causes not yet separated:
+(a) the kernel's effective volume V_p/α_self is 1.6× smaller than CFDEM's cell; (b) our closed
+box against CFDEM's open bottom. Requested from us when the per-particle u_f column exists: the
+M-G2 two-way u_f at the particle. CFDEM model-A (ε^(2−χ)) variants for 04/05/06 are not run yet.
