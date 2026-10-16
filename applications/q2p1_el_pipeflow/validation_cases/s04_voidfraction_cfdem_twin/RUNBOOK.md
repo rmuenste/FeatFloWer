@@ -36,7 +36,7 @@ Predictor on these positions: G3 ratio 1.00001 (L2) / 1.00000 (L3), L1_dedt 1.12
 G3 per-output scatter: 1.7e-4 (L2), 6e-5 (L3) of the identity; CFDEM trilinear 5 % per step,
 divided 0.99992 mean. All three PASS G1 (gate 1e-12), G2, G3 (gates 2e-3 / 1e-3).
 
-**VB return flow (G5, gate 2 %):** `EL_VA_SOURCE` L1_dedt 1.1291e-3 m³/s (predictor 1.1291e-3),
+**VB return flow (G5, gate 2 %):** `EL_VA_SOURCE` L1_dedt time mean 1.1318e-3 m³/s (last step 1.1291e-3; predictor 1.1291e-3 at step 100, +0.24 %),
 |∫g|/L1_dedt ≤ 1.06e-3 (compatibility removal, below α_max 0.07 as expected). Superficial mean
 u_z from `EL_MEAN_SLIP uf_super` (a domain mean: here exactly the quantity wanted):
 
@@ -62,7 +62,7 @@ defect reduction is the first suspect) — result in §4.
 | vft_VA_L3 sum_z_depsdt_V | 4.24115e-6 (1e-3) | 4.24109e-6 (−1.4e-5) | PASS |
 | vft_VB_L2 uf_super_z | 4.24115e-4 (2e-2) | 4.1567e-4 (−2.0 %) | PASS (edge) |
 | vft_VB_L2 L1_dedt_mean | 1.136e-3 (1e-2) | 1.1318e-3 (−3.7e-3) | PASS |
-| twin uf_super_z EL / CFDEM VB-b-divided | 1 (2e-2) | 0.980 / 1.007 = 0.973 | FAIL by 0.7 % (sum of the two codes' deviations) |
+| twin uf_super_z EL / CFDEM VB-b-divided | 1 (2e-2) | 0.980 / 1.0137 = 0.967 (CFDEM re-run writing every step, run 90: 1.0137 ± 0.0053; the 20-write 1.007 had SE 0.019) | FAIL by 1.3 % |
 
 ## 3. Staging corrections (to feed back into the spec)
 
@@ -103,3 +103,16 @@ the cloud starts within one kernel radius; the ḡ removal's interaction with th
 asymmetric position; the diagnostic's own ε-weighting). Next discriminator is a code
 diagnostic printing Σ z_c g V, ∫u_z dV and the per-element constraint residual (binary change,
 own twin gate); not done here. Recorded as a FeatFloWer finding, gate PASS at the edge.
+
+## 5. Peer follow-up (liggghts-public-1e, 2026-10-16)
+
+All four staging corrections are folded into their spec and scripts (partitioner call, dump
+back-shift with vz/image checks reproducing `particles_cfdem.xyz` to 5e-8 m, `seedMinGap_`,
+VTK index time from the deck). Their re-derivation from our run dirs reproduces every gate.
+Correction: the L1_dedt time mean is 1.1318e-3 (the 1.1291e-3 first quoted was the last step).
+CFDEM VB-b-divided re-run writing every step (run 90, `run/vft_VB-b-divided_w1`): G5 = 1.0137 ±
+0.0053 (t ≥ 0.002, 199 writes), 1.020 ± 0.009 (t ≥ 0.1); the earlier 1.007 from 20 writes had a
+standard error of 0.019. Twin ratio 0.980 / 1.0137 = 0.967: FAIL by 1.3 % beyond the gate. The two
+codes bracket the identity (CFDEM +1.4 %, FeatFloWer −2.0 %); their excess is suspected to be the
+face-flux vs cell-centre reconstruction mismatch [I]. Agreed next step: the FeatFloWer constraint
+diagnostic (§4), gated on the identity itself rather than on EL/CFDEM.
