@@ -272,3 +272,31 @@ Reading:
   tell whether it converges with h.
 - Corrector residual history (L2, dt 1e-3): 9.1e-8 before the corrector, 1.8e-9 after it, i.e.
   the predictor already satisfies the constraint to 2 % of int_g; one corrector is enough.
+
+### 8.1 G4 slab profiles (base, T8b, T8c; `vft_slab_profile.py`, full tables in `slab_profiles_T8.txt`)
+
+From the VTK pieces: `ELEpsilonF`/`ELAlphaP` are the element-wise constant CELL fields the source
+uses, `Velocity` is Q1 vertex data; per cell ε_e · ⟨u_z⟩_8vertices, volume weighted, ten z-slabs
+of 0.1 m. The box integral of this estimate is 0.92-0.95 of MOM (Q1 vertices miss the Q2 edge/face/
+centre dofs; the log `uf_super` is the reference), so only the slab-to-slab and run-to-run
+differences are meaningful. VTK index 00099 = t 0.100, the last index (00190 / 00380) = t 0.191.
+
+Ratio ⟨ε u_z⟩ / (|w| ⟨α⟩) per slab (slabs 1-4 hold no particles; their ⟨ε u_z⟩ is given in m/s):
+
+| slab (z) | base t 0.10 | T8b t 0.10 | T8c t 0.10 | base t 0.19 | T8b t 0.19 | T8c t 0.19 |
+|---|---|---|---|---|---|---|
+| 1-4 (0-0.4), ⟨ε u_z⟩ | −1.5e-6 … −1.0e-5 | +0.6e-6 … +4.0e-6 | +0.6e-6 … +4.1e-6 | −2.8e-6 … −1.9e-5 | −0.8e-6 … −5.7e-6 | −0.7e-6 … −5.2e-6 |
+| 5 (0.4-0.5) | −0.883 (α 1.8e-5) | 2.58 (α 1.8e-5) | 2.61 | 0.854 | 0.922 | 0.924 |
+| 6 (0.5-0.6) | 0.918 | 0.940 | 0.940 | 0.914 | 0.933 | 0.933 |
+| 7 (0.6-0.7) | 0.927 | 0.942 | 0.942 | 0.932 | 0.945 | 0.946 |
+| 8 (0.7-0.8) | 0.926 | 0.937 | 0.937 | 0.931 | 0.939 | 0.938 |
+| 9 (0.8-0.9) | 0.939 | 0.945 | 0.945 | 0.942 | 0.944 | 0.944 |
+| 10 (0.9-1.0) | 0.944 | 0.943 | 0.942 | 0.959 | 0.952 | 0.952 |
+| box integral / MOM | 0.9225 | 0.9456 | 0.9456 | 0.9174 | 0.9371 | 0.9376 |
+
+- T8b lifts the ratio in the cloud slabs 6-9 by +0.01 to +0.02 almost uniformly, which is the
+  +2.4 points of G5; the top slab 10 is unchanged or slightly lower. T8c equals T8b to 1e-4 in
+  every slab (dt-independence slab by slab).
+- The particle-free slabs 1-4 carry a linear-in-z return flow: in the base it is negative
+  (−1e-5 m/s at z 0.35, the sink of the uniform ḡ removal sitting at z = 0.5 below the cloud);
+  under BDF2 it is ten times smaller and of the opposite sign at t 0.1.
