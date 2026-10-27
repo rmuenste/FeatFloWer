@@ -169,3 +169,37 @@ mean ± sd over t ≥ 0.002; int_g and L1_dedt are means of `EL_VA_SOURCE` (`vft
   to the base run to four digits.
 - T5 (fix A: α-weighted removal of the net source; fix B: divide by (ε^{n+1}+ε^n)/2) is a physics
   change and has NOT been applied; it waits for the owner's decision.
+
+## 7. Fix B test (T6) and the pe-rebased binary on VB (jobs 155127-155133, 2026-10-27)
+
+Peer request (SPEC 04 §12.4 T5/T6, owner's approval relayed): test fix B as a deck switch, not
+as a change to the main EL branch. Implementation on the TEST branch `test/el-va-source-eps-mid`
+(worktree `FeatFloWer-va-fixb`, build `build-fixb`, commit b97b60ce on top of 4c52af80):
+`SimPar@ELVASourceEpsLevel = new` (default, divide by ε^{n+1}) `| mid` (divide by
+(ε^{n+1}+ε^n)/2 with ε^n = ε^{n+1} − dt·∂tε reconstructed from the backward difference); the
+same ε enters the source, the L1 norms and the `EL_VA_MOMENT` terms. Fix A is NOT implemented;
+fix B is NOT on `feature/el-volume-averaged`.
+
+Gates (switch at default): tier-2 twin job 155128 bitwise vs `reference/run_g0_twin_va_2026-10-14.log`
+(13 streams); VB_L2 base job 155129 bitwise vs the T4 log (14 streams incl. `EL_VA_MOMENT`).
+The pe-rebased main binary (4c52af80, pin 4d04c1e) also reproduces the T4 log bitwise on VB_L2
+(job 155127, `G_VB_L2_pe4d04c1e`), so the pe bump is certified on the volume-averaged case too.
+
+| Run | dt | G5 mean ± sd (t ≥ 0.002) | G5 t ≥ 0.1 | int_g | adv_net | Q2 | M1raw | S2 | identity rel rms | ∫u_z/MOM |
+|---|---|---|---|---|---|---|---|---|---|---|
+| base (new) | 1e-3 | 0.9801 ± 0.0088 | 0.9812 | +4.48e-7 | +2.94e-7 | 7.28e-7 | −3.961e-6 | 2.92e-7 | 2.0e-5 | 0.9867 |
+| T6a (mid) `T6a_VB_L2_epsmid` 155130 | 1e-3 | **1.0213 ± 0.0090** | 1.0199 | **−2.88e-7** | +2.88e-7 | 7.28e-7 | −4.504e-6 | 2.92e-7 | 1.9e-5 | 1.0281 |
+| T6b (mid) `T6b_VB_L2_epsmid_dt5e-4` 155133 | 5e-4 | **1.0123 ± 0.0050** | 1.0119 | **−1.26e-7** | +1.26e-7 | 3.64e-7 | −4.385e-6 | 2.92e-7 | 2.8e-6 | 1.0190 |
+
+L1_dedt 1.132e-3 in all three. Reading:
+- Fix B removes the temporal O(dt) term exactly: with the centred divisor Σ|e| ∂tε/ε̄ integrates
+  to int_g + adv_net = −2.5e-10 (T6a) / +2.7e-10 (T6b), i.e. the requested "exact temporal
+  source integral" is −(int_g + adv_net) and is zero to 1e-10 (log-difference telescoping). So
+  under fix B int_g = −adv_net.
+- The advective term keeps its own O(dt) part (Codex's (dt/2)∫d² reading): adv_net 2.88e-7 →
+  1.26e-7 when dt halves, and G5 − 1 = +2.1 % → +1.2 %. Bare fix B OVERSHOOTS with a first-order
+  dt dependence of the opposite sign: Codex's forecast (G5 1.017-1.023, int_g −(2.5-3.2)e-7)
+  is met; reading (i) (G5 ≈ 1.004, int_g ≈ 0) is not.
+- Richardson limits agree: original series 2·0.9917 − 0.9801 = 1.0033; fix-B series
+  2·1.0123 − 1.0213 = 1.0033. The dt → 0 value of G5 is ≈ 1.003 either way; fix B alone moves
+  the first-order error from −2.0 % to +2.1 % at dt 1e-3 and does not remove it.
