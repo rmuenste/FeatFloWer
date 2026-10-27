@@ -225,3 +225,50 @@ The peer's reading of T1 is confirmed and the earlier guess in §6 (Q2 falls at 
 wrong: the O(dt) term nearly doubles with refinement at fixed dt, and the advective term cancels
 88 % of it at level 3 against 40 % at level 2. The residual net source is the imperfectly
 cancelled O(dt) pair, whose cancellation improves with h.
+
+## 8. T8: endpoint BDF2 continuity source with source/projection correctors (jobs 155139-155145, 2026-10-28)
+
+Peer request (SPEC 04 §12.7, Codex rank-1 fix, owner's choice relayed). Implemented on the TEST
+branch `test/el-va-source-eps-mid` (worktree `FeatFloWer-va-fixb`, commits 4c0dd4f3 + 9fb6157c):
+`SimPar@ELVASourceTimeScheme = BE | BDF2` (d_cont = 1.5 ∂tε^{n+1} − 0.5 ∂tε^n, ε and ∇ε at n+1, BE
+on the first step; previous rate saved once per step at the history advance, restart v3) and
+`SimPar@ELVASourceCorrectors = n` (after the projection: reassemble (1/k)Bᵀu with the corrected
+velocity, recompute g from it, log the constraint residual, solve with the same pressure solver,
+correct u and accumulate p; P^n kept for the P_new extrapolation; no second particle advance or
+momentum predictor). New log lines `EL_VA_TSRC` (signed temporal integral Σ|e| d_cont/ε, its L1,
+scheme) and `EL_VA_RESIDUAL` (dt·defp on the constant dof: L1, max, int_g; corr 1..n before each
+corrector solve, corr −1 after the last correction). Defaults byte-identical: tier-2 twin job
+155139 and VB_L2 job 155140 bitwise vs the reference / the T4 log. Four-step local smoke with two
+correctors: residual L1 5.2e-7 → 3.0e-8 → 2.0e-10 (×20 per pass).
+
+Means over t ≥ 0.002 (source terms from the last solve pass); G5 for t ≥ 0.1 in brackets:
+
+| Run | h, dt, corr | G5 ± sd | int_g | adv_net | dedt_net | Q2 | residual L1 before corr / final | ∫u_z/MOM | job, wall |
+|---|---|---|---|---|---|---|---|---|---|
+| base BE | L2, 1e-3, 0 | 0.9801 ± 0.0088 (0.9812) | +4.48e-7 | +2.94e-7 | −7.42e-7 | 7.28e-7 | – | 0.9867 | 155114 |
+| T8a BDF2 | L2, 1e-3, 0 | **1.0046 ± 0.0100 (1.0042)** | +1.6e-8 | −1.0e-8 | −6.2e-9 | 7.37e-7 | – | 1.0113 | 155141, 8 min |
+| T8b BDF2 | L2, 1e-3, 1 | **1.0039 ± 0.0050 (1.0039)** | +2.8e-8 | −2.2e-8 | −6.2e-9 | 7.37e-7 | 9.1e-8 / 1.8e-9 | 1.0106 | 155142, 10 min |
+| T8c BDF2 | L2, 5e-4, 1 | 1.0041 ± 0.0050 (1.0041) | +2.4e-8 | −2.3e-8 | −1.1e-9 | 3.66e-7 | 1.3e-8 / 1.2e-10 | 1.0108 | 155143, 21 min |
+| T8e BDF2 | L2, 2.5e-4, 1 | 1.0041 ± 0.0049 (1.0041) | +2.4e-8 | −2.3e-8 | −6.1e-10 | 1.82e-7 | 3.2e-9 / 2.8e-11 | 1.0108 | 155145, 39 min |
+| T8d BDF2 | L3, 1e-3, 1 | 0.9926 ± 0.0019 (0.9930) | +1.70e-7 | −1.57e-7 | −1.3e-8 | 1.34e-6 | 3.5e-7 / 1.2e-8 | 1.0032 | 155144, 72 min |
+
+L1_dedt unchanged (1.132e-3 at L2, 1.332e-3 at L3); L1_dcont 1.137e-3 / 1.339e-3. Moment identity
+(final assembly) rel rms 6e-5 (T8b), 3e-7 (T8c), 9e-8 (T8e), 7e-4 (T8d).
+
+Reading:
+- **BDF2 alone removes the first-order error at level 2**: T8a gives 1.0046 and the net source
+  drops from 4.5e-7 to 1.6e-8 (int_g) with the temporal integral −6e-9. The time-level match is
+  the whole story at L2; the corrector (T8b) only tightens the constraint (residual ×50) and
+  moves G5 by −0.0007.
+- **The dt dependence is gone**: T8b/T8c/T8e = 1.0039 / 1.0041 / 1.0041 (prediction: within
+  0.002, O(dt²)); the limit 1.0041 agrees with the Richardson limit 1.0033 of the BE and fix-B
+  series to the scatter of those extrapolations. Codex's T8b prediction (1.004-1.005, int_g a few
+  1e-8) is met.
+- **Level 3 is not improved**: T8d gives 0.9926, identical to BE at L3 (T1/T7 0.9926), with
+  int_g 1.7e-7 again. Under BDF2 the temporal integral is ~0 and the whole net source is the
+  advective term (adv_net −1.57e-7, which was +1.19e-6 under BE). So the L3 deficit of −0.7 % is an
+  h-dependent bias of the discrete advective term u·∇ε, not an O(dt) effect; it sits "below 1.01"
+  as predicted but it is not a dt → 0 limit of the L2 kind. Open: an L3 dt series or an L4 run to
+  tell whether it converges with h.
+- Corrector residual history (L2, dt 1e-3): 9.1e-8 before the corrector, 1.8e-9 after it, i.e.
+  the predictor already satisfies the constraint to 2 % of int_g; one corrector is enough.
