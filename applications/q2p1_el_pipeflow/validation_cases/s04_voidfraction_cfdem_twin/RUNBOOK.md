@@ -203,3 +203,25 @@ L1_dedt 1.132e-3 in all three. Reading:
 - Richardson limits agree: original series 2·0.9917 − 0.9801 = 1.0033; fix-B series
   2·1.0123 − 1.0213 = 1.0033. The dt → 0 value of G5 is ≈ 1.003 either way; fix B alone moves
   the first-order error from −2.0 % to +2.1 % at dt 1e-3 and does not remove it.
+
+### 7.1 T7: T4 diagnostics at level 3 (`T4_VB_L3_diag`, job 155126, 54 min, 11 ranks)
+
+Main binary 4c52af80 (pe 4d04c1e, diagnostics 7db4650e), deck = T1 (`MaxMeshLevel 3`, dt 1e-3).
+All streams common with T1 (frozen 2026-10-15 binary) are bitwise; only `EL_VA_MOMENT` is new.
+
+| quantity (mean, t ≥ 0.002) | T7 level 3 | prediction (peer) | level 2 (T4) |
+|---|---|---|---|
+| G5 | 0.9926 ± 0.0279 (0.9912 ± 0.0004 for t ≥ 0.1) | as T1 | 0.9801 |
+| int_g | 1.678e-7 | 1.68e-7 | 4.48e-7 |
+| Q2 | 1.321e-6 | ≈ 1.32e-6 | 7.28e-7 |
+| adv_net | +1.186e-6 (1.155e-6 for t ≥ 0.1) | ≈ +1.19e-6 | +2.94e-7 |
+| I0 = int_g + adv_net | 1.354e-6 | ≈ 1.355e-6 | 7.42e-7 |
+| cancellation adv_net/I0 | 87.6 % | ≈ 88 % (Codex 85.2 %) | 39.6 % |
+| M1raw, S2 | −4.170e-6, 4.05e-7 | | −3.961e-6, 2.92e-7 |
+| identity rel rms | 1.8e-5 (max 9.1e-10) | ≈ 2e-5 | 2.0e-5 |
+| ∫u_z / MOM | 1.0031 | | 0.9867 |
+
+The peer's reading of T1 is confirmed and the earlier guess in §6 (Q2 falls at level 3) is
+wrong: the O(dt) term nearly doubles with refinement at fixed dt, and the advective term cancels
+88 % of it at level 3 against 40 % at level 2. The residual net source is the imperfectly
+cancelled O(dt) pair, whose cancellation improves with h.
