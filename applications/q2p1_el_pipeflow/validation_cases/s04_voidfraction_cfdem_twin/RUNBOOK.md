@@ -116,3 +116,52 @@ standard error of 0.019. Twin ratio 0.980 / 1.0137 = 0.967: FAIL by 1.3 % beyond
 codes bracket the identity (CFDEM +1.4 %, FeatFloWer −2.0 %); their excess is suspected to be the
 face-flux vs cell-centre reconstruction mismatch [I]. Agreed next step: the FeatFloWer constraint
 diagnostic (§4), gated on the identity itself rather than on EL/CFDEM.
+
+## 6. Return-flow cause tests T1, T2, T4 (SPEC 04 §12.3-12.4; jobs 155110-155115, 2026-10-27)
+
+Peer request (liggghts-public-1e, at the owner's request): the −2.0 % G5 deficit is attributed to
+the discrete continuity source, `el_volume_averaged.f90:77-107`: dividing the backward difference
+of ε by ε^{n+1} leaves a positive O(dt) term Q2 = (dt/2) Σ|e| (∂tε)²/ε, so int_g is persistently
+positive, and the uniform removal of ḡ places the compensating sink at z = 0.5 while the spurious
+source sits in the cloud (z ≈ 0.74). CFDEM's +1.4 % was its cell-centre post-processing; its
+conservative face flux gives 1.00002, so the twin ratio is 0.980/1.000. Tests, all clones of
+`runs/vft04/VB_L2` (CFDEM positions) changing only what is listed, `versions.txt` in each run dir:
+
+| Run (dir under `runs/vft04/`) | change | binary | job, wall |
+|---|---|---|---|
+| T1 `T1_VB_L3` | `MaxMeshLevel 3` | frozen copy of build-va (2026-10-15, HEAD d89f2e64 code) | 155110, 54 min, 11 ranks |
+| T2a `T2a_VB_L2_dt5e-4` | dt 5e-4, 400 steps (deck + pe) | frozen | 155111, 16 min |
+| T2b `T2b_VB_L2_dt2.5e-4` | dt 2.5e-4, 800 steps | frozen | 155112, 32 min |
+| T2c `T2c_VB_L2_dt2e-3` | dt 2e-3, 100 steps | frozen | 155113, 4 min |
+| T4 `T4_VB_L2_diag` | none (diagnostics commit 7db4650e) | build-va rebuilt 2026-10-27 20:05 | 155114, 7.5 min |
+
+G5 = uf_super_z / (N V_p |w| / V_box) = uf_super_z / 4.24115e-4 from `EL_MEAN_SLIP` (log, not VTK),
+mean ± sd over t ≥ 0.002; int_g and L1_dedt are means of `EL_VA_SOURCE` (`vft_g5.py` here).
+
+| Run | h, dt | G5 mean ± sd | G5 t ≥ 0.1 | int_g | L1_dedt | prediction (SPEC 12.4) |
+|---|---|---|---|---|---|---|
+| base VB_L2 | L2, 1e-3 | 0.9801 ± 0.0088 | 0.9812 ± 0.0045 | 4.48e-7 | 1.132e-3 | |
+| T2c | L2, 2e-3 | 0.9590 ± 0.0192 | 0.960 | 8.19e-7 | 1.130e-3 | 0.94-0.955 |
+| T2a | L2, 5e-4 | 0.9917 ± 0.0050 | 0.992 | 2.43e-7 | 1.132e-3 | 0.99-1.00, int_g ≤ 2.3e-7 |
+| T2b | L2, 2.5e-4 | 0.9979 ± 0.0049 | 0.998 | 1.34e-7 | 1.132e-3 | 1.00-1.01 |
+| **T1** | **L3, 1e-3** | **0.9926 ± 0.0279** | **0.9912 ± 0.0004** | **1.68e-7** | 1.332e-3 | **0.95-0.96, int_g 0.8-1.1e-6** |
+
+- **T2 confirms the O(dt) mechanism**: the deficit and int_g halve with each halving of dt
+  (1 − G5 = 4.1 / 2.0 / 0.8 / 0.2 % and int_g 8.2 / 4.5 / 2.4 / 1.3e-7 at dt 2e-3 / 1e-3 / 5e-4 /
+  2.5e-4). T2a and T2b fall inside their predicted bands; T2c is 0.4 points above its band.
+- **T1 falsifies the refinement prediction**: at level 3 and the same dt the deficit does not
+  double, it shrinks to −0.9 % and int_g drops by 2.7× (4.5e-7 → 1.7e-7); the L1_dedt prediction
+  (1.33e-3) is met. The level-3 series is much smoother (sd 0.0004 for t ≥ 0.1 against 0.0045
+  at level 2) after a large start-up transient (G5 1.38 in the first steps, int_g −6.9e-7 for
+  t < 0.01). So the O(dt) term is not "fixed by dt alone": its magnitude depends on h as well
+  (Q2 ∝ Σ|e| (∂tε)² — the cell-averaged kernel field is smoother at level 3), and the SPEC
+  12.3 statement "growing with refinement at a fixed dt" is wrong in sign.
+- **T4 confirms the budget identities** (new `EL_VA_MOMENT` line and `uz_unw=` field, print-only,
+  gated bitwise against `tier2_cases/momentum_conservation/reference/run_g0_twin_va_2026-10-14.log`
+  by job 155115, `tools/el_stream_compare.py`: all 13 EL streams identical, EL_MEAN_SLIP with one
+  extra trailing token): ∫u_z dV = −M1raw + ½ int_g to rel rms 2.0e-5 (max residual 1.1e-9) over
+  199 steps (predicted ≈ 1e-3); ∫u_z / MOM 0.9867 (predicted ≈ 0.987); Q2 7.28e-7 (7.3e-7),
+  adv_net +2.94e-7 (+3.0e-7), int_g + adv_net 7.42e-7 (7.5e-7), S2 2.92e-7; G5 and int_g equal
+  to the base run to four digits.
+- T5 (fix A: α-weighted removal of the net source; fix B: divide by (ε^{n+1}+ε^n)/2) is a physics
+  change and has NOT been applied; it waits for the owner's decision.

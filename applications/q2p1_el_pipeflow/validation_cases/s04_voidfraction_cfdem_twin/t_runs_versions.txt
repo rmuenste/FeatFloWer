@@ -1,0 +1,25 @@
+== T1_VB_L3
+FeatFloWer HEAD d89f2e6461630722ada12871286fd53c29f270d2
+libs/pe HEAD c02cf28f9061dfde2657d7449215ddd32c5a4f39
+dirty source files 0
+binary /data/warehouse17/rmuenste/runs/vft04/q2p1_el_pipeflow.frozen_2026-10-15 (frozen copy of build-va q2p1_el_pipeflow, mtime 2026-10-15 15:14:26.734839878 +0200)
+== T2a_VB_L2_dt5e-4
+FeatFloWer HEAD d89f2e6461630722ada12871286fd53c29f270d2
+libs/pe HEAD c02cf28f9061dfde2657d7449215ddd32c5a4f39
+dirty source files 0
+binary /data/warehouse17/rmuenste/runs/vft04/q2p1_el_pipeflow.frozen_2026-10-15 (frozen copy of build-va q2p1_el_pipeflow, mtime 2026-10-15 15:14:26.734839878 +0200)
+== T2b_VB_L2_dt2.5e-4
+FeatFloWer HEAD d89f2e6461630722ada12871286fd53c29f270d2
+libs/pe HEAD c02cf28f9061dfde2657d7449215ddd32c5a4f39
+dirty source files 0
+binary /data/warehouse17/rmuenste/runs/vft04/q2p1_el_pipeflow.frozen_2026-10-15 (frozen copy of build-va q2p1_el_pipeflow, mtime 2026-10-15 15:14:26.734839878 +0200)
+== T2c_VB_L2_dt2e-3
+FeatFloWer HEAD d89f2e6461630722ada12871286fd53c29f270d2
+libs/pe HEAD c02cf28f9061dfde2657d7449215ddd32c5a4f39
+dirty source files 0
+binary /data/warehouse17/rmuenste/runs/vft04/q2p1_el_pipeflow.frozen_2026-10-15 (frozen copy of build-va q2p1_el_pipeflow, mtime 2026-10-15 15:14:26.734839878 +0200)
+== T4_VB_L2_diag
+FeatFloWer HEAD 7db4650e109d6e990fd1f3e2d00dbafde544d62b (T4 diagnostics commit)
+libs/pe HEAD c02cf28f9061dfde2657d7449215ddd32c5a4f39
+dirty source files 0
+binary /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer-va/build-va/applications/q2p1_el_pipeflow/q2p1_el_pipeflow (mtime 2026-10-27 20:05:59.084019261 +0100)
