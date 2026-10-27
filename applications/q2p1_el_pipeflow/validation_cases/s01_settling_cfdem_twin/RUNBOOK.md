@@ -205,3 +205,18 @@ at level 2). The co-flow u_f is still ramping at the end of the L1/L2 runs (last
 | c. N-L2 one-way, level 4, 30 steps (`fu_c_N-L2_oneway_std_L4_30steps`, 14.5 min, 22.6 GB RSS) | inverted ε 0.97309 at step 1, 0.97315 at step 30 (window mean 0.97315) | prediction 0.9731; ladder 0.980 / 0.975 / 0.9731 at levels 2/3/4, continuum 0.9724 |
 
 Wall times (short partition, 1 node): level 1 10 s, level 2 30 s, level 3 2.4-4.8 min (5 ranks).
+
+### 8.4 Peer confirmation (liggghts-public-1e, 2026-10-27)
+
+The peer re-derived G2 and L2 (level 1, one-way and two-way) from our run dirs with
+`twin_post.py` and matches plateau, u/u_ode and u_f to the printed digits. The level-1 solver fix
+and `Velo@MinDef 1d-16` are folded into `stage_ff_twin.py` (a freshly staged level-1 deck is
+identical to our patched `G2_twoway_lev1`); the stager now also writes `versions.txt` per run
+dir, which our runs predate (binary/HEAD recorded in SPEC 01 §12.2 instead). Their reading: at
+matched smoothing the two-way biases agree within −28 % to +21 % relative (a factor 1.6-2.9
+before the twin); our level 3 at 21.4 d against CFDEM mesh 1 runs from −9 % (L2) to +34 % (L3),
+moving cases higher here and near-stationary ones lower, consistent with cube-vs-kernel response
+constants plus CFDEM's co-flow restarting at each cell entry. Open on their side: CFDEM L3's
+bias is 1.7× its sampled u_f/u (cell-value saw-tooth). Follow-ups a-c confirm all three
+predictions. Nothing further requested; the 04 VB return flow (0.980 vs 1.014) is under
+investigation on their side, FeatFloWer-side test proposals to come through the owner.
