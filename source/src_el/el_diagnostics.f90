@@ -95,6 +95,7 @@ CONTAINS
     ! Element-integrated (consistent, no shared-DOF double count) fluid momentum,
     ! plain rho*u and void-fraction-weighted rho*eps_f*u.
     REAL*8 :: local_fei(3), global_fei(3), local_fei_eps(3), global_fei_eps(3)
+    REAL*8 :: uz_unw
     REAL*8 :: total_ei(3), drift_ei(3), drift_ei_norm, drift_ei_rel
     REAL*8 :: total_ei_eps(3), drift_ei_eps(3), drift_ei_eps_norm
     INTEGER :: local_count, global_count, ierr, nel_vol
@@ -158,6 +159,8 @@ CONTAINS
       (density*global_eps_vol)
     IF (global_vol.GT.0.0d0) uf_super = global_fei_eps / &
       (density*global_vol)
+    uz_unw = 0.0d0
+    IF (global_vol.GT.0.0d0) uz_unw = global_fei(3)/(density*global_vol)
     slip_intr = mean_velocity - uf_intr
     eps_mean = 0.0d0
     IF (global_vol.GT.0.0d0) eps_mean = global_eps_vol / global_vol
@@ -318,14 +321,14 @@ CONTAINS
       WRITE(mfile,'(A,ES14.6,A,I0,A,I0,A,3ES14.6,A,ES14.6)') &
         'EL_TERMINAL_VEL time= ', time, ' step= ', istep, ' count= ', &
         global_count, ' velocity= ', mean_velocity, ' speed= ', speed
-      WRITE(*,'(A,ES14.6,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,ES14.6)') &
+      WRITE(*,'(A,ES14.6,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,ES14.6,A,ES14.6)') &
         'EL_MEAN_SLIP t= ', time, ' up= ', mean_velocity, &
         ' uf_intr= ', uf_intr, ' uf_super= ', uf_super, &
-        ' slip_intr= ', slip_intr, ' eps= ', eps_mean
-      WRITE(mfile,'(A,ES14.6,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,ES14.6)') &
+        ' slip_intr= ', slip_intr, ' eps= ', eps_mean, ' uz_unw= ', uz_unw
+      WRITE(mfile,'(A,ES14.6,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,ES14.6,A,ES14.6)') &
         'EL_MEAN_SLIP t= ', time, ' up= ', mean_velocity, &
         ' uf_intr= ', uf_intr, ' uf_super= ', uf_super, &
-        ' slip_intr= ', slip_intr, ' eps= ', eps_mean
+        ' slip_intr= ', slip_intr, ' eps= ', eps_mean, ' uz_unw= ', uz_unw
       WRITE(*,'(A,ES14.6,A,I0,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,ES14.6)') &
         'EL_MEAN_SLIP_TAVG t= ', time, ' samples= ', el_mean_slip_tavg_count, &
         ' up= ', tavg_up, ' uf_intr= ', tavg_uf_intr, &

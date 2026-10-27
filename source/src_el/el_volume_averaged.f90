@@ -58,8 +58,8 @@ CONTAINS
     REAL*8, INTENT(IN) :: dt, time
 
     INTEGER :: iel, nel, i, ig, ierr
-    REAL*8 :: u(3), eps, deps_dt, adv, g, vol
-    REAL*8 :: local(4), global(4), gbar, vol_total
+    REAL*8 :: u(3), eps, deps_dt, adv, g, vol, zc, alpha
+    REAL*8 :: local(8), global(8), gbar, vol_total
     REAL*8, ALLOCATABLE :: gk(:)
 
     IF (myid.EQ.master) RETURN
@@ -76,13 +76,16 @@ CONTAINS
 
     DO iel = 1, nel
       u = 0.0d0
+      zc = 0.0d0
       DO i = 1, 8
         ig = mesh%level(ilev)%kvert(i,iel)
         u(1) = u(1) + val_u(ig)
         u(2) = u(2) + val_v(ig)
         u(3) = u(3) + val_w(ig)
+        zc = zc + mesh%level(ilev)%dcorvg(3,ig)
       END DO
       u = 0.125d0*u
+      zc = 0.125d0*zc
       eps = MAX(el_field_data%epsilon_f(iel), 1.0d-3)
       deps_dt = el_field_data%deps_f_dt(iel)
       ! grad eps = - grad alpha_p  (cell-averaged kernel gradient)
@@ -94,9 +97,19 @@ CONTAINS
       local(2) = local(2) + vol
       local(3) = local(3) + ABS(deps_dt/eps)*vol
       local(4) = local(4) + ABS(adv/eps)*vol
+      ! T4 diagnostics (SPEC 04 section 12.4): first moment of the raw source, the O(dt)
+      ! backward-difference term, the net advection source and the O(alpha^2) weight
+      alpha = 1.0d0 - eps
+      IF (ALLOCATED(el_field_data%alpha_p)) THEN
+        IF (SIZE(el_field_data%alpha_p).GE.nel) alpha = el_field_data%alpha_p(iel)
+      END IF
+      local(5) = local(5) + zc*g*vol
+      local(6) = local(6) + 0.5d0*dt*deps_dt*deps_dt/eps*vol
+      local(7) = local(7) + adv/eps*vol
+      local(8) = local(8) + alpha*alpha/eps*vol
     END DO
 
-    CALL MPI_Allreduce(local, global, 4, MPI_DOUBLE_PRECISION, MPI_SUM, &
+    CALL MPI_Allreduce(local, global, 8, MPI_DOUBLE_PRECISION, MPI_SUM, &
       MPI_COMM_SUBS, ierr)
     vol_total = MAX(global(2), 1.0d-300)
     gbar = global(1)/vol_total
@@ -116,6 +129,14 @@ CONTAINS
           'EL_VA_SOURCE t= ', time, ' step= ', istep, &
           ' int_g= ', global(1), ' gbar= ', gbar, &
           ' L1_dedt= ', global(3), ' L1_adv= ', global(4)
+        WRITE(mfile,'(A,ES14.6,A,I0,A,ES14.7,A,ES13.6,A,ES13.6,A,ES13.6)') &
+          'EL_VA_MOMENT t= ', time, ' step= ', istep, &
+          ' M1raw= ', global(5), ' Q2= ', global(6), &
+          ' adv_net= ', global(7), ' S2= ', global(8)
+        WRITE(*,'(A,ES14.6,A,I0,A,ES14.7,A,ES13.6,A,ES13.6,A,ES13.6)') &
+          'EL_VA_MOMENT t= ', time, ' step= ', istep, &
+          ' M1raw= ', global(5), ' Q2= ', global(6), &
+          ' adv_net= ', global(7), ' S2= ', global(8)
       END IF
     END IF
 
