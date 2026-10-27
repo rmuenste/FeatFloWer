@@ -1,0 +1,41 @@
+{
+  "timesteps_": 200,
+  "stepsize_": 5e-05,
+  "substeps_": 2,
+  "processesX_": 1,
+  "processesY_": 1,
+  "processesZ_": 4,
+  "seed_": 12345,
+  "verbose_": false,
+  "vtk_": false,
+  "particleDensity_": 5000.0,
+  "fluidViscosity_": 0.0045754,
+  "fluidDensity_": 1000.0,
+  "gravity_": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "visspacing_": 10000,
+  "pointerspacing_": 10000,
+  "resume_": false,
+  "useCheckpointer_": false,
+  "packingMethod_": "external",
+  "seedMode_": "file",
+  "xyzFilePath_": "particles.xyz",
+  "benchRadius_": 5e-05,
+  "periodicX_": false,
+  "periodicY_": false,
+  "periodicZ_": false,
+  "boxWallsEnabled_": true,
+  "lubricationEnabled_": false,
+  "restitution_": 0.0,
+  "staticFriction_": 0.0,
+  "dynamicFriction_": 0.0,
+  "initialParticleVelocity_": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "config_string": "01_settling same-mesh twin L1 oneway level 1 wf 21.4: CFDEM settlingTestMPI column 10x10x50 mm, 4x4x20 coarse hex, SI (LIGGGHTS-PUBLIC md_docs/case_specs/01_settling/SPEC.md section 12)"
+}

@@ -126,3 +126,82 @@ Open on R1 (M two-way bias 1.5–3× CFDEM at matched scale), candidate causes n
 (a) the kernel's effective volume V_p/α_self is 1.6× smaller than CFDEM's cell; (b) our closed
 box against CFDEM's open bottom. Requested from us when the per-particle u_f column exists: the
 M-G2 two-way u_f at the particle. CFDEM model-A (ε^(2−χ)) variants for 04/05/06 are not run yet.
+
+## 8. Same-mesh twin (SPEC 01 §12; jobs 155064-155101, 2026-10-27)
+
+Peer request `LIGGGHTS-PUBLIC/md_docs/case_specs/01_settling/twin/REQUEST_featflower.md`: the CFDEM
+column with y and z swapped (0.01 × 0.01 × 0.05 m, 4 × 4 × 20 coarse hex, h = 2.5 mm = 25 d), SI
+units of the CFDEM case table, the same dt and end time, particle at the cell centre
+(0.00625, 0.00625, 0.02625), `difelice_std`, kernel width 21.4 d (the inviscid response of
+CFDEM's centred cell), `featflower-partition 4 -3 4` (four z-slabs), pe `processesZ_ 4`,
+`mpirun -np 5`. Staged with the peer's `twin/stage_ff_twin.py`, post-processed with
+`twin/twin_post.py` (u_f inverted from `EL_FORCE_BUDGET` with the one-way twin's ε(t)).
+Run dirs `/data/warehouse17/rmuenste/runs/settling01_twin/<case>_<oneway|twoway>_lev<1|2|3>` and
+`..._lev2_wf10p7`; `submit_all.sh`, `post_all.sh`, `summary.txt` there and in `twin/` here.
+Binary `FeatFloWer-va/build-va` q2p1_el_pipeflow (built 2026-10-15; `git diff fc63d601 HEAD --
+source libs/pe applications/*.f90` is empty, so the binary is HEAD 3c2e7055 code).
+
+### 8.1 Checks requested by the peer
+
+1. **`Velo@MinDef` is absolute.** `QuadSc_main.f90:169`: the nonlinear stop is
+   `max(RhsUVW·defCrit, MinDef)`. Set to 1d-16 in all 32 decks (the MG criteria scale with the
+   velocity norm and were left alone). Levels 2/3 are unchanged by it to the digits printed.
+2. **pe box = mesh.** `app_init.f90:454` passes the global mesh extents; the log prints
+   `Global CFD domain extents 0 0.01 0 0.01 0 0.05`, six box walls, `PE decomposition 1x1x4`
+   (slabs of 0.0125 = the four 80-element partition slabs).
+3. **Level 1 as staged diverges.** With `Pres@MGMinLev = MGMedLev = MaxMeshLevel = 1` the driver
+   clamps the pressure cycle count to 1 (`QuadSc_mg.f90:52-61`) and coarse-solver type 4 is a
+   single approximate sweep (defect ×0.48 per step): the hydrostatic imbalance grows ×1.3 per
+   step, the fluid reaches 30 m/s, NaN at step 45 (kept as `L1_oneway_lev1.as_staged_NaN`).
+   Fix in the eight level-1 decks only: `Pres@MGCrsSolverType = 1` (BiCGStab on the P1 system)
+   and `Pres@MGDefImprCoarse = 1d-6`. Patched level 1: pressure defect 1e-17 in 45 iterations,
+   residual fluid speed 1.4e-9 m/s (level 2: 4e-10), plateau equal to level 2 to 7 digits.
+   The `.as_staged` deck is kept next to every patched deck.
+
+### 8.2 Results (two-way bias = mean u/u_ode − 1 over the last 20 %; u_f window mean / last)
+
+| Case | lev | one-way u/u_ode−1 | ε (window) | two-way plateau | two-way bias | u_f [m/s] | CFDEM 4×20×4 |
+|---|---|---|---|---|---|---|---|
+| G2 | 1 | +2.2e-8 | 0.999993 | 0.1294284 | +0.639 % | 7.57e-4 / 7.67e-4 | +0.659 % |
+| G2 | 2 | −1.7e-6 | 0.999995 | 0.1296380 | +0.802 % | 9.48e-4 / 9.46e-4 | |
+| G2 | 3 | −5.9e-7 | 0.999987 | 0.1296472 | +0.811 % | 9.61e-4 / 9.61e-4 | |
+| L1 | 1 | −1.3e-7 | 0.999974 | 4.582223e-3 | +0.155 % | 7.58e-6 / 8.46e-6 | +0.210 % |
+| L1 | 2 | −7.3e-8 | 0.999974 | 4.584047e-3 | +0.195 % | 9.53e-6 / 1.06e-5 | |
+| L1 | 3 | −8.4e-8 | 0.999961 | 4.583885e-3 | +0.195 % | 9.52e-6 / 1.06e-5 | |
+| L2 | 1 | −6.1e-7 | 0.999976 | 1.489542e-2 | +0.138 % | 2.19e-5 / 2.43e-5 | +0.193 % |
+| L2 | 2 | +2.3e-7 | 0.999972 | 1.490123e-2 | +0.178 % | 2.82e-5 / 3.15e-5 | |
+| L2 | 3 | −6.2e-8 | 0.999961 | 1.490063e-2 | +0.176 % | 2.80e-5 / 3.11e-5 | |
+| L3 | 1 | +5.1e-7 | 0.999983 | 6.202164e-2 | +0.037 % | 2.25e-5 / 2.24e-5 | +0.035 % |
+| L3 | 2 | +1.4e-7 | 0.999973 | 6.202669e-2 | +0.046 % | 2.84e-5 / 2.88e-5 | |
+| L3 | 3 | +1.6e-8 | 0.999961 | 6.202622e-2 | +0.047 % | 2.87e-5 / 2.90e-5 | |
+
+One-way plateaus: G2 0.1286061 / 0.1286063 / 0.1286044, L1 4.575137e-3 / 4.575137e-3 /
+4.574987e-3, L2 1.487491e-2 / 1.487481e-2 / 1.487445e-2, L3 6.199869e-2 / 6.199804e-2 /
+6.199728e-2 (lev 1/2/3). All one-way runs match the ODE to ≤ 3.3e-6.
+
+Level 2 with kernel width 10.7 d (counterpart of CFDEM's 8×40×8 mesh, δ/h = 0.86 again):
+
+| Case | one-way u/u_ode−1 | ε | two-way plateau | two-way bias | u_f [m/s] | CFDEM 8×40×8 |
+|---|---|---|---|---|---|---|
+| G2 | −3.3e-6 | 0.999975 | 0.1326053 | +3.11 % | 3.33e-3 / 3.34e-3 | +2.578 % |
+| L1 | +7.9e-8 | 0.999966 | 4.645468e-3 | +1.54 % | 7.53e-5 / 8.40e-5 | +1.599 % |
+| L2 | +3.5e-6 | 0.999947 | 1.507506e-2 | +1.35 % | 2.15e-4 / 2.39e-4 | +1.490 % |
+| L3 | +1.8e-6 | 0.999952 | 6.211752e-2 | +0.19 % | 1.15e-4 / 1.22e-4 | +0.172 % |
+
+Reading: at matched smoothing volume (δ/h 0.86, level 1 at 21.4 d and level 2 at 10.7 d) the
+FeatFloWer two-way bias is within 0.06 points of CFDEM for G2/L1/L2/L3 at mesh 1 and within
+0.5 / 0.06 / 0.14 / 0.02 points at the mesh-2 counterpart. Refining the mesh under a fixed kernel
+(lev 2 → 3) changes the bias by ≤ 0.01 points: the FeatFloWer bias is set by the kernel, CFDEM's
+by the cell (its bias grows 3.9-7.6× from mesh 1 to mesh 2, ours 4.9-9.9× from 21.4 d to 10.7 d
+at level 2). The co-flow u_f is still ramping at the end of the L1/L2 runs (last > window mean).
+ε ≥ 0.99995 everywhere: self-voidage is irrelevant at d/h = 0.04.
+
+### 8.3 Follow-ups on the unit-box decks (jobs 155064-155068; u_f by `twin/ff_unitbox_uf.py`)
+
+| Run | result | compared with |
+|---|---|---|
+| a. M-L2 two-way, 540 steps (`fu_a_M-L2_twoway_std_540`, one-way partner `fu_a_M-L2_oneway_std_540`) | bias +0.49 %, u_f 5.27e-4 window mean / 5.67e-4 last; one-way plateau 0.1061901 (+3e-5 vs ODE) | 180 steps: +0.17 %, u_f 1.97e-4 / 2.18e-4; Oseen prediction u_f ≈ 5.6e-4, +0.53 % |
+| b. N-L1 at z0 = 0.5167 (`fu_b_N-L1_{oneway,twoway}_std_z0.5167`) | one-way plateau 8.78668e-2, inverted ε 0.98042 (z0 0.85: 8.78584e-2, 0.98041); two-way plateau 0.1095177, bias +24.6 %, u_f 2.215e-2 / 2.282e-2 | z0 0.85: +22.8 %, u_f 2.040e-2 / 2.090e-2; prediction u_f → ≈ 0.0224 |
+| c. N-L2 one-way, level 4, 30 steps (`fu_c_N-L2_oneway_std_L4_30steps`, 14.5 min, 22.6 GB RSS) | inverted ε 0.97309 at step 1, 0.97315 at step 30 (window mean 0.97315) | prediction 0.9731; ladder 0.980 / 0.975 / 0.9731 at levels 2/3/4, continuum 0.9724 |
+
+Wall times (short partition, 1 node): level 1 10 s, level 2 30 s, level 3 2.4-4.8 min (5 ranks).

@@ -1,0 +1,256 @@
+== G2_oneway_lev1
+FeatFloWer G2: 150 samples, t_end 0.15
+  plateau u            = 1.2860607e-01
+  mean eps (window)    = 0.9999931
+  mean u/u_ode - 1     = +2.246e-08  (same law at the window-mean eps)
+  u_f at the particle  = 0.0000e+00 (window mean), 0.0000e+00 (last)
+  u_f / plateau        = +0.000e+00
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/G2_oneway_lev1/twin_series.csv
+== G2_twoway_lev1
+FeatFloWer G2: 150 samples, t_end 0.15
+  plateau u            = 1.2942840e-01
+  mean eps (window)    = 0.9999931
+  mean u/u_ode - 1     = +6.394e-03  (same law at the window-mean eps)
+  u_f at the particle  = 7.5674e-04 (window mean), 7.6718e-04 (last)
+  u_f / plateau        = +5.847e-03
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/G2_twoway_lev1/twin_series.csv
+== G2_oneway_lev2
+FeatFloWer G2: 150 samples, t_end 0.15
+  plateau u            = 1.2860627e-01
+  mean eps (window)    = 0.9999947
+  mean u/u_ode - 1     = -1.682e-06  (same law at the window-mean eps)
+  u_f at the particle  = 0.0000e+00 (window mean), 0.0000e+00 (last)
+  u_f / plateau        = +0.000e+00
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/G2_oneway_lev2/twin_series.csv
+== G2_twoway_lev2
+FeatFloWer G2: 150 samples, t_end 0.15
+  plateau u            = 1.2963798e-01
+  mean eps (window)    = 0.9999947
+  mean u/u_ode - 1     = +8.021e-03  (same law at the window-mean eps)
+  u_f at the particle  = 9.4849e-04 (window mean), 9.4562e-04 (last)
+  u_f / plateau        = +7.316e-03
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/G2_twoway_lev2/twin_series.csv
+== G2_oneway_lev3
+FeatFloWer G2: 150 samples, t_end 0.15
+  plateau u            = 1.2860442e-01
+  mean eps (window)    = 0.9999872
+  mean u/u_ode - 1     = -5.889e-07  (same law at the window-mean eps)
+  u_f at the particle  = 0.0000e+00 (window mean), 0.0000e+00 (last)
+  u_f / plateau        = +0.000e+00
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/G2_oneway_lev3/twin_series.csv
+== G2_twoway_lev3
+FeatFloWer G2: 150 samples, t_end 0.15
+  plateau u            = 1.2964720e-01
+  mean eps (window)    = 0.9999872
+  mean u/u_ode - 1     = +8.108e-03  (same law at the window-mean eps)
+  u_f at the particle  = 9.6052e-04 (window mean), 9.6052e-04 (last)
+  u_f / plateau        = +7.409e-03
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/G2_twoway_lev3/twin_series.csv
+== G2_oneway_lev2_wf10p7
+FeatFloWer G2: 150 samples, t_end 0.15
+  plateau u            = 1.2860081e-01
+  mean eps (window)    = 0.9999748
+  mean u/u_ode - 1     = -3.283e-06  (same law at the window-mean eps)
+  u_f at the particle  = 0.0000e+00 (window mean), 0.0000e+00 (last)
+  u_f / plateau        = +0.000e+00
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/G2_oneway_lev2_wf10p7/twin_series.csv
+== G2_twoway_lev2_wf10p7
+FeatFloWer G2: 150 samples, t_end 0.15
+  plateau u            = 1.3260527e-01
+  mean eps (window)    = 0.9999748
+  mean u/u_ode - 1     = +3.114e-02  (same law at the window-mean eps)
+  u_f at the particle  = 3.3300e-03 (window mean), 3.3421e-03 (last)
+  u_f / plateau        = +2.511e-02
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/G2_twoway_lev2_wf10p7/twin_series.csv
+== L1_oneway_lev1
+FeatFloWer L1: 200 samples, t_end 0.01
+  plateau u            = 4.5751370e-03
+  mean eps (window)    = 0.9999735
+  mean u/u_ode - 1     = -1.312e-07  (same law at the window-mean eps)
+  u_f at the particle  = 0.0000e+00 (window mean), 0.0000e+00 (last)
+  u_f / plateau        = +0.000e+00
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L1_oneway_lev1/twin_series.csv
+== L1_twoway_lev1
+FeatFloWer L1: 200 samples, t_end 0.01
+  plateau u            = 4.5822225e-03
+  mean eps (window)    = 0.9999735
+  mean u/u_ode - 1     = +1.549e-03  (same law at the window-mean eps)
+  u_f at the particle  = 7.5788e-06 (window mean), 8.4597e-06 (last)
+  u_f / plateau        = +1.654e-03
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L1_twoway_lev1/twin_series.csv
+== L1_oneway_lev2
+FeatFloWer L1: 200 samples, t_end 0.01
+  plateau u            = 4.5751373e-03
+  mean eps (window)    = 0.9999735
+  mean u/u_ode - 1     = -7.268e-08  (same law at the window-mean eps)
+  u_f at the particle  = 0.0000e+00 (window mean), 0.0000e+00 (last)
+  u_f / plateau        = +0.000e+00
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L1_oneway_lev2/twin_series.csv
+== L1_twoway_lev2
+FeatFloWer L1: 200 samples, t_end 0.01
+  plateau u            = 4.5840466e-03
+  mean eps (window)    = 0.9999735
+  mean u/u_ode - 1     = +1.947e-03  (same law at the window-mean eps)
+  u_f at the particle  = 9.5301e-06 (window mean), 1.0637e-05 (last)
+  u_f / plateau        = +2.079e-03
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L1_twoway_lev2/twin_series.csv
+== L1_oneway_lev3
+FeatFloWer L1: 200 samples, t_end 0.01
+  plateau u            = 4.5749870e-03
+  mean eps (window)    = 0.9999605
+  mean u/u_ode - 1     = -8.446e-08  (same law at the window-mean eps)
+  u_f at the particle  = 0.0000e+00 (window mean), 0.0000e+00 (last)
+  u_f / plateau        = +0.000e+00
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L1_oneway_lev3/twin_series.csv
+== L1_twoway_lev3
+FeatFloWer L1: 200 samples, t_end 0.01
+  plateau u            = 4.5838851e-03
+  mean eps (window)    = 0.9999605
+  mean u/u_ode - 1     = +1.945e-03  (same law at the window-mean eps)
+  u_f at the particle  = 9.5180e-06 (window mean), 1.0624e-05 (last)
+  u_f / plateau        = +2.076e-03
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L1_twoway_lev3/twin_series.csv
+== L1_oneway_lev2_wf10p7
+FeatFloWer L1: 200 samples, t_end 0.01
+  plateau u            = 4.5750536e-03
+  mean eps (window)    = 0.9999662
+  mean u/u_ode - 1     = +7.940e-08  (same law at the window-mean eps)
+  u_f at the particle  = 0.0000e+00 (window mean), 0.0000e+00 (last)
+  u_f / plateau        = +0.000e+00
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L1_oneway_lev2_wf10p7/twin_series.csv
+== L1_twoway_lev2_wf10p7
+FeatFloWer L1: 200 samples, t_end 0.01
+  plateau u            = 4.6454676e-03
+  mean eps (window)    = 0.9999662
+  mean u/u_ode - 1     = +1.539e-02  (same law at the window-mean eps)
+  u_f at the particle  = 7.5313e-05 (window mean), 8.4042e-05 (last)
+  u_f / plateau        = +1.621e-02
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L1_twoway_lev2_wf10p7/twin_series.csv
+== L2_oneway_lev1
+FeatFloWer L2: 300 samples, t_end 0.03
+  plateau u            = 1.4874912e-02
+  mean eps (window)    = 0.9999760
+  mean u/u_ode - 1     = -6.081e-07  (same law at the window-mean eps)
+  u_f at the particle  = 0.0000e+00 (window mean), 0.0000e+00 (last)
+  u_f / plateau        = +0.000e+00
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L2_oneway_lev1/twin_series.csv
+== L2_twoway_lev1
+FeatFloWer L2: 300 samples, t_end 0.03
+  plateau u            = 1.4895419e-02
+  mean eps (window)    = 0.9999760
+  mean u/u_ode - 1     = +1.378e-03  (same law at the window-mean eps)
+  u_f at the particle  = 2.1873e-05 (window mean), 2.4296e-05 (last)
+  u_f / plateau        = +1.468e-03
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L2_twoway_lev1/twin_series.csv
+== L2_oneway_lev2
+FeatFloWer L2: 300 samples, t_end 0.03
+  plateau u            = 1.4874810e-02
+  mean eps (window)    = 0.9999722
+  mean u/u_ode - 1     = +2.321e-07  (same law at the window-mean eps)
+  u_f at the particle  = 0.0000e+00 (window mean), 0.0000e+00 (last)
+  u_f / plateau        = +0.000e+00
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L2_oneway_lev2/twin_series.csv
+== L2_twoway_lev2
+FeatFloWer L2: 300 samples, t_end 0.03
+  plateau u            = 1.4901229e-02
+  mean eps (window)    = 0.9999722
+  mean u/u_ode - 1     = +1.776e-03  (same law at the window-mean eps)
+  u_f at the particle  = 2.8246e-05 (window mean), 3.1514e-05 (last)
+  u_f / plateau        = +1.896e-03
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L2_twoway_lev2/twin_series.csv
+== L2_oneway_lev3
+FeatFloWer L2: 300 samples, t_end 0.03
+  plateau u            = 1.4874447e-02
+  mean eps (window)    = 0.9999605
+  mean u/u_ode - 1     = -6.238e-08  (same law at the window-mean eps)
+  u_f at the particle  = 0.0000e+00 (window mean), 0.0000e+00 (last)
+  u_f / plateau        = +0.000e+00
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L2_oneway_lev3/twin_series.csv
+== L2_twoway_lev3
+FeatFloWer L2: 300 samples, t_end 0.03
+  plateau u            = 1.4900626e-02
+  mean eps (window)    = 0.9999605
+  mean u/u_ode - 1     = +1.760e-03  (same law at the window-mean eps)
+  u_f at the particle  = 2.7962e-05 (window mean), 3.1143e-05 (last)
+  u_f / plateau        = +1.877e-03
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L2_twoway_lev3/twin_series.csv
+== L2_oneway_lev2_wf10p7
+FeatFloWer L2: 300 samples, t_end 0.03
+  plateau u            = 1.4874099e-02
+  mean eps (window)    = 0.9999474
+  mean u/u_ode - 1     = +3.485e-06  (same law at the window-mean eps)
+  u_f at the particle  = 0.0000e+00 (window mean), 0.0000e+00 (last)
+  u_f / plateau        = +0.000e+00
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L2_oneway_lev2_wf10p7/twin_series.csv
+== L2_twoway_lev2_wf10p7
+FeatFloWer L2: 300 samples, t_end 0.03
+  plateau u            = 1.5075062e-02
+  mean eps (window)    = 0.9999474
+  mean u/u_ode - 1     = +1.351e-02  (same law at the window-mean eps)
+  u_f at the particle  = 2.1458e-04 (window mean), 2.3937e-04 (last)
+  u_f / plateau        = +1.423e-02
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L2_twoway_lev2_wf10p7/twin_series.csv
+== L3_oneway_lev1
+FeatFloWer L3: 160 samples, t_end 0.08
+  plateau u            = 6.1998688e-02
+  mean eps (window)    = 0.9999825
+  mean u/u_ode - 1     = +5.099e-07  (same law at the window-mean eps)
+  u_f at the particle  = 0.0000e+00 (window mean), 0.0000e+00 (last)
+  u_f / plateau        = +0.000e+00
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L3_oneway_lev1/twin_series.csv
+== L3_twoway_lev1
+FeatFloWer L3: 160 samples, t_end 0.08
+  plateau u            = 6.2021636e-02
+  mean eps (window)    = 0.9999825
+  mean u/u_ode - 1     = +3.706e-04  (same law at the window-mean eps)
+  u_f at the particle  = 2.2481e-05 (window mean), 2.2360e-05 (last)
+  u_f / plateau        = +3.625e-04
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L3_twoway_lev1/twin_series.csv
+== L3_oneway_lev2
+FeatFloWer L3: 160 samples, t_end 0.08
+  plateau u            = 6.1998037e-02
+  mean eps (window)    = 0.9999725
+  mean u/u_ode - 1     = +1.443e-07  (same law at the window-mean eps)
+  u_f at the particle  = 0.0000e+00 (window mean), 0.0000e+00 (last)
+  u_f / plateau        = +0.000e+00
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L3_oneway_lev2/twin_series.csv
+== L3_twoway_lev2
+FeatFloWer L3: 160 samples, t_end 0.08
+  plateau u            = 6.2026688e-02
+  mean eps (window)    = 0.9999725
+  mean u/u_ode - 1     = +4.623e-04  (same law at the window-mean eps)
+  u_f at the particle  = 2.8395e-05 (window mean), 2.8786e-05 (last)
+  u_f / plateau        = +4.578e-04
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L3_twoway_lev2/twin_series.csv
+== L3_oneway_lev3
+FeatFloWer L3: 160 samples, t_end 0.08
+  plateau u            = 6.1997276e-02
+  mean eps (window)    = 0.9999605
+  mean u/u_ode - 1     = +1.562e-08  (same law at the window-mean eps)
+  u_f at the particle  = 0.0000e+00 (window mean), 0.0000e+00 (last)
+  u_f / plateau        = +0.000e+00
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L3_oneway_lev3/twin_series.csv
+== L3_twoway_lev3
+FeatFloWer L3: 160 samples, t_end 0.08
+  plateau u            = 6.2026221e-02
+  mean eps (window)    = 0.9999605
+  mean u/u_ode - 1     = +4.669e-04  (same law at the window-mean eps)
+  u_f at the particle  = 2.8717e-05 (window mean), 2.9017e-05 (last)
+  u_f / plateau        = +4.630e-04
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L3_twoway_lev3/twin_series.csv
+== L3_oneway_lev2_wf10p7
+FeatFloWer L3: 160 samples, t_end 0.08
+  plateau u            = 6.1996827e-02
+  mean eps (window)    = 0.9999516
+  mean u/u_ode - 1     = +1.823e-06  (same law at the window-mean eps)
+  u_f at the particle  = 0.0000e+00 (window mean), 0.0000e+00 (last)
+  u_f / plateau        = +0.000e+00
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L3_oneway_lev2_wf10p7/twin_series.csv
+== L3_twoway_lev2_wf10p7
+FeatFloWer L3: 160 samples, t_end 0.08
+  plateau u            = 6.2117520e-02
+  mean eps (window)    = 0.9999516
+  mean u/u_ode - 1     = +1.949e-03  (same law at the window-mean eps)
+  u_f at the particle  = 1.1547e-04 (window mean), 1.2235e-04 (last)
+  u_f / plateau        = +1.859e-03
+  series: /data/warehouse17/rmuenste/runs/settling01_twin/L3_twoway_lev2_wf10p7/twin_series.csv
