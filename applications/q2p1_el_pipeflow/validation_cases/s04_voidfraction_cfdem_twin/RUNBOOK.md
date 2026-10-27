@@ -153,9 +153,13 @@ mean ± sd over t ≥ 0.002; int_g and L1_dedt are means of `EL_VA_SOURCE` (`vft
   double, it shrinks to −0.9 % and int_g drops by 2.7× (4.5e-7 → 1.7e-7); the L1_dedt prediction
   (1.33e-3) is met. The level-3 series is much smoother (sd 0.0004 for t ≥ 0.1 against 0.0045
   at level 2) after a large start-up transient (G5 1.38 in the first steps, int_g −6.9e-7 for
-  t < 0.01). So the O(dt) term is not "fixed by dt alone": its magnitude depends on h as well
-  (Q2 ∝ Σ|e| (∂tε)² — the cell-averaged kernel field is smoother at level 3), and the SPEC
-  12.3 statement "growing with refinement at a fixed dt" is wrong in sign.
+  t < 0.01). The SPEC 12.3 statement "growing with refinement at a fixed dt" is wrong in sign
+  (corrected there). Peer's reading of the h-dependence (2026-10-27, from the VTK budget of
+  `VA_L3`, same ε field): the O(dt) term itself RISES at level 3 (Q2 1.32e-6, I0 1.355e-6 against
+  7.28e-7 / 7.42e-7 at level 2), so adv_net ≈ 1.19e-6 at level 3 cancels about 88 % of it
+  against 39 % at level 2: the residual net source is the O(dt) term times an imperfect discrete
+  cancellation by the advective term, and the cancellation improves with h. A T4-diagnostics run
+  at level 3 (`T4_VB_L3_diag`, staged, not submitted) would measure adv_net directly.
 - **T4 confirms the budget identities** (new `EL_VA_MOMENT` line and `uz_unw=` field, print-only,
   gated bitwise against `tier2_cases/momentum_conservation/reference/run_g0_twin_va_2026-10-14.log`
   by job 155115, `tools/el_stream_compare.py`: all 13 EL streams identical, EL_MEAN_SLIP with one
