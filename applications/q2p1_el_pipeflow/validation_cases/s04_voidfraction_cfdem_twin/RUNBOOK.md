@@ -337,3 +337,64 @@ Wall: VB_L2 defaults 7 min 46, T8b 9 min 51 (11 ranks). The ported scheme theref
 §8 exactly (T8b: G5 1.0039, int_g 2.83e-8, residual L1 9.06e-8 → 1.77e-9) and the defaults reproduce
 the campaign binary bitwise. Unit test `test_el_kernel_forces` extended (restart v3 round trip, history
 capture of `EL_BEGIN_FIELD_UPDATE`), passes. Sample deck `q2p1_param_VB_bdf2.dat` (= VB deck + the two keys).
+
+## 10. T9: fix A (alpha-weighted compatibility removal) on top of BDF2 (jobs 155259-155264, 2026-10-28)
+
+Peer request (SPEC 04 §12.8; owner's choice relayed). TEST branch `test/el-va-compat-alpha` (worktree
+`FeatFloWer-va-fixb`, commit 8aeb26c8 on top of the reviewed VA head 19e3349c; not for merge):
+`SimPar@ELVACompatibility = uniform | alpha`. In mode alpha the raw source integral is removed as
+g_e ← g_e − int_g α_p(e)/W, W = Σ α_p|e| (uniform fallback for W < 1e-30), in every pass; new audit line
+`EL_VA_COMPAT` (int_g_raw, int_g_corr, W, z_α = Σ z_c α|e|/W, mshift = (z_α − z_centre) int_g, mode). The
+reduction for W/z_α and the line exist only in mode alpha. Gates at the default: tier-2 twin job 155259
+and VB_L2 job 155260 bitwise vs the certified logs (on the epyc nodes summergames/wintergames, same
+result as on nx). Runs on epyc nodes (wall: T9a 16 min, T9c 16 min, T9d 33 min, T9b 1 h 54).
+
+Means over t ≥ 0.002 (last solve pass); G5 for t ≥ 0.1 in brackets; `vft_g5.py` now reads EL_VA_COMPAT
+and closes the moment identity with the sink at z_α (uniform: box centre):
+
+| Run | Settings | G5 ± sd | predicted | int_g raw | int_g corr (max) | adv_net | dedt_net | z_α | mshift/MOM | res. L1 corr 1 / −1 | ∫u_z/MOM | identity rel rms | job |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| T8b (ref) | BDF2+c1 uniform, L2 | 1.0039 ± 0.0050 (1.0039) | – | 2.83e-8 | – | −2.2e-8 | −6.2e-9 | – | – | 9.1e-8 / 1.8e-9 | 1.0106 | 6.1e-5 | 155142 |
+| T9a | BDF2+c1 alpha, L2, dt 1e-3 | **1.0055 ± 0.0018 (1.0054)** | 1.0055 | 2.85e-8 | 1.9e-21 (1.4e-19) | −2.2e-8 | −6.2e-9 | 0.7388 | 0.0016 | 7.9e-8 / 5.3e-10 | 1.0122 | 4.0e-6 | 155261 |
+| T9c | BE alpha, L2, dt 1e-3 | **1.0053 ± 0.0018 (1.0052)** | 1.005 (1.0053) | 4.54e-7 | −1.0e-21 (1.3e-19) | +2.9e-7 | −7.4e-7 | 0.7388 | 0.0255 | – | 1.0120 | 2.8e-6 | 155262 |
+| T9d | BDF2+c1 alpha, L2, dt 5e-4 | 1.0054 ± 0.0018 (1.0054) | T9a ± 1e-3 | 2.45e-8 | −1.4e-21 | −2.3e-8 | −1.1e-9 | 0.7388 | 0.0014 | 1.2e-8 / 9.9e-11 | 1.0121 | 9.3e-8 | 155263 |
+| T8d (ref) | BDF2+c1 uniform, L3 | 0.9926 ± 0.0019 (0.9930) | – | 1.70e-7 | – | −1.57e-7 | −1.3e-8 | – | – | 3.5e-7 / 1.2e-8 | 1.0032 | 7e-4 | 155144 |
+| T9b | BDF2+c1 alpha, L3, dt 1e-3 | **1.0021 ± 0.0001 (1.0021)** | ≈1.002 (1.0018) | 1.73e-7 | −1.6e-21 (2.6e-19) | −1.59e-7 | −1.3e-8 | 0.7388 | 0.0097 | 2.5e-7 / 1.7e-9 | 1.0127 | 9.1e-6 | 155264 |
+
+Reading:
+- Every prediction is met to the printed digits: T9a +0.0016 over T8b (= mshift/MOM 0.0016), T9b +0.0095
+  over T8d (mshift/MOM 0.0097, predicted 0.0096), T9c 1.0053, T9d within 1e-4 of T9a. The raw int_g is
+  unchanged by the removal mode (2.85e-8 / 1.73e-7), as predicted; the corrected integral is at 1e-21.
+- The L3 deficit is closed: 0.9926 → 1.0021 (+0.2 %, the sd of 1e-4 is the tightest of the campaign).
+  What remains at L3 (+0.21 %) and L2 (+0.55 %) is of the opposite sign and of the size of the two-way
+  co-flow bias seen in 01_settling.
+- The moment identity with the sink at z_α closes to 4e-6 (T9a), 9e-6 (T9b), 9e-8 (T9d) relative, the
+  cleanest confirmation that the uniform-removal moment (0.5 − z_cloud) int_g was the L3 lever.
+- fix A alone (T9c, BE) gives the same 1.005 as BDF2 alone (T8a 1.0046) at L2: the two defects are
+  additive and of similar size at L2 (O(dt) temporal, uniform-removal moment); at L3 the second dominates.
+
+Slab profiles (`slab_profiles_T9.txt`, same script and frames as §8.1; ratio ε u_z/(|w| α) per slab):
+
+| slab (z) | T8d t 0.10 | T9b t 0.10 | T8b t 0.10 | T9a t 0.10 | T9c t 0.10 | T8d t 0.19 | T9b t 0.19 | T8b t 0.19 | T9a t 0.19 |
+|---|---|---|---|---|---|---|---|---|---|
+| 1-4 (0-0.4), ⟨ε u_z⟩ m/s | −0.8e-6 … −5.9e-6 (linear in z) | ≤ 1e-10 | ~+1e-6 | ≤ 4e-11 | ≤ 4e-11 | −0.8e-6 … −5.9e-6 | ≤ 6e-10 | – | ≤ 3e-10 |
+| 5 (0.4-0.5) | −0.324 (α 1.8e-5) | 1.070 | 2.58 | 1.63 | 1.63 | 0.945 | 0.973 | 0.922 | 0.949 |
+| 6 (0.5-0.6) | 0.962 | 0.971 | 0.940 | 0.934 | 0.934 | 0.966 | 0.973 | 0.933 | 0.940 |
+| 7 (0.6-0.7) | 0.966 | 0.973 | 0.942 | 0.938 | 0.938 | 0.972 | 0.978 | 0.945 | 0.951 |
+| 8 (0.7-0.8) | 0.967 | 0.972 | 0.937 | 0.934 | 0.934 | 0.972 | 0.975 | 0.939 | 0.942 |
+| 9 (0.8-0.9) | 0.971 | 0.973 | 0.945 | 0.944 | 0.943 | 0.974 | 0.975 | 0.944 | 0.945 |
+| 10 (0.9-1.0) | 0.973 | 0.973 | 0.943 | 0.943 | 0.942 | 0.983 | 0.982 | 0.952 | 0.951 |
+| box integral / MOM | 0.9628 | 0.9724 | 0.9456 | 0.9391 | 0.9391 | 0.9673 | 0.9757 | 0.9371 | 0.9453 |
+
+- Below the cloud (slabs 1-4) the spurious flow of the uniform removal (T8d: linear, −0.8e-6 to −5.9e-6
+  m/s, predicted order 1e-5) vanishes under fix A at both levels (≤ 1e-9 m/s, predicted ≤ 1e-6).
+- At L3 fix A lifts the cloud slabs by +0.001 to +0.009 and the box integral by +0.0096 (= mshift/MOM),
+  consistent with G5. At L2 the cloud-slab ratios move by −0.001 to −0.006 and the box integral by
+  −0.0065 while G5 rises by +0.0016: the slab quadrature (cell ε × vertex-mean u_z) and the code's own
+  ∫ε u_z disagree on the sign of a 0.5 % change once the sink sits in the particle cells (sub-cell
+  velocity structure at L2). The slab tables are therefore read for the below-cloud flow and for the
+  L3 trend only; G5 is the measure. (T9c = T9a slab by slab to 1e-3.)
+
+Not merged. Decision for the owner: fix A is a one-key change on top of the ported BDF2 scheme
+(`ELVACompatibility = alpha`), default-gated bitwise; it closes the L3 deficit and leaves +0.2 % (L3) /
++0.55 % (L2).
