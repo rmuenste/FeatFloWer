@@ -67,6 +67,21 @@ MODULE EL_CONFIG
   ! single-phase div u = 0) or 'continuity' (div u = -(d eps/dt + u.grad eps)/eps
   ! imposed through the pressure Poisson right-hand side; EL_VOLUME_AVERAGED).
   CHARACTER(LEN=32) :: el_volume_averaged = 'none'
+  ! --- Continuity-source time integration (only read when ELVolumeAveraged = continuity;
+  !     both defaults reproduce the backward-Euler campaign code bitwise) -----------------
+  ! SimPar@ELVASourceTimeScheme = BE | BDF2
+  !   Time scheme of the rate d eps/dt in the source g = -(d eps/dt + u.grad eps)/eps:
+  !   'be'   backward difference (eps^{n+1}-eps^n)/dt (default)
+  !   'bdf2' endpoint BDF2 1.5*(d eps/dt)^{n+1} - 0.5*(d eps/dt)^n, BE on the first step
+  !          and after a restart without rate history (s04 RUNBOOK section 8: removes the
+  !          O(dt) return-flow deficit of the VB twin at level 2).
+  CHARACTER(LEN=32) :: el_va_source_time_scheme = 'be'
+  ! SimPar@ELVASourceCorrectors = n (0..20, default 0)
+  !   Source/projection corrector passes after the pressure projection: reassemble the
+  !   divergence of the corrected velocity, recompute g from it, solve the pressure Poisson
+  !   problem for the residual and correct u and p again (Transport_Q2P1,
+  !   EL_VA_Projection_Correctors). Each pass costs one pressure solve.
+  INTEGER :: el_va_source_correctors = 0
   REAL*8 :: el_tavg_window = 0.5d0
   ! Mesoscale lane-mode filter for periodic settling boxes: each step,
   ! subtract from u_z its zero-mean x-binned and y-binned plane averages
@@ -93,6 +108,7 @@ CONTAINS
     CALL EL_LOWERCASE(el_initial_field)
     CALL EL_LOWERCASE(el_domain_type)
     CALL EL_LOWERCASE(el_volume_averaged)
+    CALL EL_LOWERCASE(el_va_source_time_scheme)
     CALL EL_LOWERCASE(el_cylinder_axis)
 
     SELECT CASE (TRIM(el_kernel))
@@ -236,6 +252,21 @@ CONTAINS
       WRITE(*,'(A,A)') 'Invalid ELVolumeAveraged: ', TRIM(el_volume_averaged)
       STOP 1
     END SELECT
+    SELECT CASE (TRIM(el_va_source_time_scheme))
+    CASE ('be', 'bdf2')
+    CASE DEFAULT
+      WRITE(*,'(A,A)') 'Invalid ELVASourceTimeScheme (BE|BDF2): ', TRIM(el_va_source_time_scheme)
+      STOP 1
+    END SELECT
+    IF (el_va_source_correctors.LT.0 .OR. el_va_source_correctors.GT.20) THEN
+      WRITE(*,*) 'ELVASourceCorrectors must be in 0..20.'
+      STOP 1
+    END IF
+    IF (TRIM(el_volume_averaged).NE.'continuity' .AND. &
+        (TRIM(el_va_source_time_scheme).NE.'be' .OR. el_va_source_correctors.GT.0)) THEN
+      WRITE(*,*) 'ELVASourceTimeScheme / ELVASourceCorrectors need ELVolumeAveraged = continuity.'
+      STOP 1
+    END IF
 
     IF (el_tavg_window.LE.0.0d0 .OR. el_tavg_window.GT.1.0d0) THEN
       WRITE(*,*) 'ELTAvgWindow must be in (0,1].'
@@ -276,6 +307,8 @@ CONTAINS
     WRITE(mfile,'(A,I0)') 'EL momentum audit freq    = ', el_momentum_audit_freq
     WRITE(mfile,'(A,I0)') 'EL particle log freq      = ', el_particle_log_freq
     WRITE(mfile,'(A,A)') 'EL volume averaged        = ', TRIM(el_volume_averaged)
+    WRITE(mfile,'(A,A)') 'EL VA source time scheme  = ', TRIM(el_va_source_time_scheme)
+    WRITE(mfile,'(A,I0)') 'EL VA source correctors   = ', el_va_source_correctors
     WRITE(mfile,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
 
     IF (mterm.NE.mfile) THEN
@@ -307,6 +340,8 @@ CONTAINS
       WRITE(mterm,'(A,I0)') 'EL momentum audit freq    = ', el_momentum_audit_freq
       WRITE(mterm,'(A,I0)') 'EL particle log freq      = ', el_particle_log_freq
       WRITE(mterm,'(A,A)') 'EL volume averaged        = ', TRIM(el_volume_averaged)
+        WRITE(mterm,'(A,A)') 'EL VA source time scheme  = ', TRIM(el_va_source_time_scheme)
+      WRITE(mterm,'(A,I0)') 'EL VA source correctors   = ', el_va_source_correctors
       WRITE(mterm,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
     END IF
 
@@ -325,5 +360,14 @@ CONTAINS
     END DO
 
   END SUBROUTINE EL_LOWERCASE
+
+
+  ! Deck-only switch for the source/projection corrector loop. Evaluated identically on every
+  ! rank, including the master that holds no EL fields: the loop contains collective pressure
+  ! solves, so the fluid core must not guard it on field allocation (EL_VOLUME_AVERAGED_ACTIVE).
+  LOGICAL FUNCTION EL_VA_SOURCE_CORRECTORS_ENABLED()
+    EL_VA_SOURCE_CORRECTORS_ENABLED = (TRIM(el_volume_averaged).EQ.'continuity') .AND. &
+                                      (el_va_source_correctors.GT.0)
+  END FUNCTION EL_VA_SOURCE_CORRECTORS_ENABLED
 
 END MODULE EL_CONFIG

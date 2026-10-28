@@ -9,6 +9,12 @@ MODULE EL_FIELDS
     ! epsilon_f_old = 1 would otherwise produce a spurious d eps/dt = -alpha/dt
     ! kick at step 1 (consumed by the volume-averaged continuity source).
     LOGICAL :: history_valid = .FALSE.
+    ! BDF2 continuity source (ELVASourceTimeScheme = BDF2): deps_f_dt of the previous
+    ! interval, saved when the history advances; rate_valid marks a genuine backward
+    ! difference in deps_f_dt, prev_rate_valid the same for deps_f_dt_prev.
+    LOGICAL :: rate_valid = .FALSE.
+    LOGICAL :: prev_rate_valid = .FALSE.
+    REAL*8, ALLOCATABLE :: deps_f_dt_prev(:)
     REAL*8, ALLOCATABLE :: alpha_p(:)
     REAL*8, ALLOCATABLE :: grad_alpha_p(:,:)   ! cell-averaged kernel gradient of alpha_p (3,nel)
     REAL*8, ALLOCATABLE :: epsilon_f(:)
@@ -48,6 +54,10 @@ CONTAINS
     ALLOCATE(el_field_data%epsilon_f(nel))
     ALLOCATE(el_field_data%epsilon_f_old(nel))
     ALLOCATE(el_field_data%deps_f_dt(nel))
+    ALLOCATE(el_field_data%deps_f_dt_prev(nel))
+    el_field_data%deps_f_dt_prev = 0.0d0
+    el_field_data%rate_valid = .FALSE.
+    el_field_data%prev_rate_valid = .FALSE.
     ALLOCATE(el_field_data%force_rhs(3,ndof))
     ALLOCATE(el_field_data%fluid_feedback_source(3,ndof))
     ALLOCATE(el_field_data%drag_B_ml(ndof))
@@ -73,7 +83,14 @@ CONTAINS
     IF (.NOT.ALLOCATED(el_field_data%alpha_p)) RETURN
     update_history = .TRUE.
     IF (PRESENT(advance_history)) update_history = advance_history
-    IF (update_history) el_field_data%epsilon_f_old = el_field_data%epsilon_f
+    IF (update_history) THEN
+      el_field_data%epsilon_f_old = el_field_data%epsilon_f
+      ! once per time step (pre-advance pass): keep the finished interval's rate for BDF2
+      IF (ALLOCATED(el_field_data%deps_f_dt_prev)) THEN
+        el_field_data%deps_f_dt_prev = el_field_data%deps_f_dt
+        el_field_data%prev_rate_valid = el_field_data%rate_valid
+      END IF
+    END IF
     el_field_data%alpha_p = 0.0d0
     IF (ALLOCATED(el_field_data%grad_alpha_p)) el_field_data%grad_alpha_p = 0.0d0
     el_field_data%force_rhs = 0.0d0
@@ -117,6 +134,9 @@ CONTAINS
     IF (ALLOCATED(el_field_data%epsilon_f)) DEALLOCATE(el_field_data%epsilon_f)
     IF (ALLOCATED(el_field_data%epsilon_f_old)) DEALLOCATE(el_field_data%epsilon_f_old)
     IF (ALLOCATED(el_field_data%deps_f_dt)) DEALLOCATE(el_field_data%deps_f_dt)
+    IF (ALLOCATED(el_field_data%deps_f_dt_prev)) DEALLOCATE(el_field_data%deps_f_dt_prev)
+    el_field_data%rate_valid = .FALSE.
+    el_field_data%prev_rate_valid = .FALSE.
     IF (ALLOCATED(el_field_data%force_rhs)) DEALLOCATE(el_field_data%force_rhs)
     IF (ALLOCATED(el_field_data%fluid_feedback_source)) &
       DEALLOCATE(el_field_data%fluid_feedback_source)
@@ -131,8 +151,8 @@ CONTAINS
   SUBROUTINE EL_WRITE_RESTART(filename)
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
-    INTEGER, PARAMETER :: restart_version = 2
-    INTEGER :: unit
+    INTEGER, PARAMETER :: restart_version = 3
+    INTEGER :: unit, iflag(2)
 
     IF (.NOT.ALLOCATED(el_field_data%alpha_p)) RETURN
     OPEN(NEWUNIT=unit, FILE=TRIM(filename), STATUS='REPLACE', ACCESS='STREAM', &
@@ -145,6 +165,10 @@ CONTAINS
     WRITE(unit) el_field_data%force_rhs
     WRITE(unit) el_field_data%drag_B_ml
     WRITE(unit) el_field_data%drag_B_source
+    iflag(1) = MERGE(1, 0, el_field_data%rate_valid)
+    iflag(2) = MERGE(1, 0, el_field_data%prev_rate_valid)
+    WRITE(unit) iflag
+    WRITE(unit) el_field_data%deps_f_dt_prev
     CLOSE(unit)
 
   END SUBROUTINE EL_WRITE_RESTART
@@ -152,13 +176,13 @@ CONTAINS
   SUBROUTINE EL_READ_RESTART(filename)
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
-    INTEGER, PARAMETER :: restart_version = 2
-    INTEGER :: unit, version, nel, ndof
+    INTEGER, PARAMETER :: restart_version = 3
+    INTEGER :: unit, version, nel, ndof, iflag(2)
 
     OPEN(NEWUNIT=unit, FILE=TRIM(filename), STATUS='OLD', ACCESS='STREAM', &
          FORM='UNFORMATTED', ACTION='READ')
     READ(unit) version, nel, ndof
-    IF (version.NE.1 .AND. version.NE.restart_version) THEN
+    IF (version.LT.1 .OR. version.GT.restart_version) THEN
       CLOSE(unit)
       ERROR STOP 'Unsupported E-L restart version.'
     END IF
@@ -174,6 +198,16 @@ CONTAINS
     ELSE
       el_field_data%drag_B_ml = 0.0d0
       el_field_data%drag_B_source = 0.0d0
+    END IF
+    IF (version.GE.3) THEN
+      READ(unit) iflag
+      el_field_data%rate_valid = iflag(1).EQ.1
+      el_field_data%prev_rate_valid = iflag(2).EQ.1
+      READ(unit) el_field_data%deps_f_dt_prev
+    ELSE
+      el_field_data%rate_valid = .FALSE.
+      el_field_data%prev_rate_valid = .FALSE.
+      el_field_data%deps_f_dt_prev = 0.0d0
     END IF
     CLOSE(unit)
 

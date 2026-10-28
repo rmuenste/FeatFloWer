@@ -324,12 +324,19 @@ PROGRAM TEST_EL_KERNEL_FORCES
   el_field_data%force_rhs = RESHAPE((/(DBLE(i),i=1,15)/),(/3,5/))
   el_field_data%drag_B_ml = (/(0.25d0*DBLE(i),i=1,5)/)
   el_field_data%drag_B_source = (/(0.5d0*DBLE(i),i=1,5)/)
+  ! restart version 3: previous-interval rate and validity flags of the BDF2 source
+  el_field_data%deps_f_dt_prev = (/-0.25d0,-0.125d0,0.0d0/)
+  el_field_data%rate_valid = .TRUE.
+  el_field_data%prev_rate_valid = .TRUE.
   CALL EL_WRITE_RESTART('test_el_fields.restart')
   CALL EL_FINALIZE()
   CALL EL_READ_RESTART('test_el_fields.restart')
   IF (MAXVAL(ABS(el_field_data%epsilon_f_old- &
       (/0.95d0,0.85d0,0.75d0/))).GT.1.0d-14) STOP 5
   IF (MAXVAL(ABS(el_field_data%deps_f_dt+0.5d0)).GT.1.0d-14) STOP 6
+  IF (MAXVAL(ABS(el_field_data%deps_f_dt_prev- &
+      (/-0.25d0,-0.125d0,0.0d0/))).GT.1.0d-14) STOP 78
+  IF (.NOT.(el_field_data%rate_valid .AND. el_field_data%prev_rate_valid)) STOP 79
   IF (MAXVAL(ABS(el_field_data%drag_B_ml- &
       (/(0.25d0*DBLE(i),i=1,5)/))).GT.1.0d-14) STOP 72
   IF (MAXVAL(ABS(el_field_data%drag_B_source- &

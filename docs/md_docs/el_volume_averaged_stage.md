@@ -323,3 +323,44 @@ binary (after push).
   Treat the CFDEM Ergun numbers as "reference as run".
 - Details: LIGGGHTS-PUBLIC md_docs/case_specs/{03_column,05_ergun}/SPEC.md
   §12; their RUNBOOK runs 61–88.
+
+## Continuity-source time scheme and projection correctors (2026-10-28, ported from the T8 test branch)
+
+Two deck keys, both read only with `SimPar@ELVolumeAveraged = continuity` and both
+defaulting to the backward-Euler campaign code (bitwise, see gates):
+
+```
+SimPar@ELVASourceTimeScheme = BE        # BE (default) | BDF2
+SimPar@ELVASourceCorrectors = 0         # 0 (default) .. 20 source/projection corrector passes
+```
+
+- `BDF2`: the rate in g = −(∂ε/∂t + u·∇ε)/ε becomes 1.5 (∂ε/∂t)^{n+1} − 0.5 (∂ε/∂t)^n
+  (endpoint BDF2; ε and ∇ε stay at n+1). The previous rate lives in `EL_FIELDS`
+  (`deps_f_dt_prev`, saved once per step at the history advance in
+  `EL_BEGIN_FIELD_UPDATE`; `rate_valid` / `prev_rate_valid` mark genuine backward
+  differences, so the first step and a restart without rate history fall back to BE).
+  EL restart files are version 3 (versions 1-2 still read; only the unit test uses them).
+- `ELVASourceCorrectors = n`: after the pressure projection, `EL_VA_Projection_Correctors`
+  (`source/src_quadLS/QuadSc_el_va.f90`, included in `Transport_Q2P1`) reassembles
+  (1/k)Bᵀu with the corrected velocity, recomputes g from it, solves the pressure
+  Poisson problem for the residual with the same solver and applies
+  `Velocity_Correction` / `Pressure_Correction` again, n times. P^n is kept so that
+  `valP_old` and the extrapolated `P_new` are consistent afterwards; no second particle
+  advance or momentum predictor. Each pass costs one pressure solve. The call in
+  `Transport_q2p1_UxyzP_fluid_core` is guarded by `EL_VA_SOURCE_CORRECTORS_ENABLED()`
+  (deck keys only): the loop is collective and the master holds no EL fields.
+- Logs (audit steps, `ELMomentumAuditFreq`): `EL_VA_TSRC` (signed temporal integral,
+  its L1, scheme label) always; with correctors on, `EL_VA_SOURCE/MOMENT/TSRC` carry a
+  ` corr= k` tag (0 predictor, 1..n correctors, −1 final assembly) and `EL_VA_RESIDUAL`
+  reports dt·defP on the constant dof (L1, max, ∫g) before each corrector solve and after
+  the last correction.
+
+Why: the VB return-flow twin (s04 RUNBOOK §6-§8) showed the BE source to be O(dt)
+(G5 0.980 at dt 1e-3, 0.992 at 5e-4, level 2). With `BDF2` + one corrector G5 is 1.0039 /
+1.0041 / 1.0041 at dt 1e-3 / 5e-4 / 2.5e-4 (T8b/c/e, test branch); level 3 keeps 0.993
+(advective h-bias, open). The rejected fix B (`ELVASourceEpsLevel = mid`, overshoot 1.021)
+was not ported. Sample deck: `validation_cases/s04_voidfraction_cfdem_twin/q2p1_param_VB_bdf2.dat`.
+
+Gates with the ported binary (build-va, this commit): tier-2 twin job 155235, VB_L2 default
+job 155236 (both at the default keys, bitwise vs the certified logs), T8b reproduction job
+155237 (keys on, vs the test-branch T8b log). Results recorded in the next commit.

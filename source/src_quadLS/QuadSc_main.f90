@@ -32,6 +32,7 @@ use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS, EL_WRITE_PARTICLE_LOG, 
                           EL_WRITE_SS_RADIUS, EL_FLUID_PAIR_STAGE
 use EL_FIELDS, only: EL_APPLY_FLUID_FEEDBACK_SOURCE, el_field_data
 use EL_VA_CONTINUITY, only: EL_ADD_CONTINUITY_SOURCE, EL_VOLUME_AVERAGED_ACTIVE
+use EL_CONFIG, only: EL_VA_SOURCE_CORRECTORS_ENABLED
 
 use, intrinsic :: ieee_arithmetic
 
@@ -796,10 +797,10 @@ IF (myid.ne.0) THEN
  ! Assemble the right hand side (RHS=1/k B^T U~)
  CALL Matdef_General_LinScalar(LinSc,QuadSc,PLinSc,1)
 
- ! Euler-Lagrange volume-averaged continuity: div u = g (EL_VOLUME_AVERAGED)
+ ! Euler-Lagrange volume-averaged continuity: div u = g (EL_VOLUME_AVERAGED), predictor pass 0
  IF (.NOT.enable_fbm .AND. EL_VOLUME_AVERAGED_ACTIVE()) THEN
    CALL EL_ADD_CONTINUITY_SOURCE(LinSc%defP(NLMAX)%x, QuadSc%valU, QuadSc%valV, &
-     QuadSc%valW, mg_mesh, NLMAX, tstep, timens, itns, mfile)
+     QuadSc%valW, mg_mesh, NLMAX, tstep, timens, itns, mfile, icorr=0)
  END IF
 
 !  ! Assemble the right hand side (RHS:=RHS-C*Q)
@@ -826,6 +827,12 @@ IF (myid.ne.0) THEN
  CALL Pressure_Correction()
  CALL ZTIME(tttt1)
  myStat%tCorrUVWP = myStat%tCorrUVWP + (tttt1-tttt0)
+END IF
+
+! Euler-Lagrange volume-averaged continuity: source/projection corrector passes
+! (deck SimPar@ELVASourceCorrectors, default 0 = skipped; collective, deck-only guard)
+IF (.NOT.enable_fbm .AND. EL_VA_SOURCE_CORRECTORS_ENABLED()) THEN
+ CALL EL_VA_Projection_Correctors(mfile, itns)
 END IF
 
 CALL QuadScP1toQ2(LinSc,QuadSc)
@@ -997,6 +1004,10 @@ include 'QuadSc_transport_extensions.f90'
 ! 
 !=========================================================================
 include 'QuadSc_handlers.f90'
+!=========================================================================
+! 
+!=========================================================================
+include 'QuadSc_el_va.f90'
 !=========================================================================
 ! 
 !=========================================================================
