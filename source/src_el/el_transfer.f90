@@ -479,12 +479,17 @@ CONTAINS
       el_field_data%epsilon_f_old = el_field_data%epsilon_f
       el_field_data%deps_f_dt = 0.0d0
       el_field_data%history_valid = .TRUE.
+      el_field_data%rate_valid = .FALSE.
+      el_field_data%rate_dt = 0.0d0
     ELSE IF (dt.GT.0.0d0) THEN
       el_field_data%deps_f_dt = &
         (el_field_data%epsilon_f-el_field_data%epsilon_f_old)/dt
       el_field_data%rate_valid = .TRUE.
+      el_field_data%rate_dt = dt
     ELSE
       el_field_data%deps_f_dt = 0.0d0
+      el_field_data%rate_valid = .FALSE.
+      el_field_data%rate_dt = 0.0d0
     END IF
     DEALLOCATE(epsilon_new)
 

@@ -29,30 +29,55 @@
 ! logs the final residual with pass label -1.
 !
 ! State on exit: valU/valV/valW and valP(NLMAX) corrected n times, valP_old
-! = P^n, P_new rebuilt; defP(NLMAX) and rhsP(NLMAX) hold the last pass's
-! assembly (both are work arrays of the projection, no reader after the
-! step). Nothing else is touched.
+! = P^n, P_new rebuilt. rhsP(NLMAX) holds the right-hand side of the last
+! corrector solve and defP(NLMAX) whatever the last solve (or, on audit
+! steps, the final diagnostic assembly) left there; both are work arrays
+! of the projection that the next pressure assembly overwrites and that
+! nothing reads after the fluid core. The solver statistics (myStat,
+! LinSc%prm%MGprmOut, iLinP/tMGP) count the extra solves. Nothing else is
+! touched.
 !
 ! Collective: the pressure solve is joined by every rank, so the caller
 ! must guard the call on the deck keys only (EL_VA_SOURCE_CORRECTORS_ENABLED),
 ! never on the field allocation, which the master rank does not have.
+!
+! Restriction: with a per-step pressure-matrix renewal (MatrixRenewal C >= 2)
+! and a direct coarse solver (Pres@MGCrsSolverType 2, 4 or 9) MG_Solver frees
+! the coarse factorization after every pressure solve, so a second solve in
+! the same step would use a freed handle. That combination is rejected here
+! (same deck values on every rank, hence a coordinated stop).
 !=========================================================================
 SUBROUTINE EL_VA_Projection_Correctors(mfile, itns)
+  use PP3D_MPI, only: showid
+  use var_QuadScalar, only: myMatrixRenewal
   use EL_CONFIG, only: el_va_source_correctors
   use EL_VA_CONTINUITY, only: EL_ADD_CONTINUITY_SOURCE, EL_VA_LOG_CONSTRAINT_RESIDUAL, &
                               EL_VA_AUDIT_STEP
   implicit none
   INTEGER, INTENT(IN) :: mfile, itns
 
-  INTEGER :: icorr, i
+  INTEGER :: icorr, i, icrs
   REAL*8 :: int_g
   REAL*8, ALLOCATABLE :: p_n(:)
 
   IF (el_va_source_correctors.LE.0) RETURN
 
+  icrs = LinSc%prm%MGprmIn%CrsSolverType
+  IF (myMatrixRenewal%C.GE.2 .AND. (icrs.EQ.2 .OR. icrs.EQ.4 .OR. icrs.EQ.9)) THEN
+    IF (myid.EQ.showid) THEN
+      WRITE(mfile,*) 'ELVASourceCorrectors > 0 needs a retained coarse pressure factorization:'
+      WRITE(mfile,*) 'use MatrixRenewal ...C1 or a non-direct Pres@MGCrsSolverType (not 2, 4, 9).'
+      WRITE(*,*) 'ELVASourceCorrectors > 0 needs a retained coarse pressure factorization:'
+      WRITE(*,*) 'use MatrixRenewal ...C1 or a non-direct Pres@MGCrsSolverType (not 2, 4, 9).'
+    END IF
+    ERROR STOP 'ELVASourceCorrectors: unsupported pressure solver combination.'
+  END IF
+
   IF (myid.ne.0) THEN
     ALLOCATE(p_n(SIZE(LinSc%valP_old)))
     p_n = LinSc%valP_old
+  ELSE
+    ALLOCATE(p_n(0))
   END IF
 
   DO icorr = 1, el_va_source_correctors
@@ -85,18 +110,21 @@ SUBROUTINE EL_VA_Projection_Correctors(mfile, itns)
   IF (myid.ne.0) THEN
     ! final constraint residual of the corrected velocity (assembly only, audit steps)
     IF (EL_VA_AUDIT_STEP(itns)) THEN
+      CALL ZTIME(tttt0)
       CALL Matdef_General_LinScalar(LinSc,QuadSc,PLinSc,1)
       CALL EL_ADD_CONTINUITY_SOURCE(LinSc%defP(NLMAX)%x, QuadSc%valU, QuadSc%valV, &
         QuadSc%valW, mg_mesh, NLMAX, tstep, timens, itns, mfile, -1, int_g)
       CALL EL_VA_LOG_CONSTRAINT_RESIDUAL(LinSc%defP(NLMAX)%x, mg_mesh%level(NLMAX)%nel, &
         tstep, timens, itns, -1, int_g, mfile)
+      CALL ZTIME(tttt1)
+      myStat%tDefP = myStat%tDefP + (tttt1-tttt0)
     END IF
     ! restore P^n and rebuild the extrapolated pressure from the final P^{n+1}
     LinSc%valP_old = p_n
     DO i = 1, SIZE(LinSc%P_new)
       LinSc%P_new(i) = 1.5d0*LinSc%valP(NLMAX)%x(i) - 0.5d0*LinSc%valP_old(i)
     END DO
-    DEALLOCATE(p_n)
   END IF
+  DEALLOCATE(p_n)
 
 END SUBROUTINE EL_VA_Projection_Correctors

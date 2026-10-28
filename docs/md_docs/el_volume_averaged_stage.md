@@ -334,12 +334,18 @@ SimPar@ELVASourceTimeScheme = BE        # BE (default) | BDF2
 SimPar@ELVASourceCorrectors = 0         # 0 (default) .. 20 source/projection corrector passes
 ```
 
-- `BDF2`: the rate in g = −(∂ε/∂t + u·∇ε)/ε becomes 1.5 (∂ε/∂t)^{n+1} − 0.5 (∂ε/∂t)^n
-  (endpoint BDF2; ε and ∇ε stay at n+1). The previous rate lives in `EL_FIELDS`
-  (`deps_f_dt_prev`, saved once per step at the history advance in
+- `BDF2`: the rate in g = −(∂ε/∂t + u·∇ε)/ε becomes (1+a) (∂ε/∂t)^{n+1} − a (∂ε/∂t)^n with
+  a = Δt/(Δt + Δt_prev), i.e. 1.5 / −0.5 for equal steps (endpoint BDF2, the two backward
+  differences extrapolated to t^{n+1}; ε and ∇ε stay at n+1; a time-step change is handled
+  by the variable-step weight). The previous rate and its interval live in `EL_FIELDS`
+  (`deps_f_dt_prev`, `rate_dt_prev`, saved once per step at the history advance in
   `EL_BEGIN_FIELD_UPDATE`; `rate_valid` / `prev_rate_valid` mark genuine backward
-  differences, so the first step and a restart without rate history fall back to BE).
-  EL restart files are version 3 (versions 1-2 still read; only the unit test uses them).
+  differences and are cleared at the first finalisation and for Δt ≤ 0, so the first step
+  and a restart without rate history fall back to BE). EL restart files are version 3
+  (adds the validity flags incl. `history_valid`, the two intervals and the previous rate;
+  versions 1-2 are still read, older binaries reject version-3 files; only the unit test
+  writes them today, so a production restart via `StartingProc` always begins with one BE
+  step before BDF2 engages).
 - `ELVASourceCorrectors = n`: after the pressure projection, `EL_VA_Projection_Correctors`
   (`source/src_quadLS/QuadSc_el_va.f90`, included in `Transport_Q2P1`) reassembles
   (1/k)Bᵀu with the corrected velocity, recomputes g from it, solves the pressure
@@ -349,8 +355,13 @@ SimPar@ELVASourceCorrectors = 0         # 0 (default) .. 20 source/projection co
   advance or momentum predictor. Each pass costs one pressure solve. The call in
   `Transport_q2p1_UxyzP_fluid_core` is guarded by `EL_VA_SOURCE_CORRECTORS_ENABLED()`
   (deck keys only): the loop is collective and the master holds no EL fields.
+  Restriction: a per-step pressure-matrix renewal (`MatrixRenewal` C ≥ 2) together with a
+  direct coarse solver (`Pres@MGCrsSolverType` 2, 4 or 9) is rejected with a message, because
+  `MG_Solver` frees the coarse factorization after every pressure solve in that mode (all EL
+  decks use `C1`).
 - Logs (audit steps, `ELMomentumAuditFreq`): `EL_VA_TSRC` (signed temporal integral,
-  its L1, scheme label) always; with correctors on, `EL_VA_SOURCE/MOMENT/TSRC` carry a
+  its L1, scheme label) always, its two sums reduced in a separate Allreduce on audit steps
+  so that the campaign's 8-entry reduction is untouched; with correctors on, `EL_VA_SOURCE/MOMENT/TSRC` carry a
   ` corr= k` tag (0 predictor, 1..n correctors, −1 final assembly) and `EL_VA_RESIDUAL`
   reports dt·defP on the constant dof (L1, max, ∫g) before each corrector solve and after
   the last correction.

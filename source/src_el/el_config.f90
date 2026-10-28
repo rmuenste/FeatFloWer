@@ -340,7 +340,7 @@ CONTAINS
       WRITE(mterm,'(A,I0)') 'EL momentum audit freq    = ', el_momentum_audit_freq
       WRITE(mterm,'(A,I0)') 'EL particle log freq      = ', el_particle_log_freq
       WRITE(mterm,'(A,A)') 'EL volume averaged        = ', TRIM(el_volume_averaged)
-        WRITE(mterm,'(A,A)') 'EL VA source time scheme  = ', TRIM(el_va_source_time_scheme)
+      WRITE(mterm,'(A,A)') 'EL VA source time scheme  = ', TRIM(el_va_source_time_scheme)
       WRITE(mterm,'(A,I0)') 'EL VA source correctors   = ', el_va_source_correctors
       WRITE(mterm,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
     END IF

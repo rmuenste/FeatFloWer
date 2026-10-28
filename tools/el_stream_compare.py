@@ -6,7 +6,8 @@ import re, sys
 num = re.compile(r"[-+]?(?:\d+\.\d*|\.\d+|\d+)(?:[EeDd][-+]?\d+)?")
 TAGS = ("EL_MOMENTUM_ELEMINT", "EL_MEAN_SLIP t=", "EL_MEAN_SLIP_TAVG", "EL_NEWTON_PAIR", "EL_VOLUME_CONSERVATION",
         "EL_FORCE_BUDGET", "EL_FEEDBACK_CONSERVATION", "EL_TERMINAL_VEL", "EL_CONTACT_STATS", "EL_VA_SOURCE",
-        "EL_SUSP_STRESS", "EL_CONT_STRESS", "EL_HALO_RECORDS", "EL_LUB_IMPULSE", "EL_VA_MOMENT")
+        "EL_SUSP_STRESS", "EL_CONT_STRESS", "EL_HALO_RECORDS", "EL_LUB_IMPULSE", "EL_VA_MOMENT",
+        "EL_VA_TSRC", "EL_VA_RESIDUAL")
 def load(p):
     d = {t: [] for t in TAGS}
     for line in open(p, errors="replace"):

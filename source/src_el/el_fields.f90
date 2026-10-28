@@ -11,9 +11,13 @@ MODULE EL_FIELDS
     LOGICAL :: history_valid = .FALSE.
     ! BDF2 continuity source (ELVASourceTimeScheme = BDF2): deps_f_dt of the previous
     ! interval, saved when the history advances; rate_valid marks a genuine backward
-    ! difference in deps_f_dt, prev_rate_valid the same for deps_f_dt_prev.
+    ! difference in deps_f_dt (formed over the interval rate_dt), prev_rate_valid and
+    ! rate_dt_prev the same for deps_f_dt_prev. Flags are cleared whenever deps_f_dt is
+    ! not a genuine difference (first finalisation, dt <= 0).
     LOGICAL :: rate_valid = .FALSE.
     LOGICAL :: prev_rate_valid = .FALSE.
+    REAL*8 :: rate_dt = 0.0d0
+    REAL*8 :: rate_dt_prev = 0.0d0
     REAL*8, ALLOCATABLE :: deps_f_dt_prev(:)
     REAL*8, ALLOCATABLE :: alpha_p(:)
     REAL*8, ALLOCATABLE :: grad_alpha_p(:,:)   ! cell-averaged kernel gradient of alpha_p (3,nel)
@@ -58,6 +62,8 @@ CONTAINS
     el_field_data%deps_f_dt_prev = 0.0d0
     el_field_data%rate_valid = .FALSE.
     el_field_data%prev_rate_valid = .FALSE.
+    el_field_data%rate_dt = 0.0d0
+    el_field_data%rate_dt_prev = 0.0d0
     ALLOCATE(el_field_data%force_rhs(3,ndof))
     ALLOCATE(el_field_data%fluid_feedback_source(3,ndof))
     ALLOCATE(el_field_data%drag_B_ml(ndof))
@@ -89,6 +95,7 @@ CONTAINS
       IF (ALLOCATED(el_field_data%deps_f_dt_prev)) THEN
         el_field_data%deps_f_dt_prev = el_field_data%deps_f_dt
         el_field_data%prev_rate_valid = el_field_data%rate_valid
+        el_field_data%rate_dt_prev = el_field_data%rate_dt
       END IF
     END IF
     el_field_data%alpha_p = 0.0d0
@@ -137,6 +144,8 @@ CONTAINS
     IF (ALLOCATED(el_field_data%deps_f_dt_prev)) DEALLOCATE(el_field_data%deps_f_dt_prev)
     el_field_data%rate_valid = .FALSE.
     el_field_data%prev_rate_valid = .FALSE.
+    el_field_data%rate_dt = 0.0d0
+    el_field_data%rate_dt_prev = 0.0d0
     IF (ALLOCATED(el_field_data%force_rhs)) DEALLOCATE(el_field_data%force_rhs)
     IF (ALLOCATED(el_field_data%fluid_feedback_source)) &
       DEALLOCATE(el_field_data%fluid_feedback_source)
@@ -151,8 +160,10 @@ CONTAINS
   SUBROUTINE EL_WRITE_RESTART(filename)
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
+    ! version 3 (2026-10-28): + history/rate validity flags, rate intervals and the
+    ! previous-interval rate of the BDF2 source. Older binaries reject version-3 files.
     INTEGER, PARAMETER :: restart_version = 3
-    INTEGER :: unit, iflag(2)
+    INTEGER :: unit, iflag(3)
 
     IF (.NOT.ALLOCATED(el_field_data%alpha_p)) RETURN
     OPEN(NEWUNIT=unit, FILE=TRIM(filename), STATUS='REPLACE', ACCESS='STREAM', &
@@ -165,9 +176,11 @@ CONTAINS
     WRITE(unit) el_field_data%force_rhs
     WRITE(unit) el_field_data%drag_B_ml
     WRITE(unit) el_field_data%drag_B_source
-    iflag(1) = MERGE(1, 0, el_field_data%rate_valid)
-    iflag(2) = MERGE(1, 0, el_field_data%prev_rate_valid)
+    iflag(1) = MERGE(1, 0, el_field_data%history_valid)
+    iflag(2) = MERGE(1, 0, el_field_data%rate_valid)
+    iflag(3) = MERGE(1, 0, el_field_data%prev_rate_valid)
     WRITE(unit) iflag
+    WRITE(unit) el_field_data%rate_dt, el_field_data%rate_dt_prev
     WRITE(unit) el_field_data%deps_f_dt_prev
     CLOSE(unit)
 
@@ -177,7 +190,7 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER, PARAMETER :: restart_version = 3
-    INTEGER :: unit, version, nel, ndof, iflag(2)
+    INTEGER :: unit, version, nel, ndof, iflag(3)
 
     OPEN(NEWUNIT=unit, FILE=TRIM(filename), STATUS='OLD', ACCESS='STREAM', &
          FORM='UNFORMATTED', ACTION='READ')
@@ -201,12 +214,19 @@ CONTAINS
     END IF
     IF (version.GE.3) THEN
       READ(unit) iflag
-      el_field_data%rate_valid = iflag(1).EQ.1
-      el_field_data%prev_rate_valid = iflag(2).EQ.1
+      el_field_data%history_valid = iflag(1).EQ.1
+      el_field_data%rate_valid = iflag(2).EQ.1
+      el_field_data%prev_rate_valid = iflag(3).EQ.1
+      READ(unit) el_field_data%rate_dt, el_field_data%rate_dt_prev
       READ(unit) el_field_data%deps_f_dt_prev
     ELSE
+      ! versions 1-2 carry no validity information: the next finalisation reseeds the
+      ! history (as before this version) and the BDF2 source starts with a BE step
+      el_field_data%history_valid = .FALSE.
       el_field_data%rate_valid = .FALSE.
       el_field_data%prev_rate_valid = .FALSE.
+      el_field_data%rate_dt = 0.0d0
+      el_field_data%rate_dt_prev = 0.0d0
       el_field_data%deps_f_dt_prev = 0.0d0
     END IF
     CLOSE(unit)

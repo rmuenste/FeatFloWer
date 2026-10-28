@@ -32,8 +32,11 @@ MODULE EL_VA_CONTINUITY
   !
   ! Time integration of the rate (SimPar@ELVASourceTimeScheme, EL_VA_CONTINUITY_RATE):
   ! 'be' uses the backward difference d eps/dt directly, 'bdf2' the endpoint BDF2 value
-  ! 1.5 (d eps/dt)^{n+1} - 0.5 (d eps/dt)^n with the previous rate kept in EL_FIELDS
-  ! (deps_f_dt_prev, saved at the history advance; BE whenever that history is not valid).
+  ! (1+a) (d eps/dt)^{n+1} - a (d eps/dt)^n, a = dt/(dt + dt_prev) (= 1/2 for equal steps:
+  ! 1.5/-0.5), i.e. the two backward differences centred at t^{n+1/2} and t^{n-1/2}
+  ! extrapolated to t^{n+1}. The previous rate and its interval are kept in EL_FIELDS
+  ! (deps_f_dt_prev, rate_dt_prev, saved at the history advance); BE whenever either rate
+  ! is not a genuine backward difference (first step, restart without history).
   ! Source/projection correctors (SimPar@ELVASourceCorrectors) re-enter this routine with
   ! icorr = 1..n from EL_VA_Projection_Correctors (Transport_Q2P1); the routine itself is
   ! pass-agnostic, icorr only labels the log lines and int_g_out returns the volume integral
@@ -67,19 +70,28 @@ CONTAINS
       EL_VA_AUDIT_STEP = (MOD(ABS(istep), el_momentum_audit_freq).EQ.0)
   END FUNCTION EL_VA_AUDIT_STEP
 
-  ! .TRUE. when the BDF2 rate can be formed: scheme requested and a genuine previous rate.
+  ! .TRUE. when the BDF2 rate can be formed: scheme requested and both the current and
+  ! the previous rate are genuine backward differences over positive intervals.
   LOGICAL FUNCTION EL_VA_USE_BDF2()
     EL_VA_USE_BDF2 = (TRIM(el_va_source_time_scheme).EQ.'bdf2') .AND. &
-      el_field_data%prev_rate_valid .AND. ALLOCATED(el_field_data%deps_f_dt_prev)
+      el_field_data%rate_valid .AND. el_field_data%prev_rate_valid .AND. &
+      el_field_data%rate_dt.GT.0.0d0 .AND. el_field_data%rate_dt_prev.GT.0.0d0 .AND. &
+      ALLOCATED(el_field_data%deps_f_dt_prev)
   END FUNCTION EL_VA_USE_BDF2
 
-  ! Rate entering the source of element iel for the chosen time scheme.
-  REAL*8 FUNCTION EL_VA_CONTINUITY_RATE(iel, use_bdf2)
+  ! BDF2 extrapolation weight a = dt/(dt + dt_prev) (exactly 0.5 for equal steps).
+  REAL*8 FUNCTION EL_VA_BDF2_WEIGHT()
+    EL_VA_BDF2_WEIGHT = el_field_data%rate_dt/(el_field_data%rate_dt + el_field_data%rate_dt_prev)
+  END FUNCTION EL_VA_BDF2_WEIGHT
+
+  ! Rate entering the source of element iel: BE, or BDF2 with weight a.
+  REAL*8 FUNCTION EL_VA_CONTINUITY_RATE(iel, use_bdf2, a)
     INTEGER, INTENT(IN) :: iel
     LOGICAL, INTENT(IN) :: use_bdf2
+    REAL*8, INTENT(IN) :: a
     EL_VA_CONTINUITY_RATE = el_field_data%deps_f_dt(iel)
-    IF (use_bdf2) EL_VA_CONTINUITY_RATE = 1.5d0*el_field_data%deps_f_dt(iel) &
-                                        - 0.5d0*el_field_data%deps_f_dt_prev(iel)
+    IF (use_bdf2) EL_VA_CONTINUITY_RATE = (1.0d0+a)*el_field_data%deps_f_dt(iel) &
+                                        - a*el_field_data%deps_f_dt_prev(iel)
   END FUNCTION EL_VA_CONTINUITY_RATE
 
   SUBROUTINE EL_ADD_CONTINUITY_SOURCE(defp, val_u, val_v, val_w, mesh, ilev, &
@@ -97,8 +109,11 @@ CONTAINS
     REAL*8, INTENT(OUT), OPTIONAL :: int_g_out
 
     INTEGER :: iel, nel, i, ig, ierr
-    REAL*8 :: u(3), eps, deps_dt, d_cont, adv, g, vol, zc, alpha
-    LOGICAL :: use_bdf2
+    REAL*8 :: u(3), eps, deps_dt, d_cont, adv, g, vol, zc, alpha, a_bdf2
+    LOGICAL :: use_bdf2, audit
+    ! local(1:8)/global(1:8): the campaign reduction (source, volume, L1 terms, T4 moments);
+    ! local(9:10): temporal part of the source (signed, L1), reduced on audit steps only so
+    ! that the collective pattern of the default scheme is unchanged
     REAL*8 :: local(10), global(10), gbar, vol_total
     CHARACTER(LEN=16) :: corr_tag
     REAL*8, ALLOCATABLE :: gk(:)
@@ -116,6 +131,9 @@ CONTAINS
     ALLOCATE(gk(nel))
     local = 0.0d0
     use_bdf2 = EL_VA_USE_BDF2()
+    a_bdf2 = 0.0d0
+    IF (use_bdf2) a_bdf2 = EL_VA_BDF2_WEIGHT()
+    audit = EL_VA_AUDIT_STEP(istep)
     corr_tag = ''
     IF (PRESENT(icorr) .AND. el_va_source_correctors.GT.0) WRITE(corr_tag,'(A,I0)') ' corr= ', icorr
 
@@ -133,7 +151,7 @@ CONTAINS
       zc = 0.125d0*zc
       eps = MAX(el_field_data%epsilon_f(iel), 1.0d-3)
       deps_dt = el_field_data%deps_f_dt(iel)
-      d_cont = EL_VA_CONTINUITY_RATE(iel, use_bdf2)
+      d_cont = EL_VA_CONTINUITY_RATE(iel, use_bdf2, a_bdf2)
       ! grad eps = - grad alpha_p  (cell-averaged kernel gradient)
       adv = -DOT_PRODUCT(u, el_field_data%grad_alpha_p(:,iel))
       g = -(d_cont + adv)/eps
@@ -158,8 +176,11 @@ CONTAINS
       local(10) = local(10) + ABS(d_cont/eps)*vol
     END DO
 
-    CALL MPI_Allreduce(local, global, 10, MPI_DOUBLE_PRECISION, MPI_SUM, &
+    CALL MPI_Allreduce(local(1:8), global(1:8), 8, MPI_DOUBLE_PRECISION, MPI_SUM, &
       MPI_COMM_SUBS, ierr)
+    global(9:10) = 0.0d0
+    IF (audit) CALL MPI_Allreduce(local(9:10), global(9:10), 2, MPI_DOUBLE_PRECISION, &
+      MPI_SUM, MPI_COMM_SUBS, ierr)
     vol_total = MAX(global(2), 1.0d-300)
     gbar = global(1)/vol_total
     IF (PRESENT(int_g_out)) int_g_out = global(1)
@@ -169,7 +190,7 @@ CONTAINS
       defp(4*(iel-1)+1) = defp(4*(iel-1)+1) + (gk(iel)-gbar)*vol/dt
     END DO
 
-    IF (EL_VA_AUDIT_STEP(istep) .AND. myid.EQ.showid) THEN
+    IF (audit .AND. myid.EQ.showid) THEN
       WRITE(mfile,'(A,ES14.6,A,I0,A,ES13.6,A,ES13.6,A,ES13.6,A,ES13.6,A)') &
         'EL_VA_SOURCE t= ', time, ' step= ', istep, &
         ' int_g= ', global(1), ' gbar= ', gbar, &
@@ -189,11 +210,11 @@ CONTAINS
       WRITE(mfile,'(A,ES14.6,A,I0,A,ES13.6,A,ES13.6,A,A,A)') &
         'EL_VA_TSRC t= ', time, ' step= ', istep, &
         ' dedt_net= ', global(9), ' L1_dcont= ', global(10), &
-        ' scheme= ', MERGE('BDF2', 'BE  ', use_bdf2), TRIM(corr_tag)
+        ' scheme= ', TRIM(MERGE('BDF2', 'BE  ', use_bdf2)), TRIM(corr_tag)
       WRITE(*,'(A,ES14.6,A,I0,A,ES13.6,A,ES13.6,A,A,A)') &
         'EL_VA_TSRC t= ', time, ' step= ', istep, &
         ' dedt_net= ', global(9), ' L1_dcont= ', global(10), &
-        ' scheme= ', MERGE('BDF2', 'BE  ', use_bdf2), TRIM(corr_tag)
+        ' scheme= ', TRIM(MERGE('BDF2', 'BE  ', use_bdf2)), TRIM(corr_tag)
     END IF
 
     DEALLOCATE(gk)
@@ -214,14 +235,17 @@ CONTAINS
 
     IF (myid.EQ.master) RETURN
     IF (.NOT.EL_VA_AUDIT_STEP(istep)) RETURN
-    IF (SIZE(defp).LT.4*nel) RETURN
+    ! no rank-local return beyond this point: the Allreduces below are collective over the
+    ! workers (an empty or undersized partition contributes zero)
     l1_local = 0.0d0
     mx_local = 0.0d0
-    DO iel = 1, nel
-      r = dt*defp(4*(iel-1)+1)
-      l1_local = l1_local + ABS(r)
-      mx_local = MAX(mx_local, ABS(r))
-    END DO
+    IF (SIZE(defp).GE.4*nel) THEN
+      DO iel = 1, nel
+        r = dt*defp(4*(iel-1)+1)
+        l1_local = l1_local + ABS(r)
+        mx_local = MAX(mx_local, ABS(r))
+      END DO
+    END IF
     CALL MPI_Allreduce(l1_local, l1_global, 1, MPI_DOUBLE_PRECISION, MPI_SUM, &
       MPI_COMM_SUBS, ierr)
     CALL MPI_Allreduce(mx_local, mx_global, 1, MPI_DOUBLE_PRECISION, MPI_MAX, &
