@@ -300,3 +300,40 @@ Ratio ⟨ε u_z⟩ / (|w| ⟨α⟩) per slab (slabs 1-4 hold no particles; their
 - The particle-free slabs 1-4 carry a linear-in-z return flow: in the base it is negative
   (−1e-5 m/s at z 0.35, the sink of the uniform ḡ removal sitting at z = 0.5 below the cloud);
   under BDF2 it is ten times smaller and of the opposite sign at t 0.1.
+
+## 9. BDF2 source + projection correctors ported to the VA branch (commits 14d478a5 + cafa91bc, jobs 155235-155246, 2026-10-28)
+
+Owner decision: move `ELVASourceTimeScheme = BDF2` and `ELVASourceCorrectors = n` from the test
+branch to `feature/el-volume-averaged`, deck-switchable, modular (`docs/md_docs/el_volume_averaged_stage.md`,
+last section, lists the keys and the design). `ELVASourceEpsLevel` (fix B) not ported. Corrector loop
+isolated in `source/src_quadLS/QuadSc_el_va.f90` (one guarded call in the fluid core, guard
+`EL_VA_SOURCE_CORRECTORS_ENABLED()` on the deck keys only); BDF2 rate in `EL_VA_CONTINUITY_RATE`
+with the variable-step weight a = dt/(dt+dt_prev) (= 0.5 exactly for equal steps).
+
+Reviews (read-only, both on 14d478a5): Codex gpt-6.1-sol high and Claude Fable 5.1 xhigh
+(`docs/md_docs/el_va_bdf2_port_reviews_2026-10-28.md`). Agreed findings, all fixed in cafa91bc:
+(1) with `MatrixRenewal` C ≥ 2 and a direct coarse pressure solver (types 2/4/9) `MG_Solver` frees the
+coarse factorization after every solve, so a corrector solve would use a freed handle — now rejected
+with a message (every EL deck is C1 + type 4); (2) the source Allreduce had grown from 8 to 10 entries
+at the defaults (identity only empirical) — the 8-entry campaign reduction is kept, the two `EL_VA_TSRC`
+sums are reduced separately on audit steps; (3) BDF2 assumed equal steps and `rate_valid` was never
+cleared — variable-step weight, flags cleared on non-genuine rates, both rates required; (4) rank-local
+return ahead of the residual Allreduces removed; restart v3 also stores `history_valid` and the two
+intervals; `el_stream_compare.py` now compares `EL_VA_TSRC`/`EL_VA_RESIDUAL` and reports streams absent
+from the reference as "new, not compared". Both reviewers verified by reading: step ordering of the
+rate history, MPI participation, restored `valP_old`/`P_new`, no reader of `defP`/`rhsP` after the fluid
+core, deck-only switch with order-independent validation.
+
+Gates, three rounds (14d478a5 binary; review-fix binary; final cafa91bc binary), all with
+`tools/el_stream_compare.py`:
+
+| Round | tier-2 twin vs `reference/run_g0_twin_va_2026-10-14.log` (13 streams) | VB_L2 defaults vs T4 log (15 streams) | T8b keys on vs test-branch T8b log |
+|---|---|---|---|
+| 1 (14d478a5) | 155235 bitwise | 155236 bitwise | 155237 bitwise (15 streams, residual lines identical) |
+| 2 (review fixes) | 155241 bitwise | 155242 bitwise | 155243 bitwise (17 streams incl. TSRC/RESIDUAL) |
+| 3 (cafa91bc) | 155244 bitwise | 155245 bitwise | 155246 bitwise (17 streams), G5 1.0039 ± 0.0050 |
+
+Wall: VB_L2 defaults 7 min 46, T8b 9 min 51 (11 ranks). The ported scheme therefore reproduces
+§8 exactly (T8b: G5 1.0039, int_g 2.83e-8, residual L1 9.06e-8 → 1.77e-9) and the defaults reproduce
+the campaign binary bitwise. Unit test `test_el_kernel_forces` extended (restart v3 round trip, history
+capture of `EL_BEGIN_FIELD_UPDATE`), passes. Sample deck `q2p1_param_VB_bdf2.dat` (= VB deck + the two keys).

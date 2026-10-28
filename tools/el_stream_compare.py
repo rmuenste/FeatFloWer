@@ -21,6 +21,10 @@ allbit = True
 for t in TAGS:
     la, lb = a[t], b[t]
     if not la and not lb: continue
+    if not la:
+        # stream absent from the reference log (newer diagnostic): reported, not compared
+        print(f"  {t:24s} lines {len(la)}/{len(lb)}  new in candidate, not compared")
+        continue
     worst, ex, extra = 0.0, "", 0
     for ra, rb in zip(la, lb):
         if len(rb) > len(ra): extra = max(extra, len(rb)-len(ra))

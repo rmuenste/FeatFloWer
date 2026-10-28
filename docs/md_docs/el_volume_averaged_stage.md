@@ -372,6 +372,8 @@ Why: the VB return-flow twin (s04 RUNBOOK §6-§8) showed the BE source to be O(
 (advective h-bias, open). The rejected fix B (`ELVASourceEpsLevel = mid`, overshoot 1.021)
 was not ported. Sample deck: `validation_cases/s04_voidfraction_cfdem_twin/q2p1_param_VB_bdf2.dat`.
 
-Gates with the ported binary (build-va, this commit): tier-2 twin job 155235, VB_L2 default
-job 155236 (both at the default keys, bitwise vs the certified logs), T8b reproduction job
-155237 (keys on, vs the test-branch T8b log). Results recorded in the next commit.
+Gates (three rounds: 14d478a5, review-fix binary, cafa91bc): tier-2 twin jobs 155235/155241/155244
+and VB_L2 default jobs 155236/155242/155245 bitwise vs the certified logs at the default keys; T8b
+reproduction jobs 155237/155243/155246 bitwise vs the test-branch T8b log with the keys on (G5
+1.0039 ± 0.0050). Reviews: Codex gpt-6.1-sol high and Claude Fable 5.1 xhigh on 14d478a5
+(`el_va_bdf2_port_reviews_2026-10-28.md`), findings fixed in cafa91bc; s04 RUNBOOK §9.
