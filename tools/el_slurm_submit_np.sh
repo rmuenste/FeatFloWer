@@ -35,4 +35,5 @@ cd $RUNDIR
 mpirun -np $NP "\$BIN" > run_slurm.log 2>&1
 echo "exit=\$?"
 EOF
+sh "$(dirname "$0")/el_write_versions.sh" "$RUNDIR" "$BIN"
 sbatch "$RUNDIR/job.sbatch"

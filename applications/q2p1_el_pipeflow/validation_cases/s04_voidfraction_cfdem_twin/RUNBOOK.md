@@ -398,3 +398,12 @@ Slab profiles (`slab_profiles_T9.txt`, same script and frames as §8.1; ratio ε
 Not merged. Decision for the owner: fix A is a one-key change on top of the ported BDF2 scheme
 (`ELVACompatibility = alpha`), default-gated bitwise; it closes the L3 deficit and leaves +0.2 % (L3) /
 +0.55 % (L2).
+
+Provenance note (peer check, 2026-10-28 14:20): the run directories of §9 (G_port*, P_port*) and §10
+(T9a-d, G_t9_*) were cloned with rsync from the T8 directories and had kept the clones' `versions.txt`
+(9fb6157c, build of 2026-10-27 23:00). The logs prove the right binaries ran (EL_VA_TSRC / EL_VA_COMPAT
+lines, build mtimes); the files were rewritten by hand: round 1 14d478a5 (build-va 08:24), round 2
+14d478a5 + uncommitted review fixes (08:38), round 3 cafa91bc (08:42:48), T9 and G_t9 8aeb26c8
+(build-fixb 12:11:18), pe 4d04c1e throughout. From now on `tools/el_slurm_submit_np.sh` regenerates
+`versions.txt` at every submission from the git state of the binary's source tree
+(`tools/el_write_versions.sh`), so a cloned directory can no longer carry stale provenance.
