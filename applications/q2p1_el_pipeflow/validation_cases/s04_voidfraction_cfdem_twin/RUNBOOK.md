@@ -437,10 +437,10 @@ of all `EL_VA_*` lines against the §9 round-3 logs where the keys match:
 
 | Round | tier-2 twin, defaults (13 streams) | VB_L2 defaults vs T4 log (15) | T8b: BDF2+c1 uniform vs T8b log (17) | T9a: BDF2+c1 alpha vs T9a log (18 incl. COMPAT) | T9b: L3 alpha vs T9b log |
 |---|---|---|---|---|---|
-| 1 (cef8eeaa) | 155644 bitwise | 155645 bitwise, EL_VA_* bytes = G_port3 | 155646 bitwise | 155647 bitwise, G5 1.0055 | 155648 (running) |
-| 2 (f93eb55e) | 155649 bitwise | 155650 bitwise, EL_VA_* bytes = G_port3 | 155651 bitwise, EL_VA_* bytes = P_port3_T8b | 155652 bitwise, G5 1.0055 | 155653 (running) |
+| 1 (cef8eeaa) | 155644 bitwise | 155645 bitwise, EL_VA_* bytes = G_port3 | 155646 bitwise | 155647 bitwise, G5 1.0055 | 155648 bitwise, G5 1.0021 (summergames, 1 h 55) |
+| 2 (f93eb55e) | 155649 bitwise | 155650 bitwise, EL_VA_* bytes = G_port3 | 155651 bitwise, EL_VA_* bytes = P_port3_T8b | 155652 bitwise, G5 1.0055 | 155653 bitwise, G5 1.0021 (nx-05, 1 h 10) |
 
-Wall on nx-04 (round 2): VB_L2 8 min, T8b 10 min, T9a 10 min. The `EL_VA_COMPAT` stream (600 lines,
+Wall on nx-04 (round 2): VB_L2 8 min, T8b 10 min, T9a 10 min; T9b 1 h 10 on nx-05 (1 h 55 on summergames in round 1). The level-3 alpha path (18 streams incl. EL_VA_COMPAT) is bitwise in both rounds and on both node types. The `EL_VA_COMPAT` stream (600 lines,
 3 passes × 200 steps) is bitwise down to the 1e-21 `int_g_corr` field. Provenance: `versions.txt`
 regenerated at submission (§10 note).
 
