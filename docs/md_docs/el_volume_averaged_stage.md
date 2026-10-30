@@ -370,8 +370,12 @@ SimPar@ELVACompatibility   = uniform   # uniform (default) | alpha   (added 2026
   `q2p1_param_VB_bdf2_alpha.dat`.
 - Module layout (2026-10-30): the worker reductions use named slots (`C_*` core block, the
   campaign reduction; `T_*` temporal block on audit steps; `A_*` alpha block in mode alpha),
-  all audit lines go through `EL_VA_LOG`, and the rate / sink / mode choices are small
-  functions, so a new time scheme or sink mode is one function case plus a config entry.
+  all audit lines go through `EL_VA_LOG`, and the rate / sink / mode / label choices are small
+  functions. The extension points are listed in the module header: a further sink mode touches
+  the key values, `EL_VA_SINK_MODE`, `EL_VA_SINK_NAME`, its weight accumulators and reduction,
+  the fallback rule and `EL_VA_SINK`; a further time scheme touches the eligibility test, the
+  weight, `EL_VA_CONTINUITY_RATE` and the scheme label. Requested (deck) and effective (applied,
+  after the no-particle fallback) sink modes are distinct variables.
 - Logs (audit steps, `ELMomentumAuditFreq`): `EL_VA_TSRC` (signed temporal integral,
   its L1, scheme label) always, its two sums reduced in a separate Allreduce on audit steps
   so that the campaign's 8-entry reduction is untouched; with correctors on, `EL_VA_SOURCE/MOMENT/TSRC` carry a

@@ -90,6 +90,8 @@ MODULE EL_CONFIG
   !   particles). 'alpha' closes the level-3 return-flow deficit of the VB twin (s04 RUNBOOK
   !   section 10).
   CHARACTER(LEN=32) :: el_va_compatibility = 'uniform'
+  ! The valid values, blank-padded; index = sink mode id of EL_VA_CONTINUITY (0 uniform, 1 alpha).
+  CHARACTER(LEN=7), PARAMETER :: el_va_compat_names(0:1) = (/ 'uniform', 'alpha  ' /)
   REAL*8 :: el_tavg_window = 0.5d0
   ! Mesoscale lane-mode filter for periodic settling boxes: each step,
   ! subtract from u_z its zero-mean x-binned and y-binned plane averages
@@ -271,16 +273,15 @@ CONTAINS
       WRITE(*,*) 'ELVASourceCorrectors must be in 0..20.'
       STOP 1
     END IF
-    SELECT CASE (TRIM(el_va_compatibility))
-    CASE ('uniform', 'alpha')
-    CASE DEFAULT
+    IF (.NOT.ANY(TRIM(el_va_compatibility).EQ.el_va_compat_names)) THEN
       WRITE(*,'(A,A)') 'Invalid ELVACompatibility (uniform|alpha): ', TRIM(el_va_compatibility)
       STOP 1
-    END SELECT
+    END IF
     IF (TRIM(el_volume_averaged).NE.'continuity' .AND. &
         (TRIM(el_va_source_time_scheme).NE.'be' .OR. el_va_source_correctors.GT.0 .OR. &
          TRIM(el_va_compatibility).NE.'uniform')) THEN
-      WRITE(*,*) 'ELVASourceTimeScheme / ELVASourceCorrectors / ELVACompatibility need ELVolumeAveraged = continuity.'
+      WRITE(*,*) 'ELVASourceTimeScheme / ELVASourceCorrectors / ELVACompatibility need ', &
+                 'ELVolumeAveraged = continuity.'
       STOP 1
     END IF
 
