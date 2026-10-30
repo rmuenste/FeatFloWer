@@ -443,3 +443,16 @@ of all `EL_VA_*` lines against the §9 round-3 logs where the keys match:
 Wall on nx-04 (round 2): VB_L2 8 min, T8b 10 min, T9a 10 min. The `EL_VA_COMPAT` stream (600 lines,
 3 passes × 200 steps) is bitwise down to the 1e-21 `int_g_corr` field. Provenance: `versions.txt`
 regenerated at submission (§10 note).
+
+### 11.1 pe pin 4d04c1e → 11c6142: box walls rebased onto pe master f17116f (PR #54 interface layout), jobs 155657-155659, 2026-10-30
+
+pe master moved by one merge since the pin (PR #54, `interface: one case per file, ABI headers apart,
+helpers under support/`, a mechanical reorganisation; FeatFloWer binds to the C symbols only). The
+box-walls commit cherry-picks onto it without conflict (git follows the file move to
+`pe/interface/setup/el_terminal_velocity.h`): branch `feature/el-box-walls-on-master-f17116f` =
+c720761 (the hunk) + 11c6142 (json contract test `pe-box-walls-config`, header comment). pe preset
+`serial`: 45/45 tests pass. FeatFloWer at this pin (build-va, cmake regenerated for the new pe source
+list - a plain ninja after the pin bump fails on the removed files): tier-2 twin job 155657 bitwise,
+VB_L2 defaults job 155658 bitwise vs the T4 log with `EL_VA_*` bytes identical to §9 round 3 (box walls
+on, "six fixed planes" line present), T9a alpha keys job 155659 bitwise vs the T9a log (G5 1.0055).
+The pe branch is to be pushed by the owner and merged as a PR; the pin then moves to the merge commit.
