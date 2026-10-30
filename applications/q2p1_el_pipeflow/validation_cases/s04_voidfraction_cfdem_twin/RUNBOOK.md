@@ -407,3 +407,39 @@ lines, build mtimes); the files were rewritten by hand: round 1 14d478a5 (build-
 (build-fixb 12:11:18), pe 4d04c1e throughout. From now on `tools/el_slurm_submit_np.sh` regenerates
 `versions.txt` at every submission from the git state of the binary's source tree
 (`tools/el_write_versions.sh`), so a cloned directory can no longer carry stale provenance.
+
+## 11. fix A ported to the VA branch with a restructured source module (commits cef8eeaa + f93eb55e, jobs 155644-155653, 2026-10-30)
+
+Owner decision: move fix A to `feature/el-volume-averaged` with the same review and gate procedure as
+the BDF2 port (§9), with the explicit requirement of clean, maintainable, extensible code. Deck key
+`SimPar@ELVACompatibility = uniform | alpha` (default uniform = the campaign code). The port is also a
+restructuring of `source/src_el/el_volume_averaged.f90`: named slots for the three reduction blocks
+(`C_*` core = the campaign 8-entry Allreduce, `T_*` temporal on audit steps, `W_*` weight block for
+weighted sink modes), a sink-mode table (`el_va_compat_names` in `EL_CONFIG`, deck value = audit label,
+validated against the same table), `EL_VA_SINK_WEIGHT` (one CASE per weighted mode), `EL_VA_SINK`
+(uniform: gbar; weighted: int_g w_e/W, expressions verbatim from the validated runs),
+`EL_VA_EFFECTIVE_SINK_MODE` (requested vs effective mode, uniform fallback without particles decided on
+the reduced W), `EL_VA_WRITE_LINE` for every audit line, four labelled sections, no collective in the
+audit section. A further weighted sink mode is one table entry and one CASE.
+
+Reviews (read-only, both on cef8eeaa; `docs/md_docs/el_va_fixa_port_reviews_2026-10-30.md`): Codex
+gpt-6.1-sol high and Claude Fable 5.1 xhigh. Both: arithmetic and collective pattern preserved, deck-only
+switch, materially more maintainable. Fixed in f93eb55e: requested/effective mode as two variables (both),
+table-driven modes so a third mode is local (Fable S3), the corrected-integral reduce hoisted out of the
+audit section (Fable S1), zero moment shift under the no-particle fallback (Codex 2), header paragraphs
+and extension-point docs made accurate (both), `EL_VA_COMPAT` added to the compare tool (Fable S4),
+helper renamed `EL_VA_WRITE_LINE`, PURE helpers. Not changed: the port writes `EL_VA_COMPAT` after
+`EL_VA_TSRC` (the test branch wrote it first; Codex called this a blocker against a byte-level log diff,
+the gate criterion is per-stream identity, recorded here so the reorder is not read as a numeric change).
+
+Gates, two rounds (cef8eeaa binary; f93eb55e binary), `tools/el_stream_compare.py` plus a byte comparison
+of all `EL_VA_*` lines against the §9 round-3 logs where the keys match:
+
+| Round | tier-2 twin, defaults (13 streams) | VB_L2 defaults vs T4 log (15) | T8b: BDF2+c1 uniform vs T8b log (17) | T9a: BDF2+c1 alpha vs T9a log (18 incl. COMPAT) | T9b: L3 alpha vs T9b log |
+|---|---|---|---|---|---|
+| 1 (cef8eeaa) | 155644 bitwise | 155645 bitwise, EL_VA_* bytes = G_port3 | 155646 bitwise | 155647 bitwise, G5 1.0055 | 155648 (running) |
+| 2 (f93eb55e) | 155649 bitwise | 155650 bitwise, EL_VA_* bytes = G_port3 | 155651 bitwise, EL_VA_* bytes = P_port3_T8b | 155652 bitwise, G5 1.0055 | 155653 (running) |
+
+Wall on nx-04 (round 2): VB_L2 8 min, T8b 10 min, T9a 10 min. The `EL_VA_COMPAT` stream (600 lines,
+3 passes × 200 steps) is bitwise down to the 1e-21 `int_g_corr` field. Provenance: `versions.txt`
+regenerated at submission (§10 note).

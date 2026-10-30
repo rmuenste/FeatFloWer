@@ -367,7 +367,10 @@ SimPar@ELVACompatibility   = uniform   # uniform (default) | alpha   (added 2026
   weight reduction and the `EL_VA_COMPAT` audit line (int_g raw and corrected, W, z_α, moment
   shift (z_α − z_centre) int_g, mode) exist only in this mode. Closes the level-3 deficit of the
   VB twin: G5 0.9926 → 1.0021 (T9b), 1.0039 → 1.0055 at level 2 (T9a). Sample deck
-  `q2p1_param_VB_bdf2_alpha.dat`.
+  `q2p1_param_VB_bdf2_alpha.dat`. Port gates (s04 RUNBOOK §11, two rounds cef8eeaa / f93eb55e):
+  defaults bitwise vs the certified logs with byte-identical `EL_VA_*` lines, BDF2 keys bitwise vs
+  the T8b log, alpha keys bitwise vs the T9a log including `EL_VA_COMPAT`; reviews by Codex
+  gpt-6.1-sol high and Fable 5.1 xhigh (`el_va_fixa_port_reviews_2026-10-30.md`).
 - Module layout (2026-10-30): the worker reductions use named slots (`C_*` core block, the
   campaign reduction; `T_*` temporal block on audit steps; `A_*` alpha block in mode alpha),
   all audit lines go through `EL_VA_LOG`, and the rate / sink / mode / label choices are small
