@@ -593,7 +593,7 @@ END SUBROUTINE get_global_domain_extents
                         el_prescribed_field, el_initial_field, el_shear_rate, &
                         el_prescribed_umax, el_domain_type, el_volume_averaged, &
                         el_va_source_time_scheme, &
-                        el_va_source_correctors, &
+                        el_va_source_correctors, el_va_compatibility, &
                         el_cylinder_center, el_cylinder_radius, &
                         el_cylinder_axis, &
                         el_apply_particle_forces, el_apply_fluid_feedback, &
@@ -804,6 +804,8 @@ END SUBROUTINE get_global_domain_extents
          READ(string(iEq+1:),*) el_va_source_time_scheme
        CASE ("ELVASourceCorrectors")
          READ(string(iEq+1:),*) el_va_source_correctors
+       CASE ("ELVACompatibility")
+         READ(string(iEq+1:),*) el_va_compatibility
        CASE ("ELCylinderCenter")
          READ(string(iEq+1:),*) el_cylinder_center
        CASE ("ELCylinderRadius")

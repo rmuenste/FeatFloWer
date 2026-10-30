@@ -82,6 +82,14 @@ MODULE EL_CONFIG
   !   problem for the residual and correct u and p again (Transport_Q2P1,
   !   EL_VA_Projection_Correctors). Each pass costs one pressure solve.
   INTEGER :: el_va_source_correctors = 0
+  ! SimPar@ELVACompatibility = uniform | alpha
+  !   How the volume integral of the raw source is removed so that the pressure problem is
+  !   compatible (closed/periodic boxes): 'uniform' (default) subtracts the volume mean
+  !   everywhere, 'alpha' subtracts int_g * alpha_p(e)/W (W = sum alpha_p|e|), i.e. the
+  !   compensating sink sits where the particles are (EL_VA_SINK; uniform fallback without
+  !   particles). 'alpha' closes the level-3 return-flow deficit of the VB twin (s04 RUNBOOK
+  !   section 10).
+  CHARACTER(LEN=32) :: el_va_compatibility = 'uniform'
   REAL*8 :: el_tavg_window = 0.5d0
   ! Mesoscale lane-mode filter for periodic settling boxes: each step,
   ! subtract from u_z its zero-mean x-binned and y-binned plane averages
@@ -109,6 +117,7 @@ CONTAINS
     CALL EL_LOWERCASE(el_domain_type)
     CALL EL_LOWERCASE(el_volume_averaged)
     CALL EL_LOWERCASE(el_va_source_time_scheme)
+    CALL EL_LOWERCASE(el_va_compatibility)
     CALL EL_LOWERCASE(el_cylinder_axis)
 
     SELECT CASE (TRIM(el_kernel))
@@ -262,9 +271,16 @@ CONTAINS
       WRITE(*,*) 'ELVASourceCorrectors must be in 0..20.'
       STOP 1
     END IF
+    SELECT CASE (TRIM(el_va_compatibility))
+    CASE ('uniform', 'alpha')
+    CASE DEFAULT
+      WRITE(*,'(A,A)') 'Invalid ELVACompatibility (uniform|alpha): ', TRIM(el_va_compatibility)
+      STOP 1
+    END SELECT
     IF (TRIM(el_volume_averaged).NE.'continuity' .AND. &
-        (TRIM(el_va_source_time_scheme).NE.'be' .OR. el_va_source_correctors.GT.0)) THEN
-      WRITE(*,*) 'ELVASourceTimeScheme / ELVASourceCorrectors need ELVolumeAveraged = continuity.'
+        (TRIM(el_va_source_time_scheme).NE.'be' .OR. el_va_source_correctors.GT.0 .OR. &
+         TRIM(el_va_compatibility).NE.'uniform')) THEN
+      WRITE(*,*) 'ELVASourceTimeScheme / ELVASourceCorrectors / ELVACompatibility need ELVolumeAveraged = continuity.'
       STOP 1
     END IF
 
@@ -309,6 +325,7 @@ CONTAINS
     WRITE(mfile,'(A,A)') 'EL volume averaged        = ', TRIM(el_volume_averaged)
     WRITE(mfile,'(A,A)') 'EL VA source time scheme  = ', TRIM(el_va_source_time_scheme)
     WRITE(mfile,'(A,I0)') 'EL VA source correctors   = ', el_va_source_correctors
+    WRITE(mfile,'(A,A)') 'EL VA compatibility       = ', TRIM(el_va_compatibility)
     WRITE(mfile,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
 
     IF (mterm.NE.mfile) THEN
@@ -342,6 +359,7 @@ CONTAINS
       WRITE(mterm,'(A,A)') 'EL volume averaged        = ', TRIM(el_volume_averaged)
       WRITE(mterm,'(A,A)') 'EL VA source time scheme  = ', TRIM(el_va_source_time_scheme)
       WRITE(mterm,'(A,I0)') 'EL VA source correctors   = ', el_va_source_correctors
+      WRITE(mterm,'(A,A)') 'EL VA compatibility       = ', TRIM(el_va_compatibility)
       WRITE(mterm,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
     END IF
 

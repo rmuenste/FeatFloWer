@@ -37,23 +37,63 @@ MODULE EL_VA_CONTINUITY
   ! extrapolated to t^{n+1}. The previous rate and its interval are kept in EL_FIELDS
   ! (deps_f_dt_prev, rate_dt_prev, saved at the history advance); BE whenever either rate
   ! is not a genuine backward difference (first step, restart without history).
+  !
+  ! Compatibility (SimPar@ELVACompatibility, EL_VA_SINK): the volume integral int_g of the raw
+  ! source is removed through a sink distribution s_e with sum_e s_e |e| = int_g,
+  !   'uniform'  s_e = gbar = int_g / V              (the campaign code, default)
+  !   'alpha'    s_e = int_g alpha_p(e) / W, W = sum alpha_p |e|   (sink where the particles are;
+  !              uniform fallback when W < 1e-30)
+  ! so that the moment of the compensating sink sits at the cloud instead of the box centre
+  ! (s04 RUNBOOK section 10: closes the level-3 return-flow deficit). A new mode needs a weight
+  ! in EL_VA_SINK, its accumulators in the element loop and an entry in EL_CONFIG.
+  !
   ! Source/projection correctors (SimPar@ELVASourceCorrectors) re-enter this routine with
   ! icorr = 1..n from EL_VA_Projection_Correctors (Transport_Q2P1); the routine itself is
   ! pass-agnostic, icorr only labels the log lines and int_g_out returns the volume integral
   ! of the raw source for the residual log.
+  !
+  ! Collectives: one Allreduce over the workers for the campaign block (core); the audit-only
+  ! and mode-specific blocks are reduced separately so that the collective pattern - and hence
+  ! the floating-point result - of the default configuration is unchanged by any switch.
 
   USE MPI
   USE PP3D_MPI, ONLY: myid, master, showid, MPI_COMM_SUBS
   USE TYPES, ONLY: tMultiMesh
   USE EL_CONFIG, ONLY: el_volume_averaged, el_momentum_audit_freq, &
-                       el_va_source_time_scheme, el_va_source_correctors
+                       el_va_source_time_scheme, el_va_source_correctors, el_va_compatibility
   USE EL_FIELDS, ONLY: el_field_data
+  USE EL_GEOMETRY, ONLY: EL_DOMAIN_Z_CENTER
 
   IMPLICIT NONE
 
   PRIVATE
   PUBLIC :: EL_ADD_CONTINUITY_SOURCE, EL_VOLUME_AVERAGED_ACTIVE
   PUBLIC :: EL_VA_LOG_CONSTRAINT_RESIDUAL, EL_VA_AUDIT_STEP
+
+  ! Slots of the worker reductions (EL_ADD_CONTINUITY_SOURCE).
+  ! core (every pass; this is the campaign reduction and must not change):
+  INTEGER, PARAMETER :: N_CORE = 8
+  INTEGER, PARAMETER :: C_INT_G = 1    ! sum g |e|                     raw source integral
+  INTEGER, PARAMETER :: C_VOL = 2      ! sum |e|                       V
+  INTEGER, PARAMETER :: C_L1_DEDT = 3  ! sum |d eps/dt / eps| |e|      L1 of the backward difference
+  INTEGER, PARAMETER :: C_L1_ADV = 4   ! sum |adv / eps| |e|           L1 of the advective term
+  INTEGER, PARAMETER :: C_M1RAW = 5    ! sum z_c g |e|                 first moment of the raw source
+  INTEGER, PARAMETER :: C_Q2 = 6       ! sum dt/2 d_cont^2 / eps |e|   O(dt) temporal defect (T4)
+  INTEGER, PARAMETER :: C_ADV_NET = 7  ! sum adv / eps |e|             net advective source
+  INTEGER, PARAMETER :: C_S2 = 8       ! sum alpha^2 / eps |e|         O(alpha^2) weight
+  ! temporal block (audit steps only):
+  INTEGER, PARAMETER :: N_TSRC = 2
+  INTEGER, PARAMETER :: T_DEDT_NET = 1 ! sum d_cont / eps |e|          signed temporal source
+  INTEGER, PARAMETER :: T_L1_DCONT = 2 ! sum |d_cont / eps| |e|
+  ! alpha-sink block (compatibility 'alpha' only):
+  INTEGER, PARAMETER :: N_ALPHA = 2
+  INTEGER, PARAMETER :: A_W = 1        ! sum alpha |e|                 W
+  INTEGER, PARAMETER :: A_ZW = 2       ! sum z_c alpha |e|             W z_alpha
+
+  ! compatibility modes (validated in EL_CONFIG)
+  INTEGER, PARAMETER :: SINK_UNIFORM = 0, SINK_ALPHA = 1
+
+  INTEGER, PARAMETER :: LOG_LEN = 320
 
 CONTAINS
 
@@ -94,6 +134,36 @@ CONTAINS
                                         - a*el_field_data%deps_f_dt_prev(iel)
   END FUNCTION EL_VA_CONTINUITY_RATE
 
+  ! Compatibility mode requested by the deck (the 'alpha' mode may still fall back to
+  ! uniform at run time when there are no particles, see EL_ADD_CONTINUITY_SOURCE).
+  INTEGER FUNCTION EL_VA_SINK_MODE()
+    EL_VA_SINK_MODE = SINK_UNIFORM
+    IF (TRIM(el_va_compatibility).EQ.'alpha') EL_VA_SINK_MODE = SINK_ALPHA
+  END FUNCTION EL_VA_SINK_MODE
+
+  ! Sink of element iel for the given mode: the amount removed from the raw source so that
+  ! the corrected source has zero volume integral. The expressions are kept verbatim from the
+  ! validated runs (uniform: campaign code; alpha: T9) - do not reorder the operations.
+  REAL*8 FUNCTION EL_VA_SINK(mode, gbar, int_g, alpha_e, w_alpha)
+    INTEGER, INTENT(IN) :: mode
+    REAL*8, INTENT(IN) :: gbar, int_g, alpha_e, w_alpha
+    SELECT CASE (mode)
+    CASE (SINK_ALPHA)
+      EL_VA_SINK = int_g*alpha_e/w_alpha
+    CASE DEFAULT
+      EL_VA_SINK = gbar
+    END SELECT
+  END FUNCTION EL_VA_SINK
+
+  ! One audit line to the protocol file and to the terminal (rank showid only).
+  SUBROUTINE EL_VA_LOG(mfile, line)
+    INTEGER, INTENT(IN) :: mfile
+    CHARACTER(LEN=*), INTENT(IN) :: line
+    IF (myid.NE.showid) RETURN
+    WRITE(mfile,'(A)') TRIM(line)
+    WRITE(*,'(A)') TRIM(line)
+  END SUBROUTINE EL_VA_LOG
+
   SUBROUTINE EL_ADD_CONTINUITY_SOURCE(defp, val_u, val_v, val_w, mesh, ilev, &
                                       dt, time, istep, mfile, icorr, int_g_out)
 
@@ -105,18 +175,18 @@ CONTAINS
     ! pass label: 0 predictor, 1..n corrector, -1 final (diagnostic) assembly; the label is
     ! only written to the log lines when correctors are enabled (default logs unchanged)
     INTEGER, INTENT(IN), OPTIONAL :: icorr
-    ! volume integral of the raw source g (before the mean removal)
+    ! volume integral of the raw source g (before the sink removal)
     REAL*8, INTENT(OUT), OPTIONAL :: int_g_out
 
-    INTEGER :: iel, nel, i, ig, ierr
+    INTEGER :: iel, nel, i, ig, ierr, mode
     REAL*8 :: u(3), eps, deps_dt, d_cont, adv, g, vol, zc, alpha, a_bdf2
+    REAL*8 :: core(N_CORE), core_g(N_CORE), tsrc(N_TSRC), tsrc_g(N_TSRC)
+    REAL*8 :: asum(N_ALPHA), asum_g(N_ALPHA)
+    REAL*8 :: gbar, vol_total, w_alpha, z_alpha, int_gc, int_gc_g
     LOGICAL :: use_bdf2, audit
-    ! local(1:8)/global(1:8): the campaign reduction (source, volume, L1 terms, T4 moments);
-    ! local(9:10): temporal part of the source (signed, L1), reduced on audit steps only so
-    ! that the collective pattern of the default scheme is unchanged
-    REAL*8 :: local(10), global(10), gbar, vol_total
     CHARACTER(LEN=16) :: corr_tag
-    REAL*8, ALLOCATABLE :: gk(:)
+    CHARACTER(LEN=LOG_LEN) :: line
+    REAL*8, ALLOCATABLE :: gk(:), ak(:)
 
     IF (PRESENT(int_g_out)) int_g_out = 0.0d0
     IF (myid.EQ.master) RETURN
@@ -128,8 +198,7 @@ CONTAINS
     IF (SIZE(el_field_data%deps_f_dt).LT.nel) RETURN
     IF (SIZE(defp).LT.4*nel) RETURN
 
-    ALLOCATE(gk(nel))
-    local = 0.0d0
+    mode = EL_VA_SINK_MODE()
     use_bdf2 = EL_VA_USE_BDF2()
     a_bdf2 = 0.0d0
     IF (use_bdf2) a_bdf2 = EL_VA_BDF2_WEIGHT()
@@ -137,6 +206,13 @@ CONTAINS
     corr_tag = ''
     IF (PRESENT(icorr) .AND. el_va_source_correctors.GT.0) WRITE(corr_tag,'(A,I0)') ' corr= ', icorr
 
+    ALLOCATE(gk(nel))
+    IF (mode.EQ.SINK_ALPHA) ALLOCATE(ak(nel))
+    core = 0.0d0
+    tsrc = 0.0d0
+    asum = 0.0d0
+
+    ! ---- raw source per element and the local sums --------------------------------------
     DO iel = 1, nel
       u = 0.0d0
       zc = 0.0d0
@@ -157,72 +233,97 @@ CONTAINS
       g = -(d_cont + adv)/eps
       gk(iel) = g
       vol = mesh%level(ilev)%dvol(iel)
-      local(1) = local(1) + g*vol
-      local(2) = local(2) + vol
-      local(3) = local(3) + ABS(deps_dt/eps)*vol
-      local(4) = local(4) + ABS(adv/eps)*vol
-      ! T4 diagnostics (SPEC 04 section 12.4): first moment of the raw source, the O(dt)
-      ! backward-difference term, the net advection source and the O(alpha^2) weight
       alpha = 1.0d0 - eps
       IF (ALLOCATED(el_field_data%alpha_p)) THEN
         IF (SIZE(el_field_data%alpha_p).GE.nel) alpha = el_field_data%alpha_p(iel)
       END IF
-      local(5) = local(5) + zc*g*vol
-      local(6) = local(6) + 0.5d0*dt*d_cont*d_cont/eps*vol
-      local(7) = local(7) + adv/eps*vol
-      local(8) = local(8) + alpha*alpha/eps*vol
-      ! temporal part of the source (signed and L1), scheme-dependent (EL_VA_TSRC)
-      local(9) = local(9) + d_cont/eps*vol
-      local(10) = local(10) + ABS(d_cont/eps)*vol
+      core(C_INT_G) = core(C_INT_G) + g*vol
+      core(C_VOL) = core(C_VOL) + vol
+      core(C_L1_DEDT) = core(C_L1_DEDT) + ABS(deps_dt/eps)*vol
+      core(C_L1_ADV) = core(C_L1_ADV) + ABS(adv/eps)*vol
+      core(C_M1RAW) = core(C_M1RAW) + zc*g*vol
+      core(C_Q2) = core(C_Q2) + 0.5d0*dt*d_cont*d_cont/eps*vol
+      core(C_ADV_NET) = core(C_ADV_NET) + adv/eps*vol
+      core(C_S2) = core(C_S2) + alpha*alpha/eps*vol
+      tsrc(T_DEDT_NET) = tsrc(T_DEDT_NET) + d_cont/eps*vol
+      tsrc(T_L1_DCONT) = tsrc(T_L1_DCONT) + ABS(d_cont/eps)*vol
+      IF (mode.EQ.SINK_ALPHA) THEN
+        ak(iel) = alpha
+        asum(A_W) = asum(A_W) + alpha*vol
+        asum(A_ZW) = asum(A_ZW) + zc*alpha*vol
+      END IF
     END DO
 
-    CALL MPI_Allreduce(local(1:8), global(1:8), 8, MPI_DOUBLE_PRECISION, MPI_SUM, &
+    ! ---- worker reductions ----------------------------------------------------------------
+    CALL MPI_Allreduce(core, core_g, N_CORE, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
+    tsrc_g = 0.0d0
+    IF (audit) CALL MPI_Allreduce(tsrc, tsrc_g, N_TSRC, MPI_DOUBLE_PRECISION, MPI_SUM, &
       MPI_COMM_SUBS, ierr)
-    global(9:10) = 0.0d0
-    IF (audit) CALL MPI_Allreduce(local(9:10), global(9:10), 2, MPI_DOUBLE_PRECISION, &
+    asum_g = 0.0d0
+    IF (mode.EQ.SINK_ALPHA) CALL MPI_Allreduce(asum, asum_g, N_ALPHA, MPI_DOUBLE_PRECISION, &
       MPI_SUM, MPI_COMM_SUBS, ierr)
-    vol_total = MAX(global(2), 1.0d-300)
-    gbar = global(1)/vol_total
-    IF (PRESENT(int_g_out)) int_g_out = global(1)
 
+    vol_total = MAX(core_g(C_VOL), 1.0d-300)
+    gbar = core_g(C_INT_G)/vol_total
+    IF (PRESENT(int_g_out)) int_g_out = core_g(C_INT_G)
+    w_alpha = asum_g(A_W)
+    z_alpha = 0.0d0
+    IF (mode.EQ.SINK_ALPHA) THEN
+      IF (w_alpha.LT.1.0d-30) THEN
+        mode = SINK_UNIFORM             ! no particles: nothing to weight with
+      ELSE
+        z_alpha = asum_g(A_ZW)/w_alpha
+      END IF
+    END IF
+
+    ! ---- corrected source into the constant P1 dof -----------------------------------------
+    int_gc = 0.0d0
     DO iel = 1, nel
       vol = mesh%level(ilev)%dvol(iel)
-      defp(4*(iel-1)+1) = defp(4*(iel-1)+1) + (gk(iel)-gbar)*vol/dt
+      alpha = 0.0d0
+      IF (ALLOCATED(ak)) alpha = ak(iel)
+      g = gk(iel) - EL_VA_SINK(mode, gbar, core_g(C_INT_G), alpha, w_alpha)
+      defp(4*(iel-1)+1) = defp(4*(iel-1)+1) + g*vol/dt
+      int_gc = int_gc + g*vol
     END DO
 
-    IF (audit .AND. myid.EQ.showid) THEN
-      WRITE(mfile,'(A,ES14.6,A,I0,A,ES13.6,A,ES13.6,A,ES13.6,A,ES13.6,A)') &
+    ! ---- audit lines ------------------------------------------------------------------------
+    IF (audit) THEN
+      WRITE(line,'(A,ES14.6,A,I0,A,ES13.6,A,ES13.6,A,ES13.6,A,ES13.6,A)') &
         'EL_VA_SOURCE t= ', time, ' step= ', istep, &
-        ' int_g= ', global(1), ' gbar= ', gbar, &
-        ' L1_dedt= ', global(3), ' L1_adv= ', global(4), TRIM(corr_tag)
-      WRITE(*,'(A,ES14.6,A,I0,A,ES13.6,A,ES13.6,A,ES13.6,A,ES13.6,A)') &
-        'EL_VA_SOURCE t= ', time, ' step= ', istep, &
-        ' int_g= ', global(1), ' gbar= ', gbar, &
-        ' L1_dedt= ', global(3), ' L1_adv= ', global(4), TRIM(corr_tag)
-      WRITE(mfile,'(A,ES14.6,A,I0,A,ES14.7,A,ES13.6,A,ES13.6,A,ES13.6,A)') &
+        ' int_g= ', core_g(C_INT_G), ' gbar= ', gbar, &
+        ' L1_dedt= ', core_g(C_L1_DEDT), ' L1_adv= ', core_g(C_L1_ADV), TRIM(corr_tag)
+      CALL EL_VA_LOG(mfile, line)
+      WRITE(line,'(A,ES14.6,A,I0,A,ES14.7,A,ES13.6,A,ES13.6,A,ES13.6,A)') &
         'EL_VA_MOMENT t= ', time, ' step= ', istep, &
-        ' M1raw= ', global(5), ' Q2= ', global(6), &
-        ' adv_net= ', global(7), ' S2= ', global(8), TRIM(corr_tag)
-      WRITE(*,'(A,ES14.6,A,I0,A,ES14.7,A,ES13.6,A,ES13.6,A,ES13.6,A)') &
-        'EL_VA_MOMENT t= ', time, ' step= ', istep, &
-        ' M1raw= ', global(5), ' Q2= ', global(6), &
-        ' adv_net= ', global(7), ' S2= ', global(8), TRIM(corr_tag)
-      WRITE(mfile,'(A,ES14.6,A,I0,A,ES13.6,A,ES13.6,A,A,A)') &
+        ' M1raw= ', core_g(C_M1RAW), ' Q2= ', core_g(C_Q2), &
+        ' adv_net= ', core_g(C_ADV_NET), ' S2= ', core_g(C_S2), TRIM(corr_tag)
+      CALL EL_VA_LOG(mfile, line)
+      WRITE(line,'(A,ES14.6,A,I0,A,ES13.6,A,ES13.6,A,A,A)') &
         'EL_VA_TSRC t= ', time, ' step= ', istep, &
-        ' dedt_net= ', global(9), ' L1_dcont= ', global(10), &
+        ' dedt_net= ', tsrc_g(T_DEDT_NET), ' L1_dcont= ', tsrc_g(T_L1_DCONT), &
         ' scheme= ', TRIM(MERGE('BDF2', 'BE  ', use_bdf2)), TRIM(corr_tag)
-      WRITE(*,'(A,ES14.6,A,I0,A,ES13.6,A,ES13.6,A,A,A)') &
-        'EL_VA_TSRC t= ', time, ' step= ', istep, &
-        ' dedt_net= ', global(9), ' L1_dcont= ', global(10), &
-        ' scheme= ', TRIM(MERGE('BDF2', 'BE  ', use_bdf2)), TRIM(corr_tag)
+      CALL EL_VA_LOG(mfile, line)
+      IF (EL_VA_SINK_MODE().EQ.SINK_ALPHA) THEN
+        ! the integral of the corrected source is a roundoff check (about 1e-20), one more
+        ! reduction, in this mode and on audit steps only
+        CALL MPI_Allreduce(int_gc, int_gc_g, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
+        WRITE(line,'(A,ES14.6,A,I0,A,ES13.6,A,ES13.6,A,ES13.6,A,ES13.6,A,ES13.6,A,A,A)') &
+          'EL_VA_COMPAT t= ', time, ' step= ', istep, &
+          ' int_g_raw= ', core_g(C_INT_G), ' int_g_corr= ', int_gc_g, ' W= ', w_alpha, &
+          ' z_alpha= ', z_alpha, ' mshift= ', (z_alpha-EL_DOMAIN_Z_CENTER())*core_g(C_INT_G), &
+          ' mode= ', TRIM(MERGE('alpha  ', 'uniform', mode.EQ.SINK_ALPHA)), TRIM(corr_tag)
+        CALL EL_VA_LOG(mfile, line)
+      END IF
     END IF
 
     DEALLOCATE(gk)
+    IF (ALLOCATED(ak)) DEALLOCATE(ak)
 
   END SUBROUTINE EL_ADD_CONTINUITY_SOURCE
 
   ! Constraint residual of the assembled pressure right-hand side (constant P1 dof of every
-  ! element, scaled by dt): r_e = dt*defp_e = integral_e div u dV + (g_e - gbar)|e| in m^3/s.
+  ! element, scaled by dt): r_e = dt*defp_e = integral_e div u dV + (g_e - s_e)|e| in m^3/s.
   ! Written as EL_VA_RESIDUAL on the audit steps only (two Allreduces over the workers).
   SUBROUTINE EL_VA_LOG_CONSTRAINT_RESIDUAL(defp, nel, dt, time, istep, icorr, int_g, mfile)
 
@@ -232,6 +333,7 @@ CONTAINS
 
     INTEGER :: iel, ierr
     REAL*8 :: r, l1_local, l1_global, mx_local, mx_global
+    CHARACTER(LEN=LOG_LEN) :: line
 
     IF (myid.EQ.master) RETURN
     IF (.NOT.EL_VA_AUDIT_STEP(istep)) RETURN
@@ -250,14 +352,10 @@ CONTAINS
       MPI_COMM_SUBS, ierr)
     CALL MPI_Allreduce(mx_local, mx_global, 1, MPI_DOUBLE_PRECISION, MPI_MAX, &
       MPI_COMM_SUBS, ierr)
-    IF (myid.EQ.showid) THEN
-      WRITE(mfile,'(A,ES14.6,A,I0,A,I0,A,ES13.6,A,ES13.6,A,ES13.6)') &
-        'EL_VA_RESIDUAL t= ', time, ' step= ', istep, ' corr= ', icorr, &
-        ' L1= ', l1_global, ' max= ', mx_global, ' int_g= ', int_g
-      WRITE(*,'(A,ES14.6,A,I0,A,I0,A,ES13.6,A,ES13.6,A,ES13.6)') &
-        'EL_VA_RESIDUAL t= ', time, ' step= ', istep, ' corr= ', icorr, &
-        ' L1= ', l1_global, ' max= ', mx_global, ' int_g= ', int_g
-    END IF
+    WRITE(line,'(A,ES14.6,A,I0,A,I0,A,ES13.6,A,ES13.6,A,ES13.6)') &
+      'EL_VA_RESIDUAL t= ', time, ' step= ', istep, ' corr= ', icorr, &
+      ' L1= ', l1_global, ' max= ', mx_global, ' int_g= ', int_g
+    CALL EL_VA_LOG(mfile, line)
 
   END SUBROUTINE EL_VA_LOG_CONSTRAINT_RESIDUAL
 

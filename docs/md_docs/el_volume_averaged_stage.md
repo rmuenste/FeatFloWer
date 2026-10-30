@@ -332,6 +332,7 @@ defaulting to the backward-Euler campaign code (bitwise, see gates):
 ```
 SimPar@ELVASourceTimeScheme = BE        # BE (default) | BDF2
 SimPar@ELVASourceCorrectors = 0         # 0 (default) .. 20 source/projection corrector passes
+SimPar@ELVACompatibility   = uniform   # uniform (default) | alpha   (added 2026-10-30, fix A)
 ```
 
 - `BDF2`: the rate in g = −(∂ε/∂t + u·∇ε)/ε becomes (1+a) (∂ε/∂t)^{n+1} − a (∂ε/∂t)^n with
@@ -359,6 +360,18 @@ SimPar@ELVASourceCorrectors = 0         # 0 (default) .. 20 source/projection co
   direct coarse solver (`Pres@MGCrsSolverType` 2, 4 or 9) is rejected with a message, because
   `MG_Solver` frees the coarse factorization after every pressure solve in that mode (all EL
   decks use `C1`).
+- `ELVACompatibility = alpha` (fix A, s04 RUNBOOK §10, ported 2026-10-30): the volume integral of
+  the raw source is removed through a sink distribution instead of the uniform mean,
+  s_e = int_g α_p(e)/W with W = Σ α_p|e|, so the compensating sink sits where the particles are
+  (uniform fallback without particles). One function, `EL_VA_SINK`, defines the modes; the
+  weight reduction and the `EL_VA_COMPAT` audit line (int_g raw and corrected, W, z_α, moment
+  shift (z_α − z_centre) int_g, mode) exist only in this mode. Closes the level-3 deficit of the
+  VB twin: G5 0.9926 → 1.0021 (T9b), 1.0039 → 1.0055 at level 2 (T9a). Sample deck
+  `q2p1_param_VB_bdf2_alpha.dat`.
+- Module layout (2026-10-30): the worker reductions use named slots (`C_*` core block, the
+  campaign reduction; `T_*` temporal block on audit steps; `A_*` alpha block in mode alpha),
+  all audit lines go through `EL_VA_LOG`, and the rate / sink / mode choices are small
+  functions, so a new time scheme or sink mode is one function case plus a config entry.
 - Logs (audit steps, `ELMomentumAuditFreq`): `EL_VA_TSRC` (signed temporal integral,
   its L1, scheme label) always, its two sums reduced in a separate Allreduce on audit steps
   so that the campaign's 8-entry reduction is untouched; with correctors on, `EL_VA_SOURCE/MOMENT/TSRC` carry a
