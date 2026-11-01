@@ -456,3 +456,11 @@ list - a plain ninja after the pin bump fails on the removed files): tier-2 twin
 VB_L2 defaults job 155658 bitwise vs the T4 log with `EL_VA_*` bytes identical to §9 round 3 (box walls
 on, "six fixed planes" line present), T9a alpha keys job 155659 bitwise vs the T9a log (G5 1.0055).
 The pe branch is to be pushed by the owner and merged as a PR; the pin then moves to the merge commit.
+
+### 11.2 pe pin 11c6142 → df8c8a6 (pe master, PR #55 merged 2026-11-01), jobs 156017-156019
+
+PR #55 (CI: cgal, clang-serial, gcc-serial, mpi all pass) merged as df8c8a6; its tree is identical to
+11c6142, so the regenerated build left the binary untouched (same inode, mtime 2026-10-30 21:46:25).
+Gates for the record under the new pin: tier-2 twin 156017 bitwise, VB_L2 defaults 156018 bitwise vs the
+T4 log with `EL_VA_*` bytes identical to §9 round 3, T9a alpha keys 156019 bitwise vs the T9a log
+(G5 1.0055). The VA worktree now follows pe master; the EL box walls are upstream.
