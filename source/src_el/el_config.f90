@@ -22,10 +22,13 @@ MODULE EL_CONFIG
   REAL*8 :: el_inertial_lift_umax = 0.0d0
   REAL*8 :: el_cylinder_center(3) = (/0.0d0,0.0d0,0.0d0/)
   REAL*8 :: el_cylinder_radius = -1.0d0
-  ! ELApplyParticleForces: advance the particles with the hydrodynamic forces
-  ! (No = frozen particles, forces still evaluated and fed back when
-  ! ELApplyFluidFeedback = Yes; with semi-implicit drag the fluid split keeps
-  ! +B u_f on the explicit side so that the frozen bed feels the drag once).
+  ! ELApplyParticleForces: hand the evaluated hydrodynamic forces to PE (No =
+  ! the forces are still evaluated and, with ELApplyFluidFeedback = Yes, fed
+  ! back to the fluid, but PE advances the particles without them: a particle
+  ! at rest without contacts stays at rest, a moving one keeps its velocity;
+  ! a bed is held still by its PE configuration, not by this key. With
+  ! semi-implicit drag the fluid split keeps +B u_f on the explicit side so
+  ! that such a bed feels the drag once).
   LOGICAL :: el_apply_particle_forces = .TRUE.
   LOGICAL :: el_apply_fluid_feedback = .FALSE.
   ! EL_WALL_STRESS diagnostic (Couette wall force balance): fluid wall shear
@@ -47,9 +50,10 @@ MODULE EL_CONFIG
   ! finding 2026-10-15). With it the cell-averaged fluid pressure force is
   ! -eps grad p, i.e. the Model-A form. Fed back in both transfer passes (the
   ! pre-advance deposit is the one the fluid receives; until 2026-11-04 the
-  ! pre-advance rebuild with particles advanced dropped it, P5). Default No
-  ! keeps every certified log bitwise; the pressure-force rungs are to be
-  ! re-run with Yes.
+  ! pre-advance rebuild with particles advanced dropped it, P5). Needs
+  ! ELPressureForce = Yes and ELApplyFluidFeedback = Yes (refused otherwise).
+  ! Default No keeps every existing numerical output bitwise; the
+  ! pressure-force rungs are to be re-run with Yes.
   LOGICAL :: el_pressure_feedback = .FALSE.
   LOGICAL :: el_magnus = .FALSE.
   LOGICAL :: el_write_diagnostics = .TRUE.
@@ -157,6 +161,17 @@ CONTAINS
 
     IF (el_drag_semi_implicit .AND. .NOT.el_apply_fluid_feedback) THEN
       WRITE(*,*) 'ELDragCoupling=semi_implicit requires ELApplyFluidFeedback=Yes.'
+      STOP 1
+    END IF
+    IF (el_pressure_feedback .AND. .NOT.(el_apply_fluid_feedback .AND. el_pressure_force)) THEN
+      WRITE(*,*) 'ELPressureFeedback=Yes requires ELApplyFluidFeedback=Yes and ELPressureForce=Yes.'
+      STOP 1
+    END IF
+    IF (el_momentum_fix .AND. el_drag_semi_implicit) THEN
+      ! EL_FLUID_PAIR counts the captured explicit source only; the drag operator
+      ! acting through the matrix would be read as a mismatch and compensated.
+      WRITE(*,*) 'ELMomentumFix=Yes is not supported with ELDragCoupling=semi_implicit', &
+                 ' (the momentum audit does not include the implicit drag operator).'
       STOP 1
     END IF
 

@@ -24,7 +24,7 @@ MODULE EL_TRANSFER
   USE EL_CONFIG, ONLY: el_eps_f_min, el_eps_f_relax, &
                        el_apply_particle_forces, el_apply_fluid_feedback, &
                        el_write_diagnostics, el_momentum_audit_freq, &
-                       el_drag_semi_implicit, el_pressure_feedback
+                       el_drag_semi_implicit, el_pressure_feedback, el_prescribed_field
   USE EL_FORCES, ONLY: tElForceResult, EL_COMPUTE_PARTICLE_FORCES, &
                        EL_SEMI_IMPLICIT_DRAG_IMPULSE, EL_PARTICLE_VOLUME
   USE EL_FIELDS, ONLY: el_field_data, EL_ENSURE_FIELDS, EL_BEGIN_FIELD_UPDATE, &
@@ -106,7 +106,7 @@ CONTAINS
     REAL*8 :: expected_volume
 #ifdef HAVE_PE
     REAL*8 :: f_other(3)
-    REAL*8 :: f_explicit(3)
+    REAL*8 :: feedback_nondrag(3)
 #endif
     TYPE(tElForceResult) :: force_result
     REAL*8 :: local_deposited, global_deposited, local_expected, global_expected
@@ -131,6 +131,7 @@ CONTAINS
     INTEGER :: clipped_local, clipped_global
     LOGICAL :: advance_history
     CHARACTER(LEN=16) :: coupling_mode
+    CHARACTER(LEN=3) :: applied_tag
 
     IF (myid.EQ.master) RETURN
 
@@ -229,11 +230,13 @@ CONTAINS
       ! finalised feedback_used is deposited after the PE-arming block.
       drag_force_eff = 0.0d0
       feedback_used = force_result%feedback_force
-      ! Semi-implicit drag without the particle advance (frozen particles,
-      ! ELApplyParticleForces = No): the fluid matrix still carries +B u^{n+1}
-      ! (QuadSc_def, drag_B_source), so the explicit side must carry +B u_f to
-      ! complete the split -B(u^{n+1} - u_p) = -B u^{n+1} + B u_p. Without this
-      ! term the fluid saw -B(2 u_f - u_p), twice the drag of a frozen bed (P4).
+      ! Semi-implicit drag without the hydrodynamic particle advance
+      ! (ELApplyParticleForces = No; the particles keep whatever motion PE
+      ! gives them without these forces): the fluid matrix still carries the
+      ! theta-weighted B u^{n+1} (QuadSc_def, drag_B_source), so the explicit
+      ! side must carry +B u_f to complete the split -B(u^{n+1} - u_p) =
+      ! -B u^{n+1} + B u_p around the sampled u_f. Without this term the fluid
+      ! saw -B(2 u_f - u_p), twice the drag of a bed at rest (P4).
       ! EL_DEPOSIT_PARTICLE subtracts feedback_used, hence the minus sign.
       IF (el_drag_semi_implicit .AND. advance_history .AND. &
           .NOT.el_apply_particle_forces) THEN
@@ -268,23 +271,27 @@ CONTAINS
               owned_particles(i)%density
         CALL EL_SEMI_IMPLICIT_DRAG_IMPULSE(owned_particles(i)%velocity, m_p, &
           force_result%drag_B, force_result%u_f, f_other, dt, n_sub, drag_force_eff)
-        ! The rebuilt feedback keeps every explicit reaction that feedback_force
-        ! carries besides the drag: lift, and the pressure reaction under
-        ! ELPressureFeedback (P5: this pass is the only one whose deposit reaches
-        ! the fluid, and it used to drop the pressure term while the post-advance
-        ! log line kept it).
-        f_explicit = force_result%lift
-        IF (el_pressure_feedback) f_explicit = f_explicit + force_result%pressure
+        ! The rebuilt feedback keeps every non-drag reaction that feedback_force
+        ! carries: lift, and the pressure reaction under ELPressureFeedback (P5:
+        ! this pass is the only one whose deposit reaches the fluid, and it used
+        ! to drop the pressure term while the post-advance log line kept it).
+        ! The pressure stays in f_other on the PE side (it shapes the implicit
+        ! particle velocity there) and enters the fluid once, here.
+        feedback_nondrag = force_result%lift
+        IF (el_pressure_feedback) feedback_nondrag = feedback_nondrag + force_result%pressure
         IF (el_drag_semi_implicit) THEN
-          ! Fluid semi-implicit split around PE's actual sub-cycled drag impulse:
-          !   target fluid force = -drag_force_eff - f_explicit
-          !   target = (B*u_f - drag_force_eff - f_explicit) - B*u_new
-          ! EL_DEPOSIT_PARTICLE subtracts feedback_used, so pass
-          !   feedback_used = drag_force_eff + f_explicit - B*u_f.
-          feedback_used = drag_force_eff + f_explicit - &
+          ! Fluid semi-implicit split, linearised around the sampled carrier
+          ! velocity u_f: the matrix carries the theta-weighted B u^{n+1}
+          ! (QuadSc_def, drag_B_source) and the old-velocity part, so the
+          ! explicit deposit must be the drag impulse PE applies plus the
+          ! non-drag reactions minus B u_f; the remaining B (u_new - u_f) is the
+          ! implicit correction of the split. EL_DEPOSIT_PARTICLE subtracts
+          ! feedback_used, so pass
+          !   feedback_used = drag_force_eff + feedback_nondrag - B*u_f.
+          feedback_used = drag_force_eff + feedback_nondrag - &
             force_result%drag_B*force_result%u_f
         ELSE
-          feedback_used = drag_force_eff + f_explicit
+          feedback_used = drag_force_eff + feedback_nondrag
         END IF
         hydro_active = 1
         CALL set_el_hydro_state_c(owned_particles(i)%bytes, &
@@ -425,20 +432,28 @@ CONTAINS
         ' total_records= ', global_records, ' max_records= ', max_records
     END IF
 
-    ! Pre-advance pass: what the fluid momentum equation actually receives this
-    ! step (EL_CAPTURE_FLUID_FEEDBACK_SOURCE copies this pass's force_rhs). The
-    ! post-advance EL_FEEDBACK_CONSERVATION line below reports the explicit
-    ! diagnostic deposit, which differs from this under semi-implicit drag and
-    ! under ELPressureFeedback with particles advanced (issue-D rebuild).
+    ! Pre-advance pass: the explicit source captured for the fluid momentum
+    ! equation this step (EL_CAPTURE_FLUID_FEEDBACK_SOURCE copies the force_rhs of this pass, its
+    ! force_rhs). 'applied' says whether the fluid solve consumes it (fluid
+    ! feedback on and no prescribed field). Under semi-implicit drag this is
+    ! the explicit part only; the theta-weighted B u^{n+1} and old-velocity
+    ! parts act through the matrix (QuadSc_def). The post-advance
+    ! EL_FEEDBACK_CONSERVATION line below is a deposition residual of the
+    ! diagnostic pass, not the applied reaction: it differs from this line
+    ! under semi-implicit drag and after the particle advance.
     IF (myid.EQ.showid .AND. el_write_diagnostics .AND. istep.LT.0 .AND. &
         el_momentum_audit_freq.GT.0) THEN
       IF (MOD(ABS(istep), el_momentum_audit_freq).EQ.0) THEN
+        applied_tag = 'no '
+        IF (el_apply_fluid_feedback .AND. TRIM(el_prescribed_field).EQ.'none') applied_tag = 'yes'
         WRITE(*,'(A,I0,A,3ES14.6,A,3ES14.6)') &
-          'EL_FLUID_SOURCE step= ', ABS(istep), ' mode= '//TRIM(coupling_mode)// &
-          ' rhs= ', global_rhs, ' feedback= ', global_feedback
+          'EL_FLUID_SOURCE phase= pre step= ', ABS(istep), ' mode= '//TRIM(coupling_mode)// &
+          ' applied= '//TRIM(applied_tag)//' rhs_explicit= ', global_rhs, &
+          ' feedback_explicit= ', global_feedback
         WRITE(mfile,'(A,I0,A,3ES14.6,A,3ES14.6)') &
-          'EL_FLUID_SOURCE step= ', ABS(istep), ' mode= '//TRIM(coupling_mode)// &
-          ' rhs= ', global_rhs, ' feedback= ', global_feedback
+          'EL_FLUID_SOURCE phase= pre step= ', ABS(istep), ' mode= '//TRIM(coupling_mode)// &
+          ' applied= '//TRIM(applied_tag)//' rhs_explicit= ', global_rhs, &
+          ' feedback_explicit= ', global_feedback
       END IF
     END IF
 
