@@ -433,8 +433,8 @@ CONTAINS
     END IF
 
     ! Pre-advance pass: the explicit source captured for the fluid momentum
-    ! equation this step (EL_CAPTURE_FLUID_FEEDBACK_SOURCE copies the force_rhs of this pass, its
-    ! force_rhs). 'applied' says whether the fluid solve consumes it (fluid
+    ! equation this step (EL_CAPTURE_FLUID_FEEDBACK_SOURCE copies the force_rhs
+    ! deposited by this pass). 'applied' says whether the fluid solve consumes it (fluid
     ! feedback on and no prescribed field). Under semi-implicit drag this is
     ! the explicit part only; the theta-weighted B u^{n+1} and old-velocity
     ! parts act through the matrix (QuadSc_def). The post-advance
