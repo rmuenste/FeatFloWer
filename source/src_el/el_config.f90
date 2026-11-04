@@ -22,6 +22,10 @@ MODULE EL_CONFIG
   REAL*8 :: el_inertial_lift_umax = 0.0d0
   REAL*8 :: el_cylinder_center(3) = (/0.0d0,0.0d0,0.0d0/)
   REAL*8 :: el_cylinder_radius = -1.0d0
+  ! ELApplyParticleForces: advance the particles with the hydrodynamic forces
+  ! (No = frozen particles, forces still evaluated and fed back when
+  ! ELApplyFluidFeedback = Yes; with semi-implicit drag the fluid split keeps
+  ! +B u_f on the explicit side so that the frozen bed feels the drag once).
   LOGICAL :: el_apply_particle_forces = .TRUE.
   LOGICAL :: el_apply_fluid_feedback = .FALSE.
   ! EL_WALL_STRESS diagnostic (Couette wall force balance): fluid wall shear
@@ -41,8 +45,11 @@ MODULE EL_CONFIG
   ! suspension-weight share of grad p but the fluid keeps its full -grad p
   ! over the particle volume: an O(phi) momentum imbalance (liggghts-public
   ! finding 2026-10-15). With it the cell-averaged fluid pressure force is
-  ! -eps grad p, i.e. the Model-A form. Default No keeps every certified
-  ! log bitwise; the pressure-force rungs are to be re-run with Yes.
+  ! -eps grad p, i.e. the Model-A form. Fed back in both transfer passes (the
+  ! pre-advance deposit is the one the fluid receives; until 2026-11-04 the
+  ! pre-advance rebuild with particles advanced dropped it, P5). Default No
+  ! keeps every certified log bitwise; the pressure-force rungs are to be
+  ! re-run with Yes.
   LOGICAL :: el_pressure_feedback = .FALSE.
   LOGICAL :: el_magnus = .FALSE.
   LOGICAL :: el_write_diagnostics = .TRUE.
