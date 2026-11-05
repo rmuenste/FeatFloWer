@@ -26,7 +26,8 @@ MODULE EL_TRANSFER
                        el_write_diagnostics, el_momentum_audit_freq, &
                        el_drag_semi_implicit, el_pressure_feedback, el_prescribed_field, &
                        EL_VA_CONSERVATIVE_FORM
-  USE EL_VA_FLUX, ONLY: EL_VA_RECONSTRUCT_EPS_LOCAL, EL_VA_EMBED_Q1_IN_Q2
+  USE EL_VA_FLUX, ONLY: EL_VA_RECONSTRUCT_EPS_LOCAL, EL_VA_EMBED_Q1_IN_Q2, &
+                        EL_VA_CHECK_DOF_LAYOUT
   USE EL_FORCES, ONLY: tElForceResult, EL_COMPUTE_PARTICLE_FORCES, &
                        EL_SEMI_IMPLICIT_DRAG_IMPULSE, EL_PARTICLE_VOLUME
   USE EL_FIELDS, ONLY: el_field_data, EL_ENSURE_FIELDS, EL_BEGIN_FIELD_UPDATE, &
@@ -63,6 +64,10 @@ MODULE EL_TRANSFER
     END SUBROUTINE set_el_hydro_state_c
   END INTERFACE
 #endif
+
+  ! Q2 dof layout of the EL coupling level verified for the flux kernel (once per run; the
+  ! mesh does not change during an EL run)
+  LOGICAL, SAVE :: layout_verified = .FALSE.
 
 CONTAINS
 
@@ -106,6 +111,7 @@ CONTAINS
     REAL*8, ALLOCATABLE :: local_samples(:,:), owned_samples(:,:)
     REAL*8, ALLOCATABLE :: owned_result(:,:), record_result(:,:)
     REAL*8, ALLOCATABLE :: eps_num(:), eps_den(:)
+    INTEGER :: layout_bad, layout_bad_global
     REAL*8 :: expected_volume
 #ifdef HAVE_PE
     REAL*8 :: f_other(3)
@@ -357,11 +363,25 @@ CONTAINS
     ! Transport porosity of the conservative continuity form: the volume-weighted vertex
     ! mean of the finalised epsilon_f, summed across ranks (E013Sum2 on Q2-sized arrays whose
     ! non-vertex entries are zero; the global level pinned as for E013Sum3 above), then the
-    ! trilinear embedding. Deck-only guard: every worker takes the collective, with or
-    ! without particles. The pre-advance pass rebuilds it too (eps^n, overwritten by the
-    ! post-advance pass before the fluid step reads it).
-    IF (EL_VA_CONSERVATIVE_FORM()) THEN
+    ! trilinear embedding. Guard on the deck and the pass label, both uniform: every worker
+    ! takes the collective, with or without particles; only the post-advance pass builds it
+    ! (eps^{n+1}, the field the fluid step reads; a pre-advance build would be overwritten).
+    ! The first build verifies the Q2 dof layout the flux kernel assumes, rank-uniformly.
+    IF (EL_VA_CONSERVATIVE_FORM() .AND. .NOT.advance_history) THEN
       CALL EL_ENSURE_TRANSPORT_EPS(ndof)
+      IF (.NOT.layout_verified) THEN
+        layout_bad = EL_VA_CHECK_DOF_LAYOUT(mesh, ilev, mesh%level(ilev)%dcorvg)
+        CALL MPI_Allreduce(layout_bad, layout_bad_global, 1, MPI_INTEGER, MPI_MAX, &
+                           MPI_COMM_SUBS, ierr)
+        IF (layout_bad_global.GT.0) THEN
+          IF (myid.EQ.showid) THEN
+            WRITE(*,'(A)') 'Fatal: the Q2 dof layout differs from the FEAT numbering assumed by EL_VA_FLUX (see the pairing printed by the affected rank).'
+            WRITE(mfile,'(A)') 'Fatal: the Q2 dof layout differs from the FEAT numbering assumed by EL_VA_FLUX.'
+          END IF
+          CALL MPI_Abort(MPI_COMM_SUBS, 907, ierr)
+        END IF
+        layout_verified = .TRUE.
+      END IF
       ALLOCATE(eps_num(ndof), eps_den(ndof))
       CALL EL_VA_RECONSTRUCT_EPS_LOCAL(mesh, ilev, el_field_data%epsilon_f, eps_num, eps_den)
       saved_mg_ilev = el_mg_ilev

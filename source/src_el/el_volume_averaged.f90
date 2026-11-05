@@ -57,7 +57,8 @@ MODULE EL_VA_CONTINUITY
   ! pass-agnostic, icorr only labels the log lines and int_g_out returns the volume integral
   ! of the raw source for the residual log.
   !
-  ! Continuity form (SimPar@ELVAContinuityForm, EL_VA_FORM): the third, orthogonal axis.
+  ! Continuity form (SimPar@ELVAContinuityForm, EL_VA_FORM_ID of EL_CONFIG): the third,
+  ! orthogonal axis.
   !   'advective'    the per-element loop above (campaign code, kept verbatim).
   !   'conservative' div(eps u) = -d eps/dt in the weak form of all four P1 test functions
   !                  q_1 = 1, q_m = x_m - xc_m, with the shared face fluxes of the continuous
@@ -74,7 +75,9 @@ MODULE EL_VA_CONTINUITY
   !                  F_m = -d_cont Q_m - delta_m1 eps_e |e| s_e, and summing row 1 gives
   !                  sum_e eps_e |e| s_e = -(S + Phi) with S = sum_e d_cont |e| (storage rate)
   !                  and Phi the boundary flux: the sink vanishes exactly when storage and
-  !                  boundary flux are compatible (closed box, no clipping). The audit lines
+  !                  boundary flux are compatible (closed box, no clipping, no relaxation).
+  !                  The sink stays on the constant row only (an algebraic compatibility
+  !                  correction, not the four-row weak form of a spatial sink). The audit lines
   !                  EL_VA_FLUX / EL_VA_FLUXMOM report S, Phi, the eps-weighted sink integral,
   !                  the unsinked residual norms, the coordinate-moment identities
   !                  sum_e [xc_m F_1 + F_1+m] + int eps_h u_m = 0 (closed box) and both the
@@ -94,9 +97,9 @@ MODULE EL_VA_CONTINUITY
   USE TYPES, ONLY: tMultiMesh
   USE EL_CONFIG, ONLY: el_volume_averaged, el_momentum_audit_freq, &
                        el_va_source_time_scheme, el_va_source_correctors, el_va_compatibility, &
-                       el_va_compat_names, el_va_continuity_form, el_va_form_names
+                       el_va_compat_names, EL_VA_FORM_ID
   USE EL_FIELDS, ONLY: el_field_data
-  USE EL_VA_FLUX, ONLY: EL_VA_FLUX_MOMENTS
+  USE EL_VA_FLUX, ONLY: EL_VA_FLUX_MOMENTS, EL_VA_CONSERVATIVE_ROWS
   USE EL_GEOMETRY, ONLY: EL_DOMAIN_Z_CENTER
 
   IMPLICIT NONE
@@ -136,7 +139,7 @@ MODULE EL_VA_CONTINUITY
   INTEGER, PARAMETER :: F_ID_Z = 7
   INTEGER, PARAMETER :: F_EPSU_Z = 8   ! sum int_e eps_h u_z          reconstructed-eps flow
   INTEGER, PARAMETER :: F_P0U_Z = 9    ! sum eps_e int_e u_z          P0-eps flow (EL_MEAN_SLIP)
-  INTEGER, PARAMETER :: F_M1RATE = 10  ! sum z_c d_cont |e|           storage first-moment rate
+  INTEGER, PARAMETER :: F_M1RATE = 10  ! sum d_cont (xc_z |e| + Q_z)  storage first-moment rate
   INTEGER, PARAMETER :: F_VGEOM = 11   ! sum |e|_geom                 quadrature volume
   INTEGER, PARAMETER :: F_RES1_SQ = 12 ! sum r_1^2
   INTEGER, PARAMETER :: F_L1_F = 13    ! sum |F_1|
@@ -146,10 +149,11 @@ MODULE EL_VA_CONTINUITY
   ! Sink modes: id = index into el_va_compat_names (EL_CONFIG; deck value = audit label, the
   ! deck is validated against the same table); EL_VA_SINK_WEIGHT gives the per-element weight.
   INTEGER, PARAMETER :: SINK_UNIFORM = 0, SINK_ALPHA = 1
-  ! Continuity forms: id = index into el_va_form_names (EL_CONFIG).
+  ! Continuity forms: id = index into el_va_form_names (EL_CONFIG, EL_VA_FORM_ID).
   INTEGER, PARAMETER :: FORM_ADVECTIVE = 0, FORM_CONSERVATIVE = 1
 
-  ! longest audit line: EL_VA_COMPAT with ' corr= -1', about 190 characters
+  ! longest audit line: EL_VA_FLUXMOM with ' corr= -1', about 275 characters (an internal
+  ! WRITE past LOG_LEN is a runtime error, not a silent truncation)
   INTEGER, PARAMETER :: LOG_LEN = 320
 
 CONTAINS
@@ -200,15 +204,6 @@ CONTAINS
       IF (TRIM(el_va_compatibility).EQ.TRIM(el_va_compat_names(m))) EL_VA_SINK_MODE = m
     END DO
   END FUNCTION EL_VA_SINK_MODE
-
-  ! Continuity form requested by the deck (validated against el_va_form_names).
-  INTEGER FUNCTION EL_VA_FORM()
-    INTEGER :: m
-    EL_VA_FORM = FORM_ADVECTIVE
-    DO m = 0, UBOUND(el_va_form_names,1)
-      IF (TRIM(el_va_continuity_form).EQ.TRIM(el_va_form_names(m))) EL_VA_FORM = m
-    END DO
-  END FUNCTION EL_VA_FORM
 
   ! A weighted mode without weight (W < 1e-30: no particles) is uniform. W is the reduced
   ! total, identical on every worker, so the fallback is taken by all workers alike and never
@@ -290,6 +285,11 @@ CONTAINS
 
     IF (PRESENT(int_g_out)) int_g_out = 0.0d0
     IF (myid.EQ.master) RETURN
+    ! The conservative form validates the readiness of every worker collectively before the
+    ! rank-local returns below (inherited from the campaign code, uniform in practice), so
+    ! that an unready worker stops the run coherently instead of leaving a collective.
+    conservative = (EL_VA_FORM_ID().EQ.FORM_CONSERVATIVE)
+    IF (conservative) CALL EL_VA_CONSERVATIVE_READINESS(defp, mesh, ilev, dt, mfile)
     IF (.NOT.EL_VOLUME_AVERAGED_ACTIVE()) RETURN
     IF (dt.LE.0.0d0) RETURN
 
@@ -301,7 +301,6 @@ CONTAINS
     requested_mode = EL_VA_SINK_MODE()
     effective_mode = requested_mode
     weighted = (requested_mode.NE.SINK_UNIFORM)
-    conservative = (EL_VA_FORM().EQ.FORM_CONSERVATIVE)
     use_bdf2 = EL_VA_USE_BDF2()
     a_bdf2 = 0.0d0
     IF (use_bdf2) a_bdf2 = EL_VA_BDF2_WEIGHT()
@@ -324,6 +323,7 @@ CONTAINS
         use_bdf2, a_bdf2, requested_mode, weighted, gk, wk, epsk, res, core, tsrc, wsum, &
         fsum, fmax)
     ELSE
+    ! campaign loop, verbatim; indentation kept so that the diff against the parent is empty
     DO iel = 1, nel
       u = 0.0d0
       zc = 0.0d0
@@ -410,6 +410,7 @@ CONTAINS
         sink_eps = sink_eps + epsk(iel)*s_e*vol
       END DO
     ELSE
+    ! campaign update, verbatim; indentation kept so that the diff against the parent is empty
     DO iel = 1, nel
       vol = mesh%level(ilev)%dvol(iel)
       w_e = 0.0d0
@@ -424,8 +425,9 @@ CONTAINS
     int_gc_g = 0.0d0
     IF (audit .AND. weighted) CALL MPI_Allreduce(int_gc, int_gc_g, 1, MPI_DOUBLE_PRECISION, &
       MPI_SUM, MPI_COMM_SUBS, ierr)
-    ! eps-weighted sink integral sum eps_e s_e |e| (must vanish at the conservative fixed
-    ! point); the last collective of this routine
+    ! eps-weighted sink integral sum eps_e s_e |e| (= -(S + Phi) at the conservative fixed
+    ! point: zero for compatible storage, nonzero under clipping or relaxation); the last
+    ! collective of this routine
     sink_eps_g = 0.0d0
     IF (conservative .AND. audit) CALL MPI_Allreduce(sink_eps, sink_eps_g, 1, &
       MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
@@ -487,10 +489,46 @@ CONTAINS
 
   END SUBROUTINE EL_ADD_CONTINUITY_SOURCE
 
+  ! Readiness of a worker for the conservative form, reduced over the workers: the EL fields,
+  ! the transport porosity, the rate array, defp and dt as the evaluation needs them. A
+  ! worker without elements is ready (contributes zero). On any unready worker every worker
+  ! stops the run (message on showid). Collective; called by every worker on every pass.
+  SUBROUTINE EL_VA_CONSERVATIVE_READINESS(defp, mesh, ilev, dt, mfile)
+
+    REAL*8, INTENT(IN) :: defp(:)
+    TYPE(tMultiMesh), INTENT(IN) :: mesh
+    INTEGER, INTENT(IN) :: ilev, mfile
+    REAL*8, INTENT(IN) :: dt
+
+    INTEGER :: nel, ndof, ierr
+    LOGICAL :: ready, all_ready
+
+    nel = mesh%level(ilev)%nel
+    ndof = mesh%level(ilev)%nvt + mesh%level(ilev)%net + mesh%level(ilev)%nat + nel
+    ready = EL_VOLUME_AVERAGED_ACTIVE() .AND. dt.GT.0.0d0 .AND. &
+            ALLOCATED(el_field_data%epsilon_transport_q2)
+    IF (ready) ready = SIZE(el_field_data%epsilon_transport_q2).GE.ndof .AND. &
+                       SIZE(el_field_data%deps_f_dt).GE.nel .AND. &
+                       SIZE(el_field_data%epsilon_f).GE.nel .AND. SIZE(defp).GE.4*nel .AND. &
+                       SIZE(mesh%level(ilev)%dcorvg,2).GE.ndof
+    CALL MPI_Allreduce(ready, all_ready, 1, MPI_LOGICAL, MPI_LAND, MPI_COMM_SUBS, ierr)
+    IF (.NOT.all_ready) THEN
+      IF (myid.EQ.showid) THEN
+        WRITE(*,'(A)') 'Fatal: a worker is not ready for ELVAContinuityForm = conservative (EL fields, transport porosity, rate or pressure arrays missing or undersized).'
+        WRITE(mfile,'(A)') 'Fatal: a worker is not ready for ELVAContinuityForm = conservative.'
+      END IF
+      CALL MPI_Abort(MPI_COMM_SUBS, 908, ierr)
+    END IF
+
+  END SUBROUTINE EL_VA_CONSERVATIVE_READINESS
+
   ! Raw source of the conservative form (module header): the flux moments of the current
   ! velocity, the unsinked residual r_m and the row-1 source gV_1 = D_1 - r_1/eps_e per
-  ! element; fills the same campaign slots as the advective loop (gk = gV_1/|e|, adv from it),
-  ! the sink weights and the flux block. Local sums only, no collective, no early return.
+  ! element (EL_VA_CONSERVATIVE_ROWS); fills the same campaign slots as the advective loop
+  ! (gk = gV_1/|e|, adv from it), the sink weights and the flux block. Two element centres are
+  ! used on purpose: zc, the vertex mean of the campaign slots (M1raw, weights), and xc, the
+  ! centre node of the P1 basis of B, for the moments and identities; they coincide on the
+  ! straight-edged EL meshes. Local sums only, no collective, no early return.
   SUBROUTINE EL_VA_CONSERVATIVE_RAW_SOURCE(defp, val_u, val_v, val_w, mesh, ilev, dt, &
       use_bdf2, a_bdf2, requested_mode, weighted, gk, wk, epsk, res, core, tsrc, wsum, &
       fsum, fmax)
@@ -504,7 +542,7 @@ CONTAINS
     REAL*8, ALLOCATABLE, INTENT(INOUT) :: wk(:)
     REAL*8, INTENT(INOUT) :: core(N_CORE), tsrc(N_TSRC), wsum(N_WSUM), fsum(N_FLUX), fmax
 
-    INTEGER :: iel, nel, i, ig, m, ioff
+    INTEGER :: iel, nel, i, ig, m, ioff, ierr
     REAL*8 :: eps, deps_dt, d_cont, adv, g, gv, vol, vgeom, zc, alpha, h_e
     REAL*8 :: xc(3), q(4), d(4), r(4)
     REAL*8, ALLOCATABLE :: flux(:,:), eps_u(:,:), vol_u(:,:), geom(:,:), div_u(:)
@@ -513,7 +551,10 @@ CONTAINS
     ioff = mesh%level(ilev)%nvt + mesh%level(ilev)%net + mesh%level(ilev)%nat
     ALLOCATE(flux(4,nel), eps_u(3,nel), vol_u(3,nel), geom(0:3,nel), div_u(nel))
     CALL EL_VA_FLUX_MOMENTS(mesh, ilev, mesh%level(ilev)%dcorvg, &
-      el_field_data%epsilon_transport_q2, val_u, val_v, val_w, flux, eps_u, vol_u, geom, div_u)
+      el_field_data%epsilon_transport_q2, val_u, val_v, val_w, flux, eps_u, vol_u, geom, &
+      div_u, ierr)
+    ! unreachable after EL_VA_CONSERVATIVE_READINESS; a programming error, stop the job
+    IF (ierr.NE.0) CALL MPI_Abort(MPI_COMM_SUBS, 909, ierr)
 
     DO iel = 1, nel
       zc = 0.0d0
@@ -534,10 +575,9 @@ CONTAINS
       q(2:4) = vol*geom(1:3,iel)/vgeom
       DO m = 1, 4
         d(m) = -dt*defp(4*(iel-1)+m)
-        r(m) = flux(m,iel) + d_cont*q(m)
       END DO
+      CALL EL_VA_CONSERVATIVE_ROWS(flux(:,iel), d_cont, q, d, eps, r, gv)
       res(:,iel) = r
-      gv = d(1) - r(1)/eps
       g = gv/vol
       gk(iel) = g
       adv = -(eps*gv + d_cont*vol)/vol
@@ -572,7 +612,7 @@ CONTAINS
       END DO
       fsum(F_EPSU_Z) = fsum(F_EPSU_Z) + eps_u(3,iel)
       fsum(F_P0U_Z) = fsum(F_P0U_Z) + el_field_data%epsilon_f(iel)*vol_u(3,iel)
-      fsum(F_M1RATE) = fsum(F_M1RATE) + zc*d_cont*vol
+      fsum(F_M1RATE) = fsum(F_M1RATE) + d_cont*(xc(3)*vol + q(4))
       fsum(F_VGEOM) = fsum(F_VGEOM) + vgeom
       fsum(F_L1_F) = fsum(F_L1_F) + ABS(flux(1,iel))
       fsum(F_L1_EPSD) = fsum(F_L1_EPSD) + ABS(eps*d(1))

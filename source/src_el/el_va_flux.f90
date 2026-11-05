@@ -37,7 +37,13 @@ MODULE EL_VA_FLUX
   ! The module is MPI-free and holds no mesh state: the reference tables depend on nothing but
   ! the element type and are built once (EL_VA_FLUX_TABLES); the per-element kernel
   ! EL_VA_ELEMENT_FLUX_MOMENTS takes plain arrays (nodal coordinates, porosity, velocity) and
-  ! is unit-tested on the synthetic mesh of el_test_helpers (test_el_va_flux).
+  ! is unit-tested on the synthetic mesh of el_test_helpers (test_el_va_flux). Errors are
+  ! returned to the caller (nbad, ierr), which decides on a rank-uniform stop.
+  !
+  ! Geometry restriction: the EL meshes are straight-edged (trilinear) hexes, as the kernel
+  ! deposition (EL_Q1_MAP) already assumes; EL_VA_CHECK_DOF_LAYOUT relies on it (every edge,
+  ! face and centre node at the mean of its vertices) and would report a curved Q2 mesh as a
+  ! layout mismatch.
   !
   ! Local Q2 dof numbering (FEAT E013): 1-8 vertices, 9-20 edges, 21-26 faces, 27 centre, in
   ! the order of kvert / kedge / karea / element; global index of local l:
@@ -52,7 +58,7 @@ MODULE EL_VA_FLUX
   PUBLIC :: EL_VA_RECONSTRUCT_EPS_LOCAL, EL_VA_EMBED_Q1_IN_Q2
   PUBLIC :: EL_VA_FLUX_MOMENTS, EL_VA_ELEMENT_FLUX_MOMENTS, EL_VA_ELEMENT_FACE_FLUX
   PUBLIC :: EL_VA_ELEMENT_DOFS, EL_VA_Q2_BASIS, EL_VA_FLUX_TABLES, tElVaFluxTables
-  PUBLIC :: EL_VA_CHECK_DOF_LAYOUT
+  PUBLIC :: EL_VA_CHECK_DOF_LAYOUT, EL_VA_CONSERVATIVE_ROWS
   PUBLIC :: NQ2, NFACE, NGPF, NGPV
 
   INTEGER, PARAMETER :: NQ2 = 27      ! Q2 dofs per element
@@ -99,22 +105,22 @@ MODULE EL_VA_FLUX
   END TYPE tElVaFluxTables
 
   TYPE(tElVaFluxTables), SAVE :: tables
-  LOGICAL, SAVE :: layout_checked = .FALSE.
 
 CONTAINS
 
-  ! One-time self-check of the dof layout assumed by EL_VA_ELEMENT_DOFS against the
-  ! coordinates: every edge, face and centre dof must sit at the mean of its defining
-  ! vertices (true for the straight-edged meshes of the EL cases). On a mismatch the real
-  ! pairing of the first offending element is printed and the run stops: the flux kernel
-  ! would otherwise gather the wrong nodes silently.
-  SUBROUTINE EL_VA_CHECK_DOF_LAYOUT(mesh, ilev, coor)
+  ! Self-check of the dof layout assumed by EL_VA_ELEMENT_DOFS against the coordinates:
+  ! every edge, face and centre dof must sit at the mean of its defining vertices
+  ! (straight-edged hexes). Returns the number of offending dofs of the first offending
+  ! element (0 = consistent) and prints the real pairing of that element; the caller
+  ! (EL_TRANSFER, once per mesh, rank-uniform via a reduction) stops the run, because the
+  ! flux kernel would otherwise gather the wrong nodes silently.
+  INTEGER FUNCTION EL_VA_CHECK_DOF_LAYOUT(mesh, ilev, coor) RESULT(nbad)
 
     TYPE(tMultiMesh), INTENT(IN) :: mesh
     INTEGER, INTENT(IN) :: ilev
     REAL*8, INTENT(IN) :: coor(:,:)
 
-    INTEGER :: iel, l, dofs(NQ2), nbad, a, b, c
+    INTEGER :: iel, l, dofs(NQ2), a, b, c
     REAL*8 :: v(3,8), mid(3), h, tol
 
     nbad = 0
@@ -148,7 +154,7 @@ CONTAINS
           CALL find_face(coor(:,dofs(20+l)), v, tol, c)
           WRITE(*,'(A,I0,A,I0,A,I0)') '  face ', l, ': assumed ', l, ' found ', c
         END DO
-        ERROR STOP 'EL_VA_FLUX: Q2 dof layout differs from the assumed FEAT numbering.'
+        RETURN
       END IF
     END DO
 
@@ -181,7 +187,24 @@ CONTAINS
       END DO
     END SUBROUTINE find_face
 
-  END SUBROUTINE EL_VA_CHECK_DOF_LAYOUT
+  END FUNCTION EL_VA_CHECK_DOF_LAYOUT
+
+  ! Row algebra of the conservative constraint for one element (design note): with the flux
+  ! moments F_m of the current velocity, the storage rate d_cont, the storage moments Q_m, the
+  ! assembled divergence moments D_m and the preconditioning coefficient eps_e,
+  !   r_m  = F_m + d_cont Q_m          unsinked residual
+  !   gV_1 = D_1 - r_1/eps_e           volume integral of the row-1 source (sink bookkeeping)
+  ! and the projection right-hand side is -r_m/(eps_e dt) (row 1 minus the sink), applied by
+  ! the caller. At the fixed point r_m = 0 (compatible storage), i.e. gV_1 = D_1.
+  PURE SUBROUTINE EL_VA_CONSERVATIVE_ROWS(flux, d_cont, q, d, eps, r, gv1)
+
+    REAL*8, INTENT(IN) :: flux(4), d_cont, q(4), d(4), eps
+    REAL*8, INTENT(OUT) :: r(4), gv1
+
+    r = flux + d_cont*q
+    gv1 = d(1) - r(1)/eps
+
+  END SUBROUTINE EL_VA_CONSERVATIVE_ROWS
 
   ! ---- Q2 Lagrange basis on [-1,1]^3 in the FEAT E013 local numbering ---------------------
   ! val(l) and dref(:,l) = d val(l) / d xi. Tensor products of the 1D quadratic Lagrange
@@ -394,8 +417,9 @@ CONTAINS
 
   ! Driver over the local elements. coor(3,:) must hold the coordinates of every Q2 dof
   ! (dcorvg of the EL coupling level, or the BUILD_DOF_COORDINATES array of the tests).
+  ! ierr = 1 when an input array is shorter than the Q2 dof count (nothing evaluated).
   SUBROUTINE EL_VA_FLUX_MOMENTS(mesh, ilev, coor, eps_q2, val_u, val_v, val_w, &
-                                flux_moments, eps_velocity, velocity, geom_moments, div_u)
+                                flux_moments, eps_velocity, velocity, geom_moments, div_u, ierr)
 
     TYPE(tMultiMesh), INTENT(IN) :: mesh
     INTEGER, INTENT(IN) :: ilev
@@ -405,21 +429,20 @@ CONTAINS
     REAL*8, INTENT(OUT) :: velocity(:,:)        ! (3,nel)
     REAL*8, INTENT(OUT) :: geom_moments(0:,:)   ! (0:3,nel)
     REAL*8, INTENT(OUT) :: div_u(:)             ! (nel)
+    INTEGER, INTENT(OUT) :: ierr
 
     INTEGER :: iel, l, dofs(NQ2), ndof
     REAL*8 :: x(3,NQ2), eps(NQ2), u(3,NQ2)
 
     IF (.NOT.tables%ready) CALL EL_VA_FLUX_TABLES(tables)
 
+    ierr = 0
     ndof = mesh%level(ilev)%nvt + mesh%level(ilev)%net + mesh%level(ilev)%nat + &
            mesh%level(ilev)%nel
     IF (SIZE(coor,2).LT.ndof .OR. SIZE(eps_q2).LT.ndof .OR. SIZE(val_u).LT.ndof .OR. &
         SIZE(val_v).LT.ndof .OR. SIZE(val_w).LT.ndof) THEN
-      ERROR STOP 'EL_VA_FLUX_MOMENTS: coordinate, porosity or velocity array shorter than the Q2 dof count.'
-    END IF
-    IF (.NOT.layout_checked) THEN
-      CALL EL_VA_CHECK_DOF_LAYOUT(mesh, ilev, coor)
-      layout_checked = .TRUE.
+      ierr = 1
+      RETURN
     END IF
 
     DO iel = 1, mesh%level(ilev)%nel

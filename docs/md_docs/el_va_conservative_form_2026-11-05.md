@@ -69,10 +69,11 @@ eps_e |e| s_e`, and summing row 1 gives `sum_e eps_e |e| s_e = -(S + Phi)` with
 the audit "advective" term becomes `adv = -(eps_e gV_1 + d_cont |e|)/|e|`.
 
 **What the identity controls.** With all four rows the fixed point gives
-`int eps_h u_z dV = sum_e zc d_cont |e| + sum_e d_cont Q_z` (the storage first-moment rate; the
-second sum vanishes on bricks). That is the reconstructed-eps integral, not the P0-weighted
-integral of `EL_MEAN_SLIP`; both are logged (`uf_eps_z`, `uf_p0_z`) and only like quantities are
-compared.
+`int eps_h u_z dV = sum_e d_cont (xc_z |e| + Q_z)` (the storage first-moment rate `m1rate`; the
+`Q_z` part vanishes on bricks). That is the reconstructed-eps integral, not the P0-weighted
+integral of `EL_MEAN_SLIP`; both are logged (`uf_eps_z`; `uf_p0_z` = P0 eps times the Q2-rule
+velocity integral of the same loop, which is close to but not the `EL_MEAN_SLIP` quadrature) and
+only like quantities are compared.
 
 ## Code
 
@@ -83,17 +84,20 @@ compared.
 | `source/src_el/el_fields.f90` | `epsilon_transport_q2`, `EL_ENSURE_TRANSPORT_EPS` (separate from the size-gated `EL_ENSURE_FIELDS`), release |
 | `source/src_el/el_transfer.f90` | reconstruction after the void-fraction finalisation, deck-only guard, `E013Sum2` under the pinned level |
 | `source/src_el/el_config.f90` | key `SimPar@ELVAContinuityForm = advective | conservative`, validation (table; needs `continuity`; `conservative` needs `ELVASourceCorrectors >= 1` and `ELMesoFilter = No`), echo, `EL_VA_CONSERVATIVE_FORM()` |
-| `applications/q2p1_el_pipeflow/app_init.f90` | parser case |
-| `source/src_quadLS/QuadSc_el_va.f90` | communication-scheme guard (`E013Sum2` exists for `iCommSwitch` 3 and 4) |
+| `applications/q2p1_el_pipeflow/app_init.f90` | parser case (same file as the guard above) |
+| `applications/q2p1_el_pipeflow/app_init.f90` | communication-scheme guard at startup after `EL_VALIDATE_CONFIG` (`E013Sum2` exists for `iCommSwitch` 3 and 4), before the first transfer pass |
 | `source/src_el/tests/test_el_va_flux.f90` | unit test (below); CMake target `test_el_va_flux`, ctest `el-va-flux-serial` |
 | `tools/el_stream_compare.py` | tags `EL_VA_FLUX t=`, `EL_VA_FLUXMOM` |
 | sample deck | `validation_cases/s04_voidfraction_cfdem_twin/q2p1_param_VB_bdf2_alpha_cons.dat` |
 
-Collectives under the form, all keyed on deck values and the step number: the reconstruction
-sum in the transfer pass (every worker, with or without particles), the flux block and its max on
-audit steps after the campaign/temporal/weight reductions, the eps-weighted sink integral on
-audit steps. The default path has no new statement in its arithmetic or its collective pattern
-(gates below).
+Collectives under the form, all keyed on deck values and the pass/step labels: the readiness
+reduction at the top of every source evaluation (`EL_VA_CONSERVATIVE_READINESS`: the inherited
+rank-local early returns are validated collectively first, an unready worker stops the run
+coherently), the layout-check reduction and the reconstruction sum in the post-advance transfer
+pass (every worker, with or without particles; the pre-advance pass does not rebuild the field
+nobody reads), the flux block and its max on audit steps after the campaign/temporal/weight
+reductions, the eps-weighted sink integral on audit steps. The default path has no new statement
+in its arithmetic or its collective pattern (gates below).
 
 Audit lines (audit steps, with the `corr=` tag): `EL_VA_FLUX S= Phi= sink_eps= res1_L1= res1_L2=
 res1_max= resL_L1=` (storage rate, boundary flux, `sum eps_e s_e |e|`, unsinked row-1 residual
@@ -117,6 +121,25 @@ unchanged and is the sinked projection residual; it does not certify conservatio
    interior; across a jump every nodal value stays within the element range.
 
 All pass (2026-11-05). `test_el_kernel_forces` and `test_el_transfer` unchanged and passing.
+
+## Reviews (`el_va_conservative_form_reviews_2026-11-05.md`, brief and answers verbatim)
+
+Codex gpt-6-astra high and Claude Fable 5.1 xhigh on dc2221e0. Both: no blocker, the legacy
+loop and the legacy `defp` block byte-identical to the parent, the algebra, sign chain, kernel
+tables, signed normal, weights and reconstruction verified by reading. Applied in the fix commit:
+collective readiness validation under the conservative key (Codex 1, Fable 2); the
+communication-scheme guard moved to startup (Codex 2, Fable 1); `m1rate` completed with the
+linear-row storage term `d_cont Q_z` (Codex 3); the layout check made a function returning the
+mismatch count, run once in the first post-advance transfer pass with a rank-uniform stop, its
+trilinear restriction documented, no hidden module state (Codex 4, Fable 3); the pre-advance
+reconstruction skipped (both); one table-driven form lookup `EL_VA_FORM_ID` in `EL_CONFIG`
+(Fable 10); the row algebra factored into the pure `EL_VA_CONSERVATIVE_ROWS` with a balanced and
+an incompatible-storage test, plus a negative layout test (Fable 8); comment and wording fixes
+(sink integral `= -(S + Phi)`, constant-row-only sink as a choice, two centres, log length,
+verbatim-block markers, `uf_p0_z` wording). Deferred, recorded as follow-ups: deduplicating the
+fifteen campaign-slot statements (needs its own bitwise gate), a curved-Q2 shared-face test, a
+real-partition `E013Sum2` test with a particle-free worker, face-trace restriction to the nine
+on-face nodes (performance), tolerance-based stopping.
 
 ## Runs
 

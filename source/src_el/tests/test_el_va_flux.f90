@@ -8,13 +8,16 @@ PROGRAM TEST_EL_VA_FLUX
   !   4 telescoping and the three coordinate-moment identities (brick and warped mesh)
   !   5 constant eps and linear velocity: F_1 = eps |e|_geom div u exactly
   !   6 reconstruction: constant and linear fields reproduced, bounds across a jump
+  !   7 dof-layout check: consistent mesh passes, a swapped edge pair is reported
+  !   8 row algebra: compatible flux gives zero residual, incompatible storage is exposed
 
   USE MPI
   USE TYPES, ONLY: tMultiMesh
   USE EL_VA_FLUX, ONLY: EL_VA_Q2_BASIS, EL_VA_FLUX_TABLES, tElVaFluxTables, &
                         EL_VA_ELEMENT_DOFS, EL_VA_ELEMENT_FACE_FLUX, &
                         EL_VA_ELEMENT_FLUX_MOMENTS, EL_VA_FLUX_MOMENTS, &
-                        EL_VA_RECONSTRUCT_EPS_LOCAL, EL_VA_EMBED_Q1_IN_Q2, NQ2
+                        EL_VA_RECONSTRUCT_EPS_LOCAL, EL_VA_EMBED_Q1_IN_Q2, NQ2, &
+                        EL_VA_CHECK_DOF_LAYOUT, EL_VA_CONSERVATIVE_ROWS
   USE EL_TEST_HELPERS, ONLY: EL_TEST_INIT, EL_TEST_CHECK, EL_TEST_REPORT, &
                              EL_TEST_RELEASE_MESH, BUILD_STRUCTURED_MESH, &
                              BUILD_DOF_COORDINATES, nel, nvt, net, nat
@@ -40,6 +43,8 @@ PROGRAM TEST_EL_VA_FLUX
   CALL test_telescoping_and_identities(failures, .TRUE.)
   CALL test_constant_eps_linear_velocity(failures)
   CALL test_reconstruction(failures)
+  CALL test_layout_check(failures)
+  CALL test_conservative_rows(failures)
 
   CALL EL_TEST_REPORT(failures, rank, nproc, 'EL VA flux')
   CALL MPI_Finalize(ierr)
@@ -321,7 +326,7 @@ CONTAINS
     TYPE(tMultiMesh) :: mesh
     REAL*8, ALLOCATABLE :: coor(:,:), eps(:), u(:), v(:), w(:)
     REAL*8, ALLOCATABLE :: flux(:,:), eps_u(:,:), vol_u(:,:), geom(:,:), div_u(:)
-    INTEGER :: ndof, iel, m, ioff
+    INTEGER :: ndof, iel, m, ioff, ierr
     REAL*8 :: phi, scale, ident(3), iscale(3), xc(3)
     CHARACTER(LEN=8) :: tag
 
@@ -332,7 +337,7 @@ CONTAINS
     ALLOCATE(flux(4,nel), eps_u(3,nel), vol_u(3,nel), geom(0:3,nel), div_u(nel))
     CALL random_eps(ndof, eps)
     CALL wall_tangent_velocity(coor, u, v, w)
-    CALL EL_VA_FLUX_MOMENTS(mesh, 1, coor, eps, u, v, w, flux, eps_u, vol_u, geom, div_u)
+    CALL EL_VA_FLUX_MOMENTS(mesh, 1, coor, eps, u, v, w, flux, eps_u, vol_u, geom, div_u, ierr)
 
     ioff = nvt + net + nat
     phi = 0.0d0
@@ -369,7 +374,7 @@ CONTAINS
     TYPE(tMultiMesh) :: mesh
     REAL*8, ALLOCATABLE :: coor(:,:), eps(:), u(:), v(:), w(:)
     REAL*8, ALLOCATABLE :: flux(:,:), eps_u(:,:), vol_u(:,:), geom(:,:), div_u(:)
-    INTEGER :: ndof, i, iel
+    INTEGER :: ndof, i, iel, ierr
     REAL*8 :: err, tra
     REAL*8, PARAMETER :: a(3,3) = RESHAPE((/ 0.3d0, -0.2d0, 0.5d0, 0.1d0, 0.8d0, -0.4d0, &
                                              -0.6d0, 0.25d0, -0.35d0 /), (/3,3/))
@@ -384,7 +389,7 @@ CONTAINS
       v(i) = DOT_PRODUCT(a(2,:), coor(:,i)) + b(2)
       w(i) = DOT_PRODUCT(a(3,:), coor(:,i)) + b(3)
     END DO
-    CALL EL_VA_FLUX_MOMENTS(mesh, 1, coor, eps, u, v, w, flux, eps_u, vol_u, geom, div_u)
+    CALL EL_VA_FLUX_MOMENTS(mesh, 1, coor, eps, u, v, w, flux, eps_u, vol_u, geom, div_u, ierr)
     tra = a(1,1) + a(2,2) + a(3,3)
     err = 0.0d0
     DO iel = 1, nel
@@ -464,5 +469,53 @@ CONTAINS
     DEALLOCATE(coor)
 
   END SUBROUTINE test_reconstruction
+
+  ! 7. The layout self-check: the consistent helper mesh passes; swapping the two edges of
+  !    one element (the midpoint coordinates no longer match) is reported.
+  SUBROUTINE test_layout_check(nf)
+
+    INTEGER, INTENT(INOUT) :: nf
+
+    TYPE(tMultiMesh) :: mesh
+    REAL*8, ALLOCATABLE :: coor(:,:)
+    INTEGER :: ndof, nbad, k
+
+    CALL setup_mesh(2, .TRUE., mesh, coor, ndof)
+    nbad = EL_VA_CHECK_DOF_LAYOUT(mesh, 1, coor)
+    CALL EL_TEST_CHECK(nbad.EQ.0, 'layout check: consistent mesh passes', nf, rank)
+    k = mesh%level(1)%kedge(1,3)
+    mesh%level(1)%kedge(1,3) = mesh%level(1)%kedge(2,3)
+    mesh%level(1)%kedge(2,3) = k
+    WRITE(*,'(A)') '  (the next layout report is expected)'
+    nbad = EL_VA_CHECK_DOF_LAYOUT(mesh, 1, coor)
+    CALL EL_TEST_CHECK(nbad.EQ.2, 'layout check: swapped edge pair reported', nf, rank)
+    CALL EL_TEST_RELEASE_MESH(mesh)
+    DEALLOCATE(coor)
+
+  END SUBROUTINE test_layout_check
+
+  ! 8. Row algebra: a flux that balances the storage (F = -d_cont Q) gives r = 0 and
+  !    gV_1 = D_1; an incompatible storage rate shows up in r_1 and is not absorbed.
+  SUBROUTINE test_conservative_rows(nf)
+
+    INTEGER, INTENT(INOUT) :: nf
+
+    REAL*8 :: flux(4), q(4), d(4), r(4), gv1, d_cont, eps
+    REAL*8, PARAMETER :: tol = 1.0d-15
+
+    q = (/ 2.0d-3, 1.0d-5, -3.0d-5, 2.0d-5 /)
+    d = (/ -7.0d-7, 1.0d-8, 2.0d-8, -4.0d-8 /)
+    d_cont = 3.5d-4
+    eps = 0.93d0
+    flux = -d_cont*q
+    CALL EL_VA_CONSERVATIVE_ROWS(flux, d_cont, q, d, eps, r, gv1)
+    CALL EL_TEST_CHECK(MAXVAL(ABS(r)).LT.tol .AND. ABS(gv1 - d(1)).LT.tol, &
+      'rows: balanced flux gives zero residual and gV_1 = D_1', nf, rank)
+    flux(1) = flux(1) + 1.0d-6
+    CALL EL_VA_CONSERVATIVE_ROWS(flux, d_cont, q, d, eps, r, gv1)
+    CALL EL_TEST_CHECK(ABS(r(1) - 1.0d-6).LT.tol .AND. ABS(gv1 - (d(1) - 1.0d-6/eps)).LT.tol, &
+      'rows: incompatible storage exposed in r_1', nf, rank)
+
+  END SUBROUTINE test_conservative_rows
 
 END PROGRAM TEST_EL_VA_FLUX

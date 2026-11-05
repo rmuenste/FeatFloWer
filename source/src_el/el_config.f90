@@ -112,7 +112,8 @@ MODULE EL_CONFIG
   !                  transport porosity (EL_VA_FLUX): the net source telescopes to the boundary
   !                  flux exactly, so the compatibility sink vanishes at convergence. Iterated
   !                  through the existing projection, hence needs ELVASourceCorrectors >= 1;
-  !                  certified for closed impermeable boxes (s04 RUNBOOK section 12).
+  !                  certified for closed impermeable boxes (docs/md_docs/
+  !                  el_va_conservative_form_2026-11-05.md, s04 RUNBOOK section 12).
   CHARACTER(LEN=32) :: el_va_continuity_form = 'advective'
   ! The valid values, blank-padded; index = form id of EL_VA_CONTINUITY (0 advective,
   ! 1 conservative).
@@ -448,12 +449,24 @@ CONTAINS
                                       (el_va_source_correctors.GT.0)
   END FUNCTION EL_VA_SOURCE_CORRECTORS_ENABLED
 
+  ! Continuity form id = index of the deck value in el_va_form_names (0 advective,
+  ! 1 conservative; the deck is validated against the same table). Deck-only, identical on
+  ! every rank; the single lookup behind EL_VA_CONSERVATIVE_FORM and the form dispatch of
+  ! EL_VA_CONTINUITY.
+  INTEGER FUNCTION EL_VA_FORM_ID()
+    INTEGER :: m
+    EL_VA_FORM_ID = 0
+    IF (TRIM(el_volume_averaged).NE.'continuity') RETURN
+    DO m = 0, UBOUND(el_va_form_names,1)
+      IF (TRIM(el_va_continuity_form).EQ.TRIM(el_va_form_names(m))) EL_VA_FORM_ID = m
+    END DO
+  END FUNCTION EL_VA_FORM_ID
+
   ! Deck-only switch for the conservative continuity form (EL_VA_FLUX): decides the nodal
   ! reconstruction and its collective in the transfer pass and the flux-moment path of the
   ! source; identical on every rank.
   LOGICAL FUNCTION EL_VA_CONSERVATIVE_FORM()
-    EL_VA_CONSERVATIVE_FORM = (TRIM(el_volume_averaged).EQ.'continuity') .AND. &
-                              (TRIM(el_va_continuity_form).EQ.'conservative')
+    EL_VA_CONSERVATIVE_FORM = (EL_VA_FORM_ID().EQ.1)
   END FUNCTION EL_VA_CONSERVATIVE_FORM
 
 END MODULE EL_CONFIG

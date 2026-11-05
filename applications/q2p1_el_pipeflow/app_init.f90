@@ -594,7 +594,7 @@ END SUBROUTINE get_global_domain_extents
                         el_prescribed_umax, el_domain_type, el_volume_averaged, &
                         el_va_source_time_scheme, &
                         el_va_source_correctors, el_va_compatibility, &
-                        el_va_continuity_form, &
+                        el_va_continuity_form, EL_VA_CONSERVATIVE_FORM, &
                         el_cylinder_center, el_cylinder_radius, &
                         el_cylinder_axis, &
                         el_apply_particle_forces, el_apply_fluid_feedback, &
@@ -606,7 +606,7 @@ END SUBROUTINE get_global_domain_extents
                         EL_VALIDATE_CONFIG, &
                         EL_PRINT_CONFIG
 #endif
-   USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
+   USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,iCommSwitch,&
      nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
      myExport,cAdaptedMeshFile,nUmbrellaSteps,bNoOutflow,myDataFile,&
      bViscoElastic,bRefFrame,bConstForce,ConstForce,iConvectionForm
@@ -963,6 +963,14 @@ END SUBROUTINE get_global_domain_extents
    END IF
 
    CALL EL_VALIDATE_CONFIG()
+   ! the nodal reconstruction of the conservative continuity form sums across ranks with
+   ! E013Sum2, which exists for the communication schemes 3 and 4 only (QuadSc_mpi); checked
+   ! here, before the first transfer pass, on every rank
+   IF (EL_VA_CONSERVATIVE_FORM() .AND. iCommSwitch.NE.3 .AND. iCommSwitch.NE.4) THEN
+     WRITE(*,'(A,I0)') 'ELVAContinuityForm = conservative needs communication scheme 3 or 4, got ', &
+       iCommSwitch
+     STOP 1
+   END IF
 #endif
 
    M     = 1
