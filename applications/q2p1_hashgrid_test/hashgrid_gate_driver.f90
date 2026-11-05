@@ -160,16 +160,24 @@ contains
     end select
   end subroutine run_one
 
-  ! Run the comma-separated stage list from the deck, in order.
+  ! Run the comma-separated stage list from the deck, in order. Every failing stage aborts
+  ! inside run_one, so reaching the summary means every stage that ran passed. The summary
+  ! says "green" only when the full certification set ran: an empty list is a failure (the
+  ! vacuity trap again), and a subset is reported as partial, naming the stages that did not
+  ! run, so a debugging deck can never be mistaken for a certification.
   subroutine gate_run_stages(simTime, mfile)
     real*8,  intent(in) :: simTime
     integer, intent(in) :: mfile
+    character(len=2), parameter :: required(6) = (/ 'A1', 'A2', 'G ', 'R ', 'E ', 'P ' /)
     character(len=64) :: rest
     character(len=16) :: token
-    integer :: ic, nStages
+    character(len=32) :: missing
+    logical :: ran(6)
+    integer :: ic, nStages, i, ierr
 
     rest = adjustl(cGateStageList)
     nStages = 0
+    ran = .false.
     do while (len_trim(rest) > 0)
       ic = index(rest, ',')
       if (ic == 0) then
@@ -181,10 +189,32 @@ contains
       nStages = nStages + 1
       if (myid == 1) write(mfile,'(A,A)') 'gate stage: ', trim(token)
       call run_one(simTime, token)
+      do i = 1, size(required)
+        if (trim(token) == trim(required(i))) ran(i) = .true.
+      end do
+    end do
+
+    if (nStages == 0) then
+      if (myid == 1) then
+        write(*,'(A)') 'DNS_QUERY_GATE FAILED (vacuous): SimPar@GateStageList is empty - ' // &
+          'no classification was compared (certification set: A1,A2,G,R,E,P)'
+        flush(6)
+      end if
+      call MPI_Abort(MPI_COMM_WORLD, myErrorCode%FBM_QUERY_GATE_VACUOUS, ierr)
+    end if
+
+    missing = ''
+    do i = 1, size(required)
+      if (.not. ran(i)) missing = trim(missing) // ' ' // trim(required(i))
     end do
 
     if (myid == 1) then
-      write(*,'(A,I0,A)') 'DNS_QUERY_GATE_SUMMARY stages_judged= ', nStages, ' verdict= green'
+      if (len_trim(missing) == 0) then
+        write(*,'(A,I0,A)') 'DNS_QUERY_GATE_SUMMARY stages_judged= ', nStages, ' verdict= green'
+      else
+        write(*,'(A,I0,A,A)') 'DNS_QUERY_GATE_SUMMARY stages_judged= ', nStages, &
+          ' verdict= partial (every stage that ran passed; not run:' // trim(missing) // ')'
+      end if
       flush(6)
     end if
   end subroutine gate_run_stages
