@@ -24,11 +24,14 @@ MODULE EL_TRANSFER
   USE EL_CONFIG, ONLY: el_eps_f_min, el_eps_f_relax, &
                        el_apply_particle_forces, el_apply_fluid_feedback, &
                        el_write_diagnostics, el_momentum_audit_freq, &
-                       el_drag_semi_implicit
+                       el_drag_semi_implicit, el_pressure_feedback, el_prescribed_field, &
+                       EL_VA_CONSERVATIVE_FORM
+  USE EL_VA_FLUX, ONLY: EL_VA_RECONSTRUCT_EPS_LOCAL, EL_VA_EMBED_Q1_IN_Q2, &
+                        EL_VA_CHECK_DOF_LAYOUT
   USE EL_FORCES, ONLY: tElForceResult, EL_COMPUTE_PARTICLE_FORCES, &
                        EL_SEMI_IMPLICIT_DRAG_IMPULSE, EL_PARTICLE_VOLUME
   USE EL_FIELDS, ONLY: el_field_data, EL_ENSURE_FIELDS, EL_BEGIN_FIELD_UPDATE, &
-                       EL_CAPTURE_FLUID_FEEDBACK_SOURCE
+                       EL_CAPTURE_FLUID_FEEDBACK_SOURCE, EL_ENSURE_TRANSPORT_EPS
   USE EL_HALO, ONLY: tElParticleRecord, EL_REFRESH_COUPLING_HALO, &
                      EL_REDUCE_TO_OWNERS, EL_BROADCAST_FROM_OWNERS
   USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION, &
@@ -61,6 +64,14 @@ MODULE EL_TRANSFER
     END SUBROUTINE set_el_hydro_state_c
   END INTERFACE
 #endif
+
+  ! Q2 dof layout of the EL coupling level verified for the flux kernel (once per run; the
+  ! mesh does not change during an EL run)
+  LOGICAL, SAVE :: layout_verified = .FALSE.
+  ! Every worker owns at least one element on the coupling level, asserted collectively once
+  ! per run (EL_PARTICLE_MESH_PASS): the EL stage reduces over MPI_COMM_SUBS after rank-local
+  ! early returns that an empty worker would take, leaving the others in a collective.
+  LOGICAL, SAVE :: partition_verified = .FALSE.
 
 CONTAINS
 
@@ -103,9 +114,12 @@ CONTAINS
     TYPE(tElParticleRecord), ALLOCATABLE :: records(:)
     REAL*8, ALLOCATABLE :: local_samples(:,:), owned_samples(:,:)
     REAL*8, ALLOCATABLE :: owned_result(:,:), record_result(:,:)
+    REAL*8, ALLOCATABLE :: eps_num(:), eps_den(:)
+    INTEGER :: layout_bad, layout_bad_global
     REAL*8 :: expected_volume
 #ifdef HAVE_PE
     REAL*8 :: f_other(3)
+    REAL*8 :: feedback_nondrag(3)
 #endif
     TYPE(tElForceResult) :: force_result
     REAL*8 :: local_deposited, global_deposited, local_expected, global_expected
@@ -118,7 +132,7 @@ CONTAINS
     REAL*8 :: global_grav_buoy(3), local_particle_total(3), global_particle_total(3)
     REAL*8 :: local_rhs(3), global_rhs(3), feedback_residual(3)
     REAL*8 :: feedback_residual_norm, volume_rel_error
-    INTEGER :: n_owned, n_records, i, ierr, ndof, nel
+    INTEGER :: n_owned, n_records, i, ierr, ndof, nel, nel_min
     INTEGER :: local_record_rank, global_record_ranks
     INTEGER :: global_records, max_records
     INTEGER :: saved_mg_ilev
@@ -130,6 +144,7 @@ CONTAINS
     INTEGER :: clipped_local, clipped_global
     LOGICAL :: advance_history
     CHARACTER(LEN=16) :: coupling_mode
+    CHARACTER(LEN=3) :: applied_tag
 
     IF (myid.EQ.master) RETURN
 
@@ -147,6 +162,21 @@ CONTAINS
     ndof = mesh%level(ilev)%nvt + mesh%level(ilev)%net + &
            mesh%level(ilev)%nat + nel
     CALL EL_ENSURE_FIELDS(nel, ndof)
+
+    ! Partition invariant (module header): the first pass checks it collectively before any
+    ! rank-local return of this module or of EL_VOLUME_AVERAGED can be reached, so that an
+    ! empty worker stops the run coherently instead of deadlocking it.
+    IF (.NOT.partition_verified) THEN
+      CALL MPI_Allreduce(nel, nel_min, 1, MPI_INTEGER, MPI_MIN, MPI_COMM_SUBS, ierr)
+      IF (nel_min.LE.0) THEN
+        IF (myid.EQ.showid) THEN
+          WRITE(*,'(A)') 'Fatal: a worker owns no element on the EL coupling level; the E-L transfer and the volume-averaged continuity source need a non-empty partition on every worker.'
+          WRITE(mfile,'(A)') 'Fatal: a worker owns no element on the EL coupling level.'
+        END IF
+        CALL MPI_Abort(MPI_COMM_SUBS, 906, ierr)
+      END IF
+      partition_verified = .TRUE.
+    END IF
 
     ! Pin the global /TRIAD/ mesh offsets to the EL coupling level for the whole
     ! pass. NDFGL (inside EL_INTEGRATE_PARTICLE and EL_DEPOSIT_PARTICLE) builds Q2
@@ -220,12 +250,26 @@ CONTAINS
         density, viscosity, gravity, force_result)
       owned_result(1,i) = owned_samples(EL_SAMPLE_NORMALIZATION,i)
       owned_result(5,i) = force_result%drag_B
-      ! Default (post-advance diagnostic pass): explicit drag + lift. The
-      ! pre-advance pass below replaces the drag part with the sub-cycled
-      ! implicit drag impulse PE actually applies (issue-D fix), then the
+      ! Default: the explicit feedback force (drag + lift, + the pressure reaction
+      ! under ELPressureFeedback), used as deposited by the post-advance diagnostic
+      ! pass and by the pre-advance pass when the particles are not advanced. The
+      ! pre-advance pass with particles advanced replaces the drag part below with
+      ! the sub-cycled implicit drag impulse PE actually applies (issue-D fix); the
       ! finalised feedback_used is deposited after the PE-arming block.
       drag_force_eff = 0.0d0
       feedback_used = force_result%feedback_force
+      ! Semi-implicit drag without the hydrodynamic particle advance
+      ! (ELApplyParticleForces = No; the particles keep whatever motion PE
+      ! gives them without these forces): the fluid matrix still carries the
+      ! theta-weighted B u^{n+1} (QuadSc_def, drag_B_source), so the explicit
+      ! side must carry +B u_f to complete the split -B(u^{n+1} - u_p) =
+      ! -B u^{n+1} + B u_p around the sampled u_f. Without this term the fluid
+      ! saw -B(2 u_f - u_p), twice the drag of a bed at rest (P4).
+      ! EL_DEPOSIT_PARTICLE subtracts feedback_used, hence the minus sign.
+      IF (el_drag_semi_implicit .AND. advance_history .AND. &
+          .NOT.el_apply_particle_forces) THEN
+        feedback_used = feedback_used - force_result%drag_B*force_result%u_f
+      END IF
       local_drag = local_drag + force_result%drag
       local_lift = local_lift + force_result%lift
       local_pressure = local_pressure + force_result%pressure
@@ -255,16 +299,27 @@ CONTAINS
               owned_particles(i)%density
         CALL EL_SEMI_IMPLICIT_DRAG_IMPULSE(owned_particles(i)%velocity, m_p, &
           force_result%drag_B, force_result%u_f, f_other, dt, n_sub, drag_force_eff)
+        ! The rebuilt feedback keeps every non-drag reaction that feedback_force
+        ! carries: lift, and the pressure reaction under ELPressureFeedback (P5:
+        ! this pass is the only one whose deposit reaches the fluid, and it used
+        ! to drop the pressure term while the post-advance log line kept it).
+        ! The pressure stays in f_other on the PE side (it shapes the implicit
+        ! particle velocity there) and enters the fluid once, here.
+        feedback_nondrag = force_result%lift
+        IF (el_pressure_feedback) feedback_nondrag = feedback_nondrag + force_result%pressure
         IF (el_drag_semi_implicit) THEN
-          ! Fluid semi-implicit split around PE's actual sub-cycled drag impulse:
-          !   target fluid force = -drag_force_eff - lift
-          !   target = (B*u_f - drag_force_eff - lift) - B*u_new
-          ! EL_DEPOSIT_PARTICLE subtracts feedback_used, so pass
-          !   feedback_used = drag_force_eff + lift - B*u_f.
-          feedback_used = drag_force_eff + force_result%lift - &
+          ! Fluid semi-implicit split, linearised around the sampled carrier
+          ! velocity u_f: the matrix carries the theta-weighted B u^{n+1}
+          ! (QuadSc_def, drag_B_source) and the old-velocity part, so the
+          ! explicit deposit must be the drag impulse PE applies plus the
+          ! non-drag reactions minus B u_f; the remaining B (u_new - u_f) is the
+          ! implicit correction of the split. EL_DEPOSIT_PARTICLE subtracts
+          ! feedback_used, so pass
+          !   feedback_used = drag_force_eff + feedback_nondrag - B*u_f.
+          feedback_used = drag_force_eff + feedback_nondrag - &
             force_result%drag_B*force_result%u_f
         ELSE
-          feedback_used = drag_force_eff + force_result%lift
+          feedback_used = drag_force_eff + feedback_nondrag
         END IF
         hydro_active = 1
         CALL set_el_hydro_state_c(owned_particles(i)%bytes, &
@@ -322,6 +377,41 @@ CONTAINS
         clipped_global, ' cells at step ', ABS(istep)
       WRITE(mfile,'(A,I0,A,I0)') 'WARNING: E-L void-fraction clipping occurred in ', &
         clipped_global, ' cells at step ', ABS(istep)
+    END IF
+
+    ! Transport porosity of the conservative continuity form: the volume-weighted vertex
+    ! mean of the finalised epsilon_f, summed across ranks (E013Sum2 on Q2-sized arrays whose
+    ! non-vertex entries are zero; the global level pinned as for E013Sum3 above), then the
+    ! trilinear embedding. Guard on the deck and the pass label, both uniform: every worker
+    ! takes the collective, with or without particles; only the post-advance pass builds it
+    ! (eps^{n+1}, the field the fluid step reads; a pre-advance build would be overwritten).
+    ! The first build verifies the Q2 dof layout the flux kernel assumes, rank-uniformly.
+    IF (EL_VA_CONSERVATIVE_FORM() .AND. .NOT.advance_history) THEN
+      CALL EL_ENSURE_TRANSPORT_EPS(ndof)
+      IF (.NOT.layout_verified) THEN
+        layout_bad = EL_VA_CHECK_DOF_LAYOUT(mesh, ilev, mesh%level(ilev)%dcorvg)
+        CALL MPI_Allreduce(layout_bad, layout_bad_global, 1, MPI_INTEGER, MPI_MAX, &
+                           MPI_COMM_SUBS, ierr)
+        IF (layout_bad_global.GT.0) THEN
+          IF (myid.EQ.showid) THEN
+            WRITE(*,'(A)') 'Fatal: the Q2 dof layout differs from the FEAT numbering assumed by EL_VA_FLUX (see the pairing printed by the affected rank).'
+            WRITE(mfile,'(A)') 'Fatal: the Q2 dof layout differs from the FEAT numbering assumed by EL_VA_FLUX.'
+          END IF
+          CALL MPI_Abort(MPI_COMM_SUBS, 907, ierr)
+        END IF
+        layout_verified = .TRUE.
+      END IF
+      ALLOCATE(eps_num(ndof), eps_den(ndof))
+      CALL EL_VA_RECONSTRUCT_EPS_LOCAL(mesh, ilev, el_field_data%epsilon_f, eps_num, eps_den)
+      saved_mg_ilev = el_mg_ilev
+      el_mg_ilev = ilev
+      CALL E013Sum2(eps_num, eps_den)
+      el_mg_ilev = saved_mg_ilev
+      DO i = 1, mesh%level(ilev)%nvt
+        IF (eps_den(i).GT.0.0d0) el_field_data%epsilon_transport_q2(i) = eps_num(i)/eps_den(i)
+      END DO
+      CALL EL_VA_EMBED_Q1_IN_Q2(mesh, ilev, el_field_data%epsilon_transport_q2)
+      DEALLOCATE(eps_num, eps_den)
     END IF
 
     ! Slice dvol to nel: it carries the FEAT total-volume slot at nel+1
@@ -405,6 +495,31 @@ CONTAINS
         ' total_records= ', global_records, ' max_records= ', max_records
     END IF
 
+    ! Pre-advance pass: the explicit source captured for the fluid momentum
+    ! equation this step (EL_CAPTURE_FLUID_FEEDBACK_SOURCE copies the force_rhs
+    ! deposited by this pass). 'applied' says whether the fluid solve consumes it (fluid
+    ! feedback on and no prescribed field). Under semi-implicit drag this is
+    ! the explicit part only; the theta-weighted B u^{n+1} and old-velocity
+    ! parts act through the matrix (QuadSc_def). The post-advance
+    ! EL_FEEDBACK_CONSERVATION line below is a deposition residual of the
+    ! diagnostic pass, not the applied reaction: it differs from this line
+    ! under semi-implicit drag and after the particle advance.
+    IF (myid.EQ.showid .AND. el_write_diagnostics .AND. istep.LT.0 .AND. &
+        el_momentum_audit_freq.GT.0) THEN
+      IF (MOD(ABS(istep), el_momentum_audit_freq).EQ.0) THEN
+        applied_tag = 'no '
+        IF (el_apply_fluid_feedback .AND. TRIM(el_prescribed_field).EQ.'none') applied_tag = 'yes'
+        WRITE(*,'(A,I0,A,3ES14.6,A,3ES14.6)') &
+          'EL_FLUID_SOURCE phase= pre step= ', ABS(istep), ' mode= '//TRIM(coupling_mode)// &
+          ' applied= '//TRIM(applied_tag)//' rhs_explicit= ', global_rhs, &
+          ' feedback_explicit= ', global_feedback
+        WRITE(mfile,'(A,I0,A,3ES14.6,A,3ES14.6)') &
+          'EL_FLUID_SOURCE phase= pre step= ', ABS(istep), ' mode= '//TRIM(coupling_mode)// &
+          ' applied= '//TRIM(applied_tag)//' rhs_explicit= ', global_rhs, &
+          ' feedback_explicit= ', global_feedback
+      END IF
+    END IF
+
     IF (myid.EQ.showid .AND. istep.GE.0 .AND. &
         MOD(ABS(istep), el_momentum_audit_freq).EQ.0) THEN
       WRITE(*,'(A,I0,A,3ES14.6,A,3ES14.6,A,ES14.6)') &
@@ -472,11 +587,24 @@ CONTAINS
     epsilon_new = MAX(1.0d0-el_field_data%alpha_p,el_eps_f_min)
     el_field_data%epsilon_f = el_eps_f_relax*el_field_data%epsilon_f_old + &
       (1.0d0-el_eps_f_relax)*epsilon_new
-    IF (dt.GT.0.0d0) THEN
+    IF (.NOT.el_field_data%history_valid) THEN
+      ! First finalisation: no valid history yet (epsilon_f_old is the
+      ! initialisation value 1). Seed the history from this field instead of
+      ! reporting a spurious -alpha/dt rate.
+      el_field_data%epsilon_f_old = el_field_data%epsilon_f
+      el_field_data%deps_f_dt = 0.0d0
+      el_field_data%history_valid = .TRUE.
+      el_field_data%rate_valid = .FALSE.
+      el_field_data%rate_dt = 0.0d0
+    ELSE IF (dt.GT.0.0d0) THEN
       el_field_data%deps_f_dt = &
         (el_field_data%epsilon_f-el_field_data%epsilon_f_old)/dt
+      el_field_data%rate_valid = .TRUE.
+      el_field_data%rate_dt = dt
     ELSE
       el_field_data%deps_f_dt = 0.0d0
+      el_field_data%rate_valid = .FALSE.
+      el_field_data%rate_dt = 0.0d0
     END IF
     DEALLOCATE(epsilon_new)
 

@@ -1,6 +1,7 @@
 MODULE EL_FORCES
 
   USE EL_CONFIG, ONLY: el_drag_model, el_eps_f_min, el_pressure_force, &
+                       el_pressure_feedback, &
                        el_lift_model, el_inertial_lift, &
                        el_inertial_lift_umax, el_prescribed_umax, &
                        el_cylinder_center, el_cylinder_radius, &
@@ -63,6 +64,10 @@ CONTAINS
     result%particle_total = result%drag + result%pressure + result%lift + &
                             result%grav_buoy
     result%feedback_force = result%drag + result%lift
+    ! Model-A reaction: the fluid loses what the particle gains from grad p
+    ! (cell-averaged -eps grad p). Keyed so certified logs stay bitwise.
+    IF (el_pressure_feedback) result%feedback_force = result%feedback_force + &
+                                                      result%pressure
 
   END SUBROUTINE EL_COMPUTE_PARTICLE_FORCES
 
@@ -101,7 +106,7 @@ CONTAINS
     reynolds = MAX(1.0d-12,reynolds_raw)
 
     SELECT CASE (TRIM(el_drag_model))
-    CASE ('difelice')
+    CASE ('difelice', 'difelice_std')
       ! ----------------------------------------------------------------------
       ! Di Felice drag is treated as one consistent closure package:
       ! interstitial slip from the EL sampler, Re_p = rho_f eps_f d |u_rel|/mu,
@@ -123,9 +128,14 @@ CONTAINS
       area = ACOS(-1.0d0)*diameter*diameter/4.0d0
       IF (reynolds_raw.GT.1.0d-12) THEN
         drag_B = 0.5d0*density*cd*area*slip_norm*eps**(-chi)
+        ! 'difelice_std': the Kafui (2002) / Zhu et al. (2007) / CFDEM form
+        ! carries eps^2 on the squared slip, i.e. eps^(2-chi) overall;
+        ! 'difelice' (campaign form) is eps^(-chi). The two differ by eps^2.
+        IF (TRIM(el_drag_model).EQ.'difelice_std') drag_B = drag_B*eps*eps
       ELSE
         drag_B = 2.88d0*ACOS(-1.0d0)*dynamic_viscosity*diameter* &
                  eps**(-chi-1.0d0)
+        IF (TRIM(el_drag_model).EQ.'difelice_std') drag_B = drag_B*eps*eps
       END IF
     CASE DEFAULT
       correction = 1.0d0

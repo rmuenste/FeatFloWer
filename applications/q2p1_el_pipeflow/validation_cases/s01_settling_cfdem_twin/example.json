@@ -1,0 +1,41 @@
+{
+  "timesteps_": 180,
+  "stepsize_": 0.001,
+  "substeps_": 2,
+  "processesX_": 1,
+  "processesY_": 1,
+  "processesZ_": 3,
+  "seed_": 12345,
+  "verbose_": false,
+  "vtk_": false,
+  "particleDensity_": 5.0,
+  "fluidViscosity_": 0.000412871,
+  "fluidDensity_": 1.0,
+  "gravity_": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "visspacing_": 10000,
+  "pointerspacing_": 10000,
+  "resume_": false,
+  "useCheckpointer_": false,
+  "packingMethod_": "external",
+  "seedMode_": "file",
+  "xyzFilePath_": "particles.xyz",
+  "benchRadius_": 0.0025,
+  "periodicX_": false,
+  "periodicY_": false,
+  "periodicZ_": false,
+  "boxWallsEnabled_": true,
+  "lubricationEnabled_": false,
+  "restitution_": 0.0,
+  "staticFriction_": 0.0,
+  "dynamicFriction_": 0.0,
+  "initialParticleVelocity_": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "config_string": "01_settling M-L2 oneway difelice_std: single-sphere settling twin of CFDEM settlingTestMPI (LIGGGHTS-PUBLIC md_docs/case_specs/01_settling/SPEC.md); d=0.005, rho_p/rho_f=5, Ar=29.332"
+}

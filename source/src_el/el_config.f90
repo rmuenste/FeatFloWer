@@ -22,6 +22,13 @@ MODULE EL_CONFIG
   REAL*8 :: el_inertial_lift_umax = 0.0d0
   REAL*8 :: el_cylinder_center(3) = (/0.0d0,0.0d0,0.0d0/)
   REAL*8 :: el_cylinder_radius = -1.0d0
+  ! ELApplyParticleForces: hand the evaluated hydrodynamic forces to PE (No =
+  ! the forces are still evaluated and, with ELApplyFluidFeedback = Yes, fed
+  ! back to the fluid, but PE advances the particles without them: a particle
+  ! at rest without contacts stays at rest, a moving one keeps its velocity;
+  ! a bed is held still by its PE configuration, not by this key. With
+  ! semi-implicit drag the fluid split keeps +B u_f on the explicit side so
+  ! that such a bed feels the drag once).
   LOGICAL :: el_apply_particle_forces = .TRUE.
   LOGICAL :: el_apply_fluid_feedback = .FALSE.
   ! EL_WALL_STRESS diagnostic (Couette wall force balance): fluid wall shear
@@ -36,6 +43,18 @@ MODULE EL_CONFIG
   LOGICAL :: el_fluid_gravity = .TRUE.
   LOGICAL :: el_drag_semi_implicit = .FALSE.
   LOGICAL :: el_pressure_force = .TRUE.
+  ! Feed the particle pressure force -V grad p back to the fluid (kernel
+  ! deposited with drag + lift). Without it the particle receives the
+  ! suspension-weight share of grad p but the fluid keeps its full -grad p
+  ! over the particle volume: an O(phi) momentum imbalance (liggghts-public
+  ! finding 2026-10-15). With it the cell-averaged fluid pressure force is
+  ! -eps grad p, i.e. the Model-A form. Fed back in both transfer passes (the
+  ! pre-advance deposit is the one the fluid receives; until 2026-11-04 the
+  ! pre-advance rebuild with particles advanced dropped it, P5). Needs
+  ! ELPressureForce = Yes and ELApplyFluidFeedback = Yes (refused otherwise).
+  ! Default No keeps every existing numerical output bitwise; the
+  ! pressure-force rungs are to be re-run with Yes.
+  LOGICAL :: el_pressure_feedback = .FALSE.
   LOGICAL :: el_magnus = .FALSE.
   LOGICAL :: el_write_diagnostics = .TRUE.
   ! Measured-leak momentum compensator (SimPar@ELMomentumFix): each step
@@ -49,6 +68,60 @@ MODULE EL_CONFIG
   ! pseudo-turbulence (NaN blowup, see v2_rz_settling RUNBOOK part 4).
   LOGICAL :: el_momentum_fix = .FALSE.
   INTEGER :: el_momentum_audit_freq = 100
+  ! Per-particle trajectory log (SimPar@ELParticleLogFreq, 0 = off): every N
+  ! steps each worker appends its locally owned particles to
+  ! el_particles_rank<myid>.log in the DNS particle_force.log column layout
+  ! (time ip fx fy fz tx ty tz px py pz vx vy vz); merge with
+  ! tools/el_particle_log_merge.py. Collective-free by construction.
+  INTEGER :: el_particle_log_freq = 0
+  ! Volume-averaged continuity (SimPar@ELVolumeAveraged): 'none' (default,
+  ! single-phase div u = 0) or 'continuity' (div u = -(d eps/dt + u.grad eps)/eps
+  ! imposed through the pressure Poisson right-hand side; EL_VOLUME_AVERAGED).
+  CHARACTER(LEN=32) :: el_volume_averaged = 'none'
+  ! --- Continuity-source time integration (only read when ELVolumeAveraged = continuity;
+  !     both defaults reproduce the backward-Euler campaign code bitwise) -----------------
+  ! SimPar@ELVASourceTimeScheme = BE | BDF2
+  !   Time scheme of the rate d eps/dt in the source g = -(d eps/dt + u.grad eps)/eps:
+  !   'be'   backward difference (eps^{n+1}-eps^n)/dt (default)
+  !   'bdf2' endpoint BDF2 1.5*(d eps/dt)^{n+1} - 0.5*(d eps/dt)^n, BE on the first step
+  !          and after a restart without rate history (s04 RUNBOOK section 8: removes the
+  !          O(dt) return-flow deficit of the VB twin at level 2).
+  CHARACTER(LEN=32) :: el_va_source_time_scheme = 'be'
+  ! SimPar@ELVASourceCorrectors = n (0..20, default 0)
+  !   Source/projection corrector passes after the pressure projection: reassemble the
+  !   divergence of the corrected velocity, recompute g from it, solve the pressure Poisson
+  !   problem for the residual and correct u and p again (Transport_Q2P1,
+  !   EL_VA_Projection_Correctors). Each pass costs one pressure solve.
+  INTEGER :: el_va_source_correctors = 0
+  ! SimPar@ELVACompatibility = uniform | alpha
+  !   How the volume integral of the raw source is removed so that the pressure problem is
+  !   compatible (closed/periodic boxes): 'uniform' (default) subtracts the volume mean
+  !   everywhere, 'alpha' subtracts int_g * alpha_p(e)/W (W = sum alpha_p|e|), i.e. the
+  !   compensating sink sits where the particles are (EL_VA_SINK; uniform fallback without
+  !   particles). 'alpha' closes the level-3 return-flow deficit of the VB twin (s04 RUNBOOK
+  !   section 10).
+  CHARACTER(LEN=32) :: el_va_compatibility = 'uniform'
+  ! The valid values, blank-padded; index = sink mode id of EL_VA_CONTINUITY (0 uniform, 1 alpha).
+  CHARACTER(LEN=7), PARAMETER :: el_va_compat_names(0:1) = (/ 'uniform', 'alpha  ' /)
+  ! SimPar@ELVAContinuityForm = advective | conservative
+  !   Spatial form of the continuity constraint (EL_VA_CONTINUITY):
+  !   'advective'    (default) div u = -(d eps/dt + u.grad eps)/eps per element, the advective
+  !                  term from the vertex-mean velocity and the kernel gradient (campaign code).
+  !                  The rate comes from the stored porosity, the gradient from the raw kernel
+  !                  field -grad alpha_p: the two agree only without relaxation (ELEpsFRelax =
+  !                  0, enforced) and outside clipped cells (ELEpsFMin; clipping is reported
+  !                  per pass, the advective term is then inconsistent there).
+  !   'conservative' div(eps u) = -d eps/dt in the weak form of all four P1 pressure test
+  !                  functions, with shared face fluxes of a continuous (Q1-reconstructed)
+  !                  transport porosity (EL_VA_FLUX): the net source telescopes to the boundary
+  !                  flux exactly, so the compatibility sink vanishes at convergence. Iterated
+  !                  through the existing projection, hence needs ELVASourceCorrectors >= 1;
+  !                  certified for closed impermeable boxes (docs/md_docs/
+  !                  el_va_conservative_form_2026-11-05.md, s04 RUNBOOK section 12).
+  CHARACTER(LEN=32) :: el_va_continuity_form = 'advective'
+  ! The valid values, blank-padded; index = form id of EL_VA_CONTINUITY (0 advective,
+  ! 1 conservative).
+  CHARACTER(LEN=12), PARAMETER :: el_va_form_names(0:1) = (/ 'advective   ', 'conservative' /)
   REAL*8 :: el_tavg_window = 0.5d0
   ! Mesoscale lane-mode filter for periodic settling boxes: each step,
   ! subtract from u_z its zero-mean x-binned and y-binned plane averages
@@ -74,6 +147,10 @@ CONTAINS
     CALL EL_LOWERCASE(el_prescribed_field)
     CALL EL_LOWERCASE(el_initial_field)
     CALL EL_LOWERCASE(el_domain_type)
+    CALL EL_LOWERCASE(el_volume_averaged)
+    CALL EL_LOWERCASE(el_va_source_time_scheme)
+    CALL EL_LOWERCASE(el_va_compatibility)
+    CALL EL_LOWERCASE(el_va_continuity_form)
     CALL EL_LOWERCASE(el_cylinder_axis)
 
     SELECT CASE (TRIM(el_kernel))
@@ -85,7 +162,7 @@ CONTAINS
     END SELECT
 
     SELECT CASE (TRIM(el_drag_model))
-    CASE ('difelice', 'stokes', 'schiller_naumann')
+    CASE ('difelice', 'difelice_std', 'stokes', 'schiller_naumann')
       CONTINUE
     CASE DEFAULT
       WRITE(*,'(A,A)') 'Invalid ELDragModel: ', TRIM(el_drag_model)
@@ -104,6 +181,17 @@ CONTAINS
 
     IF (el_drag_semi_implicit .AND. .NOT.el_apply_fluid_feedback) THEN
       WRITE(*,*) 'ELDragCoupling=semi_implicit requires ELApplyFluidFeedback=Yes.'
+      STOP 1
+    END IF
+    IF (el_pressure_feedback .AND. .NOT.(el_apply_fluid_feedback .AND. el_pressure_force)) THEN
+      WRITE(*,*) 'ELPressureFeedback=Yes requires ELApplyFluidFeedback=Yes and ELPressureForce=Yes.'
+      STOP 1
+    END IF
+    IF (el_momentum_fix .AND. el_drag_semi_implicit) THEN
+      ! EL_FLUID_PAIR counts the captured explicit source only; the drag operator
+      ! acting through the matrix would be read as a mismatch and compensated.
+      WRITE(*,*) 'ELMomentumFix=Yes is not supported with ELDragCoupling=semi_implicit', &
+                 ' (the momentum audit does not include the implicit drag operator).'
       STOP 1
     END IF
 
@@ -206,6 +294,69 @@ CONTAINS
       STOP 1
     END IF
 
+    IF (el_particle_log_freq.LT.0) THEN
+      WRITE(*,*) 'ELParticleLogFreq must be >= 0 (0 = off).'
+      STOP 1
+    END IF
+
+    SELECT CASE (TRIM(el_volume_averaged))
+    CASE ('none', 'continuity')
+    CASE DEFAULT
+      WRITE(*,'(A,A)') 'Invalid ELVolumeAveraged: ', TRIM(el_volume_averaged)
+      STOP 1
+    END SELECT
+    SELECT CASE (TRIM(el_va_source_time_scheme))
+    CASE ('be', 'bdf2')
+    CASE DEFAULT
+      WRITE(*,'(A,A)') 'Invalid ELVASourceTimeScheme (BE|BDF2): ', TRIM(el_va_source_time_scheme)
+      STOP 1
+    END SELECT
+    IF (el_va_source_correctors.LT.0 .OR. el_va_source_correctors.GT.20) THEN
+      WRITE(*,*) 'ELVASourceCorrectors must be in 0..20.'
+      STOP 1
+    END IF
+    IF (.NOT.ANY(TRIM(el_va_compatibility).EQ.el_va_compat_names)) THEN
+      WRITE(*,'(A,A)') 'Invalid ELVACompatibility (uniform|alpha): ', TRIM(el_va_compatibility)
+      STOP 1
+    END IF
+    IF (.NOT.ANY(TRIM(el_va_continuity_form).EQ.el_va_form_names)) THEN
+      WRITE(*,'(A,A)') 'Invalid ELVAContinuityForm (advective|conservative): ', &
+        TRIM(el_va_continuity_form)
+      STOP 1
+    END IF
+    IF (TRIM(el_volume_averaged).NE.'continuity' .AND. &
+        (TRIM(el_va_source_time_scheme).NE.'be' .OR. el_va_source_correctors.GT.0 .OR. &
+         TRIM(el_va_compatibility).NE.'uniform' .OR. &
+         TRIM(el_va_continuity_form).NE.'advective')) THEN
+      WRITE(*,*) 'ELVASourceTimeScheme / ELVASourceCorrectors / ELVACompatibility / ', &
+                 'ELVAContinuityForm need ELVolumeAveraged = continuity.'
+      STOP 1
+    END IF
+    IF (TRIM(el_va_continuity_form).EQ.'conservative') THEN
+      ! the conservative constraint is a fixed point through the projection: without a
+      ! corrector pass only the predictor estimate would be applied
+      IF (el_va_source_correctors.LT.1) THEN
+        WRITE(*,*) 'ELVAContinuityForm = conservative needs ELVASourceCorrectors >= 1.'
+        STOP 1
+      END IF
+      ! the lane-mode filter acts on the velocity after the projection and would break the
+      ! constraint it just established
+      IF (el_meso_filter) THEN
+        WRITE(*,*) 'ELVAContinuityForm = conservative is not supported with ELMesoFilter = Yes.'
+        STOP 1
+      END IF
+    END IF
+    ! The advective form takes the rate from the stored (relaxed, clipped) porosity and the
+    ! gradient from the raw kernel field; with relaxation they describe different fields.
+    ! The conservative form reconstructs its transport porosity from the stored field and is
+    ! consistent with both relaxation and clipping.
+    IF (TRIM(el_volume_averaged).EQ.'continuity' .AND. &
+        TRIM(el_va_continuity_form).EQ.'advective' .AND. el_eps_f_relax.GT.0.0d0) THEN
+      WRITE(*,*) 'ELVolumeAveraged = continuity with ELVAContinuityForm = advective needs ', &
+                 'ELEpsFRelax = 0 (the advective term uses the unrelaxed kernel gradient).'
+      STOP 1
+    END IF
+
     IF (el_tavg_window.LE.0.0d0 .OR. el_tavg_window.GT.1.0d0) THEN
       WRITE(*,*) 'ELTAvgWindow must be in (0,1].'
       STOP 1
@@ -224,6 +375,7 @@ CONTAINS
     WRITE(mfile,'(A,A)') 'EL drag model             = ', TRIM(el_drag_model)
     WRITE(mfile,'(A,A)') 'EL drag coupling          = ', TRIM(el_drag_coupling)
     WRITE(mfile,'(A,L1)') 'EL pressure force         = ', el_pressure_force
+    WRITE(mfile,'(A,L1)') 'EL pressure feedback      = ', el_pressure_feedback
     WRITE(mfile,'(A,A)') 'EL lift model             = ', TRIM(el_lift_model)
     WRITE(mfile,'(A,A)') 'EL inertial lift          = ', TRIM(el_inertial_lift)
     WRITE(mfile,'(A,ES14.6)') 'EL inertial lift umax     = ', el_inertial_lift_umax
@@ -242,6 +394,12 @@ CONTAINS
     WRITE(mfile,'(A,L1,A,I0,A)') 'EL meso filter            = ', el_meso_filter, &
       ' (bins ', el_meso_filter_bins, ')'
     WRITE(mfile,'(A,I0)') 'EL momentum audit freq    = ', el_momentum_audit_freq
+    WRITE(mfile,'(A,I0)') 'EL particle log freq      = ', el_particle_log_freq
+    WRITE(mfile,'(A,A)') 'EL volume averaged        = ', TRIM(el_volume_averaged)
+    WRITE(mfile,'(A,A)') 'EL VA source time scheme  = ', TRIM(el_va_source_time_scheme)
+    WRITE(mfile,'(A,I0)') 'EL VA source correctors   = ', el_va_source_correctors
+    WRITE(mfile,'(A,A)') 'EL VA compatibility       = ', TRIM(el_va_compatibility)
+    WRITE(mfile,'(A,A)') 'EL VA continuity form     = ', TRIM(el_va_continuity_form)
     WRITE(mfile,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
 
     IF (mterm.NE.mfile) THEN
@@ -252,6 +410,7 @@ CONTAINS
       WRITE(mterm,'(A,A)') 'EL drag model             = ', TRIM(el_drag_model)
       WRITE(mterm,'(A,A)') 'EL drag coupling          = ', TRIM(el_drag_coupling)
       WRITE(mterm,'(A,L1)') 'EL pressure force         = ', el_pressure_force
+      WRITE(mterm,'(A,L1)') 'EL pressure feedback      = ', el_pressure_feedback
       WRITE(mterm,'(A,A)') 'EL lift model             = ', TRIM(el_lift_model)
       WRITE(mterm,'(A,A)') 'EL inertial lift          = ', TRIM(el_inertial_lift)
       WRITE(mterm,'(A,ES14.6)') 'EL inertial lift umax     = ', el_inertial_lift_umax
@@ -270,6 +429,12 @@ CONTAINS
       WRITE(mterm,'(A,L1,A,I0,A)') 'EL meso filter            = ', el_meso_filter, &
         ' (bins ', el_meso_filter_bins, ')'
       WRITE(mterm,'(A,I0)') 'EL momentum audit freq    = ', el_momentum_audit_freq
+      WRITE(mterm,'(A,I0)') 'EL particle log freq      = ', el_particle_log_freq
+      WRITE(mterm,'(A,A)') 'EL volume averaged        = ', TRIM(el_volume_averaged)
+      WRITE(mterm,'(A,A)') 'EL VA source time scheme  = ', TRIM(el_va_source_time_scheme)
+      WRITE(mterm,'(A,I0)') 'EL VA source correctors   = ', el_va_source_correctors
+      WRITE(mterm,'(A,A)') 'EL VA compatibility       = ', TRIM(el_va_compatibility)
+      WRITE(mterm,'(A,A)') 'EL VA continuity form     = ', TRIM(el_va_continuity_form)
       WRITE(mterm,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
     END IF
 
@@ -288,5 +453,34 @@ CONTAINS
     END DO
 
   END SUBROUTINE EL_LOWERCASE
+
+
+  ! Deck-only switch for the source/projection corrector loop. Evaluated identically on every
+  ! rank, including the master that holds no EL fields: the loop contains collective pressure
+  ! solves, so the fluid core must not guard it on field allocation (EL_VOLUME_AVERAGED_ACTIVE).
+  LOGICAL FUNCTION EL_VA_SOURCE_CORRECTORS_ENABLED()
+    EL_VA_SOURCE_CORRECTORS_ENABLED = (TRIM(el_volume_averaged).EQ.'continuity') .AND. &
+                                      (el_va_source_correctors.GT.0)
+  END FUNCTION EL_VA_SOURCE_CORRECTORS_ENABLED
+
+  ! Continuity form id = index of the deck value in el_va_form_names (0 advective,
+  ! 1 conservative; the deck is validated against the same table). Deck-only, identical on
+  ! every rank; the single lookup behind EL_VA_CONSERVATIVE_FORM and the form dispatch of
+  ! EL_VA_CONTINUITY.
+  INTEGER FUNCTION EL_VA_FORM_ID()
+    INTEGER :: m
+    EL_VA_FORM_ID = 0
+    IF (TRIM(el_volume_averaged).NE.'continuity') RETURN
+    DO m = 0, UBOUND(el_va_form_names,1)
+      IF (TRIM(el_va_continuity_form).EQ.TRIM(el_va_form_names(m))) EL_VA_FORM_ID = m
+    END DO
+  END FUNCTION EL_VA_FORM_ID
+
+  ! Deck-only switch for the conservative continuity form (EL_VA_FLUX): decides the nodal
+  ! reconstruction and its collective in the transfer pass and the flux-moment path of the
+  ! source; identical on every rank.
+  LOGICAL FUNCTION EL_VA_CONSERVATIVE_FORM()
+    EL_VA_CONSERVATIVE_FORM = (EL_VA_FORM_ID().EQ.1)
+  END FUNCTION EL_VA_CONSERVATIVE_FORM
 
 END MODULE EL_CONFIG

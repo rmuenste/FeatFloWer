@@ -3,7 +3,7 @@ MODULE EL_QUADRATURE
   USE MPI
   USE TYPES, ONLY: tMultiMesh
   USE EL_HALO, ONLY: tElParticleRecord
-  USE EL_KERNEL_FUNCTIONS, ONLY: EL_KERNEL_VALUE
+  USE EL_KERNEL_FUNCTIONS, ONLY: EL_KERNEL_VALUE, EL_KERNEL_DERIVATIVE
   USE EL_FIELDS, ONLY: tElFieldStorage
   USE EL_CONFIG, ONLY: el_kernel_width_factor
   USE PP3D_MPI, ONLY: myid, MPI_COMM_SUBS
@@ -500,6 +500,7 @@ CONTAINS
     INTEGER :: kdfl(NNBAS), kdfg(NNBAS), ieltyp, idfl
     REAL*8 :: xi(3), point(3), jac(3,3), detj, omega, kernel_weight
     REAL*8 :: width, particle_volume, element_integral, basis_integral(NNBAS)
+    REAL*8 :: grad_integral(3), rvec(3), rlen, dwdr
     LOGICAL :: supported
 
     REAL*8 :: dx(NNVE), dy(NNVE), dz(NNVE), djac(3,3), detj_common
@@ -559,6 +560,7 @@ CONTAINS
 
       element_integral = 0.0d0
       basis_integral = 0.0d0
+      grad_integral = 0.0d0
       DO icubp=1,ncubp
         xi = dxi(icubp,:)
         CALL EL_Q1_MAP(dx,dy,dz,xi,point,jac,detj)
@@ -569,6 +571,12 @@ CONTAINS
                                         width)
         IF (kernel_weight.LE.0.0d0) CYCLE
         element_integral = element_integral + kernel_weight*omega
+        rvec = point - particle%position
+        rlen = SQRT(SUM(rvec*rvec))
+        IF (rlen.GT.0.0d0) THEN
+          dwdr = EL_KERNEL_DERIVATIVE(rlen, width)
+          grad_integral = grad_integral + dwdr*omega*rvec/rlen
+        END IF
         CALL E013(xi(1),xi(2),xi(3),-3)
         IF (ier.LT.0) RETURN
         DO i=1,idfl
@@ -579,6 +587,10 @@ CONTAINS
 
       fields%alpha_p(iel) = fields%alpha_p(iel) + &
         particle_volume*element_integral/(normalization*mesh%level(ilev)%dvol(iel))
+      IF (ALLOCATED(fields%grad_alpha_p)) THEN
+        fields%grad_alpha_p(:,iel) = fields%grad_alpha_p(:,iel) + &
+          particle_volume*grad_integral/(normalization*mesh%level(ilev)%dvol(iel))
+      END IF
       DO i=1,idfl
         ig = kdfg(i)
         fields%force_rhs(:,ig) = fields%force_rhs(:,ig) - &

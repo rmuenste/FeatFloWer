@@ -302,7 +302,9 @@ ${CMAKE_SOURCE_DIR}/source/src_el/el_forces.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_halo.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_quadrature.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_diagnostics.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_va_flux.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_transfer.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_volume_averaged.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
@@ -330,7 +332,9 @@ ${CMAKE_SOURCE_DIR}/source/src_el/el_forces.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_halo.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_quadrature.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_diagnostics.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_va_flux.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_transfer.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_volume_averaged.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
@@ -413,6 +417,15 @@ if(BUILD_TESTING)
   target_include_directories(test_el_convergence PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
   target_compile_options(test_el_convergence PRIVATE ${Fortran_FLAGS})
   add_test(NAME el-convergence-serial COMMAND test_el_convergence)
+
+  # Conservative continuity form: flux-moment kernel, orientation, telescoping, coordinate
+  # moment identities and the Q1 reconstruction on the synthetic mesh (MPI-free kernel).
+  add_executable(test_el_va_flux
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_el_va_flux.f90)
+  target_link_libraries(test_el_va_flux ff_quadLS_app el_test_helpers)
+  target_include_directories(test_el_va_flux PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_el_va_flux PRIVATE ${Fortran_FLAGS})
+  add_test(NAME el-va-flux-serial COMMAND test_el_va_flux)
 endif()
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=

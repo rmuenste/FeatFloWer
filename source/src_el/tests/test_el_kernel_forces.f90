@@ -20,7 +20,7 @@ PROGRAM TEST_EL_KERNEL_FORCES
                            EL_SAMPLE_GRAD_U_BEGIN, EL_SAMPLE_GRAD_U_END, &
                            EL_SAMPLE_PRESSURE, EL_SAMPLE_GRAD_P_BEGIN, &
                            EL_SAMPLE_GRAD_P_END, EL_SAMPLE_EPSILON_F
-  USE EL_FIELDS, ONLY: el_field_data, EL_INITIALIZE, EL_WRITE_RESTART, &
+  USE EL_FIELDS, ONLY: el_field_data, EL_INITIALIZE, EL_WRITE_RESTART, EL_BEGIN_FIELD_UPDATE, &
                        EL_READ_RESTART, EL_FINALIZE
 
   IMPLICIT NONE
@@ -324,16 +324,43 @@ PROGRAM TEST_EL_KERNEL_FORCES
   el_field_data%force_rhs = RESHAPE((/(DBLE(i),i=1,15)/),(/3,5/))
   el_field_data%drag_B_ml = (/(0.25d0*DBLE(i),i=1,5)/)
   el_field_data%drag_B_source = (/(0.5d0*DBLE(i),i=1,5)/)
+  ! restart version 3: previous-interval rate and validity flags of the BDF2 source
+  el_field_data%deps_f_dt_prev = (/-0.25d0,-0.125d0,0.0d0/)
+  el_field_data%history_valid = .TRUE.
+  el_field_data%rate_valid = .TRUE.
+  el_field_data%prev_rate_valid = .TRUE.
+  el_field_data%rate_dt = 1.0d-3
+  el_field_data%rate_dt_prev = 5.0d-4
   CALL EL_WRITE_RESTART('test_el_fields.restart')
   CALL EL_FINALIZE()
   CALL EL_READ_RESTART('test_el_fields.restart')
   IF (MAXVAL(ABS(el_field_data%epsilon_f_old- &
       (/0.95d0,0.85d0,0.75d0/))).GT.1.0d-14) STOP 5
   IF (MAXVAL(ABS(el_field_data%deps_f_dt+0.5d0)).GT.1.0d-14) STOP 6
+  IF (MAXVAL(ABS(el_field_data%deps_f_dt_prev- &
+      (/-0.25d0,-0.125d0,0.0d0/))).GT.1.0d-14) STOP 78
+  IF (.NOT.(el_field_data%history_valid .AND. el_field_data%rate_valid .AND. &
+            el_field_data%prev_rate_valid)) STOP 79
+  IF (ABS(el_field_data%rate_dt-1.0d-3).GT.1.0d-18 .OR. &
+      ABS(el_field_data%rate_dt_prev-5.0d-4).GT.1.0d-18) STOP 80
   IF (MAXVAL(ABS(el_field_data%drag_B_ml- &
       (/(0.25d0*DBLE(i),i=1,5)/))).GT.1.0d-14) STOP 72
   IF (MAXVAL(ABS(el_field_data%drag_B_source- &
       (/(0.5d0*DBLE(i),i=1,5)/))).GT.1.0d-14) STOP 73
+  ! BDF2 history capture: only the history-advancing pass (pre-advance, advance_history =
+  ! .TRUE.) moves the finished rate, its interval and its flag into the *_prev slots
+  el_field_data%deps_f_dt = (/1.0d0,2.0d0,3.0d0/)
+  el_field_data%rate_valid = .TRUE.
+  el_field_data%rate_dt = 2.0d-3
+  CALL EL_BEGIN_FIELD_UPDATE(.FALSE.)
+  IF (MAXVAL(ABS(el_field_data%deps_f_dt_prev- &
+      (/-0.25d0,-0.125d0,0.0d0/))).GT.1.0d-14) STOP 81
+  IF (ABS(el_field_data%rate_dt_prev-5.0d-4).GT.1.0d-18) STOP 81
+  CALL EL_BEGIN_FIELD_UPDATE(.TRUE.)
+  IF (MAXVAL(ABS(el_field_data%deps_f_dt_prev-(/1.0d0,2.0d0,3.0d0/))).GT.1.0d-14) STOP 82
+  IF (ABS(el_field_data%rate_dt_prev-2.0d-3).GT.1.0d-18) STOP 82
+  IF (.NOT.el_field_data%prev_rate_valid) STOP 82
+  IF (MAXVAL(ABS(el_field_data%epsilon_f_old-el_field_data%epsilon_f)).GT.1.0d-14) STOP 83
   CALL EL_FINALIZE()
   OPEN(NEWUNIT=restart_unit,FILE='test_el_fields.restart',STATUS='OLD')
   CLOSE(restart_unit,STATUS='DELETE')

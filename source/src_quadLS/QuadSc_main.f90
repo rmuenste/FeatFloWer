@@ -27,10 +27,12 @@ use EL_CONFIG, only: el_apply_fluid_feedback, el_prescribed_field, el_shear_rate
                      el_cylinder_axis, el_initial_field
 use EL_CONFIG, only: el_write_diagnostics, el_fluid_gravity, el_meso_filter
 use EL_GEOMETRY, only: EL_DOMAIN_Z_CENTER
-use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS, &
+use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS, EL_WRITE_PARTICLE_LOG, &
                           EL_CAPTURE_MOMENTUM_REFERENCE, el_momentum_reference_set, &
                           EL_WRITE_SS_RADIUS, EL_FLUID_PAIR_STAGE
 use EL_FIELDS, only: EL_APPLY_FLUID_FEEDBACK_SOURCE, el_field_data
+use EL_VA_CONTINUITY, only: EL_ADD_CONTINUITY_SOURCE, EL_VOLUME_AVERAGED_ACTIVE
+use EL_CONFIG, only: EL_VA_SOURCE_CORRECTORS_ENABLED
 
 use, intrinsic :: ieee_arithmetic
 
@@ -460,6 +462,7 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
     CALL EL_WRITE_MOMENTUM_DIAGNOSTICS(QuadSc%valU, QuadSc%valV, &
       QuadSc%valW, timens, mfile, itns, mg_mesh, NLMAX, &
       Properties%Density(1), Properties%Viscosity(1), el_field_data%epsilon_f)
+    CALL EL_WRITE_PARTICLE_LOG(timens, itns)
   END IF
 
 END SUBROUTINE Transport_q2p1_UxyzP_el
@@ -794,6 +797,12 @@ IF (myid.ne.0) THEN
  ! Assemble the right hand side (RHS=1/k B^T U~)
  CALL Matdef_General_LinScalar(LinSc,QuadSc,PLinSc,1)
 
+ ! Euler-Lagrange volume-averaged continuity: div u = g (EL_VOLUME_AVERAGED), predictor pass 0
+ IF (.NOT.enable_fbm .AND. EL_VOLUME_AVERAGED_ACTIVE()) THEN
+   CALL EL_ADD_CONTINUITY_SOURCE(LinSc%defP(NLMAX)%x, QuadSc%valU, QuadSc%valV, &
+     QuadSc%valW, mg_mesh, NLMAX, tstep, timens, itns, mfile, icorr=0)
+ END IF
+
 !  ! Assemble the right hand side (RHS:=RHS-C*Q)
 !  CALL Matdef_General_LinScalar(LinSc,QuadSc,PLinSc,2)
 
@@ -818,6 +827,12 @@ IF (myid.ne.0) THEN
  CALL Pressure_Correction()
  CALL ZTIME(tttt1)
  myStat%tCorrUVWP = myStat%tCorrUVWP + (tttt1-tttt0)
+END IF
+
+! Euler-Lagrange volume-averaged continuity: source/projection corrector passes
+! (deck SimPar@ELVASourceCorrectors, default 0 = skipped; collective, deck-only guard)
+IF (.NOT.enable_fbm .AND. EL_VA_SOURCE_CORRECTORS_ENABLED()) THEN
+ CALL EL_VA_Projection_Correctors(mfile, itns)
 END IF
 
 CALL QuadScP1toQ2(LinSc,QuadSc)
@@ -989,6 +1004,10 @@ include 'QuadSc_transport_extensions.f90'
 ! 
 !=========================================================================
 include 'QuadSc_handlers.f90'
+!=========================================================================
+! 
+!=========================================================================
+include 'QuadSc_el_va.f90'
 !=========================================================================
 ! 
 !=========================================================================

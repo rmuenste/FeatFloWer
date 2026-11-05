@@ -588,22 +588,25 @@ END SUBROUTINE get_global_domain_extents
 #ifdef BUILD_Q2P1_EL_PIPEFLOW
    USE EL_CONFIG, ONLY: el_kernel, el_kernel_width_factor, el_eps_f_min, &
                         el_eps_f_relax, el_drag_model, el_drag_coupling, &
-                        el_pressure_force, el_lift_model, el_magnus, &
+                        el_pressure_force, el_pressure_feedback, el_lift_model, el_magnus, &
                         el_inertial_lift, el_inertial_lift_umax, &
                         el_prescribed_field, el_initial_field, el_shear_rate, &
-                        el_prescribed_umax, el_domain_type, &
+                        el_prescribed_umax, el_domain_type, el_volume_averaged, &
+                        el_va_source_time_scheme, &
+                        el_va_source_correctors, el_va_compatibility, &
+                        el_va_continuity_form, EL_VA_CONSERVATIVE_FORM, &
                         el_cylinder_center, el_cylinder_radius, &
                         el_cylinder_axis, &
                         el_apply_particle_forces, el_apply_fluid_feedback, &
                         el_wall_stress_diag, &
                         el_fluid_gravity, el_momentum_fix, &
                         el_meso_filter, el_meso_filter_bins, &
-                        el_write_diagnostics, el_momentum_audit_freq, &
+                        el_write_diagnostics, el_momentum_audit_freq, el_particle_log_freq, &
                         el_tavg_window, &
                         EL_VALIDATE_CONFIG, &
                         EL_PRINT_CONFIG
 #endif
-   USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
+   USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,iCommSwitch,&
      nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
      myExport,cAdaptedMeshFile,nUmbrellaSteps,bNoOutflow,myDataFile,&
      bViscoElastic,bRefFrame,bConstForce,ConstForce,iConvectionForm
@@ -778,6 +781,8 @@ END SUBROUTINE get_global_domain_extents
          READ(string(iEq+1:),*) el_drag_coupling
        CASE ("ELPressureForce")
          el_pressure_force = parse_yes_no_param(string, iEq, cName, cPar)
+       CASE ("ELPressureFeedback")
+         el_pressure_feedback = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("ELLiftModel")
          READ(string(iEq+1:),*) el_lift_model
        CASE ("ELInertialLift")
@@ -794,6 +799,16 @@ END SUBROUTINE get_global_domain_extents
          READ(string(iEq+1:),*) el_prescribed_umax
        CASE ("ELDomainType")
          READ(string(iEq+1:),*) el_domain_type
+       CASE ("ELVolumeAveraged")
+         READ(string(iEq+1:),*) el_volume_averaged
+       CASE ("ELVASourceTimeScheme")
+         READ(string(iEq+1:),*) el_va_source_time_scheme
+       CASE ("ELVASourceCorrectors")
+         READ(string(iEq+1:),*) el_va_source_correctors
+       CASE ("ELVACompatibility")
+         READ(string(iEq+1:),*) el_va_compatibility
+       CASE ("ELVAContinuityForm")
+         READ(string(iEq+1:),*) el_va_continuity_form
        CASE ("ELCylinderCenter")
          READ(string(iEq+1:),*) el_cylinder_center
        CASE ("ELCylinderRadius")
@@ -816,6 +831,8 @@ END SUBROUTINE get_global_domain_extents
          el_momentum_fix = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("ELMomentumAuditFreq")
          READ(string(iEq+1:),*) el_momentum_audit_freq
+       CASE ("ELParticleLogFreq")
+         READ(string(iEq+1:),*) el_particle_log_freq
        CASE ("ELMesoFilter")
          el_meso_filter = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("ELMesoFilterBins")
@@ -946,6 +963,14 @@ END SUBROUTINE get_global_domain_extents
    END IF
 
    CALL EL_VALIDATE_CONFIG()
+   ! the nodal reconstruction of the conservative continuity form sums across ranks with
+   ! E013Sum2, which exists for the communication schemes 3 and 4 only (QuadSc_mpi); checked
+   ! here, before the first transfer pass, on every rank
+   IF (EL_VA_CONSERVATIVE_FORM() .AND. iCommSwitch.NE.3 .AND. iCommSwitch.NE.4) THEN
+     WRITE(*,'(A,I0)') 'ELVAContinuityForm = conservative needs communication scheme 3 or 4, got ', &
+       iCommSwitch
+     STOP 1
+   END IF
 #endif
 
    M     = 1
