@@ -28,6 +28,12 @@ MODULE EL_FIELDS
     REAL*8, ALLOCATABLE :: fluid_feedback_source(:,:)
     REAL*8, ALLOCATABLE :: drag_B_ml(:)
     REAL*8, ALLOCATABLE :: drag_B_source(:)
+    ! Transport porosity of the conservative continuity form (ELVAContinuityForm =
+    ! conservative): the Q1 vertex reconstruction of epsilon_f embedded in the Q2 dofs
+    ! (EL_VA_FLUX). A reconstruction, not a conserved variable: rebuilt in every transfer
+    ! pass after the void-fraction finalisation (cross-rank summed once there), never
+    ! restarted. Allocated by EL_ENSURE_TRANSPORT_EPS only under that form.
+    REAL*8, ALLOCATABLE :: epsilon_transport_q2(:)
   END TYPE tElFieldStorage
 
   TYPE(tElFieldStorage), SAVE :: el_field_data
@@ -80,6 +86,21 @@ CONTAINS
     el_field_data%drag_B_source = 0.0d0
 
   END SUBROUTINE EL_ENSURE_FIELDS
+
+  ! Allocation of the transport porosity, separate from EL_ENSURE_FIELDS (whose size-based
+  ! early return must not skip it when the form is switched on at an existing size).
+  SUBROUTINE EL_ENSURE_TRANSPORT_EPS(ndof)
+
+    INTEGER, INTENT(IN) :: ndof
+
+    IF (ALLOCATED(el_field_data%epsilon_transport_q2)) THEN
+      IF (SIZE(el_field_data%epsilon_transport_q2).EQ.ndof) RETURN
+      DEALLOCATE(el_field_data%epsilon_transport_q2)
+    END IF
+    ALLOCATE(el_field_data%epsilon_transport_q2(ndof))
+    el_field_data%epsilon_transport_q2 = 1.0d0
+
+  END SUBROUTINE EL_ENSURE_TRANSPORT_EPS
 
   SUBROUTINE EL_BEGIN_FIELD_UPDATE(advance_history)
 
@@ -151,6 +172,8 @@ CONTAINS
       DEALLOCATE(el_field_data%fluid_feedback_source)
     IF (ALLOCATED(el_field_data%drag_B_ml)) DEALLOCATE(el_field_data%drag_B_ml)
     IF (ALLOCATED(el_field_data%drag_B_source)) DEALLOCATE(el_field_data%drag_B_source)
+    IF (ALLOCATED(el_field_data%epsilon_transport_q2)) &
+      DEALLOCATE(el_field_data%epsilon_transport_q2)
     el_field_data%nel = 0
     el_field_data%ndof = 0
     el_field_data%history_valid = .FALSE.

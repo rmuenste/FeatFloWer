@@ -333,6 +333,7 @@ defaulting to the backward-Euler campaign code (bitwise, see gates):
 SimPar@ELVASourceTimeScheme = BE        # BE (default) | BDF2
 SimPar@ELVASourceCorrectors = 0         # 0 (default) .. 20 source/projection corrector passes
 SimPar@ELVACompatibility   = uniform   # uniform (default) | alpha   (added 2026-10-30, fix A)
+SimPar@ELVAContinuityForm  = advective # advective (default) | conservative   (added 2026-11-05, form C)
 ```
 
 - `BDF2`: the rate in g = −(∂ε/∂t + u·∇ε)/ε becomes (1+a) (∂ε/∂t)^{n+1} − a (∂ε/∂t)^n with
@@ -371,14 +372,32 @@ SimPar@ELVACompatibility   = uniform   # uniform (default) | alpha   (added 2026
   defaults bitwise vs the certified logs with byte-identical `EL_VA_*` lines, BDF2 keys bitwise vs
   the T8b log, alpha keys bitwise vs the T9a log including `EL_VA_COMPAT`; reviews by Codex
   gpt-6.1-sol high and Fable 5.1 xhigh (`el_va_fixa_port_reviews_2026-10-30.md`).
-- Module layout (2026-10-30): the worker reductions use named slots (`C_*` core block, the
-  campaign reduction; `T_*` temporal block on audit steps; `A_*` alpha block in mode alpha),
-  all audit lines go through `EL_VA_LOG`, and the rate / sink / mode / label choices are small
-  functions. The extension points are listed in the module header: a further sink mode touches
-  the key values, `EL_VA_SINK_MODE`, `EL_VA_SINK_NAME`, its weight accumulators and reduction,
-  the fallback rule and `EL_VA_SINK`; a further time scheme touches the eligibility test, the
-  weight, `EL_VA_CONTINUITY_RATE` and the scheme label. Requested (deck) and effective (applied,
-  after the no-particle fallback) sink modes are distinct variables.
+- `ELVAContinuityForm = conservative` (form C, 2026-11-05, `el_va_conservative_form_2026-11-05.md`):
+  the constraint becomes div(εu) = −∂ε/∂t in the weak form of all four P1 test functions, with
+  shared face fluxes of a continuous transport porosity ε_h (the Q1 vertex reconstruction of the
+  P0 ε embedded in the Q2 dofs, `EL_VA_FLUX`, rebuilt in every transfer pass and summed across
+  ranks once). Per element and row the unsinked residual r_m = F_m(u^k) + d_cont Q_m is fed to the
+  projection as −r_m/(ε_e Δt) (row 1 minus the sink), so the existing corrector loop iterates it
+  to the fixed point: the net source telescopes to the boundary flux exactly and the compatibility
+  sink vanishes when storage and boundary flux are compatible (closed box, no clipping). Needs
+  `ELVASourceCorrectors ≥ 1`, rejects `ELMesoFilter = Yes`, certified for closed impermeable boxes.
+  Audit lines `EL_VA_FLUX` (storage rate S, boundary flux Φ, ε-weighted sink integral, unsinked
+  residual norms) and `EL_VA_FLUXMOM` (coordinate-moment identities, reconstructed-ε and P0-ε
+  superficial velocities, storage first-moment rate, dvol gap). The ε_h-weighted return flow equals
+  the deposited first-moment rate at the fixed point; `EL_MEAN_SLIP` keeps the P0 weighting, so
+  the two G5 readings differ by the representation and are both reported. Sample deck
+  `q2p1_param_VB_bdf2_alpha_cons.dat`; unit test `test_el_va_flux`.
+- Module layout (2026-10-30, extended 2026-11-05): the worker reductions use named slots (`C_*`
+  core block, the campaign reduction; `T_*` temporal block on audit steps; `W_*` weight block in
+  the weighted sink modes; `F_*` flux block under the conservative form on audit steps), all audit
+  lines go through `EL_VA_WRITE_LINE`, and the rate / sink / form choices are small functions
+  driven by name tables in `EL_CONFIG` (`el_va_compat_names`, `el_va_form_names`; the deck is
+  validated against the same tables). Extension points, as listed in the module header: a further
+  sink mode is one table entry, its id and one CASE in `EL_VA_SINK_WEIGHT`; a further time scheme
+  touches the eligibility test, the weight, `EL_VA_CONTINUITY_RATE` and the scheme label; a further
+  spatial form is one table entry, its id and one raw-source routine beside
+  `EL_VA_CONSERVATIVE_RAW_SOURCE` (the legacy loop stays verbatim). Requested (deck) and effective
+  (applied, after the no-particle fallback) sink modes are distinct variables.
 - Logs (audit steps, `ELMomentumAuditFreq`): `EL_VA_TSRC` (signed temporal integral,
   its L1, scheme label) always, its two sums reduced in a separate Allreduce on audit steps
   so that the campaign's 8-entry reduction is untouched; with correctors on, `EL_VA_SOURCE/MOMENT/TSRC` carry a

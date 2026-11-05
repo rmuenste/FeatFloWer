@@ -49,8 +49,8 @@
 !=========================================================================
 SUBROUTINE EL_VA_Projection_Correctors(mfile, itns)
   use PP3D_MPI, only: showid
-  use var_QuadScalar, only: myMatrixRenewal
-  use EL_CONFIG, only: el_va_source_correctors
+  use var_QuadScalar, only: myMatrixRenewal, iCommSwitch
+  use EL_CONFIG, only: el_va_source_correctors, EL_VA_CONSERVATIVE_FORM
   use EL_VA_CONTINUITY, only: EL_ADD_CONTINUITY_SOURCE, EL_VA_LOG_CONSTRAINT_RESIDUAL, &
                               EL_VA_AUDIT_STEP
   implicit none
@@ -71,6 +71,15 @@ SUBROUTINE EL_VA_Projection_Correctors(mfile, itns)
       WRITE(*,*) 'use MatrixRenewal ...C1 or a non-direct Pres@MGCrsSolverType (not 2, 4, 9).'
     END IF
     ERROR STOP 'ELVASourceCorrectors: unsupported pressure solver combination.'
+  END IF
+  ! the nodal reconstruction of the conservative form sums across ranks with E013Sum2, which
+  ! exists for the communication schemes 3 and 4 only (QuadSc_mpi)
+  IF (EL_VA_CONSERVATIVE_FORM() .AND. iCommSwitch.NE.3 .AND. iCommSwitch.NE.4) THEN
+    IF (myid.EQ.showid) THEN
+      WRITE(mfile,*) 'ELVAContinuityForm = conservative needs communication scheme 3 or 4 (iCommSwitch).'
+      WRITE(*,*) 'ELVAContinuityForm = conservative needs communication scheme 3 or 4 (iCommSwitch).'
+    END IF
+    ERROR STOP 'ELVAContinuityForm: unsupported communication scheme.'
   END IF
 
   IF (myid.ne.0) THEN

@@ -103,6 +103,20 @@ MODULE EL_CONFIG
   CHARACTER(LEN=32) :: el_va_compatibility = 'uniform'
   ! The valid values, blank-padded; index = sink mode id of EL_VA_CONTINUITY (0 uniform, 1 alpha).
   CHARACTER(LEN=7), PARAMETER :: el_va_compat_names(0:1) = (/ 'uniform', 'alpha  ' /)
+  ! SimPar@ELVAContinuityForm = advective | conservative
+  !   Spatial form of the continuity constraint (EL_VA_CONTINUITY):
+  !   'advective'    (default) div u = -(d eps/dt + u.grad eps)/eps per element, the advective
+  !                  term from the vertex-mean velocity and the kernel gradient (campaign code).
+  !   'conservative' div(eps u) = -d eps/dt in the weak form of all four P1 pressure test
+  !                  functions, with shared face fluxes of a continuous (Q1-reconstructed)
+  !                  transport porosity (EL_VA_FLUX): the net source telescopes to the boundary
+  !                  flux exactly, so the compatibility sink vanishes at convergence. Iterated
+  !                  through the existing projection, hence needs ELVASourceCorrectors >= 1;
+  !                  certified for closed impermeable boxes (s04 RUNBOOK section 12).
+  CHARACTER(LEN=32) :: el_va_continuity_form = 'advective'
+  ! The valid values, blank-padded; index = form id of EL_VA_CONTINUITY (0 advective,
+  ! 1 conservative).
+  CHARACTER(LEN=12), PARAMETER :: el_va_form_names(0:1) = (/ 'advective   ', 'conservative' /)
   REAL*8 :: el_tavg_window = 0.5d0
   ! Mesoscale lane-mode filter for periodic settling boxes: each step,
   ! subtract from u_z its zero-mean x-binned and y-binned plane averages
@@ -131,6 +145,7 @@ CONTAINS
     CALL EL_LOWERCASE(el_volume_averaged)
     CALL EL_LOWERCASE(el_va_source_time_scheme)
     CALL EL_LOWERCASE(el_va_compatibility)
+    CALL EL_LOWERCASE(el_va_continuity_form)
     CALL EL_LOWERCASE(el_cylinder_axis)
 
     SELECT CASE (TRIM(el_kernel))
@@ -299,12 +314,32 @@ CONTAINS
       WRITE(*,'(A,A)') 'Invalid ELVACompatibility (uniform|alpha): ', TRIM(el_va_compatibility)
       STOP 1
     END IF
+    IF (.NOT.ANY(TRIM(el_va_continuity_form).EQ.el_va_form_names)) THEN
+      WRITE(*,'(A,A)') 'Invalid ELVAContinuityForm (advective|conservative): ', &
+        TRIM(el_va_continuity_form)
+      STOP 1
+    END IF
     IF (TRIM(el_volume_averaged).NE.'continuity' .AND. &
         (TRIM(el_va_source_time_scheme).NE.'be' .OR. el_va_source_correctors.GT.0 .OR. &
-         TRIM(el_va_compatibility).NE.'uniform')) THEN
-      WRITE(*,*) 'ELVASourceTimeScheme / ELVASourceCorrectors / ELVACompatibility need ', &
-                 'ELVolumeAveraged = continuity.'
+         TRIM(el_va_compatibility).NE.'uniform' .OR. &
+         TRIM(el_va_continuity_form).NE.'advective')) THEN
+      WRITE(*,*) 'ELVASourceTimeScheme / ELVASourceCorrectors / ELVACompatibility / ', &
+                 'ELVAContinuityForm need ELVolumeAveraged = continuity.'
       STOP 1
+    END IF
+    IF (TRIM(el_va_continuity_form).EQ.'conservative') THEN
+      ! the conservative constraint is a fixed point through the projection: without a
+      ! corrector pass only the predictor estimate would be applied
+      IF (el_va_source_correctors.LT.1) THEN
+        WRITE(*,*) 'ELVAContinuityForm = conservative needs ELVASourceCorrectors >= 1.'
+        STOP 1
+      END IF
+      ! the lane-mode filter acts on the velocity after the projection and would break the
+      ! constraint it just established
+      IF (el_meso_filter) THEN
+        WRITE(*,*) 'ELVAContinuityForm = conservative is not supported with ELMesoFilter = Yes.'
+        STOP 1
+      END IF
     END IF
 
     IF (el_tavg_window.LE.0.0d0 .OR. el_tavg_window.GT.1.0d0) THEN
@@ -349,6 +384,7 @@ CONTAINS
     WRITE(mfile,'(A,A)') 'EL VA source time scheme  = ', TRIM(el_va_source_time_scheme)
     WRITE(mfile,'(A,I0)') 'EL VA source correctors   = ', el_va_source_correctors
     WRITE(mfile,'(A,A)') 'EL VA compatibility       = ', TRIM(el_va_compatibility)
+    WRITE(mfile,'(A,A)') 'EL VA continuity form     = ', TRIM(el_va_continuity_form)
     WRITE(mfile,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
 
     IF (mterm.NE.mfile) THEN
@@ -383,6 +419,7 @@ CONTAINS
       WRITE(mterm,'(A,A)') 'EL VA source time scheme  = ', TRIM(el_va_source_time_scheme)
       WRITE(mterm,'(A,I0)') 'EL VA source correctors   = ', el_va_source_correctors
       WRITE(mterm,'(A,A)') 'EL VA compatibility       = ', TRIM(el_va_compatibility)
+      WRITE(mterm,'(A,A)') 'EL VA continuity form     = ', TRIM(el_va_continuity_form)
       WRITE(mterm,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
     END IF
 
@@ -410,5 +447,13 @@ CONTAINS
     EL_VA_SOURCE_CORRECTORS_ENABLED = (TRIM(el_volume_averaged).EQ.'continuity') .AND. &
                                       (el_va_source_correctors.GT.0)
   END FUNCTION EL_VA_SOURCE_CORRECTORS_ENABLED
+
+  ! Deck-only switch for the conservative continuity form (EL_VA_FLUX): decides the nodal
+  ! reconstruction and its collective in the transfer pass and the flux-moment path of the
+  ! source; identical on every rank.
+  LOGICAL FUNCTION EL_VA_CONSERVATIVE_FORM()
+    EL_VA_CONSERVATIVE_FORM = (TRIM(el_volume_averaged).EQ.'continuity') .AND. &
+                              (TRIM(el_va_continuity_form).EQ.'conservative')
+  END FUNCTION EL_VA_CONSERVATIVE_FORM
 
 END MODULE EL_CONFIG

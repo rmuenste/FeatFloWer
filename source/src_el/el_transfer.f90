@@ -24,11 +24,13 @@ MODULE EL_TRANSFER
   USE EL_CONFIG, ONLY: el_eps_f_min, el_eps_f_relax, &
                        el_apply_particle_forces, el_apply_fluid_feedback, &
                        el_write_diagnostics, el_momentum_audit_freq, &
-                       el_drag_semi_implicit, el_pressure_feedback, el_prescribed_field
+                       el_drag_semi_implicit, el_pressure_feedback, el_prescribed_field, &
+                       EL_VA_CONSERVATIVE_FORM
+  USE EL_VA_FLUX, ONLY: EL_VA_RECONSTRUCT_EPS_LOCAL, EL_VA_EMBED_Q1_IN_Q2
   USE EL_FORCES, ONLY: tElForceResult, EL_COMPUTE_PARTICLE_FORCES, &
                        EL_SEMI_IMPLICIT_DRAG_IMPULSE, EL_PARTICLE_VOLUME
   USE EL_FIELDS, ONLY: el_field_data, EL_ENSURE_FIELDS, EL_BEGIN_FIELD_UPDATE, &
-                       EL_CAPTURE_FLUID_FEEDBACK_SOURCE
+                       EL_CAPTURE_FLUID_FEEDBACK_SOURCE, EL_ENSURE_TRANSPORT_EPS
   USE EL_HALO, ONLY: tElParticleRecord, EL_REFRESH_COUPLING_HALO, &
                      EL_REDUCE_TO_OWNERS, EL_BROADCAST_FROM_OWNERS
   USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION, &
@@ -103,6 +105,7 @@ CONTAINS
     TYPE(tElParticleRecord), ALLOCATABLE :: records(:)
     REAL*8, ALLOCATABLE :: local_samples(:,:), owned_samples(:,:)
     REAL*8, ALLOCATABLE :: owned_result(:,:), record_result(:,:)
+    REAL*8, ALLOCATABLE :: eps_num(:), eps_den(:)
     REAL*8 :: expected_volume
 #ifdef HAVE_PE
     REAL*8 :: f_other(3)
@@ -349,6 +352,27 @@ CONTAINS
         clipped_global, ' cells at step ', ABS(istep)
       WRITE(mfile,'(A,I0,A,I0)') 'WARNING: E-L void-fraction clipping occurred in ', &
         clipped_global, ' cells at step ', ABS(istep)
+    END IF
+
+    ! Transport porosity of the conservative continuity form: the volume-weighted vertex
+    ! mean of the finalised epsilon_f, summed across ranks (E013Sum2 on Q2-sized arrays whose
+    ! non-vertex entries are zero; the global level pinned as for E013Sum3 above), then the
+    ! trilinear embedding. Deck-only guard: every worker takes the collective, with or
+    ! without particles. The pre-advance pass rebuilds it too (eps^n, overwritten by the
+    ! post-advance pass before the fluid step reads it).
+    IF (EL_VA_CONSERVATIVE_FORM()) THEN
+      CALL EL_ENSURE_TRANSPORT_EPS(ndof)
+      ALLOCATE(eps_num(ndof), eps_den(ndof))
+      CALL EL_VA_RECONSTRUCT_EPS_LOCAL(mesh, ilev, el_field_data%epsilon_f, eps_num, eps_den)
+      saved_mg_ilev = el_mg_ilev
+      el_mg_ilev = ilev
+      CALL E013Sum2(eps_num, eps_den)
+      el_mg_ilev = saved_mg_ilev
+      DO i = 1, mesh%level(ilev)%nvt
+        IF (eps_den(i).GT.0.0d0) el_field_data%epsilon_transport_q2(i) = eps_num(i)/eps_den(i)
+      END DO
+      CALL EL_VA_EMBED_Q1_IN_Q2(mesh, ilev, el_field_data%epsilon_transport_q2)
+      DEALLOCATE(eps_num, eps_den)
     END IF
 
     ! Slice dvol to nel: it carries the FEAT total-volume slot at nel+1
