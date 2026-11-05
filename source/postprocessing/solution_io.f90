@@ -65,6 +65,11 @@ call write_pres_sol(iout,0,nelem,NLMIN,NLMAX,&
 
 call write_time_sol(iout,istep_ns, time_ns)
 
+! Format marker: a dump written by this routine stores the genuine mesh under "coordinates".
+! Readers trust such coordinates (finiteness only); dumps without the marker are legacy
+! SolToFile dumps whose "coordinates" may be raw work arrays and get the bounding-box check.
+call write_dump_format_marker(iout)
+
 #if defined(HAVE_PE) && defined(PE_SERIAL_MODE)
 ! Pair the particle state with this dump: pe writes <checkpoint_path_>/ffdump.<slot>.peb
 ! (+ .peinfo carrying the identity set for this step) at the same instant the fluid dump
@@ -255,15 +260,17 @@ call read_q2_sol(fieldName, startFrom,ilevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLIN
 ! Sanity guard before overwriting the mesh (v24f seg-2 lesson, 2026-09-04):
 ! legacy SolToFile dumps stored the raw aux work arrays under "coordinates",
 ! and blindly loading them destroys dcorvg (NaN on the first residual).
-! Accept the loaded coordinates only if finite and bounding-box-consistent
-! with the current mesh (true for genuine static or adapted coordinates);
-! otherwise keep the setup mesh.
+! Coordinates must be finite. Dumps carrying the format marker written by
+! write_sol_to_file are trusted beyond that: their "coordinates" ARE the mesh,
+! including a legitimately moved or deformed one. Only dumps without the marker
+! (legacy SolToFile dumps) get the bounding-box check against the setup mesh,
+! which cannot tell a deformed mesh from garbage. Otherwise keep the setup mesh.
 dCoorBad = 0d0
 IF (myid.ne.0) THEN
  IF (ANY(QuadSc%auxU.NE.QuadSc%auxU) .OR. ANY(QuadSc%auxV.NE.QuadSc%auxV) .OR. &
      ANY(QuadSc%auxW.NE.QuadSc%auxW)) THEN
   dCoorBad = 1d0
- ELSE
+ ELSE IF (.NOT. dump_coordinates_trusted(startFrom)) THEN
   dExtC = MAXVAL(mg_mesh%level(nlmax+1)%dcorvg) - MINVAL(mg_mesh%level(nlmax+1)%dcorvg) + 1d-30
   IF (ABS(MAXVAL(QuadSc%auxU)-MAXVAL(mg_mesh%level(nlmax+1)%dcorvg(1,:))) .GT. 1d-2*dExtC .OR. &
       ABS(MINVAL(QuadSc%auxU)-MINVAL(mg_mesh%level(nlmax+1)%dcorvg(1,:))) .GT. 1d-2*dExtC .OR. &
@@ -278,7 +285,8 @@ END IF
 CALL COMM_Maximum(dCoorBad)
 IF (dCoorBad.GT.0.5d0) THEN
  IF (myid.eq.1) THEN
-  WRITE(*,*) 'read_sol_from_file: dump coordinates fail the sanity check - keeping the setup mesh'
+  WRITE(*,*) 'read_sol_from_file: dump coordinates fail the sanity check (non-finite, or a legacy dump', &
+             ' without format marker whose bounding box differs from the setup mesh) - keeping the setup mesh'
   CALL FLUSH(6)
  END IF
 ELSE
@@ -2031,5 +2039,51 @@ subroutine write_sse_1d_sol()
                             Viscosity, Distance, Shearrate, mg_mesh)
 
 end subroutine write_sse_1d_sol
+
+!================================================================================================
+! Dump format marker (restart coordinate trust)
+!================================================================================================
+! write_sol_to_file stores the genuine mesh under "coordinates"; legacy SolToFile dumps stored
+! raw work arrays under that name. The marker file lets a reader tell the two apart instead of
+! judging the coordinates by their bounding box, which rejects a legitimately moved mesh.
+! Rank-local like the dump itself: _dump/processor_<rank>/<slot>/format.dmp, one line.
+!================================================================================================
+subroutine write_dump_format_marker(iInd)
+  use pp3d_mpi, only: myid
+  implicit none
+  integer, intent(in) :: iInd
+  character(len=128) :: cFile
+  integer :: iunit, istatus
+
+  if (myid .eq. 0) return
+  write(cFile,'(A,I0,A,I0,A)') '_dump/processor_', myid, '/', iInd, '/format.dmp'
+  open(newunit=iunit, file=trim(cFile), status='replace', action='write', iostat=istatus)
+  if (istatus .ne. 0) then
+    write(*,'(A,A)') 'write_dump_format_marker: cannot write ', trim(cFile)
+    return
+  end if
+  write(iunit,'(A)') 'coordinates=mesh'
+  close(iunit)
+end subroutine write_dump_format_marker
+
+!================================================================================================
+! True when the dump in slot <startFrom> of this rank carries the format marker, i.e. its
+! "coordinates" field holds the mesh and may be loaded after a finiteness check alone.
+!================================================================================================
+logical function dump_coordinates_trusted(startFrom)
+  use pp3d_mpi, only: myid
+  implicit none
+  character(len=*), intent(in) :: startFrom
+  character(len=128) :: cFile
+  integer :: iSlot, istatus
+
+  dump_coordinates_trusted = .false.
+  if (myid .eq. 0) return
+  ! read_sol_time resolves the slot with stoi(): "03" and "3" name the same folder
+  read(startFrom, *, iostat=istatus) iSlot
+  if (istatus .ne. 0) return
+  write(cFile,'(A,I0,A,I0,A)') '_dump/processor_', myid, '/', iSlot, '/format.dmp'
+  inquire(file=trim(cFile), exist=dump_coordinates_trusted)
+end function dump_coordinates_trusted
 
 end module solution_io

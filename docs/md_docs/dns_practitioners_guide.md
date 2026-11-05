@@ -402,9 +402,20 @@ this section records what changes for a practitioner.
   - The legacy dump writer wrote scratch as coordinates and omitted
     `MaterialDistribution.dmp`; the restart then overwrote the mesh and
     went NaN. Fixed 2026-09-06: `ProcCtrl` Dump_Out uses the complete
-    writer, and both readers carry a coordinate sanity guard
-    ("keeping the setup mesh" in the log means the guard fired on a
-    legacy dump — the run is still valid).
+    writer, which also drops a format marker next to each slot
+    (`_dump/processor_<rank>/<slot>/format.dmp`). Both readers check the
+    loaded coordinates for finiteness; a dump without the marker (legacy
+    writer) additionally gets a bounding-box check against the setup mesh,
+    so a moved or deformed mesh is only ever trusted from a marked dump
+    ("keeping the setup mesh" in the log means the guard fired - on a
+    legacy dump the run is still valid).
+  - `SimPar@PeCheckpointOnDump = Yes` is refused at parse time in a
+    parallel-PE build: pe's checkpoint write is a collective there and the
+    FeatFloWer call is rank-1 only (serial PE mode holds the full state on
+    every rank). The hashgrid classification gate reports `verdict= green`
+    only when all six stages (A1,A2,G,R,E,P) ran; an empty
+    `SimPar@GateStageList` is a failure and a subset is reported as
+    `partial`.
   - Copy restart dumps with `cp -a`; a hardlinked slot is rewritten in
     place by whichever run's cycle reaches it (memory
     `ff-deck-staging-pitfalls`).
