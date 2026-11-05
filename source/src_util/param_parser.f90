@@ -852,6 +852,7 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
   INTEGER :: myFile = PARAM_FILE_UNIT
   INTEGER :: iEnd, iAt, iEq, iLen, istat
   INTEGER :: iOutShift
+  INTEGER :: iPeCkptAbortErr
   INTEGER :: iVisco, iLoc, iangle, mylength, nFields, i
   INTEGER :: MFILE
   INTEGER, ALLOCATABLE :: iPos(:)
@@ -1049,6 +1050,25 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         bPrintParticleState = read_yes_no_param(string, iEq)
       CASE ("PeCheckpointOnDump")
         bPeCheckpointOnDump = read_yes_no_param(string, iEq)
+#ifndef PE_SERIAL_MODE
+        ! The pe checkpoint written at every dump (solution_io.f90) is taken on the
+        ! representative rank only, which is correct in PE serial mode (every rank holds the
+        ! full particle state). In parallel PE mode pe's storeCheckpoint() is a collective over
+        ! the PE communicator, so a single-rank call would hang every other rank in the next
+        ! collective. Refuse the key here rather than deadlock at the first dump.
+        IF (bPeCheckpointOnDump) THEN
+          IF (myid == master) THEN
+            WRITE(*,'(A)') REPEAT('=',78)
+            WRITE(*,'(A)') ' FATAL: SimPar@PeCheckpointOnDump = Yes needs PE serial mode'
+            WRITE(*,'(A)') '  This binary runs pe in parallel mode (USE_PE_SERIAL_MODE=OFF).'
+            WRITE(*,'(A)') '  The pe checkpoint is a collective write there and is not wired for it;'
+            WRITE(*,'(A)') '  rebuild with -DUSE_PE_SERIAL_MODE=ON or set the key to No.'
+            WRITE(*,'(A)') REPEAT('=',78)
+            FLUSH(6)
+          END IF
+          CALL MPI_Abort(MPI_COMM_WORLD, myErrorCode%PARAM_FILE_READ_ERROR, iPeCkptAbortErr)
+        END IF
+#endif
       CASE ("BinaryVtkOutput")
         bBinaryVtkOutput = read_yes_no_param(string, iEq)
       CASE ("RecursivePartitioning")

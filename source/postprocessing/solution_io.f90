@@ -65,11 +65,15 @@ call write_pres_sol(iout,0,nelem,NLMIN,NLMAX,&
 
 call write_time_sol(iout,istep_ns, time_ns)
 
-#ifdef HAVE_PE
+#if defined(HAVE_PE) && defined(PE_SERIAL_MODE)
 ! Pair the particle state with this dump: pe writes <checkpoint_path_>/ffdump.<slot>.peb
 ! (+ .peinfo carrying the identity set for this step) at the same instant the fluid dump
 ! lands in slot <iout>. Representative rank only - PE serial mode holds identical state on
 ! every rank. Resume: json resume_ = true, resumeCheckpointFile_ = "ffdump.<slot>".
+! PE serial mode only: in parallel PE mode pe's storeCheckpoint() is a collective over the
+! PE communicator, so this single-rank call would deadlock; the parser refuses the key there
+! (param_parser.f90). A parallel path would have to call pe_write_checkpoint on every rank
+! of the PE communicator (myid /= 0).
 if (bPeCheckpointOnDump .and. myid.eq.1) then
   write(cCkpt,'(A,I0)') 'ffdump.', iout
   call pe_write_checkpoint(trim(cCkpt)//c_null_char)
