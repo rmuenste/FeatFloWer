@@ -50,8 +50,20 @@ REAL*8 :: RX = 0.0d0,RY = 0.0d0,RZ = 0.0d0, RAD = 0.245d0
 REAL*8 :: R_inflow=4d0
 REAL*8 :: PI=3.141592654d0
 
-!ValU = Z * 10.0 
-ValU = 0d0 
+! CAUTION: this routine is the historical hard-coded initial condition -
+! everything below the RETURN is dead per-case scar tissue. The one LIVE
+! branch here is deck-gated: with SimPar@GammaDot /= 0 (only the D6.2
+! Jeffery shear-box decks set it; audited 2026-09-09, no other deck does)
+! the field starts as the developed linear Couette profile u = GammaDot*z,
+! skipping the (H/2)^2/nu wall-diffusion transient. All other decks keep
+! the zero initial field bit-for-bit.
+IF (GammaDot.NE.0d0) THEN
+ ValU = GammaDot*Z
+ ValV = 0d0
+ ValW = 0d0
+ return
+END IF
+ValU = 0d0
 ValV = 0d0
 ValW = 0d0
 return
@@ -609,6 +621,20 @@ IF (iT.EQ.14) THEN
   ValU = -myTwoPI*Y*(RPM/6d1)
   ValV =  myTwoPI*X*(RPM/6d1)
   ValW =  0d0
+END IF
+
+! ---------------------------------------------------------------------
+! Inflow15 - planar Couette wall (D6.2 Jeffery shear box).
+! u = GammaDot * Z x^ on a Z-CENTERED box (walls at z = +-H/2 receive
+! +-GammaDot*H/2); shear rate from the deck key SimPar@GammaDot.
+! No-op for every existing application: fires only for a boundary
+! component declared 'Inflow15' in a mesh .par file, and no mesh
+! currently in the tree declares one.
+! ---------------------------------------------------------------------
+IF (iT.EQ.15) THEN
+  ValU = GammaDot*Z
+  ValV = 0d0
+  ValW = 0d0
 END IF
 
 IF (iT.EQ.20) THEN

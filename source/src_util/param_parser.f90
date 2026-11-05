@@ -21,7 +21,9 @@ USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   MaxLevelKnownToMaster, GammaDot, AlphaRelax, RadParticle, RPM, FluidizationVelocity, &
   bConstForce, ConstForce, skipFBMForce, skipFBMDynamics, bBinaryVtkOutput, &
   bUseHashGridAccel, bUseKVEL_Accel, bPrintCFL, bPrintParticleCFL, &
-  bPrintParticleReynolds, bPrintParticleState, cPartitionFormat, bRecursivePartitioning, myErrorCode
+  bPrintParticleReynolds, bPrintParticleState, cPartitionFormat, bRecursivePartitioning, myErrorCode, &
+  bPeCheckpointOnDump, &
+  cGateStageList, bGateRefreshIndex, bGateProbeReport, bFbmOwnerTable
 USE var_QuadScalar, ONLY: bApplyFAC3DMeshDeformation
 USE types, ONLY: tParamV, tParamP, tProperties
 
@@ -850,6 +852,7 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
   INTEGER :: myFile = PARAM_FILE_UNIT
   INTEGER :: iEnd, iAt, iEq, iLen, istat
   INTEGER :: iOutShift
+  INTEGER :: iPeCkptAbortErr
   INTEGER :: iVisco, iLoc, iangle, mylength, nFields, i
   INTEGER :: MFILE
   INTEGER, ALLOCATABLE :: iPos(:)
@@ -1029,6 +1032,10 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         bConstForce = read_yes_no_param(string, iEq)
       CASE ("ConstantForcing")
         READ(string(iEq+1:),*) ConstForce
+      CASE ("Periodicity")
+        ! Periodic wrap lengths (x,y,z); >=1d8 means "not periodic" in that
+        ! direction. Overrides any app-level default (D6.2 shear box).
+        READ(string(iEq+1:),*) dPeriodicity
       CASE ("skipFBMForce")
         skipFBMForce = read_yes_no_param(string, iEq)
       CASE ("skipFBMDynamics")
@@ -1041,6 +1048,27 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         bPrintParticleReynolds = read_yes_no_param(string, iEq)
       CASE ("PrintParticleState")
         bPrintParticleState = read_yes_no_param(string, iEq)
+      CASE ("PeCheckpointOnDump")
+        bPeCheckpointOnDump = read_yes_no_param(string, iEq)
+#ifndef PE_SERIAL_MODE
+        ! The pe checkpoint written at every dump (solution_io.f90) is taken on the
+        ! representative rank only, which is correct in PE serial mode (every rank holds the
+        ! full particle state). In parallel PE mode pe's storeCheckpoint() is a collective over
+        ! the PE communicator, so a single-rank call would hang every other rank in the next
+        ! collective. Refuse the key here rather than deadlock at the first dump.
+        IF (bPeCheckpointOnDump) THEN
+          IF (myid == master) THEN
+            WRITE(*,'(A)') REPEAT('=',78)
+            WRITE(*,'(A)') ' FATAL: SimPar@PeCheckpointOnDump = Yes needs PE serial mode'
+            WRITE(*,'(A)') '  This binary runs pe in parallel mode (USE_PE_SERIAL_MODE=OFF).'
+            WRITE(*,'(A)') '  The pe checkpoint is a collective write there and is not wired for it;'
+            WRITE(*,'(A)') '  rebuild with -DUSE_PE_SERIAL_MODE=ON or set the key to No.'
+            WRITE(*,'(A)') REPEAT('=',78)
+            FLUSH(6)
+          END IF
+          CALL MPI_Abort(MPI_COMM_WORLD, myErrorCode%PARAM_FILE_READ_ERROR, iPeCkptAbortErr)
+        END IF
+#endif
       CASE ("BinaryVtkOutput")
         bBinaryVtkOutput = read_yes_no_param(string, iEq)
       CASE ("RecursivePartitioning")
@@ -1101,6 +1129,14 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         bUseHashGridAccel = read_yes_no_param(string, iEq)
       CASE ("UseKVELAccel")
         bUseKVEL_Accel = read_yes_no_param(string, iEq)
+      CASE ("GateStageList")
+        READ(string(iEq+1:),*) cGateStageList
+      CASE ("GateRefreshIndex")
+        bGateRefreshIndex = read_yes_no_param(string, iEq)
+      CASE ("GateProbeReport")
+        bGateProbeReport = read_yes_no_param(string, iEq)
+      CASE ("FbmOwnerTable")
+        bFbmOwnerTable = read_yes_no_param(string, iEq)
       CASE ("PartitionFormat")
        READ(string(iEq+1:),*) cParam2
        cPartitionFormat = normalize_partition_format(cParam2)
@@ -1352,6 +1388,19 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
       CALL write_param_str(mfile, mterm, "UseKVELAccel = ", "ON")
     ELSE
       CALL write_param_str(mfile, mterm, "UseKVELAccel = ", "OFF")
+    END IF
+
+    CALL write_param_str(mfile, mterm, "GateStageList = ", TRIM(cGateStageList))
+    IF (bGateRefreshIndex) THEN
+      CALL write_param_str(mfile, mterm, "GateRefreshIndex = ", "ON")
+    ELSE
+      CALL write_param_str(mfile, mterm, "GateRefreshIndex = ", "OFF (every stage is a control)")
+    END IF
+    IF (bGateProbeReport) THEN
+      CALL write_param_str(mfile, mterm, "GateProbeReport = ", "ON")
+    END IF
+    IF (bFbmOwnerTable) THEN
+      CALL write_param_str(mfile, mterm, "FbmOwnerTable = ", "ON (multiple-ownership CSR table filled each sweep)")
     END IF
 #else
     CALL write_param_str(mfile, mterm, "FBM Acceleration = ", "DISABLED AT COMPILE TIME")

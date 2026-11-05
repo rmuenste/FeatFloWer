@@ -10,12 +10,22 @@
 #define FULL_ROTATION
 !#define ONLY_ROTATION
 !#define MOVING_REFERENCE
-!#define VERIFY_HASHGRID 
+!#define VERIFY_HASHGRID
+!
+! ENABLE_FBM_QUERY_GATE (top-level CMake) defines FBM_QUERY_GATE and lights the
+! verification machinery below. It used to be reachable only by uncommenting the
+! line above: pe's PE_VERIFY_HASHGRID defines VERIFY_HASHGRID with
+! add_compile_definitions, which is directory-scoped to pe's own targets, so no
+! build of this project ever compiled these blocks.
+#if defined(FBM_QUERY_GATE) && !defined(VERIFY_HASHGRID)
+#define VERIFY_HASHGRID
+#endif
 MODULE fbm
 
 use var_QuadScalar
 use dem_query
 use iso_c_binding
+use fbm_ownership, only: fbm_own_record, pointOwners, pointOwnersAccelerated, FBM_OWN_MAX
 
 integer, dimension(:), allocatable :: mykvel
 
@@ -32,6 +42,18 @@ integer :: hashgrid_particle_mismatch_count = 0
 ! Module-level timing statistics (in nanoseconds for precision)
 integer(kind=8) :: hashgrid_accel_time_ns = 0
 integer(kind=8) :: hashgrid_baseline_time_ns = 0
+
+! Layer-2 gate accumulators. SEPARATE from the counters above because those are
+! reset by report_and_reset_hashgrid_stats(), which runs on every
+! updateFBMGeometry (six call sites) - a verdict kept in them would be erased
+! before anything could act on it. These are sticky for the whole run and are
+! reduced over all ranks on the rank-symmetric path, never here.
+integer(kind=8) :: fbm_gate_queries = 0        ! DOF classifications compared
+integer(kind=8) :: fbm_gate_flag_viol = 0      ! solid flag disagreed
+integer(kind=8) :: fbm_gate_id_viol = 0        ! both solid, owner id disagreed
+integer(kind=8) :: fbm_gate_set_viol = 0       ! the two paths' owner SETS disagreed (FbmOwnerTable on)
+integer          :: fbm_gate_reported = 0      ! offenders printed on THIS rank
+integer, parameter :: fbm_gate_max_report = 8  ! per rank, per run
 #endif
 
 ! 
@@ -50,6 +72,11 @@ integer, parameter, public :: SRCH_WRONGELEMENT = 5
 integer, parameter, public :: SRCH_MAXITER = 6
 ! 
 integer, parameter, public :: SRCH_RES7 = 7
+
+! Layer-2 FBM classification gate: how fbm_query_gate_verdict judges a stage.
+integer, parameter, public :: FBM_GATE_MUST_PASS    = 1  ! any violation fails the run
+integer, parameter, public :: FBM_GATE_MUST_DIFFER  = 2  ! a CONTROL: zero violations means the construction missed
+integer, parameter, public :: FBM_GATE_CHARACTERISE = 3  ! report only
 
 interface
   logical(c_bool) function checkAllParticles(vidx, inpr, pos, bytes) bind(C, name="checkAllParticles")
@@ -139,6 +166,195 @@ subroutine report_and_reset_hashgrid_stats()
 #endif
 
 end subroutine report_and_reset_hashgrid_stats
+!=========================================================================
+! Layer-2 FBM classification gate.
+!
+! Three routines, all to be called from a RANK-SYMMETRIC path - in practice the
+! stage loop of applications/q2p1_hashgrid_test. The classification sweep that
+! accumulates the counters (QuadScalar_FictKnpr) runs under rank-asymmetric
+! control flow - the CFD master never initializes PE and skips the worker-only
+! sections - and MPI collectives placed there have already cost this project a
+! master-vs-workers deadlock and an MPI_ERR_TRUNCATE abort. So: accumulate
+! rank-locally there, reduce here, exactly as DNS_RESOLUTION does. COMM_SUMMN
+! is either a master-mandatory send/recv ring or an Allreduce on MPI_COMM_WORLD;
+! either way every rank must arrive.
+!=========================================================================
+
+! Zero the sticky counters between stages. Without this a stage inherits the
+! previous stage's violations, and the per-rank print cap silences every
+! stage after the first.
+subroutine fbm_query_gate_reset()
+  implicit none
+#ifdef FBM_QUERY_GATE
+  fbm_gate_queries   = 0
+  fbm_gate_flag_viol = 0
+  fbm_gate_id_viol   = 0
+  fbm_gate_set_viol  = 0
+  fbm_gate_reported  = 0
+#endif
+end subroutine fbm_query_gate_reset
+
+! Assert the harness is exercising what it claims to: pe's grid is ACTIVE on
+! every worker (threshold 32 bodies PER RANK - serial PE holds the full world
+! on each rank, parallel PE does not), the first grid's span is the one the
+! spacers set, the accelerated path is switched on, and this binary carries the
+! comparison at all. Call it AFTER the first particle step: the grid only
+! activates inside findContacts.
+subroutine fbm_gate_preflight(mfile)
+  use PP3D_MPI, only: myid, COMM_SUMMN, MPI_COMM_WORLD
+  implicit none
+  integer, intent(in) :: mfile
+  integer :: ierr
+#ifndef FBM_QUERY_GATE
+  if (myid == 1) then
+    write(*,'(A)') 'FBM_GATE: this binary was built without ENABLE_FBM_QUERY_GATE.'
+    write(*,'(A)') '  The classification comparison is not compiled in, so nothing this run'
+    write(*,'(A)') '  could report would be a gate. Rebuild with -DENABLE_FBM_QUERY_GATE=ON.'
+    flush(6)
+  end if
+  call MPI_Abort(MPI_COMM_WORLD, myErrorCode%FBM_QUERY_GATE_VACUOUS, ierr)
+#else
+  real*8  :: buf(4), spans(8)
+  integer :: nspans
+  logical :: ok
+
+  buf = 0d0
+  nspans = 0
+  if (myid /= 0) then   ! the master has no pe world; its queries return garbage
+    buf(1) = dble(fbm_gate_grid_active())
+    buf(2) = 1d0
+    nspans = fbm_gate_grid_spans(spans, 8)
+    if (nspans > 0) buf(3) = 1d0
+    if (myid == 1) buf(4) = dble(fbm_gate_body_count())
+  end if
+  call COMM_SUMMN(buf, 4)
+
+  ok = (nint(buf(1)) == nint(buf(2))) .and. (nint(buf(3)) == nint(buf(2))) &
+       .and. (buf(4) >= 33d0) .and. bUseHashGridAccel
+
+  if (myid == 1) then
+    write(*,'(A,I0,A,I0,A,I0,A,I0,A,L1)') &
+      'DNS_QUERY_GATE_PREFLIGHT workers= ', nint(buf(2)), &
+      ' grid_active_on= ', nint(buf(1)), ' span_ok_on= ', nint(buf(3)), &
+      ' bodies= ', nint(buf(4)), ' hashgrid_accel= ', bUseHashGridAccel
+    if (nspans > 0) write(*,'(A,8ES16.8)') 'DNS_QUERY_GATE_SPANS ', spans(1:min(nspans,8))
+    write(mfile,'(A,I0,A,I0,A,I0,A,I0)') 'gate preflight: workers ', nint(buf(2)), &
+      ' grid active on ', nint(buf(1)), ' span ok on ', nint(buf(3)), ' bodies ', nint(buf(4))
+    if (.not. ok) then
+      write(*,'(A)') 'DNS_QUERY_GATE_PREFLIGHT FAILED: the gate would exercise nothing.'
+      if (nint(buf(1)) /= nint(buf(2))) write(*,'(A)') &
+        '  pe hash grid inactive on at least one worker (needs > 32 bodies per rank)'
+      if (nint(buf(3)) /= nint(buf(2))) write(*,'(A)') &
+        '  first grid span is not the one the spacers set - see the message above'
+      if (buf(4) < 33d0) write(*,'(A)') '  fewer than 33 bodies: the activation threshold cannot trip'
+      if (.not. bUseHashGridAccel) write(*,'(A)') &
+        '  SimPar@UseHashGridAccel = No: the accelerated path would never run'
+    end if
+    flush(6)
+  end if
+  if (.not. ok) call MPI_Abort(MPI_COMM_WORLD, myErrorCode%FBM_QUERY_GATE_NO_GRID, ierr)
+
+  if (bGateProbeReport .and. myid /= 0) call fbm_gate_probe_report()   ! prints on cfd rank 1
+#endif
+end subroutine fbm_gate_preflight
+
+! The verdict for one stage. Counts are summed over every rank, so no rank's
+! silence counts as agreement - the Layer-1 lesson, carried over.
+subroutine fbm_query_gate_verdict(simTime, stageName, mode, minQueries)
+  use PP3D_MPI, only: myid, COMM_SUMMN, MPI_COMM_WORLD
+  implicit none
+  real*8,           intent(in) :: simTime
+  character(len=*), intent(in) :: stageName
+  integer,          intent(in) :: mode        ! FBM_GATE_MUST_PASS / MUST_DIFFER / CHARACTERISE
+  integer,          intent(in) :: minQueries  ! fewer compared classifications than this is vacuous
+  integer :: ierr
+#ifdef FBM_QUERY_GATE
+  real*8  :: buf(4)
+  integer(kind=8) :: compared, viol, setViol
+  logical :: failed, vacuous
+  character(len=12) :: modeName
+  character(len=17) :: verdictWord
+  character(len=3)  :: expectedWord
+
+  buf(1) = dble(fbm_gate_queries)
+  buf(2) = dble(fbm_gate_flag_viol)
+  buf(3) = dble(fbm_gate_id_viol)
+  buf(4) = dble(fbm_gate_set_viol)
+  call COMM_SUMMN(buf, 4)
+  compared = int(buf(1), kind=8)
+  viol     = int(buf(2) + buf(3), kind=8)
+  setViol  = int(buf(4), kind=8)
+
+  ! What the stage EXPECTS, spelled out on the line: a verdict stage runs with a current
+  ! index and expects 0 misses; a control stage runs with a deliberately stale index and
+  ! expects misses, because a construction that finds none has no teeth.
+  select case (mode)
+  case (FBM_GATE_MUST_PASS);    modeName = 'verdict';      expectedWord = '0'
+  case (FBM_GATE_MUST_DIFFER);  modeName = 'control';      expectedWord = '>0'
+  case default;                 modeName = 'characterise'; expectedWord = 'any'
+  end select
+
+  ! A green run that compared nothing is the failure mode this guard exists for:
+  ! the accelerated branch never runs while collision_pipeline_initialized or
+  ! bUseHashGridAccel is false, and the old check printed zero violations then.
+  vacuous = compared < int(minQueries, kind=8)
+  failed  = vacuous
+  if (mode == FBM_GATE_MUST_PASS   .and. viol >  0) failed = .true.
+  if (mode == FBM_GATE_MUST_PASS   .and. setViol > 0) failed = .true.   ! owner sets must agree too
+  if (mode == FBM_GATE_MUST_DIFFER .and. viol == 0) failed = .true.
+
+  if (failed) then
+    verdictWord = 'FAIL'
+  else if (mode == FBM_GATE_MUST_DIFFER) then
+    verdictWord = 'control_confirmed'
+  else
+    verdictWord = 'pass'
+  end if
+
+  if (myid == 1) then
+    ! misses: DOFs the accelerated query classified fluid while the exhaustive one found
+    ! them solid (or vice versa). owner_mismatches: both solid, different system id.
+    write(*,'(A,ES16.8,A,A,A,A,A,I0,A,I0,A,I0,A,I0,A,A,A,A)') &
+      'DNS_QUERY_GATE time= ', simTime, ' stage= ', trim(stageName), &
+      ' mode= ', trim(modeName), ' compared= ', compared, &
+      ' misses= ', int(buf(2), kind=8), &
+      ' owner_mismatches= ', int(buf(3), kind=8), &
+      ' owner_set_mismatches= ', setViol, &
+      ' expected_misses= ', trim(expectedWord), &
+      ' verdict= ', trim(verdictWord)
+    if (failed) then
+      if (vacuous) then
+        write(*,'(A,I0,A)') 'DNS_QUERY_GATE FAILED (vacuous): fewer than ', minQueries, &
+          ' classifications were compared. The accelerated path did not run - check'
+        write(*,'(A)') '  collision_pipeline_initialized, SimPar@UseHashGridAccel and the build.'
+      else if (mode == FBM_GATE_MUST_DIFFER) then
+        write(*,'(A)') 'DNS_QUERY_GATE FAILED (control): this stage must show the stale-index'
+        write(*,'(A)') '  defect and showed none. The probe placement missed the cell lattice,'
+        write(*,'(A)') '  so the gate has no teeth. See FBM_GATE_CONSTRUCTION / FBM_GATE_PROBE.'
+      else
+        write(*,'(A)') 'DNS_QUERY_GATE FAILED: the accelerated classification does not'
+        write(*,'(A)') '  reproduce the exhaustive one on at least one rank. The'
+        write(*,'(A)') '  FBM_GATE_FLAG / FBM_GATE_OWNER lines above name the rank,'
+        write(*,'(A)') '  vertex and coordinates. A gate build exists to fail here:'
+        write(*,'(A)') '  a printed warning and a clean exit is not an acceptance gate.'
+      end if
+    end if
+    flush(6)
+  end if
+
+  if (failed) then
+    if (vacuous) then
+      call MPI_Abort(MPI_COMM_WORLD, myErrorCode%FBM_QUERY_GATE_VACUOUS, ierr)
+    else
+      call MPI_Abort(MPI_COMM_WORLD, myErrorCode%FBM_QUERY_GATE_FAILED, ierr)
+    end if
+  end if
+#else
+  ! Without the gate compiled in there is nothing to judge; preflight aborts before this.
+  if (myid == 1) write(*,'(A,A)') 'DNS_QUERY_GATE skipped (no FBM_QUERY_GATE): ', trim(stageName)
+  ierr = mode + minQueries   ! silence unused-argument warnings
+#endif
+end subroutine fbm_query_gate_verdict
 !=========================================================================
 !
 !=========================================================================
@@ -583,6 +799,13 @@ logical(c_bool) :: accel_result
 integer :: baseline_key
 integer(c_short), dimension(8) :: baseline_bytes
 
+! Multiple-ownership table (SimPar@FbmOwnerTable): every body containing the point,
+! from the path production uses, and under the gate from the exhaustive path too
+integer(c_int) :: nOwnA, nOwnB
+integer(c_long_long) :: ownA(FBM_OWN_MAX), ownB(FBM_OWN_MAX)
+integer :: nOwnCmp
+logical :: bOwnSetDiff
+
 #ifdef VERIFY_HASHGRID
 ! Variables for verification comparison
 logical(c_bool) :: baseline_result
@@ -619,6 +842,10 @@ integer(kind=8) :: timing_start, timing_end, timing_rate, timing_max
    longFictId%bytes(:) = -1
    accel_result = verifyAllParticles(cvidx, baseline_key, point, longFictId%bytes)
    key = baseline_key
+   if (bFbmOwnerTable) then
+     call pointOwners(point, FBM_OWN_MAX, ownA, nOwnA)
+     call fbm_own_record(vidx, nOwnA, ownA)
+   end if
  else
    ! HashGrid initialized AND runtime flag enabled - use accelerated version
    ! Call accelerated version (HashGrid)
@@ -627,6 +854,10 @@ integer(kind=8) :: timing_start, timing_end, timing_rate, timing_max
    call system_clock(timing_start, timing_rate, timing_max)
 #endif
    accel_result = checkAllParticles(cvidx, key, point, longFictId%bytes)
+   if (bFbmOwnerTable) then
+     call pointOwnersAccelerated(point, FBM_OWN_MAX, ownA, nOwnA)
+     call fbm_own_record(vidx, nOwnA, ownA)
+   end if
 #ifdef VERIFY_HASHGRID
    call system_clock(timing_end, timing_rate, timing_max)
    hashgrid_accel_time_ns = hashgrid_accel_time_ns + &
@@ -645,27 +876,66 @@ integer(kind=8) :: timing_start, timing_end, timing_rate, timing_max
 
    ! Update module-level statistics
    hashgrid_total_queries = hashgrid_total_queries + 1
+   fbm_gate_queries = fbm_gate_queries + 1
 
-   ! Compare results: check if both found same inside/outside state
+   ! Compare results: check if both found same inside/outside state.
+   ! Recorded on EVERY rank. The old form printed only from rank 1, so a
+   ! mismatch anywhere else was silent - the review's finding 4. The verdict is
+   ! the reduced counter, not this message; the message only says where to look,
+   ! and is capped per rank so one bad step cannot bury the log.
    if (accel_result .neqv. baseline_result) then
      hashgrid_mismatch_count = hashgrid_mismatch_count + 1
-     if (myid == 1) then
-       write(*,'(A,I0,A,3F12.6)') 'HASHGRID MISMATCH at vertex ', vidx, &
-                                   ' point: ', x, y, z
-       write(*,'(A,L1,A,L1)') '  Accelerated: ', accel_result, &
-                              ' Baseline: ', baseline_result
+     fbm_gate_flag_viol = fbm_gate_flag_viol + 1
+     if (fbm_gate_reported < fbm_gate_max_report) then
+       fbm_gate_reported = fbm_gate_reported + 1
+       write(*,'(A,I0,A,I0,A,3ES17.8,A,L1,A,L1)') &
+         'FBM_GATE_FLAG rank= ', myid, ' vertex= ', vidx, &
+         ' point= ', x, y, z, ' accelerated= ', accel_result, &
+         ' exhaustive= ', baseline_result
      endif
    endif
 
-   ! If both found a particle, check if it's the same particle
+   ! Owner SETS, not just the winner. The same minimum id can hide a second owner that one
+   ! path sees and the other does not; only the full list shows that.
+   if (bFbmOwnerTable) then
+     call pointOwners(point, FBM_OWN_MAX, ownB, nOwnB)
+     ! Counts first, elements only when the counts agree: Fortran does not short-circuit
+     ! .or., and comparing sections of different lengths is a shape mismatch (a crash under
+     ! runtime checks) exactly on the discrepancy this gate exists to report.
+     if (nOwnA /= nOwnB) then
+       bOwnSetDiff = .true.
+     else
+       nOwnCmp = min(int(nOwnA), FBM_OWN_MAX)
+       bOwnSetDiff = any(ownA(1:nOwnCmp) /= ownB(1:nOwnCmp))
+     end if
+     if (bOwnSetDiff) then
+       fbm_gate_set_viol = fbm_gate_set_viol + 1
+       if (fbm_gate_reported < fbm_gate_max_report) then
+         fbm_gate_reported = fbm_gate_reported + 1
+         write(*,'(A,I0,A,I0,A,3ES17.8,A,I0,A,I0)') &
+           'FBM_GATE_OWNERSET rank= ', myid, ' vertex= ', vidx, &
+           ' point= ', x, y, z, ' accelerated_owners= ', nOwnA, ' exhaustive_owners= ', nOwnB
+       endif
+     end if
+   end if
+
+   ! If both found a particle, check if it's the same particle.
+   ! The identity is the full 8-byte pe system id. bytes(1) is its MOST SIGNIFICANT
+   ! byte (pe writes byte_array[i] = id >> (7-i)*8), which is zero for every ordinary
+   ! serial id - comparing only that byte could never see an ownership difference,
+   ! and differences do occur: two overlapping bodies make the accelerated and the
+   ! exhaustive traversal return different owners for the same point.
    if (accel_result .and. baseline_result) then
-     if (longFictId%bytes(1) /= baseline_bytes(1)) then
+     if (any(longFictId%bytes /= baseline_bytes)) then
        hashgrid_particle_mismatch_count = hashgrid_particle_mismatch_count + 1
-       if (myid == 1) then
-         write(*,'(A,I0,A,3F12.6)') 'HASHGRID PARTICLE MISMATCH at vertex ', vidx, &
-                                     ' point: ', x, y, z
-         write(*,'(A,I0,A,I0)') '  Accelerated particle: ', longFictId%bytes(1)+1, &
-                                ' Baseline particle: ', baseline_bytes(1)+1
+       fbm_gate_id_viol = fbm_gate_id_viol + 1
+       if (fbm_gate_reported < fbm_gate_max_report) then
+         fbm_gate_reported = fbm_gate_reported + 1
+         write(*,'(A,I0,A,I0,A,3ES17.8,A,I0,A,I0)') &
+           'FBM_GATE_OWNER rank= ', myid, ' vertex= ', vidx, &
+           ' point= ', x, y, z, &
+           ' accelerated_id= ', fbm_bytesToUint64(longFictId%bytes), &
+           ' exhaustive_id= ', fbm_bytesToUint64(baseline_bytes)
        endif
      endif
    endif
@@ -681,6 +951,22 @@ integer(kind=8) :: timing_start, timing_end, timing_rate, timing_max
 end subroutine fbm_getFictKnprFC2
 !=========================================================================
 ! 
+!=========================================================================
+!=========================================================================
+! Reassemble a pe system id from the byte array pe fills through the C
+! interface: byte_array[i] = (id >> (7-i)*8) & 0xff, so bytes(1) is the most
+! significant byte and bytes(8) the least.
+!=========================================================================
+integer(kind=8) function fbm_bytesToUint64(bytes) result(id)
+use iso_c_binding, only: c_short
+implicit none
+integer(c_short), dimension(8), intent(in) :: bytes
+integer :: i
+id = 0_8
+do i = 1, 8
+  id = ior(ishft(id, 8), int(iand(int(bytes(i)), 255), kind=8))
+end do
+end function fbm_bytesToUint64
 !=========================================================================
 subroutine fbm_testBasicFBM(x,y,z, longFictId)
 ! 
@@ -1748,6 +2034,18 @@ logical, save :: bStepsizeChecked = .false.
     end if
   end if
   call step_simulation()
+
+  ! The spatial index is filed during contact detection, BEFORE the step integrates
+  ! positions, so right now the cell assignment is one step behind the geometry. Every
+  ! point classification that follows (the FBM alpha field) queries 27 cells around the
+  ! point, and a body is filed by its AABB minimum: a body whose minimum sits just below a
+  ! cell boundary can have its far surface two cells away from where it is filed, and an
+  ! interior point there is then classified as fluid. The failure depends on where that
+  ! minimum sits relative to the cell lattice, not on how far the body moved, so no
+  ! timestep bound avoids it. Re-filing costs one hash per body and moves a body between
+  ! cells only when its hash actually changed; it also leaves the next contact search with
+  ! an index that is already current.
+  call refresh_spatial_index()
 #endif
 
 end subroutine fbm_updateDefaultFC2

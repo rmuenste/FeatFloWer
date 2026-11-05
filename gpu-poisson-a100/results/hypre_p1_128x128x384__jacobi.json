@@ -1,0 +1,12 @@
+{
+  "library": "hypre", "hypre_version": "3.1.0", "hypre_release_date": "2026/01/23", "status": "done", "label": "jacobi", "timestamp": "2026-10-02T13:58:34", "host": "tardis", "slurm_job": "147459",
+  "build": {"cuda": true, "mixedint": true, "bigint": false, "unified_memory": false, "sizeof_HYPRE_Int": 4, "sizeof_HYPRE_BigInt": 8},
+  "instance": "/scratch/rmuenste/gpu-poisson/bin/p1_128x128x384", "grid": [128, 128, 384], "h": 0.0078125, "nu": 25165824, "nnz": 2610809224, "nnz_per_row": 103.7442,
+  "execution": "device", "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate", "mpi_ranks": 3, "storage": "full (ParCSR diag+offd, f64 values, int32 local indices)", "fine_operator_gb": 31.430,
+  "settings": {"solver": "PCG (two-norm, rel. residual)", "tol": 1e-08, "max_iter": 500, "num_functions": 4, "nodal": 0, "nodal_diag": 0, "interp_vectors": 0, "interp_vec_variant": 2, "interp_vec_qmax": 0, "coarsen_type": 8, "interp_type": 6, "relax_type": 18, "num_sweeps": 1, "agg_num_levels": 1, "agg_interp_type": 0, "p_max_elmts": 4, "strong_threshold": 0.250, "max_levels": 25, "max_coarse_size": 9, "keep_transpose": 1, "mod_rap2": 1, "spmv_use_vendor": 1, "spgemm_use_vendor": 0},
+  "jacobi_cg": {"iters": 423, "converged": true, "setup_seconds": 0.003173, "seconds": 26.957258, "seconds_per_iter": 0.0637287, "final_relres": 9.151002e-09, "true_relres": 9.151002e-09, "rel_err_vs_x_true": 2.499816e-07, "device_used_gb_after_setup": 34.020, "device_used_gb_after_solve": 34.045, "hist_every_10": [1.000000e+00, 3.313793e-02, 1.619478e-02, 1.132525e-02, 8.480925e-03, 6.661575e-03, 5.381408e-03, 4.223088e-03, 3.312528e-03, 2.557559e-03, 1.930690e-03, 1.436045e-03, 1.015443e-03, 7.058695e-04, 2.297932e-04, 2.267899e-04, 1.613976e-04, 1.173998e-04, 9.017735e-05, 7.038948e-05, 4.792915e-05, 3.311251e-05, 2.307202e-05, 1.568398e-05, 1.069830e-05, 7.528101e-06, 5.676508e-06, 4.793648e-06, 2.728844e-06, 1.831646e-06, 1.356451e-06, 1.014533e-06, 6.689043e-07, 4.360411e-07, 3.143302e-07, 2.263191e-07, 1.691789e-07, 1.182340e-07, 7.783338e-08, 5.009470e-08, 2.967827e-08, 1.986871e-08, 1.137655e-08]},
+  "jacobi_cg_rough_rhs": null,
+  "amg_cg": null,
+  "device_memory_total_gb": 85.094, "peak_device_memory_gb": 34.045, "device_memory_samples": [["after HYPRE_Initialize", 1.330], ["matrix on device", 32.888], ["after DiagScale setup", 34.020], ["after solve", 34.045], ["after PCG destroy", 33.429]],
+  "host_maxrss_gb_rank0": 20.922, "total_seconds": 36.863
+}

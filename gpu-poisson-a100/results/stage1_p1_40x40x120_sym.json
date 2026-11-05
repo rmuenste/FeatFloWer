@@ -1,0 +1,201 @@
+{
+ "tag": "stage1-sym",
+ "timestamp": "2026-10-02T12:10:50",
+ "host": "tardis",
+ "slurm_job": "147430",
+ "python": "3.13.5",
+ "numpy": "2.3.1",
+ "scipy": "1.16.0",
+ "pyamg": "5.3.0",
+ "cupy": "14.2.0",
+ "device": "NVIDIA A100 80GB PCIe",
+ "device_memory_total_gb": 85.093777408,
+ "cuda_runtime": 12090,
+ "cuda_driver": 13000,
+ "compute_capability": "80",
+ "instance": "instances/p1_40x40x120.npz",
+ "grid": [
+  40,
+  40,
+  120
+ ],
+ "h": 0.025,
+ "nu": 768000,
+ "nnz": 79017708,
+ "nnz_per_row": 102.887640625,
+ "shift": 1e-06,
+ "cpu_reference": {
+  "file": "results/p1_40x40x120.cpu.json",
+  "nnz": 79017708,
+  "condition": 1896.6304819303755,
+  "lambda_min": 0.0003323311189769309,
+  "lambda_max": 0.6303093303456774,
+  "cg_jacobi_iters_rough_rhs": 274,
+  "cg_jacobi_seconds_cpu": 19.661335945129395,
+  "cg_block_jacobi_iters_rough_rhs": 274,
+  "smooth_rhs_rel_err_vs_x_true": 6.768802974329731e-10,
+  "nnz_matches_instance": true
+ },
+ "storage": "sym",
+ "matvec": "kernel",
+ "nnz_stored": 39892854,
+ "fine_operator_gb": 0.484858256,
+ "matvec_seconds": 0.0005700707435607911,
+ "matvec_effective_GBps": 850.522959609303,
+ "jacobi_cg": {
+  "iters": 141,
+  "converged": true,
+  "seconds": 0.12047362327575684,
+  "seconds_per_iter": 0.0008544228601117506,
+  "final_relres": 8.583489824002866e-09,
+  "true_relres": 8.583489842476407e-09,
+  "hist_every_10": [
+   0.21432911682738223,
+   0.034830489072809376,
+   0.014769192443036127,
+   0.006189192957553849,
+   0.002064526894974445,
+   0.0004552059648117447,
+   0.0001863605155391838,
+   5.567878747114169e-05,
+   1.8486808917001e-05,
+   5.985542025674238e-06,
+   1.9736396032953416e-06,
+   6.458397445216065e-07,
+   1.9157827869903183e-07,
+   4.057732477329155e-08,
+   8.583489824002866e-09
+  ],
+  "rel_err_vs_x_true": 7.227926180971915e-08
+ },
+ "device_used_gb_after_baseline": 1.007550464,
+ "amg_variants": {
+  "geo_lin": {
+   "variant": "geo_lin",
+   "description": "cell-level 2x2x2 geometric aggregation (predefined), B=[1,x,y,z], unsmoothed P (= nested P1-disc coarse spaces, Galerkin)",
+   "levels": 5,
+   "sizes": [
+    768000,
+    96000,
+    12000,
+    1500,
+    288
+   ],
+   "nnz_per_level": [
+    79756672,
+    9580672,
+    1103872,
+    116272,
+    17248
+   ],
+   "operator_complexity": 1.1356383576285631,
+   "grid_complexity": 1.142953125,
+   "host_setup_s": 1.161958932876587,
+   "host_maxrss_gb_after_setup": 3.441608,
+   "device_setup_s": 0.27910804748535156,
+   "hierarchy_device_gb": 0.154199276,
+   "omega": [
+    0.880108372740753,
+    0.9222872161095548,
+    0.7651716103237955,
+    0.7173122457039616
+   ],
+   "sweeps": [
+    2,
+    2
+   ],
+   "omega_factor": 1.3333333333333333,
+   "device_used_gb_after_setup": 1.137573888,
+   "cg": {
+    "iters": 49,
+    "converged": true,
+    "seconds": 0.2238922119140625,
+    "seconds_per_iter": 0.004569228814572704,
+    "final_relres": 9.43820792541533e-09,
+    "true_relres": 9.438207922421743e-09,
+    "hist_every_10": [
+     0.0722235844073689,
+     0.0013908727896561265,
+     5.0277756312061664e-05,
+     2.1027259168368035e-06,
+     1.0025192480790465e-07
+    ],
+    "rel_err_vs_x_true": 1.708913595073419e-07,
+    "vcycle_seconds": 0.0037314891815185547
+   }
+  },
+  "sa_bsr_lin": {
+   "variant": "sa_bsr_lin",
+   "description": "SA on the 4x4 cell blocks, B=[1,x,y,z] in the P1-disc basis (coarse space reproduces linears)",
+   "levels": 3,
+   "sizes": [
+    768000,
+    31360,
+    1336
+   ],
+   "nnz_per_level": [
+    79756672,
+    3056128,
+    108352
+   ],
+   "operator_complexity": 1.0396766805916877,
+   "grid_complexity": 1.0425729166666666,
+   "host_setup_s": 4.097795248031616,
+   "host_maxrss_gb_after_setup": 4.651836,
+   "device_setup_s": 0.26969289779663086,
+   "hierarchy_device_gb": 0.278275316,
+   "omega": [
+    0.880108372740753,
+    0.8063705922971828
+   ],
+   "sweeps": [
+    2,
+    2
+   ],
+   "omega_factor": 1.3333333333333333,
+   "device_used_gb_after_setup": 1.269694464,
+   "cg": {
+    "iters": 11,
+    "converged": true,
+    "seconds": 0.039658308029174805,
+    "seconds_per_iter": 0.003605300729924982,
+    "final_relres": 6.72240756505275e-09,
+    "true_relres": 6.722407563329087e-09,
+    "hist_every_10": [
+     0.009524010442465024,
+     6.72240756505275e-09
+    ],
+    "rel_err_vs_x_true": 9.667853965401797e-09,
+    "vcycle_seconds": 0.0029680728912353516
+   }
+  }
+ },
+ "amg_cg": {
+  "variant": "geo_lin",
+  "levels": 5,
+  "operator_complexity": 1.1356383576285631,
+  "grid_complexity": 1.142953125,
+  "host_setup_s": 1.161958932876587,
+  "device_setup_s": 0.27910804748535156,
+  "hierarchy_device_gb": 0.154199276,
+  "iters": 49,
+  "converged": true,
+  "seconds": 0.2238922119140625,
+  "seconds_per_iter": 0.004569228814572704,
+  "final_relres": 9.43820792541533e-09,
+  "true_relres": 9.438207922421743e-09,
+  "hist_every_10": [
+   0.0722235844073689,
+   0.0013908727896561265,
+   5.0277756312061664e-05,
+   2.1027259168368035e-06,
+   1.0025192480790465e-07
+  ],
+  "rel_err_vs_x_true": 1.708913595073419e-07,
+  "vcycle_seconds": 0.0037314891815185547
+ },
+ "peak_device_memory_gb": 1.269694464,
+ "device_mempool_total_gb": 0.50329088,
+ "host_maxrss_gb": 4.651836,
+ "total_seconds": 8.664733409881592
+}

@@ -1,0 +1,59 @@
+configure: NOTE: Could not find .git directory
+checking build system type... x86_64-pc-linux-gnu
+checking host system type... x86_64-pc-linux-gnu
+checking for nvcc... nvcc
+checking whether make sets $(MAKE)... yes
+checking for ranlib... ranlib
+checking for gcc... mpicc
+checking whether the C compiler works... yes
+checking for C compiler default output file name... a.out
+checking for suffix of executables... 
+checking whether we are cross compiling... no
+checking for suffix of object files... o
+checking whether the compiler supports GNU C... yes
+checking whether mpicc accepts -g... yes
+checking for mpicc option to enable C11 features... none needed
+checking whether the compiler supports GNU C++... yes
+checking whether mpicxx accepts -g... yes
+checking for mpicxx option to enable C++11 features... none needed
+checking whether the compiler supports GNU Fortran... yes
+checking whether /sfw/gcc/13.2.0-static-gmp-mpfr-mpc-isl/bin/gfortran accepts -g... yes
+checking how to get verbose linking output from /sfw/gcc/13.2.0-static-gmp-mpfr-mpc-isl/bin/gfortran... -v
+checking for Fortran libraries of /sfw/gcc/13.2.0-static-gmp-mpfr-mpc-isl/bin/gfortran...  -L/sfw/gcc/13.2.0-static-gmp-mpfr-mpc-isl/lib64/../lib64 -L/opt/slurm/lib64/../lib64 -L/sfw/gcc/13.2.0-static-gmp-mpfr-mpc-isl/lib64/gcc/x86_64-pc-linux-gnu/13.2.0 -L/sfw/gcc/13.2.0-static-gmp-mpfr-mpc-isl/lib64/gcc/x86_64-pc-linux-gnu/13.2.0/../../../../lib64 -L/lib/../lib64 -L/usr/lib/../lib64 -L/sfw/gcc/13.2.0-static-gmp-mpfr-mpc-isl/lib64 -L/sfw/openmpi/gcc13.2.x/4.1.6/ucx-threaded-noverbs/lib -L/opt/slurm/lib64 -L/sfw/gcc/13.2.0-static-gmp-mpfr-mpc-isl/lib64/gcc/x86_64-pc-linux-gnu/13.2.0/../../.. -lgfortran -lm -lquadmath
+checking for dummy main to link with Fortran libraries... none
+checking for Fortran name-mangling scheme... lower case, underscore, no extra underscore
+checking for MPI_Init... yes
+checking for mpi.h... yes
+checking for MPI_Comm_f2c... yes
+checking how to run the C preprocessor... mpicc -E
+checking for grep that handles long lines and -e... /usr/bin/grep
+checking for egrep... /usr/bin/grep -E
+checking whether MPI_Comm_f2c is a macro... no
+checking for cabs in -lm... yes
+checking for stdio.h... yes
+checking for stdlib.h... yes
+checking for string.h... yes
+checking for inttypes.h... yes
+checking for stdint.h... yes
+checking for strings.h... yes
+checking for sys/stat.h... yes
+checking for sys/types.h... yes
+checking for unistd.h... yes
+checking for /sfw/cuda/12.6/include/cuda.h... yes
+checking for /sfw/cuda/12.6/include/cusparse.h... yes
+checking for /sfw/cuda/12.6/include/cublas.h... yes
+configure: WARNING: ***************************************************************
+configure: WARNING:  Umpire is explicitly disabled while building hypre for GPUs.
+configure: WARNING:  This is not recommended for performance reasons!
+configure: WARNING:  Enable it with --with-umpire.
+configure: WARNING: ***************************************************************
+configure: ***********************************************************************
+configure: Configuring with --with-cuda=yes without unified memory.
+configure: It only works for structured solvers and selected unstructured solvers
+configure: Use --enable-unified-memory to compile with unified memory.
+configure: ***********************************************************************
+checking the hostname... tardis
+checking the architecture... LINUX
+configure: creating ./config.status
+config.status: creating config/Makefile.config
+config.status: creating HYPRE_config.h

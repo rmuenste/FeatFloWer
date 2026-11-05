@@ -143,9 +143,14 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CFILE=CFILE1
  MFILE=MFILE1
 
- dPeriodicity(1)= 1.0d0
- dPeriodicity(2)= 1.0d0
- dPeriodicity(3)= 1.0d0
+ ! Triply periodic unit cube is this app's historical default (d11/d31).
+ ! A deck-level SimPar@Periodicity (parsed in GDATNEW above) takes
+ ! precedence - required by the D6.2 shear box (periodic x/y, walls z).
+ IF (ALL(dPeriodicity.GT.1d8)) THEN
+  dPeriodicity(1)= 1.0d0
+  dPeriodicity(2)= 1.0d0
+  dPeriodicity(3)= 1.0d0
+ END IF
 
  !=======================================================================
  !     Grid generation

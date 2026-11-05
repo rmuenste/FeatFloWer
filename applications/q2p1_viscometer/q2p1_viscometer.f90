@@ -18,7 +18,7 @@
 !                                           (EvaluateTorque_residual,
 !                                            BenchForce-style reaction)
 !   VISC_TORQUE_DNA time= <t> Tz= <value>   secondary, grad(alpha)-band
-!                                           volume integral (GetDNATorque)
+!                                           volume integral (GetVolumeFormTorque)
 !
 ! Both calls live here, in the application, on purpose: the shared
 ! per-step code path in QuadSc_main.f90 is left untouched so that no
@@ -32,11 +32,13 @@ PROGRAM Q2P1_VISCOMETER
   include 'defs_include.h'
 
   use solution_io, only: postprocessing_app
+  use dem_query, only: set_pe_checkpoint_identity
+  use iso_c_binding, only: c_null_char
 
   use app_initialization, only: init_q2p1_app
 
   ! D5.1 boundary-torque estimators (both are app-local calls)
-  use Transport_Q2P1, only: VISC_GetTorqueResidual, DNA_GetTorques
+  use Transport_Q2P1, only: VISC_GetTorqueResidual, VISC_GetTorqueVolume
 
   use post_utils,  only: handle_statistics,&
                          print_time,&
@@ -45,6 +47,7 @@ PROGRAM Q2P1_VISCOMETER
   integer            :: iOGMV,iTout
   character(len=200) :: command
   character(len=60)  :: CPP3D
+  character(len=64)  :: cTag
   real               :: dout = 0.0
   integer            :: ufile, ilog
   real               :: tt0 = 0.0
@@ -68,6 +71,11 @@ PROGRAM Q2P1_VISCOMETER
   dt=tstep
   timens=timens+dt
 
+  ! pe checkpoint identity for this step: the same (timens, istep_ns) that a dump written
+  ! in this step puts into time.dmp (libs/pe/FF-WIRING.md section 1)
+  write(cTag,'(A,I0)') 'ff:istep=', istep_ns
+  call set_pe_checkpoint_identity(timens, istep_ns, trim(cTag)//c_null_char)
+
   ! Solve Navier-Stokes (add discretization in name + equation or quantity)
   CALL Transport_q2p1_UxyzP_fc_ext(ufile,inonln_u,itns)
 
@@ -77,7 +85,7 @@ PROGRAM Q2P1_VISCOMETER
   ! Evaluated after the converged NS step, on the BndrForce ('WallF')
   ! masked bore surface.  Newtonian only (deck: SimPar@FlowType = Newtonian).
   CALL VISC_GetTorqueResidual(ufile)
-  CALL DNA_GetTorques(ufile)
+  CALL VISC_GetTorqueVolume(ufile)
 
   call postprocessing_app(dout, inonln_u, inonln_t,ufile)
 

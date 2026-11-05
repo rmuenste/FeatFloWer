@@ -1,6 +1,6 @@
 # Euler–Lagrange validation campaign — final report
 
-Branch: `feature/euler-lagrange-phase1` · Application: `q2p1_el_pipeflow`
+Branch: `feature/euler-lagrange-phase1` (merged to master, PR #27, `63d3bee5`, 2026-07-31) · Application: `q2p1_el_pipeflow`
 · Companion data: `el_validation_datasheet.md` / `.csv` (60 expected-vs-actual
 rows: 47 PASS, 10 RECORDED, 2 FAIL-as-measured with physics attribution,
 1 RESOLVED) · Per-case protocols: `applications/q2p1_el_pipeflow/
@@ -30,10 +30,12 @@ truncation (solver-accuracy footnote, § 6.4).
 
 ## 2. Model summary
 
-- Fluid: Q2/P1 FEM Navier–Stokes with volume-fraction (ε_f) weighting;
-  divergence-form convection (leak fix, § 3.3); particle feedback as a
-  kernel-spread body force (Newton-mirrored), explicit or semi-implicit
-  drag coupling.
+- Fluid: Q2/P1 FEM incompressible Navier–Stokes, **not** ε_f-weighted
+  (∇·u = 0; ε_f enters only the force closures, audits and output — see
+  § 6 item 7); legacy convective form with the ELMomentumFix compensator
+  in production, divergence-form convection available as an audit option
+  (`ELConvectionForm`, § 3.3); particle feedback as a kernel-spread body
+  force (Newton-mirrored), explicit or semi-implicit drag coupling.
 - Transfer: Lucy/`deen_poly` polynomial kernel, width δ = 2.5 d_p;
   volume-fraction "cloud" deposition; ELMomentumFix measured-leak
   compensator (periodic boxes).
@@ -155,7 +157,9 @@ quantitative result.
    settling literature (2–4× enhancement is the documented behavior of
    periodic point-particle sedimentation). RZ hindered settling is a
    wall-bounded/homogenized result the periodic box does not represent.
-   All conservation gates in these runs PASS.
+   All conservation gates in these runs PASS. Open: the missing
+   volume-averaged carrier equations (item 7) are a modelling difference
+   the reframe does not yet account for.
 2. **Self-voidage / co-flow bias**: single-particle drag biased by
    ε_eff ≈ 0.975 (kernel self-occupancy); two-way runs add +6% co-flow.
    Gate against corrected predictions (memory + datasheet rows).
@@ -174,6 +178,32 @@ quantitative result.
    pipe geometry; V5 radial concentration profiles (data exists in the
    V4 runs); Kroupa parameter-matched sweep vs their Fig 3 experimental
    overlay (ε_c sensitivity).
+7. **TODO (next EL action) — volume-averaged carrier equations.** The
+   fluid solves the unweighted incompressible equations. Verified in the
+   assembly (2026-10-09, `51e3f6f8`): the momentum system receives only
+   the kernel-spread feedback force (`EL_APPLY_FLUID_FEEDBACK_SOURCE`,
+   `source/src_el/el_fields.f90`) and, with `ELDragCoupling=semi_implicit`,
+   `drag_B_source` on the velocity diagonal
+   (`source/src_quadLS/QuadSc_def.f90`); mass, convection, diffusion,
+   pressure gradient and the pressure equation carry no ε_f, and
+   `deps_f_dt` is computed (`source/src_el/el_transfer.f90`) but used
+   only for output and restart. This is the dilute-limit (ε_f → 1) form
+   of Model A, not the volume-averaged (Anderson–Jackson) model.
+   Consequences: no displacement backflow from the particle volume flux
+   (∂ε_f/∂t + ∇·(ε_f u) = 0 is not enforced), no ε_f in inertia, viscous
+   stress or −ε_f ∇p. Hypothesis to test: this contributes to the V2
+   settling enhancement (item 1); the expected effect is O(φ), not a
+   factor 2.6–3.3, so it is unlikely to replace the cluster-instability
+   reframe but has to be quantified before that reframe is final. It
+   matters most in dense regimes (packed and fluidized beds). Work items:
+   (a) add ε_f weighting to inertia, viscous and pressure terms (Model A)
+   and ∂ε_f/∂t to continuity, reusing `deps_f_dt`; reference
+   implementation `cfdemSolverPiso` of CFDEMcoupling-PUBLIC (note: its
+   ∂α/∂t term is off by default, `useDDTvoidfraction`); (b) rerun V2 at
+   φ = 0.20 with and without the weighting; (c) Ergun packed-bed
+   pressure-drop check (CFDEM `ErgunTestMPI` as twin); (d) update
+   `el_methods_inventory.md` and § 2 when done. Background:
+   `LIGGGHTS-PUBLIC/md_docs/CFDEM_SURVEY.md` § 12 (outside this repo).
 
 ## 7. Reproducibility
 

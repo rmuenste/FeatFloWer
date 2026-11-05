@@ -1,0 +1,60 @@
+stage 2 on tardis, job 147432, 2026-10-02T12:12:05+02:00
+name, memory.total [MiB], memory.used [MiB]
+NVIDIA A100 80GB PCIe, 81920 MiB, 0 MiB
+/dev/sda4       1.7T  131G  1.5T   9% /scratch
+               total        used        free      shared  buff/cache   available
+Mem:             502           7         492           0           5         495
++ python3 gpu_amg_cg.py --build 128 128 384 --save /scratch/rmuenste/gpu-poisson/p1_128x128x384.npz --instance /scratch/rmuenste/gpu-poisson/p1_128x128x384.npz --workers 8 --tmpdir /scratch/rmuenste/gpu-poisson/tmp --storage full --block-jacobi --amg sa_bsr_lin,sa_csr_spec,geo_lin --tag stage2 --out results/gpu_p1_128x128x384.json
+[     1.2s] device NVIDIA A100 80GB PCIe (85.1 GB), cupy 14.2.0
+[     1.2s] [build] 128x128x384: 10 slabs of <= 13 planes (+halo), 8 workers
+[    61.2s] [build] slabs done in 60 s, concatenating
+[    93.4s] [build] done: nu 25,165,824 nnz 2,610,809,224 (103.7/row) in 92 s, maxrss 62.4 GB
+[   139.8s] saved /scratch/rmuenste/gpu-poisson/p1_128x128x384.npz (31.9 GB) in 41 s
+[   139.8s] instance (128, 128, 384): nu 25,165,824 nnz 2,610,809,224 (103.7/row), CSR f64/i32 31.53 GB
+[   161.4s] [op] full storage, cuSPARSE, 2 row slab(s)
+[   161.4s] [op] storage=full matvec=cusparse nnz_stored=2,610,809,224 (31.5 GB), upload 21.6 s
+Traceback (most recent call last):
+  File "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/gpu_amg_cg.py", line 704, in <module>
+    main()
+    ~~~~^^
+  File "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/gpu_amg_cg.py", line 610, in main
+    res["matvec_seconds"] = op.time_matvec(); res["matvec_effective_GBps"] = op.bytes / res["matvec_seconds"] / 1e9
+                            ~~~~~~~~~~~~~~^^
+  File "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/gpu_amg_cg.py", line 334, in time_matvec
+    self.matvec(x, y); self.be.sync(); t0 = time.time()
+    ~~~~~~~~~~~^^^^^^
+  File "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/gpu_amg_cg.py", line 323, in matvec
+    y = self.be.cusparse.spmv(M, x)
+  File "/home/user/rmuenste/.local/lib/python3.13/site-packages/cupyx/cusparse.py", line 1790, in spmv
+    _cusparse.spMV(handle, op_a, alpha.data, desc_a.desc, desc_x.desc,
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                   beta.data, desc_y.desc, cuda_dtype, alg, buff.data.ptr)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "cupy_backends/cuda/libs/cusparse.pyx", line 3398, in cupy_backends.cuda.libs.cusparse.spMV
+  File "cupy_backends/cuda/libs/cusparse.pyx", line 3406, in cupy_backends.cuda.libs.cusparse.spMV
+  File "cupy_backends/cuda/libs/cusparse.pyx", line 1228, in cupy_backends.cuda.libs.cusparse.check_status
+cupy_backends.cuda.libs.cusparse.CuSparseError: CUSPARSE_STATUS_INTERNAL_ERROR: internal error
++ python3 gpu_amg_cg.py --instance /scratch/rmuenste/gpu-poisson/p1_128x128x384.npz --storage sym --amg sa_bsr_lin --tag stage2-sym --out results/stage2_p1_128x128x384_sym.json
+[     0.6s] device NVIDIA A100 80GB PCIe (85.1 GB), cupy 14.2.0
+[    28.5s] loaded /scratch/rmuenste/gpu-poisson/p1_128x128x384.npz in 27.9 s
+[    28.5s] instance (128, 128, 384): nu 25,165,824 nnz 2,610,809,224 (103.7/row), CSR f64/i32 31.53 GB
+[    58.5s] [op] storage=sym matvec=cusparse nnz_stored=1,317,987,524 (16.0 GB), upload 30.0 s
+[    58.9s] matvec 20.69 ms (774 GB/s effective on stored bytes); device used 17.1 GB
+[    59.1s] Jacobi-CG on the stored b (tol 1e-08, cap 20000)
+[    69.5s] Jacobi-CG: 423 it, 10.40 s, relres 9.15e-09, err vs x_true 2.50e-07
+[    71.3s] host scipy CSR for pyamg: index dtype int64, 1.8 s, maxrss 78.2 GB
+[    97.1s] [amg] tobsr 25.8 s, blocks 167,812,600
+[   200.1s] [amg] sa_bsr_lin: 4 levels, n=[25165824, 946688, 38700, 1436], OC=1.038, GC=1.039, setup 128.8 s, maxrss 147.4 GB
+[   208.2s] [vcycle] 4 levels on device, 8.79 GB, omega=[0.878, 0.801, 0.736], coarse n=1436, setup 8.1 s
+[   210.7s]   [amg-cg/sa_bsr_lin] it 10 relres 2.139e-08 (1.1 s)
+[   211.0s] AMG-CG [sa_bsr_lin]: 11 it, 1.27 s (115 ms/it, V-cycle 99 ms), relres 6.66e-09, err vs x_true 1.13e-08
+[   211.2s] peak device memory 27.9 GB (mempool 16.6 GB), host maxrss 147.4 GB, total 211 s
+[   211.2s] wrote results/stage2_p1_128x128x384_sym.json
++ set +x
+total 31185268
+drwxr-xr-x 3 rmuenste lsiii        4096 Oct  2 12:13 .
+drwxr-xr-x 3 rmuenste lsiii        4096 Oct  2 12:12 ..
+-rw-r--r-- 1 rmuenste lsiii 31933692872 Oct  2 12:14 p1_128x128x384.npz
+drwxr-xr-x 2 rmuenste lsiii        4096 Oct  2 12:13 tmp
+/dev/sda4       1.7T  161G  1.5T  10% /scratch
+stage 2 done 2026-10-02T12:18:34+02:00

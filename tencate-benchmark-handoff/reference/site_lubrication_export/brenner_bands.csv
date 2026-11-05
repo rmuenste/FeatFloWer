@@ -1,0 +1,4 @@
+model,label,band_1h_2h,band_sub_1h,kind
+fbm_only,Resolved FBM alone,-0.148,-0.259,measured
+kroupa_full,FBM + full Kroupa resistance set,0.746,0.674,measured
+kroupa_deficit,FBM + deficit form (production),0.072,0.240,measured

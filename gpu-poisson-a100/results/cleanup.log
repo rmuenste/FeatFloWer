@@ -1,0 +1,46 @@
+cleanup of /scratch/rmuenste/gpu-poisson on tardis, 2026-10-03T08:47:27+02:00, dry-run=0, job 147632
+## /scratch before
+/dev/sda4       1.7T  413G  1.2T  26% /scratch
+## contents before
+144G	/scratch/rmuenste/gpu-poisson/bin
+48K	/scratch/rmuenste/gpu-poisson/hypre_boomer_pcg
+121M	/scratch/rmuenste/gpu-poisson/hypre-cuda
+560M	/scratch/rmuenste/gpu-poisson/hypre-src
+59M	/scratch/rmuenste/gpu-poisson/hypre-src-bigint
+136K	/scratch/rmuenste/gpu-poisson/mps
+30G	/scratch/rmuenste/gpu-poisson/p1_128x128x384.npz
+49G	/scratch/rmuenste/gpu-poisson/p1_150x150x450.npz
+60G	/scratch/rmuenste/gpu-poisson/p1_160x160x480.npz
+4.0K	/scratch/rmuenste/gpu-poisson/tmp
+282G	/scratch/rmuenste/gpu-poisson
+## to delete (7 entries)
+30G	/scratch/rmuenste/gpu-poisson/p1_128x128x384.npz
+49G	/scratch/rmuenste/gpu-poisson/p1_150x150x450.npz
+60G	/scratch/rmuenste/gpu-poisson/p1_160x160x480.npz
+144G	/scratch/rmuenste/gpu-poisson/bin
+4.0K	/scratch/rmuenste/gpu-poisson/tmp
+560M	/scratch/rmuenste/gpu-poisson/hypre-src
+48K	/scratch/rmuenste/gpu-poisson/hypre_boomer_pcg
+## kept
+121M	/scratch/rmuenste/gpu-poisson/hypre-cuda
+deleted /scratch/rmuenste/gpu-poisson/p1_128x128x384.npz
+deleted /scratch/rmuenste/gpu-poisson/p1_150x150x450.npz
+deleted /scratch/rmuenste/gpu-poisson/p1_160x160x480.npz
+deleted /scratch/rmuenste/gpu-poisson/bin
+deleted /scratch/rmuenste/gpu-poisson/tmp
+deleted /scratch/rmuenste/gpu-poisson/hypre-src
+deleted /scratch/rmuenste/gpu-poisson/hypre_boomer_pcg
+## contents after
+total 20
+drwxr-xr-x 5 rmuenste lsiii 4096 Oct  3 08:48 .
+drwxr-xr-x 3 rmuenste lsiii 4096 Oct  2 12:12 ..
+drwxr-xr-x 4 rmuenste lsiii 4096 Oct  2 13:54 hypre-cuda
+drwxr-xr-x 3 rmuenste lsiii 4096 Oct  2 14:12 hypre-src-bigint
+drwxr-xr-x 4 rmuenste lsiii 4096 Oct  2 14:01 mps
+121M	/scratch/rmuenste/gpu-poisson/hypre-cuda
+59M	/scratch/rmuenste/gpu-poisson/hypre-src-bigint
+136K	/scratch/rmuenste/gpu-poisson/mps
+180M	/scratch/rmuenste/gpu-poisson
+## /scratch after
+/dev/sda4       1.7T  131G  1.5T   9% /scratch
+cleanup done 2026-10-03T08:48:10+02:00

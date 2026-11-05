@@ -634,7 +634,7 @@
 !
 !      
 !************************************************************************
-      SUBROUTINE GetDNATorque(U1,U2,U3,P,ALPHA,KVERT,KAREA,KEDGE,&
+      SUBROUTINE GetVolumeFormTorque(U1,U2,U3,P,ALPHA,KVERT,KAREA,KEDGE,&
                              DCORVG,DVISC,DTrqForce,ELE)
 !************************************************************************
       USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN

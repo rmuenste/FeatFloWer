@@ -1,0 +1,156 @@
+{
+ "tag": "stage1-full-kernel",
+ "timestamp": "2026-10-02T12:10:44",
+ "host": "tardis",
+ "slurm_job": "147430",
+ "python": "3.13.5",
+ "numpy": "2.3.1",
+ "scipy": "1.16.0",
+ "pyamg": "5.3.0",
+ "cupy": "14.2.0",
+ "device": "NVIDIA A100 80GB PCIe",
+ "device_memory_total_gb": 85.093777408,
+ "cuda_runtime": 12090,
+ "cuda_driver": 13000,
+ "compute_capability": "80",
+ "instance": "instances/p1_40x40x120.npz",
+ "grid": [
+  40,
+  40,
+  120
+ ],
+ "h": 0.025,
+ "nu": 768000,
+ "nnz": 79017708,
+ "nnz_per_row": 102.887640625,
+ "shift": 1e-06,
+ "cpu_reference": {
+  "file": "results/p1_40x40x120.cpu.json",
+  "nnz": 79017708,
+  "condition": 1896.6304819303755,
+  "lambda_min": 0.0003323311189769309,
+  "lambda_max": 0.6303093303456774,
+  "cg_jacobi_iters_rough_rhs": 274,
+  "cg_jacobi_seconds_cpu": 19.661335945129395,
+  "cg_block_jacobi_iters_rough_rhs": 274,
+  "smooth_rhs_rel_err_vs_x_true": 6.768802974329731e-10,
+  "nnz_matches_instance": true
+ },
+ "storage": "full",
+ "matvec": "kernel",
+ "nnz_stored": 79017708,
+ "fine_operator_gb": 0.954356504,
+ "matvec_seconds": 0.0007288694381713867,
+ "matvec_effective_GBps": 1309.3655105011992,
+ "jacobi_cg": {
+  "iters": 141,
+  "converged": true,
+  "seconds": 0.1443185806274414,
+  "seconds_per_iter": 0.0010235360328187334,
+  "final_relres": 8.583489824002816e-09,
+  "true_relres": 8.583489841214298e-09,
+  "hist_every_10": [
+   0.21432911682738223,
+   0.034830489072809376,
+   0.014769192443036129,
+   0.006189192957553844,
+   0.0020645268949744423,
+   0.00045520596481174377,
+   0.00018636051553918342,
+   5.5678787471141596e-05,
+   1.8486808917000954e-05,
+   5.985542025674214e-06,
+   1.9736396032953314e-06,
+   6.458397445216032e-07,
+   1.9157827869903096e-07,
+   4.057732477329137e-08,
+   8.583489824002816e-09
+  ],
+  "rel_err_vs_x_true": 7.22792618051686e-08
+ },
+ "device_used_gb_after_baseline": 1.477312512,
+ "amg_variants": {
+  "geo_lin": {
+   "variant": "geo_lin",
+   "description": "cell-level 2x2x2 geometric aggregation (predefined), B=[1,x,y,z], unsmoothed P (= nested P1-disc coarse spaces, Galerkin)",
+   "levels": 5,
+   "sizes": [
+    768000,
+    96000,
+    12000,
+    1500,
+    288
+   ],
+   "nnz_per_level": [
+    79756672,
+    9580672,
+    1103872,
+    116272,
+    17248
+   ],
+   "operator_complexity": 1.1356383576285631,
+   "grid_complexity": 1.142953125,
+   "host_setup_s": 1.1607654094696045,
+   "host_maxrss_gb_after_setup": 4.2195,
+   "device_setup_s": 0.29096508026123047,
+   "hierarchy_device_gb": 0.154199276,
+   "omega": [
+    0.880108372740753,
+    0.9222872161095548,
+    0.7651716103237955,
+    0.7173122457039616
+   ],
+   "sweeps": [
+    2,
+    2
+   ],
+   "omega_factor": 1.3333333333333333,
+   "device_used_gb_after_setup": 1.607335936,
+   "cg": {
+    "iters": 49,
+    "converged": true,
+    "seconds": 0.24587273597717285,
+    "seconds_per_iter": 0.00501781093830965,
+    "final_relres": 9.438207506347865e-09,
+    "true_relres": 9.438207504692822e-09,
+    "hist_every_10": [
+     0.07222358440736891,
+     0.0013908727896561229,
+     5.02777569725914e-05,
+     2.102725766079911e-06,
+     1.0025191875647538e-07
+    ],
+    "rel_err_vs_x_true": 1.7089135722598602e-07,
+    "vcycle_seconds": 0.004067182540893555
+   }
+  }
+ },
+ "amg_cg": {
+  "variant": "geo_lin",
+  "levels": 5,
+  "operator_complexity": 1.1356383576285631,
+  "grid_complexity": 1.142953125,
+  "host_setup_s": 1.1607654094696045,
+  "device_setup_s": 0.29096508026123047,
+  "hierarchy_device_gb": 0.154199276,
+  "iters": 49,
+  "converged": true,
+  "seconds": 0.24587273597717285,
+  "seconds_per_iter": 0.00501781093830965,
+  "final_relres": 9.438207506347865e-09,
+  "true_relres": 9.438207504692822e-09,
+  "hist_every_10": [
+   0.07222358440736891,
+   0.0013908727896561229,
+   5.02777569725914e-05,
+   2.102725766079911e-06,
+   1.0025191875647538e-07
+  ],
+  "rel_err_vs_x_true": 1.7089135722598602e-07,
+  "vcycle_seconds": 0.004067182540893555
+ },
+ "peak_device_memory_gb": 1.659764736,
+ "device_mempool_total_gb": 0.972789248,
+ "host_maxrss_gb": 4.290948,
+ "total_seconds": 4.43064284324646
+}

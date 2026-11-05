@@ -1,17 +1,19 @@
 # Euler–Lagrange framework: implemented methods and their origins
 
 Inventory of every physical/numerical component in the unresolved
-Euler–Lagrange (CFD-DEM) extension on `feature/euler-lagrange-phase1`,
-with the commonly used name and an author/origin hint for proper citation.
-Config keys and source locations are given so each entry can be traced to
-code. Citation hints are from memory — verify year/venue before quoting.
+Euler–Lagrange (CFD-DEM) extension (written on `feature/euler-lagrange-phase1`,
+since merged; last checked against the code at FeatFloWer `51e3f6f8` and pe
+`807f656` on 2026-10-09), with the commonly used name and an author/origin
+hint for proper citation. Config keys and source locations are given so each
+entry can be traced to code. Citation hints are from memory — verify
+year/venue before quoting.
 
 ## 1. Coupling framework
 
 | Component | As implemented | Common name / origin hint |
 |---|---|---|
-| Governing model | Volume-averaged Navier–Stokes with fluid volume fraction ε_f; point particles with closure forces (`source/src_el/`) | Unresolved Euler–Lagrange / CFD-DEM. Volume-averaged equations: **Anderson & Jackson (1967)**, Ind. Eng. Chem. Fundam. First DEM-CFD coupling: **Tsuji, Kawaguchi & Tanaka (1993)**, Powder Technol. (fluidized bed). |
-| Two-way coupling convention | Feedback to fluid = drag + lift only; pressure-gradient, gravity, buoyancy never spread (`result%feedback_force`, el_forces.f90) | "Model A / set II" formulation convention; classification per **Zhou, Kuang, Chu & Yu (2010)**, J. Fluid Mech. 661 (also **Feng & Yu (2004)**). |
+| Governing model | Point particles with closure forces (`source/src_el/`) two-way coupled to the **unweighted** incompressible Navier–Stokes equations: the carrier operator carries no ε_f (no ε_f in inertia, viscous or pressure terms, continuity is ∇·u = 0). The particle feedback enters only as a kernel-spread RHS force (`EL_APPLY_FLUID_FEEDBACK_SOURCE`, el_fields.f90) and, with `ELDragCoupling=semi_implicit`, as `drag_B_source` on the velocity diagonal (QuadSc_def.f90). ε_f is used by the drag/lift closures, the momentum audits and output only; `deps_f_dt` is computed (el_transfer.f90) but not used by the fluid solve. The volume-averaged form is **not** implemented; this is the dilute-limit (ε_f → 1) approximation. | Unresolved Euler–Lagrange / CFD-DEM. Volume-averaged equations (not implemented here): **Anderson & Jackson (1967)**, Ind. Eng. Chem. Fundam. First DEM-CFD coupling: **Tsuji, Kawaguchi & Tanaka (1993)**, Powder Technol. (fluidized bed). |
+| Two-way coupling convention | Feedback to fluid = drag + lift only; pressure-gradient, gravity, buoyancy never spread (`result%feedback_force`, el_forces.f90) | Feedback split of the "Model A / set II" convention; classification per **Zhou, Kuang, Chu & Yu (2010)**, J. Fluid Mech. 661 (also **Feng & Yu (2004)**). Because the carrier equations carry no ε_f (see above), the formulation coincides with Model A only in the dilute limit ε_f → 1. |
 | Fluid solver | Q2/P1 FEM, multigrid, MPI domain decomposition (FeatFloWer core) | In-house lineage: **Turek (1999)** monograph (FEATFLOW); cite the FeatFloWer code papers of the group. |
 | Periodic-suspension body-force treatment | `ELFluidGravity=No`: fluid gravity absorbed into modified pressure; uniform counter-force cancels mean feedback (`AddGravForce` guard + `ConstantForcing`) | Standard periodic-box suspension treatment ("backflow correction" / zero-mean-pressure-gradient frame): cf. **Ladd (1994)**, J. Fluid Mech. 271 (Parts 1–2). |
 
@@ -39,22 +41,26 @@ code. Citation hints are from memory — verify year/venue before quoting.
 | Zeng wall lift (`saffman_mei_wall`, near-wall arms) | Translation-induced wall lift C_L = 3.663/(Re²+0.1173)^0.22 (→5.87 as Re→0) and shear-induced composite with wall-distance coefficients; validity Re ≤ 200 with clamp warning | **Zeng, Najjar, Balachandar & Fischer (2009)**, Phys. Fluids 21, 033302 (Eq. 19 and Eqs. 28–29). |
 | Slip-lift blending ("option A") | Re-switch: Zeng arms for Re ≥ 2, Saffman–Mei for Re ≤ 0.5, log-Re blend between | In-house blend (document as such; no external citation). |
 | Neutrally buoyant inertial lift (`ELInertialLift=matas_asmolov`) | Tabulated ĝ(r/R) profile digitized from the Rc = 30 matched-asymptotics curve; F_r = ĝ(s)·ρU_max²a⁴/(8√2·R²); zero crossing s_eq = 0.675 | "Inertial (Segré–Silberberg) migration force", matched asymptotic expansions: theory lineage **Ho & Leal (1974)** (channel, regular perturbation), **Schonberg & Hinch (1989)**, **Asmolov (1999)** J. Fluid Mech. 381; the curve used is Figure 14 of **Matas, Morris & Guazzelli (2004)**, J. Fluid Mech. 515 (their computation by Asmolov's method). Phenomenon: **Segré & Silberberg (1961/1962)**, Nature 189 / J. Fluid Mech. 14. |
-| NOT implemented (documented gaps) | Added mass (C_M = 0.5), Basset history force, Magnus lift (flag exists, aborts), lubrication (lives only in PE's mutually exclusive HardContactLubricated solver) | Added mass/Basset: **Maxey & Riley (1983)**, added-mass coefficient discussion **Auton, Hunt & Prud'homme (1988)**. Magnus: **Rubinow & Keller (1961)**. |
+| NOT implemented (documented gaps) | Added mass (C_M = 0.5), Basset history force, Magnus lift (flag exists, aborts). Lubrication is implemented since pe `24295f5` (2026-07-26), see section 5; the former `HardContactLubricated` solver no longer exists | Added mass/Basset: **Maxey & Riley (1983)**, added-mass coefficient discussion **Auton, Hunt & Prud'homme (1988)**. Magnus: **Rubinow & Keller (1961)**. |
 
 ## 4. Time integration & stiff-drag coupling
 
 | Component | As implemented | Common name / origin hint |
 |---|---|---|
 | Fluid time stepping | Backward Euler (θ-scheme infrastructure), Q2/P1 saddle-point solve per step | FEATFLOW-lineage (Turek). |
-| Particle drag update | PE `elSemiImplicitVelocity`: exact relaxation of the linearized drag (dragB, carrier velocity, other forces) — unconditionally stable for dt ≫ τ_p | "Point-implicit / semi-implicit drag integration", standard stiff-drag treatment in CFD-DEM & MP-PIC codes; general context: **Balachandar & Eaton (2010)** Annu. Rev. Fluid Mech. (review). |
+| Particle drag update | PE `elSemiImplicitVelocity` (`pe/core/collisionsystem/ELSemiImplicitDrag.h`): backward-Euler (implicit) treatment of the linearized drag, u_{n+1} = (u_n + dt/m·(B u_f + F_other)) / (1 + dt·B/m), once per PE sub-step — unconditionally stable and non-overshooting for dt ≫ τ_p (first-order accurate, not the exact exponential relaxation) | "Point-implicit / semi-implicit drag integration", standard stiff-drag treatment in CFD-DEM & MP-PIC codes; general context: **Balachandar & Eaton (2010)** Annu. Rev. Fluid Mech. (review). |
 | Fluid-side implicit drag sink (`ELDragCoupling=semi_implicit`) | +θΔt·B on the momentum diagonal (fine level) + old-time defect term; characterized first-order O(3·dt) momentum drift | Semi-implicit two-way momentum exchange (fluid side); common in CFD-DEM literature, e.g. **Xu & Yu (1997)** Chem. Eng. Sci. lineage. In-house characterization (dt-halving study, tier2). |
+| Measured-leak momentum compensator (`ELMomentumFix`) | Each step the EL_FLUID_PAIR audit measures the fluid-internal momentum error of the previous solve (Galerkin convective form); its negative is applied one step lagged as a uniform body force (el_config.f90 comment; commit 22da0d5c) | In-house ("this work"); datasheet: residual 6.0e-10 per step, bounded production drift 5.2e-7 |
+| Divergence convective form (`ELConvectionForm=divergence`) | Momentum-exact convective form (commit 879933b1); audit use only, NaN blow-up in developed pseudo-turbulence | Conservative (divergence) form of the convective term; in-house evaluation |
+| Mesoscale lane-mode filter (`ELMesoFilter`) | Removes zero-mean x-/y-binned plane averages of u_z each step in periodic settling boxes (commit 6520efbe) | In-house; datasheet: insufficient to restore a homogeneous suspension |
 
 ## 5. Rigid-body / contact side (PE engine)
 
 | Component | As implemented | Common name / origin hint |
 |---|---|---|
 | Rigid-body engine | `pe` physics engine, MPI domain decomposition with shadow copies | **Iglberger & Rüde (2009/2010)** ("pe" rigid body physics engine papers, Comput. Sci. Eng. / Multibody Syst. Dyn.). |
-| Contact resolution | HardContactEulerLagrange solver: non-smooth hard contacts, relaxed projected Gauss–Seidel iteration, Coulomb friction, restitution (campaign: dry contacts, e = 0) | Non-smooth contact dynamics with PGS relaxation: **Preclik & Rüde (2015)**, Comput. Part. Mech. (pe's HardContactSemiImplicitTimesteppingSolvers); NSCD lineage **Moreau (1988)** / **Jean (1999)**. |
+| Contact resolution | HardContactEulerLagrange solver: non-smooth hard contacts, relaxed projected Gauss–Seidel iteration, Coulomb friction. All relaxation models are inelastic: there is no restitution model, e = 0 by construction (campaign: dry contacts). Optional split-impulse position correction (`setSplitImpulse`, pe `55528bc`) | Non-smooth contact dynamics with PGS relaxation: **Preclik & Rüde (2015)**, Comput. Part. Mech. (HardContactEulerLagrange uses the same relaxation models as pe's HardContactSemiImplicitTimesteppingSolvers); NSCD lineage **Moreau (1988)** / **Jean (1999)**. |
+| Pairwise lubrication | `HardContactEulerLagrange::applyELLubrication` (pe `24295f5`): normal squeeze, sliding force and sliding torque with Vinogradova slip correction f* and the h < h_c rule, twisting omitted; all-pairs sweep over local + shadow-copy spheres within `lubricationCutoff_` (shadow-copy margin set to the cutoff), fold-once across ranks; `applyELWallLubrication` for z-walls. Enabled by the PE json (`lubricationEnabled_`, `lubricationCutoff_`) | **Kroupa, Vonka, Soos & Kosek (2016)**, Langmuir 32, 8451; slip correction **Vinogradova (1995)**. |
 | Periodic wrap-around decomposition | `decomposePeriodicX3D/Z3D/XY3D/Periodic3D` half-space process connections with ±L body offsets; per-axis json keys | pe domain-decomposition machinery (Iglberger & Rüde); Z-variant and per-axis dispatch in-house (this campaign). |
 | Random seeding | Deterministic lattice-candidate shuffle (mt19937_64, rank-0 broadcast) with min-gap and wall-inset contract | Variant of random sequential addition (RSA, cf. **Widom (1966)**) on a lattice; implementation in-house. |
 
@@ -85,26 +91,29 @@ code. Citation hints are from memory — verify year/venue before quoting.
 
 Which concrete FeatFloWer test targets which component. Test name = ctest
 target, tier2 harness case (`tools/featflower_test/testcases/definitions/`),
-or `validation_cases/<case>` RUNBOOK. Status as of 2026-07-05.
+or `validation_cases/<case>` RUNBOOK. Status updated 2026-10-09 from
+`el_validation_datasheet.md` (last changed 2026-07-31).
 
 | EL component | Dedicated / primary tests | Supporting evidence | Status |
 |---|---|---|---|
 | Kernel G2P/P2G transfer + ε_f field | `test_el_kernel_forces` (kernel positivity/support), `el-transfer-mpi-2/8`, `el-convergence-serial`; tier2 `straddling_conservation` (cross-rank deposit, residual ~5e-26) | `EL_VOLUME_CONSERVATION` machine-zero in every campaign run (incl. ~8000 periodic crossings) | PASS |
 | Two-way feedback (Model A) | tier2 `momentum_conservation` (+`_long`: 1e-5 per 10⁴ steps) | v2 smoke mixture-momentum balance 0.4% at ρ_p≠ρ_f; v1b E4 two-way co-flow quantified | PASS |
-| Di Felice drag (voidage package) | v1b_tencate_settling E1–E4 (EXTERNAL truth: +0.4…−6.5% algebraic vs u_∞) | tier2 `terminal_velocity`; unit Di Felice/Stokes ratio checks; **v2_rz_settling production sweep = ε^χ arbiter (in flight)** | PASS / in flight |
+| Di Felice drag (voidage package) | v1b_tencate_settling E1–E4 (EXTERNAL truth: +0.4…−6.5% algebraic vs u_∞) | tier2 `terminal_velocity`; unit Di Felice/Stokes ratio checks; v2_rz_settling: U/U0 = 2.65/3.35/3.31/3.02 against Richardson–Zaki ε^4.65 (FAIL), reframed as cluster-induced settling instability of the periodic box, so not usable as ε^χ arbiter | PASS (single particle) / RZ FAIL, reframed |
 | Stokes & Schiller–Naumann drag | unit analytic checks (`test_el_kernel_forces`) | tier2 terminal (stokes); v1b handoff SN cross-table | PASS |
 | Semi-implicit drag coupling (fluid + particle side) | ctest `pe-el-semi-implicit-drag`; tier2 `momentum_conservation_semi` (gate 3.1e-3) | dt-halving characterization (drift ≈ 3·dt, first order); v3 convergence run at dt = 1.8·τ_p stable | PASS |
 | Saffman–Mei slip lift | tier2 `saffman_lift` (analytic drag 2.356e-5 / lift 1.277e-6 to 1e-9) | v3_ss_frozen dense variant: sustained migration at 0.73–0.76× pure Saffman = Mei trim, both fan extremes | PASS |
 | Zeng wall lift + option-A blend | unit coefficient anchors (Re-switch, contact/shear arms) | exercised in v3_ss_frozen ON runs (near-wall fan members); no dedicated quantitative wall-lift gate yet | PASS (unit) / gate open |
-| Matas–Asmolov inertial lift | unit table anchors (s=0.4/0.675/0.8/0.42); v3_ss_frozen rate check (profile shape 1–3%, rates 0.84–0.90× ε=1) + convergence demo (annulus 0.6714 vs 0.675) | **v3_ss_coupled lift ON/OFF pair (in flight)** | PASS / in flight |
+| Matas–Asmolov inertial lift | unit table anchors (s=0.4/0.675/0.8/0.42); v3_ss_frozen rate check (profile shape 1–3%, rates 0.84–0.90× ε=1) + convergence demo (annulus 0.6714 vs 0.675) | v3_ss_coupled: lift ON/OFF pair discriminating (22:1), annulus r_mean 0.6643 vs 0.675 at t = 2000 | PASS |
 | Pressure-gradient force | — (flag `ELPressureForce`, off in all current cases to avoid hydrostatic double-count) | no dedicated test; candidate: prescribed-∇p unit check | gate open |
 | Gravity/buoyancy (grav_buoy) | tier2 terminal; v1b (SI, ρ_p≠ρ_f) | v2 settling; force-budget balance 1e-7 at plateau | PASS |
 | Self-voidage / disturbed-field bias (scheme property) | quantified: v1b E1–E4 (ε_eff 0.974–0.978) + v3 rate check (0.974) cross-consistent | documented as "this work"; mitigation (Horwitz–Mani) not implemented | QUANTIFIED |
-| PE hard contacts (PGS, dry, e=0) | v2 φ=0.20 smoke (`EL_CONTACT_STATS`: overlap 0.0, Tgran bounded, 5.6k contacts) | **Stage-2 four-way sheared box + periodic-image contact check PENDING** | partial |
+| PE hard contacts (PGS, dry, e=0) | v2 φ=0.20 smoke (`EL_CONTACT_STATS`: overlap 0.0, Tgran bounded, 5.6k contacts) | Stage-2 fourway_shear: max overlap 0, Tgran late/early 1.0002, Newton pair 0 at ~5.3k contacts | PASS |
 | PE periodic wrap (per-axis) | v3_ss_frozen wrap verification (z: radii frozen through 2 wraps, 2.5e-15) ; v2 smoke (fully periodic banner + run) | convergence run: ~500 wraps/particle; z-path bit-identical regression after dispatch refactor | PASS |
 | Seeding (file + deterministic random) | Stage-0 battery: byte-identical across PE decompositions (2 seeds), achieved-φ 2% gate, file-mode bit-for-bit regression | v2 smoke: N=3056 at φ=0.2000147 | PASS |
 | dt/PE-stepsize contract | Stage-0: mismatch hard-abort verified | enforced at every case start | PASS |
 | Pipe infrastructure (CFD z-periodicity, cylinder wall geometry) | `pipe_hp_check` (HP profile −0.06% at L3, 6.2× convergence) | v3_ss_frozen lift-OFF radial freeze to all digits (geometry/transfer clean) | PASS |
 | Prescribed frozen fields (`linear_shear`, `poiseuille`) | tier2 saffman (shear); v3_ss_frozen (poiseuille, exact parabola) | — | PASS |
 | Periodic-suspension body-force treatment (`ELFluidGravity`) | v2 smoke: broken (fluid free-fall −0.2) vs fixed (momentum 0.4%) documented pair | — | PASS |
-| Effective suspension viscosity (Krieger–Dougherty) | — | **V4/V5 pipe pressure-drop campaign PENDING (Stage 5)** | pending |
+| Effective suspension viscosity (Krieger–Dougherty) | v4_pressure_drop: without lubrication μ_app/μ = 0.999…0.987 (drag-only bound); with lubrication 1.012/1.056/1.108/1.148 at φ 0.05–0.20, monotone, 9–20% of the KD excess | kroupa_couette: η_total/μ 1.034/1.126/1.664/2.936 vs KD (−9/−14/−9/+7%) | PASS (monotone) / KD gap RECORDED |
+| Pairwise lubrication | kroupa_shear: η_L/μ positive, monotone, superlinear (0.0079…0.7610 at φ 0.05–0.30); lubrication-off twin exactly 0; substeps 10/50/100 converged (+0.8%) | unit_lubrication_pair (cross-rank pairs, Newton residual 1.8e-22); kroupa_couette wall vs virial estimators +1.8…+3.7% | PASS |
+| Momentum compensator, convective form, lane filter | `el_momentum_fix` rows (PASS); `fluid_conv_divergence_form` (RECORDED, unstable in production); `el_meso_filter` (insufficient) | v2_rz_settling RUNBOOK leak parts 2–4 | PASS / RECORDED |

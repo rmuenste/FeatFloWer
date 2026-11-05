@@ -1,0 +1,24 @@
+{
+ "instance": "instances/p1_20x20x60.npz",
+ "h": 0.05,
+ "nu": 96000,
+ "nnz": 9491988,
+ "nnz_per_row": 98.874875,
+ "lambda_min": 0.002765279086268198,
+ "lambda_max": 1.2606176609001136,
+ "condition": 455.8735742660042,
+ "h^-2": 400.0,
+ "cg_jacobi": {
+  "iters": 139,
+  "info": 0,
+  "seconds": 1.0959243774414062,
+  "final_relres": 9.641142119489582e-09
+ },
+ "cg_block_jacobi_4x4": {
+  "iters": 139,
+  "info": 0,
+  "seconds": 1.4961044788360596,
+  "final_relres": 9.381887031912571e-09
+ },
+ "smooth_rhs_rel_err_vs_x_true": 3.3267367981915035e-10
+}

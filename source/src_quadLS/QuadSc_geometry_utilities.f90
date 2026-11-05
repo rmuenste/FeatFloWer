@@ -37,6 +37,8 @@ end subroutine updateFBMGeometry_Wangen
 !=========================================================================
 subroutine updateFBMGeometry()
   use cinterface, only: calculateFBM
+  use fbm_ownership, only: fbm_own_reset, fbm_own_finalize
+  use var_QuadScalar, only: bFbmOwnerTable
   implicit none
 
   if (calculateFBM()) then
@@ -45,11 +47,17 @@ subroutine updateFBMGeometry()
     ILEV = NLMAX
     call SETLEV(2)
 
+    ! Multiple-ownership table (SimPar@FbmOwnerTable): opened before the sweep, closed and
+    ! checked against the canonical owner after it. Both calls are rank-local.
+    if (bFbmOwnerTable .and. allocated(FictKNPR)) call fbm_own_reset(size(FictKNPR))
+
     call QuadScalar_FictKnpr(mg_mesh%level(ilev)%dcorvg, &
                              mg_mesh%level(ilev)%dcorag, &
                              mg_mesh%level(ilev)%kvert, &
                              mg_mesh%level(ilev)%kedge, &
                              mg_mesh%level(ilev)%karea)
+
+    if (bFbmOwnerTable .and. allocated(FictKNPR)) call fbm_own_finalize()
 
     ! Write a warning:
     call E013Max_SUPER(FictKNPR)

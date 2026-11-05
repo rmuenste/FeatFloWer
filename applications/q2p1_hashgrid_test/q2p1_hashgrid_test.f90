@@ -1,95 +1,55 @@
-PROGRAM Q2P1_ATC
+PROGRAM Q2P1_HASHGRID_GATE
+  ! Layer-2 FBM classification gate. Real partitioned mesh, real Q2 DOF sweep, pe's
+  ! accelerated point query against the exhaustive one on every DOF of every rank.
+  ! There is deliberately NO fluid solve in this program: the only production routine
+  ! it borrows from the solver loop is one particle step, and that for a reason given
+  ! below. The stages themselves are in hashgrid_gate_driver.f90; README.md explains
+  ! the construction they rely on.
 
-  ! Include definitions
   include 'defs_include.h'
 
-  use solution_io, only: postprocessing_app
-
+  USE PP3D_MPI, ONLY : myid
   use app_initialization, only: init_q2p1_app
+  use var_QuadScalar, only: Properties, QuadSc, LinSc
+  use Transport_Q2P1, only: fbm_up_handler_ptr
+  use fbm, only: fbm_updateFBM
+  use hashgrid_gate_driver, only: gate_preflight, gate_run_stages
+  use post_utils, only: sim_finalize
 
-  use post_utils,  only: handle_statistics,&
-                         print_time,&
-                         sim_finalize
-  USE var_QuadScalar, ONLY :  myTimer
-
-  integer            :: iOGMV,iTout
-  character(len=200) :: command
-  character(len=60)  :: CPP3D
-  real               :: dout = 0.0
-  integer            :: ufile,ilog
-  real               :: tt0 = 0.0
-  real               :: dtt0 = 0.0
-  real               :: dtt10 = 0.0
-
-  character(len=100) :: arg
-  character(len=100) :: version_string
-  character(len=100) :: git_commit_hash_trim
-  logical :: show_version
-#include "./version.h"
+  integer :: ufile
+  real    :: tt0 = 0.0
 
   !-------INIT PHASE-------
-
-  ! Read command line arguments
-  if (command_argument_count() >= 1) then
-      call get_command_argument(1, arg)
-      show_version = trim(arg) == "-v"
-  else
-      show_version = .false.
-  endif
-
-  ! Display version information if "-v" argument is given and exit
-  if (show_version) then
-      version_string = "Version: " // trim(PROJECT_VERSION)
-      git_commit_hash_trim = "Git Commit Hash: " // trim(GIT_COMMIT_HASH)
-      print *, version_string
-      print *, git_commit_hash_trim
-      stop
-  endif
-
+  ! The shared initialisation: mesh hierarchy, Q2 numbering and comms, FictKNPR /
+  ! FictKNPR_uint64 (Init_QuadScalar_Stuctures - the reduced variant does not allocate
+  ! them), and the pe world through this app's General_init_ext -> commf2c_hashgrid_test
+  ! -> setupHashGridTest, which reads pe_user_config.json with packingMethod_ gate_probe.
   call init_q2p1_app(ufile)
 
   CALL ZTIME(tt0)
-  call ztime(dtt0)
 
-  dout = Real(INT(timens/dtgmv)+1)*dtgmv
+  if (myid == 1) write(*,'(A)') '> q2p1_hashgrid_test: Layer-2 FBM classification gate, no fluid solve'
 
-  !-------SOLVER PHASE-------
-  !-------MAIN LOOP-------
+  ! One particle step and nothing else of the production loop. pe's hash grid activates
+  ! inside findContacts, i.e. inside step_simulation(), and fbm_updateFBM is also what
+  ! sets collision_pipeline_initialized - without which fbm_getFictKnprFC2 never takes
+  ! the accelerated branch and every comparison would be vacuous. Gravity is zero and
+  ! every body starts at rest, so the step moves nothing.
+  dt = tstep
+  timens = timens + dt
+  call fbm_updateFBM(Properties%Density(1), tstep, timens, &
+                     Properties%Gravity, ufile, myid, &
+                     QuadSc%valU, QuadSc%valV, QuadSc%valW, &
+                     LinSc%valP(NLMAX)%x, &
+                     fbm_up_handler_ptr)
 
-  DO itns=1,nitns
+  ! Assert the gate is exercising what it claims to (grid active on every worker, span
+  ! as computed, accelerated path on, comparison compiled in). Aborts otherwise.
+  call gate_preflight(ufile)
 
-  itnsr=0
-  timnsh=timens
-  dt=tstep
-  timens=timens+dt
+  !-------THE STAGES-------
+  call gate_run_stages(timens, ufile)
 
-  ! Solve Navier-Stokes (add discretization in name + equation or quantity)
-  CALL Transport_q2p1_UxyzP_fc_ext(ufile,inonln_u,itns)
+  call sim_finalize(tt0, ufile)
 
-  IF (bTracer) THEN
-    ! Solve transport equation for linear scalar
-    CALL Transport_LinScalar(ufile,inonln_t)
-  ELSE
-    inonln_t = 2
-  END IF
-
-  call postprocessing_app(dout, inonln_u, inonln_t,ufile)
-
-  call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
-
-  call handle_statistics(tt0,itns)
-
-  istep_ns = istep_ns + 1
-  ! Exit if done
-  IF (timemx.LE.(timens+1D-10)) EXIT
-
-  END DO
-
-!   write(*,'(I0,A,6I5,6ES12.4)') myid," : ",myTimer%n,myTimer%t
-  CALL Output_MPI_Timings()
-  
-  !-------FINALIZATION PHASE-------
-  call sim_finalize(tt0,ufile)
-
-
-END PROGRAM Q2P1_ATC
+END PROGRAM Q2P1_HASHGRID_GATE

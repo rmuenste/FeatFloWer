@@ -4369,7 +4369,8 @@ END SUBROUTINE MonitorVeloMag
 SUBROUTINE ComputeCFL(myScalar)
 #ifdef HAVE_PE
 USE PP3D_MPI, ONLY: COMM_Maximumn
-use dem_query, only: numTotalParticles, getAllParticles, tParticleData
+use dem_query, only: numTotalParticles, getAllParticles, tParticleData, &
+                     set_lubrication_mesh_dx
 #endif
 TYPE(TQuadScalar), INTENT(IN) :: myScalar
 
@@ -4454,6 +4455,17 @@ IF (h_min .LE. 0d0 .OR. h_min .GE. 1d29) h_min = 0d0  ! no rank computed
 
 ! Store global h_min for diagnostics
 h_min_global = h_min
+
+#ifdef HAVE_PE
+! Arm the pe lubrication mesh clamp with the resolved mesh width: the effective
+! activation gap becomes min(cutoffFactor*a, meshClampFactor*h_min), i.e.
+! lubrication starts where THIS mesh stops resolving the squeeze film (D2.2).
+! h_min is the collectively reduced global value, so every rank's PE instance
+! (serial mode: one per rank) receives the same number. Inert unless the json
+! enables lubrication with a nonzero clamp factor; called every ComputeCFL so
+! a future adaptive mesh stays current.
+IF (h_min .GT. 0d0) CALL set_lubrication_mesh_dx(h_min)
+#endif
 
 ! Particle CFL (PE only)
 cfl_p_max = 0d0

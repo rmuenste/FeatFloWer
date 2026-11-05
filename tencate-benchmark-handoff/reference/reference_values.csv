@@ -1,0 +1,27 @@
+# ten Cate et al. 2002 reference values and derived quantities. Columns marked source=TableI/TableII are VERBATIM from the paper; source=derived are computed here from those values with the formula given.
+# d_p = 0.015 m, rho_p = 1120 kg/m3 (paper p.4013); g = 9.81 m/s2 (value used by the campaign decks, example.json gravity_)
+quantity,E1,E2,E3,E4,unit,source
+rho_f,970,965,962,960,kg/m3,TableI p.4013
+mu_f,0.373,0.212,0.113,0.058,Pa s,TableI p.4013 (printed as 373/212/113/58 in a column headed N s/m2; read as mPa s - see README section 3)
+u_inf,0.038,0.060,0.091,0.128,m/s,TableI p.4013 (terminal velocity in an infinite medium from the Abraham drag correlation eq. (1))
+Re,1.5,4.1,11.6,31.9,-,TableI p.4013 (Re = rho_f u_inf d_p / mu_f)
+St,0.19,0.53,1.50,4.13,-,TableI p.4013 (St = Re rho_p / (9 rho_f))
+camera_frequency,60,100,170,248,1/s,TableI p.4013
+piv_resolution,low,low,high,high,-,TableI p.4013
+u_max_over_u_inf_experiment,0.947,0.953,0.959,0.955,-,TableII p.4018 bottom rows E1-E4
+u_max_over_u_inf_LBM_S1toS4,0.894,0.950,0.955,0.947,-,TableII p.4018 rows S1-S4 (paper's base simulations r0 = 4 lu)
+u_max_experiment,0.03599,0.05718,0.08727,0.12224,m/s,derived: u_max_over_u_inf_experiment x u_inf (campaign primary peak reference; rows tc_ref_audit/e2_l3)
+Re_recomputed,1.482,4.097,11.621,31.779,-,derived: rho_f u_inf d_p / mu_f
+St_recomputed,0.190,0.528,1.503,4.120,-,derived: Re_recomputed rho_p / (9 rho_f)
+nu_f,3.845e-4,2.197e-4,1.175e-4,6.042e-5,m2/s,derived: mu_f / rho_f
+rho_p_over_rho_f,1.1546,1.1606,1.1642,1.1667,-,derived
+tau_p_relaxation,0.0375,0.0660,0.1239,0.2414,s,derived: rho_p d_p^2 / (18 mu_f) (paper p.4019 tau_p_r = rho_p d_p^2 / (18 rho_f nu))
+tau_nu_momentum_diffusion,0.585,1.024,1.915,3.724,s,derived: d_p^2 / nu_f (paper p.4019 tau_nu = d_p^2/nu; paper quotes 0.59 s at Re=1.5 and 3.72 s at Re=31.9 on p.4019-4020)
+tau_advection,0.395,0.250,0.165,0.117,s,derived: d_p / u_inf (paper p.4019 tau_p_a; paper quotes 0.39 s at Re=1.5 and 0.12 s at Re=31.9)
+buoyant_weight,2.6004e-3,2.6870e-3,2.7390e-3,2.7737e-3,N,derived: (rho_p - rho_f) (pi/6) d_p^3 g
+digitised_curve_min_velocity,-0.03720,-0.05936,-0.08665,-0.12303,m/s,reference/experiment/ref_E*.dat argmin (digitised PIV; E1/E2 +3.4/+3.9 percent too fast vs TableII - row tc_ref_audit)
+digitised_curve_time_of_min,1.145,1.831,1.130,0.806,s,reference/experiment/ref_E*.dat (plateau argmin - not a sharp observable)
+digitised_velocity_curve_time_window_end,4.113,2.501,1.635,1.198,s,reference/experiment/ref_E*.dat last sample
+digitised_trajectory_time_window_end,4.092,2.467,1.612,1.191,s,reference/experiment/case_E*_h.csv last sample
+digitised_trajectory_final_h_over_d,0.118,0.052,0.039,0.026,-,reference/experiment/case_E*_h.csv last sample
+initial_gap_h_over_d,8.0,8.0,8.0,8.0,-,paper p.4013 (sphere hanging 120 mm from the bottom) = (0.1275-0.0075)/0.015

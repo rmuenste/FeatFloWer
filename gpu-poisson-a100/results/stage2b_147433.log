@@ -1,0 +1,52 @@
+stage 2b (full storage rerun, slabs <= 2^30 nnz) on tardis, job 147433, 2026-10-02T12:18:36+02:00
+-rw-r--r-- 1 rmuenste lsiii 31933692872 Oct  2 12:14 /scratch/rmuenste/gpu-poisson/p1_128x128x384.npz
++ python3 gpu_amg_cg.py --instance /scratch/rmuenste/gpu-poisson/p1_128x128x384.npz --storage full --matvec cusparse --block-jacobi --amg sa_bsr_lin,sa_csr_spec,geo_lin --tag stage2 --out results/gpu_p1_128x128x384.json
+[     1.2s] device NVIDIA A100 80GB PCIe (85.1 GB), cupy 14.2.0
+[    29.0s] loaded /scratch/rmuenste/gpu-poisson/p1_128x128x384.npz in 27.8 s
+[    29.0s] instance (128, 128, 384): nu 25,165,824 nnz 2,610,809,224 (103.7/row), CSR f64/i32 31.53 GB
+[    44.3s] [op] full storage, cuSPARSE, 3 row slab(s)
+[    44.3s] [op] storage=full matvec=cusparse nnz_stored=2,610,809,224 (31.5 GB), upload 15.4 s
+[    44.9s] matvec 23.63 ms (1334 GB/s effective on stored bytes); device used 32.7 GB
+[    45.0s] Jacobi-CG on the stored b (tol 1e-08, cap 20000)
+[    56.6s] Jacobi-CG: 423 it, 11.59 s, relres 9.15e-09, err vs x_true 2.50e-07
+[   101.4s] block-Jacobi(4x4)-CG: 422 it, 15.46 s
+[   103.2s] host scipy CSR for pyamg: index dtype int64, 1.8 s, maxrss 70.7 GB
+[   129.1s] [amg] tobsr 25.9 s, blocks 167,812,600
+[   233.0s] [amg] sa_bsr_lin: 4 levels, n=[25165824, 946688, 38700, 1436], OC=1.038, GC=1.039, setup 129.8 s, maxrss 139.9 GB
+[   240.3s] [vcycle] 4 levels on device, 8.79 GB, omega=[0.878, 0.801, 0.736], coarse n=1436, setup 7.3 s
+[   242.9s]   [amg-cg/sa_bsr_lin] it 10 relres 2.139e-08 (1.3 s)
+[   243.2s] AMG-CG [sa_bsr_lin]: 11 it, 1.41 s (128 ms/it, V-cycle 110 ms), relres 6.66e-09, err vs x_true 1.13e-08
+[   243.3s] AMG variant sa_csr_spec FAILED: TypeError('symmetric_strength_of_connection(): incompatible function arguments. The following argument types are supported:\n    1. (n_row: typing.SupportsInt, theta: typing.SupportsFloat, Ap: numpy.typing.NDArray[numpy.int32], Aj: numpy.typing.NDArray[numpy.int32], Ax: numpy.typing.NDArray[numpy.float32], Sp: numpy.typing.NDArray[numpy.int32], Sj: numpy.typing.NDArray[numpy.int32], Sx: numpy.typing.NDArray[numpy.float32]) -> None\n    2. (n_row: typing.SupportsInt, theta: typing.SupportsFloat, Ap: numpy.typing.NDArray[numpy.int32], Aj: numpy.typing.NDArray[numpy.int32], Ax: numpy.typing.NDArray[numpy.float64], Sp: numpy.typing.NDArray[numpy.int32], Sj: numpy.typing.NDArray[numpy.int32], Sx: numpy.typing.NDArray[numpy.float64]) -> None\n    3. (n_row: typing.SupportsInt, theta: typing.SupportsFloat, Ap: numpy.typing.NDArray[numpy.int32], Aj: numpy.typing.NDArray[numpy.int32], Ax: numpy.typing.NDArray[numpy.complex64], Sp: numpy.typing.NDArray[numpy.int32], Sj: numpy.typing.NDArray[numpy.int32], Sx: numpy.typing.NDArray[numpy.complex64]) -> None\n    4. (n_row: typing.SupportsInt, theta: typing.SupportsFloat, Ap: numpy.typing.NDArray[numpy.int32], Aj: numpy.typing.NDArray[numpy.int32], Ax: numpy.typing.NDArray[numpy.complex128], Sp: numpy.typing.NDArray[numpy.int32], Sj: numpy.typing.NDArray[numpy.int32], Sx: numpy.typing.NDArray[numpy.complex128]) -> None\n\nInvoked with: 25165824, 0, array([         0,         32,         64, ..., 2610809160, 2610809192,\n       2610809224], shape=(25165825,)), array([       0,        1,        2, ..., 25165821, 25165822, 25165823],\n      shape=(2610809224,)), array([ 0.17724709, -0.02387153, -0.02387153, ...,  0.00287543,\n        0.00287543,  0.07599203], shape=(2610809224,)), array([0, 0, 0, ..., 0, 0, 0], shape=(25165825,)), array([0, 0, 0, ..., 0, 0, 0], shape=(2610809224,)), array([0., 0., 0., ..., 0., 0., 0.], shape=(2610809224,))')
+[   269.1s] [amg] tobsr 25.8 s, blocks 167,812,600
+[   269.2s] [amg] geometric levels: (128, 128, 384) -> ... -> (4, 4, 12) (5 coarsenings)
+[   285.5s] [amg] geo_lin: 6 levels, n=[25165824, 3145728, 393216, 49152, 6144, 768], OC=1.141, GC=1.143, setup 42.2 s, maxrss 139.9 GB
+[   290.8s] [vcycle] 6 levels on device, 5.22 GB, omega=[0.878, 0.92, 0.757, 0.703, 0.687], coarse n=768, setup 5.4 s
+[   293.5s]   [amg-cg/geo_lin] it 10 relres 9.936e-03 (1.3 s)
+[   294.9s]   [amg-cg/geo_lin] it 20 relres 2.049e-03 (2.7 s)
+[   296.3s]   [amg-cg/geo_lin] it 30 relres 4.603e-04 (4.1 s)
+[   297.7s]   [amg-cg/geo_lin] it 40 relres 1.065e-04 (5.5 s)
+[   299.1s]   [amg-cg/geo_lin] it 50 relres 2.506e-05 (6.9 s)
+[   300.6s]   [amg-cg/geo_lin] it 60 relres 5.970e-06 (8.4 s)
+[   302.0s]   [amg-cg/geo_lin] it 70 relres 1.437e-06 (9.8 s)
+[   303.4s]   [amg-cg/geo_lin] it 80 relres 3.491e-07 (11.2 s)
+[   304.8s]   [amg-cg/geo_lin] it 90 relres 8.557e-08 (12.6 s)
+[   306.2s]   [amg-cg/geo_lin] it 100 relres 2.115e-08 (14.0 s)
+[   307.1s] AMG-CG [geo_lin]: 105 it, 14.72 s (140 ms/it, V-cycle 114 ms), relres 8.74e-09, err vs x_true 2.48e-07
+[   307.4s] peak device memory 44.1 GB (mempool 32.2 GB), host maxrss 139.9 GB, total 307 s
+[   307.4s] wrote results/gpu_p1_128x128x384.json
++ python3 gpu_amg_cg.py --instance /scratch/rmuenste/gpu-poisson/p1_128x128x384.npz --storage full --matvec kernel --no-jacobi --amg sa_bsr_lin --tag stage2-full-kernel --out results/stage2_p1_128x128x384_full_kernel.json
+[     0.6s] device NVIDIA A100 80GB PCIe (85.1 GB), cupy 14.2.0
+[    28.3s] loaded /scratch/rmuenste/gpu-poisson/p1_128x128x384.npz in 27.8 s
+[    28.3s] instance (128, 128, 384): nu 25,165,824 nnz 2,610,809,224 (103.7/row), CSR f64/i32 31.53 GB
+[    58.5s] [op] storage=full matvec=kernel nnz_stored=2,610,809,224 (31.5 GB), upload 30.2 s
+[    59.1s] matvec 24.93 ms (1265 GB/s effective on stored bytes); device used 32.7 GB
+[    60.9s] host scipy CSR for pyamg: index dtype int64, 1.8 s, maxrss 103.1 GB
+[    86.6s] [amg] tobsr 25.7 s, blocks 167,812,600
+[   189.9s] [amg] sa_bsr_lin: 4 levels, n=[25165824, 946688, 38700, 1436], OC=1.038, GC=1.039, setup 129.0 s, maxrss 172.3 GB
+[   198.2s] [vcycle] 4 levels on device, 8.79 GB, omega=[0.878, 0.801, 0.736], coarse n=1436, setup 8.3 s
+[   200.9s]   [amg-cg/sa_bsr_lin] it 10 relres 2.139e-08 (1.3 s)
+[   201.2s] AMG-CG [sa_bsr_lin]: 11 it, 1.47 s (134 ms/it, V-cycle 115 ms), relres 6.66e-09, err vs x_true 1.13e-08
+[   201.5s] peak device memory 43.5 GB (mempool 32.1 GB), host maxrss 172.3 GB, total 201 s
+[   201.5s] wrote results/stage2_p1_128x128x384_full_kernel.json
++ set +x
+stage 2b done 2026-10-02T12:27:21+02:00

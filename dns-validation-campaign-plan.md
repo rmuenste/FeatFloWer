@@ -936,6 +936,20 @@ against the title pages and confirmed.
   1602.05769 preprint, title page verified) — candidate primary for
   D4-ORIENT (inertial orientation attractor, resolved DNS); also treats
   spheroid pair DKT (bridges D2.3/D4).
+- E.-J. Ding, C.K. Aidun, "The dynamics and scaling law for particles
+  suspended in shear flow with inertia", *J. Fluid Mech.* 423 (2000)
+  317–344. **[in repo]** (`literature/ding_aidun_2000.pdf`, read
+  2026-09-19) — finite-Re orbit ladder primary: oblate spheroid
+  a = b = 2c, Re = 4Gb²/ν, period diverges at Re_c = 81 (α = 1) as
+  GT = C(Re_c − Re)^(−1/2), C = 200; saddle-node transition to a steady
+  orientation; Re_c depends on density ratio and confinement.
+- D. Di Giusto, L. Bergougnoux, É. Guazzelli, "Orientation of flat bodies
+  of revolution in shear flows at low Reynolds number", *J. Fluid Mech.*
+  1017 (2025) A41. **[in repo]**
+  (`literature/di_giusto_bergougnoux_guazzelli_2025.pdf`) — experiments,
+  oblate spheroids/disks/rings: inertial drift toward limiting Jeffery
+  orbits, alignment thresholds; the oblate leg's reference for orbit
+  selection at small inertia.
 - W.W. Willmarth, N.E. Hawk, R.L. Harvey, "Steady and unsteady motions and
   wakes of freely falling disks", *Phys. Fluids* 7 (1964) 197–208.
   **[optional]** — if a disk/oblate case is added.

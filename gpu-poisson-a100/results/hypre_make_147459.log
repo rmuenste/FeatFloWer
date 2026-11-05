@@ -1,0 +1,852 @@
+Making blas ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/blas'
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dasum.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c daxpy.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dcopy.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c ddot.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dgemm.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dgemv.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dger.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dnrm2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c drot.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dscal.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dswap.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dsymm.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dsymv.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dsyr2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dsyr2k.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dsyrk.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dtrmm.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dtrmv.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dtrsm.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c dtrsv.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c f2c.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c idamax.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c lsame.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../utilities -c xerbla.c
+cp -fR ./_hypre_blas.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/blas'
+
+Making lapack ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/lapack'
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dbdsqr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgebd2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgebrd.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgelq2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgelqf.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgels.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgeqr2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgeqrf.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgesvd.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgetrf.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgetri.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgetrs.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dgetf2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlabad.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlabrd.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlacpy.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlae2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlaev2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlamch.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlange.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlanst.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlansy.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlapy2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlarfb.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlarf.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlarfg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlarft.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlartg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlas2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlascl.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlaset.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlasq1.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlasq2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlasq3.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlasq4.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlasq5.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlasq6.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlasr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlasrt.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlassq.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlaswp.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlasv2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dlatrd.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dorg2l.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dorg2r.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dorgbr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dorgl2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dorglq.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dorgql.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dorgqr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dorgtr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dorm2r.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dormbr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dorml2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dormlq.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dormqr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dpotf2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dpotrf.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dpotrs.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dsteqr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dsterf.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dsyev.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dsygs2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dsygst.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dsygv.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dsytd2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dsytrd.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dtrtri.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c dtrti2.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c ieeeck.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c ilaenv.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c lsame.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H  -I/sfw/cuda/12.6/include        -I.. -I../blas -I../utilities -c xerbla.c
+cp -fR ./_hypre_lapack.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/lapack'
+
+Making utilities ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/utilities'
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c F90_HYPRE_error.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c F90_HYPRE_general.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c HYPRE_handle.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c HYPRE_version.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c amg_linklist.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c binsearch.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c exchange_data.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c fortran_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c ap.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c log.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c complex.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c error.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c int_array.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c hopscotch_hash.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c matrix_stats.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c magma.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c memory_tracker.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c merge_sort.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c mmio.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c prefix_sum.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c qsort.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c unique.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c utilities.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c mpistubs.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c qsplit.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c random.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c state.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c threading.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c timer.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c timing.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c caliper_instrumentation.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c printf.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c multiprecision.c
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c device_markers.c -o device_markers.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c device_utils.c -o device_utils.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c general.c -o general.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c handle.c -o handle.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c int_array_device.c -o int_array_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c memory.c -o memory.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c omp_device.c -o omp_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I./.. -I./../struct_mv -I.  -I/sfw/cuda/12.6/include          -c stl_ops.c -o stl_ops.obj
+Building libHYPRE_utilities.so ... 
+mpicxx -shared  -o libHYPRE_utilities-3.1.0.so F90_HYPRE_error.o F90_HYPRE_general.o HYPRE_handle.o HYPRE_version.o amg_linklist.o binsearch.o exchange_data.o fortran_matrix.o ap.o log.o complex.o error.o int_array.o hopscotch_hash.o matrix_stats.o magma.o memory_tracker.o merge_sort.o mmio.o prefix_sum.o qsort.o unique.o utilities.o mpistubs.o qsplit.o random.o state.o threading.o timer.o timing.o caliper_instrumentation.o printf.o multiprecision.o device_markers.obj device_utils.obj general.obj handle.obj int_array_device.obj memory.obj omp_device.obj stl_ops.obj -Wl,-soname,libHYPRE_utilities-3.1.0.so
+ln -s -f libHYPRE_utilities-3.1.0.so libHYPRE_utilities.so
+cp -fR ./HYPRE_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_utilities.hpp /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_onedpl.hpp /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/utilities'
+
+Making multivector ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/multivector'
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c multivector.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c temp_multivector.c
+Building libHYPRE_multivector.so ... 
+mpicxx -shared  -o libHYPRE_multivector-3.1.0.so multivector.o temp_multivector.o -Wl,-soname,libHYPRE_multivector-3.1.0.so
+ln -s -f libHYPRE_multivector-3.1.0.so libHYPRE_multivector.so
+cp -fR *.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/multivector'
+
+Making krylov ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/krylov'
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities  -I/sfw/cuda/12.6/include         -c bicgstab.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities  -I/sfw/cuda/12.6/include         -c cgnr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities  -I/sfw/cuda/12.6/include         -c gmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities  -I/sfw/cuda/12.6/include         -c cogmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities  -I/sfw/cuda/12.6/include         -c flexgmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities  -I/sfw/cuda/12.6/include         -c lgmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities  -I/sfw/cuda/12.6/include         -c pcg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities  -I/sfw/cuda/12.6/include         -c lobpcg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities  -I/sfw/cuda/12.6/include         -c HYPRE_bicgstab.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities  -I/sfw/cuda/12.6/include         -c HYPRE_cgnr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities  -I/sfw/cuda/12.6/include         -c HYPRE_gmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities  -I/sfw/cuda/12.6/include         -c HYPRE_cogmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities  -I/sfw/cuda/12.6/include         -c HYPRE_lgmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities  -I/sfw/cuda/12.6/include         -c HYPRE_flexgmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities  -I/sfw/cuda/12.6/include         -c HYPRE_pcg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities  -I/sfw/cuda/12.6/include         -c HYPRE_lobpcg.c
+Building libHYPRE_krylov.so ... 
+mpicxx -shared  -o libHYPRE_krylov-3.1.0.so bicgstab.o cgnr.o gmres.o cogmres.o flexgmres.o lgmres.o pcg.o lobpcg.o HYPRE_bicgstab.o HYPRE_cgnr.o HYPRE_gmres.o HYPRE_cogmres.o HYPRE_lgmres.o HYPRE_flexgmres.o HYPRE_pcg.o HYPRE_lobpcg.o -Wl,-soname,libHYPRE_krylov-3.1.0.so
+ln -s -f libHYPRE_krylov-3.1.0.so libHYPRE_krylov.so
+cp -fR ./HYPRE_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/krylov'
+
+Making seq_mv ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/seq_mv'
+make autogen
+make[2]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/seq_mv'
+make[2]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/seq_mv'
+make lib
+make[2]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/seq_mv'
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_filter.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_matop.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_matvec.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c genpart.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c HYPRE_csr_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c HYPRE_mapped_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c HYPRE_multiblock_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c HYPRE_vector.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c mapped_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c multiblock_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c vector.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c vector_batched.c
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_matop_device.c -o csr_matop_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_matrix_cuda_utils.c -o csr_matrix_cuda_utils.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_matvec_device.c -o csr_matvec_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_matvec_oomp.c -o csr_matvec_oomp.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spadd_device.c -o csr_spadd_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device.c -o csr_spgemm_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_cusparse.c -o csr_spgemm_device_cusparse.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_numblocks.c -o csr_spgemm_device_numblocks.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_numer.c -o csr_spgemm_device_numer.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_numer1.c -o csr_spgemm_device_numer1.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_numer2.c -o csr_spgemm_device_numer2.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_numer3.c -o csr_spgemm_device_numer3.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_numer4.c -o csr_spgemm_device_numer4.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_numer5.c -o csr_spgemm_device_numer5.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_numer6.c -o csr_spgemm_device_numer6.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_numer7.c -o csr_spgemm_device_numer7.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_numer8.c -o csr_spgemm_device_numer8.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_numer9.c -o csr_spgemm_device_numer9.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_numer10.c -o csr_spgemm_device_numer10.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_onemklsparse.c -o csr_spgemm_device_onemklsparse.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_rocsparse.c -o csr_spgemm_device_rocsparse.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_rowest.c -o csr_spgemm_device_rowest.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_symbl.c -o csr_spgemm_device_symbl.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_symbl1.c -o csr_spgemm_device_symbl1.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_symbl2.c -o csr_spgemm_device_symbl2.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_symbl3.c -o csr_spgemm_device_symbl3.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_symbl4.c -o csr_spgemm_device_symbl4.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_symbl5.c -o csr_spgemm_device_symbl5.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_symbl6.c -o csr_spgemm_device_symbl6.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_symbl7.c -o csr_spgemm_device_symbl7.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_symbl8.c -o csr_spgemm_device_symbl8.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_symbl9.c -o csr_spgemm_device_symbl9.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_symbl10.c -o csr_spgemm_device_symbl10.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spgemm_device_util.c -o csr_spgemm_device_util.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_spmv_device.c -o csr_spmv_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c csr_sptrans_device.c -o csr_sptrans_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c vector_device.c -o vector_device.obj
+Building libHYPRE_seq_mv.so ... 
+mpicxx -shared  -o libHYPRE_seq_mv-3.1.0.so csr_filter.o csr_matop.o csr_matrix.o csr_matvec.o genpart.o HYPRE_csr_matrix.o HYPRE_mapped_matrix.o HYPRE_multiblock_matrix.o HYPRE_vector.o mapped_matrix.o multiblock_matrix.o vector.o vector_batched.o csr_matop_device.obj csr_matrix_cuda_utils.obj csr_matvec_device.obj csr_matvec_oomp.obj csr_spadd_device.obj csr_spgemm_device.obj csr_spgemm_device_cusparse.obj csr_spgemm_device_numblocks.obj csr_spgemm_device_numer.obj csr_spgemm_device_numer1.obj csr_spgemm_device_numer2.obj csr_spgemm_device_numer3.obj csr_spgemm_device_numer4.obj csr_spgemm_device_numer5.obj csr_spgemm_device_numer6.obj csr_spgemm_device_numer7.obj csr_spgemm_device_numer8.obj csr_spgemm_device_numer9.obj csr_spgemm_device_numer10.obj csr_spgemm_device_onemklsparse.obj csr_spgemm_device_rocsparse.obj csr_spgemm_device_rowest.obj csr_spgemm_device_symbl.obj csr_spgemm_device_symbl1.obj csr_spgemm_device_symbl2.obj csr_spgemm_device_symbl3.obj csr_spgemm_device_symbl4.obj csr_spgemm_device_symbl5.obj csr_spgemm_device_symbl6.obj csr_spgemm_device_symbl7.obj csr_spgemm_device_symbl8.obj csr_spgemm_device_symbl9.obj csr_spgemm_device_symbl10.obj csr_spgemm_device_util.obj csr_spmv_device.obj csr_sptrans_device.obj vector_device.obj -Wl,-soname,libHYPRE_seq_mv-3.1.0.so
+ln -s -f libHYPRE_seq_mv-3.1.0.so libHYPRE_seq_mv.so
+cp -fR ./HYPRE_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[2]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/seq_mv'
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/seq_mv'
+
+Making seq_block_mv ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/seq_block_mv'
+make lib
+make[2]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/seq_block_mv'
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../seq_mv -I./../utilities  -I/sfw/cuda/12.6/include         -c dense_block_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../seq_mv -I./../utilities  -I/sfw/cuda/12.6/include         -c dense_block_matmult.c
+Building libHYPRE_seq_block_mv.so ... 
+mpicxx -shared  -o libHYPRE_seq_block_mv-3.1.0.so dense_block_matrix.o dense_block_matmult.o -Wl,-soname,libHYPRE_seq_block_mv-3.1.0.so
+ln -s -f libHYPRE_seq_block_mv-3.1.0.so libHYPRE_seq_block_mv.so
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[2]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/seq_block_mv'
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/seq_block_mv'
+
+Making parcsr_mv ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/parcsr_mv'
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c communicationT.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c F90_HYPRE_parcsr_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c F90_HYPRE_parcsr_vector.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c F90_parcsr_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c F90_par_vector.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c HYPRE_parcsr_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c HYPRE_parcsr_vector.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c gen_fffc.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c new_commpkg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c numbers.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_csr_aat.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_csr_assumed_part.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_csr_bool_matop.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_csr_bool_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_csr_communication.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_csr_filter.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_csr_matop.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_csr_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_csr_matrix_stats.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_csr_matmat.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_csr_matvec.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_csr_matop_marked.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_csr_triplemat.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_make_system.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_vector.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_vector_batched.c
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_csr_fffc_device.c -o par_csr_fffc_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_csr_filter_device.c -o par_csr_filter_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_csr_matop_device.c -o par_csr_matop_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_csr_matmat_device.c -o par_csr_matmat_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_csr_matvec_device.c -o par_csr_matvec_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_csr_triplemat_device.c -o par_csr_triplemat_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../blas -I./../lapack -I./../utilities -I./../seq_mv -I./../seq_block_mv  -I/sfw/cuda/12.6/include         -c par_vector_device.c -o par_vector_device.obj
+Building libHYPRE_parcsr_mv.so ... 
+mpicxx -shared  -o libHYPRE_parcsr_mv-3.1.0.so communicationT.o F90_HYPRE_parcsr_matrix.o F90_HYPRE_parcsr_vector.o F90_parcsr_matrix.o F90_par_vector.o HYPRE_parcsr_matrix.o HYPRE_parcsr_vector.o gen_fffc.o new_commpkg.o numbers.o par_csr_aat.o par_csr_assumed_part.o par_csr_bool_matop.o par_csr_bool_matrix.o par_csr_communication.o par_csr_filter.o par_csr_matop.o par_csr_matrix.o par_csr_matrix_stats.o par_csr_matmat.o par_csr_matvec.o par_csr_matop_marked.o par_csr_triplemat.o par_make_system.o par_vector.o par_vector_batched.o par_csr_fffc_device.obj par_csr_filter_device.obj par_csr_matop_device.obj par_csr_matmat_device.obj par_csr_matvec_device.obj par_csr_triplemat_device.obj par_vector_device.obj -Wl,-soname,libHYPRE_parcsr_mv-3.1.0.so
+ln -s -f libHYPRE_parcsr_mv-3.1.0.so libHYPRE_parcsr_mv.so
+cp -fR ./HYPRE_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/parcsr_mv'
+
+Making parcsr_block_mv ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/parcsr_block_mv'
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../multivector -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls -I./../IJ_mv -I./../krylov    -I/sfw/cuda/12.6/include         -c csr_block_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../multivector -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls -I./../IJ_mv -I./../krylov    -I/sfw/cuda/12.6/include         -c csr_block_matvec.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../multivector -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls -I./../IJ_mv -I./../krylov    -I/sfw/cuda/12.6/include         -c par_csr_block_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../multivector -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls -I./../IJ_mv -I./../krylov    -I/sfw/cuda/12.6/include         -c par_csr_block_matvec.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../multivector -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls -I./../IJ_mv -I./../krylov    -I/sfw/cuda/12.6/include         -c par_csr_block_comm.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../multivector -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls -I./../IJ_mv -I./../krylov    -I/sfw/cuda/12.6/include         -c par_csr_block_rap.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../multivector -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls -I./../IJ_mv -I./../krylov    -I/sfw/cuda/12.6/include         -c par_csr_block_rap_communication.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../multivector -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls -I./../IJ_mv -I./../krylov    -I/sfw/cuda/12.6/include         -c par_csr_block_interp.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../multivector -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls -I./../IJ_mv -I./../krylov    -I/sfw/cuda/12.6/include         -c par_csr_block_relax.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../multivector -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls -I./../IJ_mv -I./../krylov    -I/sfw/cuda/12.6/include         -c par_block_nodal_systems.c
+Building libHYPRE_parcsr_block_mv.so ... 
+mpicxx -shared  -o libHYPRE_parcsr_block_mv-3.1.0.so csr_block_matrix.o csr_block_matvec.o par_csr_block_matrix.o par_csr_block_matvec.o par_csr_block_comm.o par_csr_block_rap.o par_csr_block_rap_communication.o par_csr_block_interp.o par_csr_block_relax.o par_block_nodal_systems.o -Wl,-soname,libHYPRE_parcsr_block_mv-3.1.0.so
+ln -s -f libHYPRE_parcsr_block_mv-3.1.0.so libHYPRE_parcsr_block_mv.so
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/parcsr_block_mv'
+
+Making distributed_matrix ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/distributed_matrix'
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../utilities -I./../parcsr_mv -I./../seq_mv  -I/sfw/cuda/12.6/include         -c distributed_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../utilities -I./../parcsr_mv -I./../seq_mv  -I/sfw/cuda/12.6/include         -c HYPRE_distributed_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../utilities -I./../parcsr_mv -I./../seq_mv  -I/sfw/cuda/12.6/include         -c distributed_matrix_ISIS.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../utilities -I./../parcsr_mv -I./../seq_mv  -I/sfw/cuda/12.6/include         -c distributed_matrix_PETSc.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../utilities -I./../parcsr_mv -I./../seq_mv  -I/sfw/cuda/12.6/include         -c distributed_matrix_parcsr.c
+Building libHYPRE_DistributedMatrix.so ... 
+mpicxx -shared  -o libHYPRE_DistributedMatrix-3.1.0.so distributed_matrix.o HYPRE_distributed_matrix.o distributed_matrix_ISIS.o distributed_matrix_PETSc.o distributed_matrix_parcsr.o -Wl,-soname,libHYPRE_DistributedMatrix-3.1.0.so
+ln -s -f libHYPRE_DistributedMatrix-3.1.0.so libHYPRE_DistributedMatrix.so
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/distributed_matrix'
+
+Making IJ_mv ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/IJ_mv'
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls  -I/sfw/cuda/12.6/include         -c aux_parcsr_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls  -I/sfw/cuda/12.6/include         -c aux_par_vector.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls  -I/sfw/cuda/12.6/include         -c F90_HYPRE_IJMatrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls  -I/sfw/cuda/12.6/include         -c F90_HYPRE_IJVector.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls  -I/sfw/cuda/12.6/include         -c F90_IJMatrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls  -I/sfw/cuda/12.6/include         -c HYPRE_IJMatrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls  -I/sfw/cuda/12.6/include         -c HYPRE_IJVector.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls  -I/sfw/cuda/12.6/include         -c IJ_assumed_part.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls  -I/sfw/cuda/12.6/include         -c IJMatrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls  -I/sfw/cuda/12.6/include         -c IJMatrix_parcsr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls  -I/sfw/cuda/12.6/include         -c IJVector.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls  -I/sfw/cuda/12.6/include         -c IJVector_parcsr.c
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls  -I/sfw/cuda/12.6/include         -c IJMatrix_parcsr_device.c -o IJMatrix_parcsr_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../parcsr_ls  -I/sfw/cuda/12.6/include         -c IJVector_parcsr_device.c -o IJVector_parcsr_device.obj
+Building libHYPRE_IJ_mv.so ... 
+mpicxx -shared  -o libHYPRE_IJ_mv-3.1.0.so aux_parcsr_matrix.o aux_par_vector.o F90_HYPRE_IJMatrix.o F90_HYPRE_IJVector.o F90_IJMatrix.o HYPRE_IJMatrix.o HYPRE_IJVector.o IJ_assumed_part.o IJMatrix.o IJMatrix_parcsr.o IJVector.o IJVector_parcsr.o IJMatrix_parcsr_device.obj IJVector_parcsr_device.obj -Wl,-soname,libHYPRE_IJ_mv-3.1.0.so
+ln -s -f libHYPRE_IJ_mv-3.1.0.so libHYPRE_IJ_mv.so
+cp -fR ./HYPRE_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/IJ_mv'
+
+Making matrix_matrix ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/matrix_matrix'
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../utilities -I./../distributed_matrix -I./../seq_mv -I./../parcsr_mv  -I/sfw/cuda/12.6/include         -c HYPRE_ConvertParCSRMatrixToDistributedMatrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I./.. -I./../utilities -I./../distributed_matrix -I./../seq_mv -I./../parcsr_mv  -I/sfw/cuda/12.6/include         -c HYPRE_ConvertPETScMatrixToDistributedMatrix.c
+Building libHYPRE_MatrixMatrix.so ... 
+mpicxx -shared  -o libHYPRE_MatrixMatrix-3.1.0.so HYPRE_ConvertParCSRMatrixToDistributedMatrix.o HYPRE_ConvertPETScMatrixToDistributedMatrix.o -Wl,-soname,libHYPRE_MatrixMatrix-3.1.0.so
+ln -s -f libHYPRE_MatrixMatrix-3.1.0.so libHYPRE_MatrixMatrix.so
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/matrix_matrix'
+
+Making parcsr_ls ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/parcsr_ls'
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c amg_hybrid.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c aux_interp.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c F90_hypre_laplace.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c F90_HYPRE_parcsr_amg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c F90_HYPRE_parcsr_bicgstab.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c F90_HYPRE_parcsr_block.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c F90_HYPRE_parcsr_cgnr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c F90_HYPRE_parcsr_Euclid.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c F90_HYPRE_parcsr_gmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c F90_HYPRE_parcsr_cogmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c F90_HYPRE_parcsr_flexgmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c F90_HYPRE_parcsr_lgmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c F90_HYPRE_parcsr_hybrid.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c F90_HYPRE_parcsr_int.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c F90_HYPRE_parcsr_ParaSails.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c F90_HYPRE_parcsr_pcg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c F90_HYPRE_parcsr_pilut.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c F90_HYPRE_parcsr_schwarz.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c F90_HYPRE_parcsr_mgr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c F90_HYPRE_parcsr_ilu.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c F90_HYPRE_ams.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c gen_redcs_mat.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_parcsr_amg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_parcsr_amgdd.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_parcsr_bicgstab.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_parcsr_block.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_parcsr_cgnr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_parcsr_cheby.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_parcsr_Euclid.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_parcsr_gmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_parcsr_cogmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_parcsr_flexgmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_parcsr_lgmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_parcsr_hybrid.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_parcsr_int.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_parcsr_mgr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_parcsr_ilu.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_parcsr_fsai.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_parcsr_ParaSails.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_parcsr_pcg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_parcsr_pilut.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_parcsr_schwarz.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_ams.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_ads.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c HYPRE_ame.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_2s_interp.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_amg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_amgdd.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_amgdd_comp_grid.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_amgdd_setup.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_amgdd_solve.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_amgdd_fac_cycle.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_amgdd_helpers.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_amg_solve.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_amg_solveT.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_fsai.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_fsai_setup.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_fsai_solve.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_cg_relax_wt.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_coarsen.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_cgc_coarsen.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_cheby.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_cheby_setup.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_cheby_solve.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_coarse_parms.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_coordinates.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_cr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_cycle.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_add_cycle.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_difconv.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_gauss_elim.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_gsmg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_indepset.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_interp.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_jacobi_interp.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_krylov_func.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_ilu.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_ilu_setup.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_mod_lr_interp.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_multi_interp.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_mod_multi_interp.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_laplace.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_laplace_27pt.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_laplace_9pt.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_lr_interp.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_mgr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_mgr_coarsen.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_mgr_interp.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_mgr_rap.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_mgr_setup.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_mgr_solve.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_mgr_stats.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_nongalerkin.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_nodal_systems.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_rap.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_rap_communication.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_rotate_7pt.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_relax.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_relax_more.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_relax_interface.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_scaled_matnorm.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_schwarz.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_stats.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_strength.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_sv_interp.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_sv_interp_ln.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_vardifconv.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_vardifconv_rs.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c partial.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c schwarz.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c block_tridiag.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_restr.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_lr_restr.c
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c ads.c -o ads.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c ams.c -o ams.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c ame.c -o ame.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c dsuperlu.c -o dsuperlu.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_amg_setup.c -o par_amg_setup.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_ge_device.c -o par_ge_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_ilu_setup_device.c -o par_ilu_setup_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_ilu_solve_device.c -o par_ilu_solve_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_ilu_solve.c -o par_ilu_solve.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_cheby_device.c -o par_cheby_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_relax_more_device.c -o par_relax_more_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_coarsen_device.c -o par_coarsen_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_coarse_parms_device.c -o par_coarse_parms_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_indepset_device.c -o par_indepset_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_interp_device.c -o par_interp_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_lr_restr_device.c -o par_lr_restr_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_interp_trunc_device.c -o par_interp_trunc_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_lr_interp_device.c -o par_lr_interp_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_strength_device.c -o par_strength_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_strength2nd_device.c -o par_strength2nd_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_amgdd_fac_cycle_device.c -o par_amgdd_fac_cycle_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_2s_interp_device.c -o par_2s_interp_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_relax_device.c -o par_relax_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_mod_multi_interp_device.c -o par_mod_multi_interp_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_mgr_device.c -o par_mgr_device.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I../distributed_ls/Euclid -I. -I./.. -I./../blas -I./../lapack -I./../multivector -I./../utilities -I./../krylov -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../distributed_matrix -I./../matrix_matrix -I./../IJ_mv -I./../parcsr_block_mv   -I/sfw/cuda/12.6/include         -c par_fsai_device.c -o par_fsai_device.obj
+Building libHYPRE_parcsr_ls.so ... 
+mpicxx -shared  -o libHYPRE_parcsr_ls-3.1.0.so amg_hybrid.o aux_interp.o F90_hypre_laplace.o F90_HYPRE_parcsr_amg.o F90_HYPRE_parcsr_bicgstab.o F90_HYPRE_parcsr_block.o F90_HYPRE_parcsr_cgnr.o F90_HYPRE_parcsr_Euclid.o F90_HYPRE_parcsr_gmres.o F90_HYPRE_parcsr_cogmres.o F90_HYPRE_parcsr_flexgmres.o F90_HYPRE_parcsr_lgmres.o F90_HYPRE_parcsr_hybrid.o F90_HYPRE_parcsr_int.o F90_HYPRE_parcsr_ParaSails.o F90_HYPRE_parcsr_pcg.o F90_HYPRE_parcsr_pilut.o F90_HYPRE_parcsr_schwarz.o F90_HYPRE_parcsr_mgr.o F90_HYPRE_parcsr_ilu.o F90_HYPRE_ams.o gen_redcs_mat.o HYPRE_parcsr_amg.o HYPRE_parcsr_amgdd.o HYPRE_parcsr_bicgstab.o HYPRE_parcsr_block.o HYPRE_parcsr_cgnr.o HYPRE_parcsr_cheby.o HYPRE_parcsr_Euclid.o HYPRE_parcsr_gmres.o HYPRE_parcsr_cogmres.o HYPRE_parcsr_flexgmres.o HYPRE_parcsr_lgmres.o HYPRE_parcsr_hybrid.o HYPRE_parcsr_int.o HYPRE_parcsr_mgr.o HYPRE_parcsr_ilu.o HYPRE_parcsr_fsai.o HYPRE_parcsr_ParaSails.o HYPRE_parcsr_pcg.o HYPRE_parcsr_pilut.o HYPRE_parcsr_schwarz.o HYPRE_ams.o HYPRE_ads.o HYPRE_ame.o par_2s_interp.o par_amg.o par_amgdd.o par_amgdd_comp_grid.o par_amgdd_setup.o par_amgdd_solve.o par_amgdd_fac_cycle.o par_amgdd_helpers.o par_amg_solve.o par_amg_solveT.o par_fsai.o par_fsai_setup.o par_fsai_solve.o par_cg_relax_wt.o par_coarsen.o par_cgc_coarsen.o par_cheby.o par_cheby_setup.o par_cheby_solve.o par_coarse_parms.o par_coordinates.o par_cr.o par_cycle.o par_add_cycle.o par_difconv.o par_gauss_elim.o par_gsmg.o par_indepset.o par_interp.o par_jacobi_interp.o par_krylov_func.o par_ilu.o par_ilu_setup.o par_mod_lr_interp.o par_multi_interp.o par_mod_multi_interp.o par_laplace.o par_laplace_27pt.o par_laplace_9pt.o par_lr_interp.o par_mgr.o par_mgr_coarsen.o par_mgr_interp.o par_mgr_rap.o par_mgr_setup.o par_mgr_solve.o par_mgr_stats.o par_nongalerkin.o par_nodal_systems.o par_rap.o par_rap_communication.o par_rotate_7pt.o par_relax.o par_relax_more.o par_relax_interface.o par_scaled_matnorm.o par_schwarz.o par_stats.o par_strength.o par_sv_interp.o par_sv_interp_ln.o par_vardifconv.o par_vardifconv_rs.o partial.o schwarz.o block_tridiag.o par_restr.o par_lr_restr.o ads.obj ams.obj ame.obj dsuperlu.obj par_amg_setup.obj par_ge_device.obj par_ilu_setup_device.obj par_ilu_solve_device.obj par_ilu_solve.obj par_cheby_device.obj par_relax_more_device.obj par_coarsen_device.obj par_coarse_parms_device.obj par_indepset_device.obj par_interp_device.obj par_lr_restr_device.obj par_interp_trunc_device.obj par_lr_interp_device.obj par_strength_device.obj par_strength2nd_device.obj par_amgdd_fac_cycle_device.obj par_2s_interp_device.obj par_relax_device.obj par_mod_multi_interp_device.obj par_mgr_device.obj par_fsai_device.obj -Wl,-soname,libHYPRE_parcsr_ls-3.1.0.so
+ln -s -f libHYPRE_parcsr_ls-3.1.0.so libHYPRE_parcsr_ls.so
+cp -fR ./HYPRE_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/parcsr_ls'
+
+Making struct_mv ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/struct_mv'
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c assumed_part.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c box_algebra.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c box_boundary.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c box.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c box_ds.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c box_manager.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c coarsen.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c communication_info.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c computation.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c F90_HYPRE_struct_grid.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c F90_HYPRE_struct_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c F90_HYPRE_struct_stencil.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c F90_HYPRE_struct_vector.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c HYPRE_struct_grid.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c HYPRE_struct_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c HYPRE_struct_stencil.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c HYPRE_struct_vector.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c project.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_grid.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_io.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_matrix_mask.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_stencil.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_stmatrix.c
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_matvec.c -o struct_matvec.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_matvec_cc.c -o struct_matvec_cc.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_matvec_icc.c -o struct_matvec_icc.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_matvec_ivc.c -o struct_matvec_ivc.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_matvec_ivcc.c -o struct_matvec_ivcc.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_matvec_vc.c -o struct_matvec_vc.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_matvec_vcc.c -o struct_matvec_vcc.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_matmult.c -o struct_matmult.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_matmult_core.c -o struct_matmult_core.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_matmult_fuse.c -o struct_matmult_fuse.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_matmult_fuse_fff.c -o struct_matmult_fuse_fff.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_matmult_fuse_ffc.c -o struct_matmult_fuse_ffc.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_matmult_fuse_fcc.c -o struct_matmult_fuse_fcc.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_matmult_fuse_ff.c -o struct_matmult_fuse_ff.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_matmult_fuse_fc.c -o struct_matmult_fuse_fc.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_matmult_fuse_cc.c -o struct_matmult_fuse_cc.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_matmult_fuse_c.c -o struct_matmult_fuse_c.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_matmult_fuse_f.c -o struct_matmult_fuse_f.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_axpy.c -o struct_axpy.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_communication.c -o struct_communication.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_copy.c -o struct_copy.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_data.c -o struct_data.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_innerprod.c -o struct_innerprod.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_matop.c -o struct_matop.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_matrix.c -o struct_matrix.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_scale.c -o struct_scale.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities  -I/sfw/cuda/12.6/include         -c struct_vector.c -o struct_vector.obj
+Building libHYPRE_struct_mv.so ... 
+mpicxx -shared  -o libHYPRE_struct_mv-3.1.0.so assumed_part.o box_algebra.o box_boundary.o box.o box_ds.o box_manager.o coarsen.o communication_info.o computation.o F90_HYPRE_struct_grid.o F90_HYPRE_struct_matrix.o F90_HYPRE_struct_stencil.o F90_HYPRE_struct_vector.o HYPRE_struct_grid.o HYPRE_struct_matrix.o HYPRE_struct_stencil.o HYPRE_struct_vector.o project.o struct_grid.o struct_io.o struct_matrix_mask.o struct_stencil.o struct_stmatrix.o struct_matvec.obj struct_matvec_cc.obj struct_matvec_icc.obj struct_matvec_ivc.obj struct_matvec_ivcc.obj struct_matvec_vc.obj struct_matvec_vcc.obj struct_matmult.obj struct_matmult_core.obj struct_matmult_fuse.obj struct_matmult_fuse_fff.obj struct_matmult_fuse_ffc.obj struct_matmult_fuse_fcc.obj struct_matmult_fuse_ff.obj struct_matmult_fuse_fc.obj struct_matmult_fuse_cc.obj struct_matmult_fuse_c.obj struct_matmult_fuse_f.obj struct_axpy.obj struct_communication.obj struct_copy.obj struct_data.obj struct_innerprod.obj struct_matop.obj struct_matrix.obj struct_scale.obj struct_vector.obj -Wl,-soname,libHYPRE_struct_mv-3.1.0.so
+ln -s -f libHYPRE_struct_mv-3.1.0.so libHYPRE_struct_mv.so
+cp -fR ./HYPRE_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_struct_mv.hpp /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/struct_mv'
+
+Making struct_ls ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/struct_ls'
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c F90_HYPRE_struct_bicgstab.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c F90_HYPRE_struct_cycred.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c F90_HYPRE_struct_flexgmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c F90_HYPRE_struct_gmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c F90_HYPRE_struct_lgmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c F90_HYPRE_struct_hybrid.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c F90_HYPRE_struct_int.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c F90_HYPRE_struct_jacobi.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c F90_HYPRE_struct_pcg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c F90_HYPRE_struct_pfmg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c F90_HYPRE_struct_smg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c HYPRE_struct_bicgstab.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c HYPRE_struct_cycred.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c HYPRE_struct_flexgmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c HYPRE_struct_gmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c HYPRE_struct_hybrid.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c HYPRE_struct_jacobi.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c HYPRE_struct_lgmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c HYPRE_struct_pfmg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c HYPRE_struct_smg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c hybrid.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c pcg_struct.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c pfmg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c pfmg_relax.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c pfmg_setup_rap.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c pfmg_solve.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c semi.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c smg_relax.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c smg_setup.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c smg_setup_rap.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c smg_setup_restrict.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c smg_solve.c
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c HYPRE_struct_int.c -o HYPRE_struct_int.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c HYPRE_struct_pcg.c -o HYPRE_struct_pcg.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c cyclic_reduction.c -o cyclic_reduction.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c diag_scale.c -o diag_scale.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c jacobi.c -o jacobi.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c pfmg2_setup_rap.c -o pfmg2_setup_rap.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c pfmg3_setup_rap.c -o pfmg3_setup_rap.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c pfmg_coarsen.c -o pfmg_coarsen.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c pfmg_cxyz_cc.c -o pfmg_cxyz_cc.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c pfmg_cxyz_vc.c -o pfmg_cxyz_vc.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c pfmg_setup.c -o pfmg_setup.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c pfmg_setup_interp.c -o pfmg_setup_interp.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c pfmg_setup_rap5.c -o pfmg_setup_rap5.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c pfmg_setup_rap7.c -o pfmg_setup_rap7.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c red_black_constantcoef_gs.c -o red_black_constantcoef_gs.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c red_black_gs.c -o red_black_gs.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c semi_interp.c -o semi_interp.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c semi_restrict.c -o semi_restrict.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c semi_setup_rap.c -o semi_setup_rap.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c smg2_setup_rap.c -o smg2_setup_rap.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c smg3_setup_rap.c -o smg3_setup_rap.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c smg.c -o smg.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c smg_axpy.c -o smg_axpy.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c smg_residual.c -o smg_residual.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv  -I/sfw/cuda/12.6/include         -c smg_setup_interp.c -o smg_setup_interp.obj
+Building libHYPRE_struct_ls.so ... 
+mpicxx -shared  -o libHYPRE_struct_ls-3.1.0.so F90_HYPRE_struct_bicgstab.o F90_HYPRE_struct_cycred.o F90_HYPRE_struct_flexgmres.o F90_HYPRE_struct_gmres.o F90_HYPRE_struct_lgmres.o F90_HYPRE_struct_hybrid.o F90_HYPRE_struct_int.o F90_HYPRE_struct_jacobi.o F90_HYPRE_struct_pcg.o F90_HYPRE_struct_pfmg.o F90_HYPRE_struct_smg.o HYPRE_struct_bicgstab.o HYPRE_struct_cycred.o HYPRE_struct_flexgmres.o HYPRE_struct_gmres.o HYPRE_struct_hybrid.o HYPRE_struct_jacobi.o HYPRE_struct_lgmres.o HYPRE_struct_pfmg.o HYPRE_struct_smg.o hybrid.o pcg_struct.o pfmg.o pfmg_relax.o pfmg_setup_rap.o pfmg_solve.o semi.o smg_relax.o smg_setup.o smg_setup_rap.o smg_setup_restrict.o smg_solve.o HYPRE_struct_int.obj HYPRE_struct_pcg.obj cyclic_reduction.obj diag_scale.obj jacobi.obj pfmg2_setup_rap.obj pfmg3_setup_rap.obj pfmg_coarsen.obj pfmg_cxyz_cc.obj pfmg_cxyz_vc.obj pfmg_setup.obj pfmg_setup_interp.obj pfmg_setup_rap5.obj pfmg_setup_rap7.obj red_black_constantcoef_gs.obj red_black_gs.obj semi_interp.obj semi_restrict.obj semi_setup_rap.obj smg2_setup_rap.obj smg3_setup_rap.obj smg.obj smg_axpy.obj smg_residual.obj smg_setup_interp.obj -Wl,-soname,libHYPRE_struct_ls-3.1.0.so
+ln -s -f libHYPRE_struct_ls-3.1.0.so libHYPRE_struct_ls.so
+cp -fR ./HYPRE_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/struct_ls'
+
+Making sstruct_mv ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/sstruct_mv'
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv  -I/sfw/cuda/12.6/include         -c F90_HYPRE_sstruct_graph.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv  -I/sfw/cuda/12.6/include         -c F90_HYPRE_sstruct_grid.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv  -I/sfw/cuda/12.6/include         -c F90_HYPRE_sstruct_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv  -I/sfw/cuda/12.6/include         -c F90_HYPRE_sstruct_stencil.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv  -I/sfw/cuda/12.6/include         -c F90_HYPRE_sstruct_vector.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv  -I/sfw/cuda/12.6/include         -c HYPRE_sstruct_graph.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv  -I/sfw/cuda/12.6/include         -c HYPRE_sstruct_grid.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv  -I/sfw/cuda/12.6/include         -c HYPRE_sstruct_matrix.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv  -I/sfw/cuda/12.6/include         -c HYPRE_sstruct_stencil.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv  -I/sfw/cuda/12.6/include         -c HYPRE_sstruct_vector.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv  -I/sfw/cuda/12.6/include         -c sstruct_axpy.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv  -I/sfw/cuda/12.6/include         -c sstruct_copy.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv  -I/sfw/cuda/12.6/include         -c sstruct_graph.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv  -I/sfw/cuda/12.6/include         -c sstruct_grid.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv  -I/sfw/cuda/12.6/include         -c sstruct_innerprod.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv  -I/sfw/cuda/12.6/include         -c sstruct_matvec.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv  -I/sfw/cuda/12.6/include         -c sstruct_matmult.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv  -I/sfw/cuda/12.6/include         -c sstruct_matop.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv  -I/sfw/cuda/12.6/include         -c sstruct_scale.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv  -I/sfw/cuda/12.6/include         -c sstruct_stencil.c
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv  -I/sfw/cuda/12.6/include         -c sstruct_matrix.c -o sstruct_matrix.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../utilities -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv  -I/sfw/cuda/12.6/include         -c sstruct_vector.c -o sstruct_vector.obj
+Building libHYPRE_sstruct_mv.so ... 
+mpicxx -shared  -o libHYPRE_sstruct_mv-3.1.0.so F90_HYPRE_sstruct_graph.o F90_HYPRE_sstruct_grid.o F90_HYPRE_sstruct_matrix.o F90_HYPRE_sstruct_stencil.o F90_HYPRE_sstruct_vector.o HYPRE_sstruct_graph.o HYPRE_sstruct_grid.o HYPRE_sstruct_matrix.o HYPRE_sstruct_stencil.o HYPRE_sstruct_vector.o sstruct_axpy.o sstruct_copy.o sstruct_graph.o sstruct_grid.o sstruct_innerprod.o sstruct_matvec.o sstruct_matmult.o sstruct_matop.o sstruct_scale.o sstruct_stencil.o sstruct_matrix.obj sstruct_vector.obj -Wl,-soname,libHYPRE_sstruct_mv-3.1.0.so
+ln -s -f libHYPRE_sstruct_mv-3.1.0.so libHYPRE_sstruct_mv.so
+cp -fR ./HYPRE_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/sstruct_mv'
+
+Making sstruct_ls ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/sstruct_ls'
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c F90_HYPRE_sstruct_bicgstab.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c F90_HYPRE_sstruct_gmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c F90_HYPRE_sstruct_flexgmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c F90_HYPRE_sstruct_lgmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c F90_HYPRE_sstruct_int.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c F90_HYPRE_sstruct_pcg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c F90_HYPRE_sstruct_split.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c F90_HYPRE_sstruct_sys_pfmg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c F90_HYPRE_sstruct_ssamg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c HYPRE_sstruct_bicgstab.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c HYPRE_sstruct_gmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c HYPRE_sstruct_flexgmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c HYPRE_sstruct_lgmres.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c HYPRE_sstruct_int.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c HYPRE_sstruct_pcg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c HYPRE_sstruct_split.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c HYPRE_sstruct_sys_pfmg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c HYPRE_sstruct_ssamg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c krylov.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c krylov_sstruct.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c sys_pfmg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c sys_pfmg_relax.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c sys_pfmg_setup.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c sys_pfmg_setup_interp.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c sys_pfmg_solve.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c ssamg.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c ssamg_csolver.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c ssamg_stats.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c ssamg_setup.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c ssamg_setup_rap.c
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c ssamg_solve.c
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c node_relax.c -o node_relax.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c ssamg_interp.c -o ssamg_interp.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c ssamg_relax.c -o ssamg_relax.obj
+/sfw/cuda/12.6/bin/nvcc -ccbin=mpicxx -gencode arch=compute_80,code=sm_80  -O2 -lineinfo -expt-extended-lambda -std=c++17 --x cu -Xcompiler "-O2  -fPIC"  -DHAVE_CONFIG_H -I.. -I. -I./.. -I./../multivector -I./../utilities -I./../krylov -I./../struct_mv -I./../seq_mv -I./../seq_block_mv -I./../parcsr_mv -I./../IJ_mv -I./../parcsr_block_mv -I./../sstruct_mv -I./../struct_ls -I./../parcsr_ls    -I/sfw/cuda/12.6/include         -c ssamg_uinterp.c -o ssamg_uinterp.obj
+Building libHYPRE_sstruct_ls.so ... 
+mpicxx -shared  -o libHYPRE_sstruct_ls-3.1.0.so F90_HYPRE_sstruct_bicgstab.o F90_HYPRE_sstruct_gmres.o F90_HYPRE_sstruct_flexgmres.o F90_HYPRE_sstruct_lgmres.o F90_HYPRE_sstruct_int.o F90_HYPRE_sstruct_pcg.o F90_HYPRE_sstruct_split.o F90_HYPRE_sstruct_sys_pfmg.o F90_HYPRE_sstruct_ssamg.o HYPRE_sstruct_bicgstab.o HYPRE_sstruct_gmres.o HYPRE_sstruct_flexgmres.o HYPRE_sstruct_lgmres.o HYPRE_sstruct_int.o HYPRE_sstruct_pcg.o HYPRE_sstruct_split.o HYPRE_sstruct_sys_pfmg.o HYPRE_sstruct_ssamg.o krylov.o krylov_sstruct.o sys_pfmg.o sys_pfmg_relax.o sys_pfmg_setup.o sys_pfmg_setup_interp.o sys_pfmg_solve.o ssamg.o ssamg_csolver.o ssamg_stats.o ssamg_setup.o ssamg_setup_rap.o ssamg_solve.o node_relax.obj ssamg_interp.obj ssamg_relax.obj ssamg_uinterp.obj -Wl,-soname,libHYPRE_sstruct_ls-3.1.0.so
+ln -s -f libHYPRE_sstruct_ls-3.1.0.so libHYPRE_sstruct_ls.so
+cp -fR ./HYPRE_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/sstruct_ls'
+
+Making lib ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/lib'
+Building libHYPRE.so ... 
+mpicxx -shared  -o libHYPRE-3.1.0.so   /scratch/rmuenste/gpu-poisson/hypre-src/src/IJ_mv/*.o /scratch/rmuenste/gpu-poisson/hypre-src/src/IJ_mv/*.obj    /scratch/rmuenste/gpu-poisson/hypre-src/src/distributed_matrix/*.o /scratch/rmuenste/gpu-poisson/hypre-src/src/krylov/*.o /scratch/rmuenste/gpu-poisson/hypre-src/src/matrix_matrix/*.o /scratch/rmuenste/gpu-poisson/hypre-src/src/multivector/*.o /scratch/rmuenste/gpu-poisson/hypre-src/src/parcsr_ls/*.o /scratch/rmuenste/gpu-poisson/hypre-src/src/parcsr_ls/*.obj /scratch/rmuenste/gpu-poisson/hypre-src/src/parcsr_mv/*.o /scratch/rmuenste/gpu-poisson/hypre-src/src/parcsr_mv/*.obj /scratch/rmuenste/gpu-poisson/hypre-src/src/parcsr_block_mv/*.o /scratch/rmuenste/gpu-poisson/hypre-src/src/seq_mv/*.o /scratch/rmuenste/gpu-poisson/hypre-src/src/seq_mv/*.obj /scratch/rmuenste/gpu-poisson/hypre-src/src/seq_block_mv/*.o /scratch/rmuenste/gpu-poisson/hypre-src/src/sstruct_ls/*.o /scratch/rmuenste/gpu-poisson/hypre-src/src/sstruct_ls/*.obj /scratch/rmuenste/gpu-poisson/hypre-src/src/sstruct_mv/*.o /scratch/rmuenste/gpu-poisson/hypre-src/src/sstruct_mv/*.obj /scratch/rmuenste/gpu-poisson/hypre-src/src/struct_ls/*.o /scratch/rmuenste/gpu-poisson/hypre-src/src/struct_ls/*.obj /scratch/rmuenste/gpu-poisson/hypre-src/src/struct_mv/*.o /scratch/rmuenste/gpu-poisson/hypre-src/src/struct_mv/*.obj /scratch/rmuenste/gpu-poisson/hypre-src/src/utilities/*.o /scratch/rmuenste/gpu-poisson/hypre-src/src/utilities/*.obj /scratch/rmuenste/gpu-poisson/hypre-src/src/blas/*.o /scratch/rmuenste/gpu-poisson/hypre-src/src/lapack/*.o          -lm  -L/sfw/cuda/12.6/lib64 -lcudart -lcusparse -lcublas -lcurand            -Wl,-soname,libHYPRE-3.1.0.so -Wl,-z,defs 
+ln -s -f libHYPRE-3.1.0.so libHYPRE.so
+cp -fR libHYPRE* /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/lib
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/lib'
+
+Making blas ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/blas'
+cp -fR ./_hypre_blas.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/blas'
+
+Making lapack ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/lapack'
+cp -fR ./_hypre_lapack.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/lapack'
+
+Making utilities ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/utilities'
+cp -fR ./HYPRE_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_utilities.hpp /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_onedpl.hpp /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/utilities'
+
+Making multivector ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/multivector'
+cp -fR *.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/multivector'
+
+Making krylov ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/krylov'
+cp -fR ./HYPRE_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/krylov'
+
+Making seq_mv ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/seq_mv'
+make autogen
+make[2]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/seq_mv'
+make[2]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/seq_mv'
+make lib
+make[2]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/seq_mv'
+cp -fR ./HYPRE_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[2]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/seq_mv'
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/seq_mv'
+
+Making seq_block_mv ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/seq_block_mv'
+make lib
+make[2]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/seq_block_mv'
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[2]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/seq_block_mv'
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/seq_block_mv'
+
+Making parcsr_mv ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/parcsr_mv'
+cp -fR ./HYPRE_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/parcsr_mv'
+
+Making parcsr_block_mv ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/parcsr_block_mv'
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/parcsr_block_mv'
+
+Making distributed_matrix ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/distributed_matrix'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/distributed_matrix'
+
+Making IJ_mv ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/IJ_mv'
+cp -fR ./HYPRE_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/IJ_mv'
+
+Making matrix_matrix ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/matrix_matrix'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/matrix_matrix'
+
+Making parcsr_ls ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/parcsr_ls'
+cp -fR ./HYPRE_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/parcsr_ls'
+
+Making struct_mv ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/struct_mv'
+cp -fR ./HYPRE_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_struct_mv.hpp /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/struct_mv'
+
+Making struct_ls ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/struct_ls'
+cp -fR ./HYPRE_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/struct_ls'
+
+Making sstruct_mv ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/sstruct_mv'
+cp -fR ./HYPRE_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/sstruct_mv'
+
+Making sstruct_ls ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/sstruct_ls'
+cp -fR ./HYPRE_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+cp -fR ./_hypre_*.h /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/sstruct_ls'
+
+Making lib ...
+make[1]: Entering directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/lib'
+cp -fR libHYPRE* /scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/lib
+make[1]: Leaving directory '/scratch/rmuenste/gpu-poisson/hypre-src/src/lib'
+
+Installing hypre ...
+mkdir -p -- /scratch/rmuenste/gpu-poisson/hypre-cuda/lib /scratch/rmuenste/gpu-poisson/hypre-cuda/include
+

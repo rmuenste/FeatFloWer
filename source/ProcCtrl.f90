@@ -46,6 +46,7 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
  USE param_parser, ONLY : GDATNEW,GetVeloParameters,GetPresParameters,GetPhysiclaParameters,&
                           ValidateSolverTypes
  USE timestep_control, ONLY : SetSimulationTimeStep
+ USE solution_io, ONLY : write_sol_to_file
  IMPLICIT NONE
  INTEGER, INTENT(IN) :: MFILE, MTERM
  CHARACTER(len=200) :: string, line
@@ -56,6 +57,8 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
  DOUBLE PRECISION :: TSTEP, THETA, THSTEP, TIMENS, EPSNS
  INTEGER :: NITNS, ITNS
  COMMON /NSPAR/  TSTEP,THETA,THSTEP,TIMENS,EPSNS,NITNS,ITNS
+ INTEGER :: INSAV, INSAVN
+ COMMON /NSSAV/  INSAV, INSAVN
 
  ! Check if control file exists
  iExist = 0
@@ -134,7 +137,10 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
                                           ' (valid: ', DUMP_FILE_MIN, '-', DUMP_FILE_MAX, ')'
      END IF
     ELSE
-     CALL SolToFile(iFile)
+     ! Complete restart dump (write_sol_to_file also writes the
+     ! MaterialDistribution field; the legacy SolToFile dump is not
+     ! restart-complete - v24f seg-2 lesson, 2026-09-04).
+     CALL write_sol_to_file(INSAVN, TIMENS, iFile)
      CALL FBM_ToFile()
     END IF
 

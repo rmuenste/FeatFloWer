@@ -1,0 +1,331 @@
+=============================================
+Hypre init times:
+=============================================
+Hypre init:
+  wall clock time = 0.027184 seconds
+  wall MFLOPS     = 0.000000
+  cpu clock time  = 0.020196 seconds
+  cpu MFLOPS      = 0.000000
+
+
+Using HYPRE_RELEASE_VERSION: 3.1.0
+
+Running with these driver parameters:
+  solver ID    = 1
+
+  Laplacian:   num_fun = 1
+    (nx, ny, nz) = (50, 50, 50)
+    (Px, Py, Pz) = (1, 1, 1)
+    (cx, cy, cz) = (1.000000, 1.000000, 1.000000)
+
+=============================================
+Generate Matrix:
+=============================================
+Spatial Operator:
+  wall clock time = 0.004773 seconds
+  wall MFLOPS     = 0.000000
+  cpu clock time  = 0.004303 seconds
+  cpu MFLOPS      = 0.000000
+
+  Number of vector components: 1
+  RHS vector has unit coefficients
+  Initial guess is 0
+=============================================
+IJ Vector Setup:
+=============================================
+RHS and Initial Guess:
+  wall clock time = 0.010702 seconds
+  wall MFLOPS     = 0.000000
+  cpu clock time  = 0.010651 seconds
+  cpu MFLOPS      = 0.000000
+
+Solver: AMG-PCG
+HYPRE_ParCSRPCGGetPrecond got good precond
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 7
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 1.000000
+
+ Coarsening Type = PMIS 
+ measures are determined locally
+
+ Interpolation = extended+i
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0  125000   860000  0.000     4    7     6.9   0.000e+00   3.000e+00
+  1   39252  1103410  0.001     7   48    28.1  -5.024e-15   4.612e+00
+  2    5439   339471  0.011    12   99    62.4  -1.302e-04   5.618e+00
+  3     702    47178  0.096    13  131    67.2  -8.685e-15   1.142e+01
+  4     113     4819  0.377    12   91    42.6   4.987e+00   3.489e+01
+  5      21      301  0.683     8   21    14.3   5.586e+00   7.142e+01
+  6       4       16  1.000     4    4     4.0   1.543e+01   7.258e+01
+
+
+Interpolation Matrix Information:
+                      entries/row        min        max            row sums
+lev   rows x cols   min  max  avgW     weight      weight       min         max
+==================================================================================
+  0 125000 x 39252    1    4   4.0   5.263e-02   4.545e-01   4.194e-01   1.000e+00
+  1  39252 x 5439     1    4   4.0   3.455e-03   6.986e-01   1.400e-01   1.000e+00
+  2   5439 x 702      1    4   4.0   1.514e-03   6.400e-01   6.096e-02   1.000e+00
+  3    702 x 113      1    4   4.0   4.551e-04   5.196e-01   8.060e-03   1.000e+00
+  4    113 x 21       1    4   4.0   1.526e-04   2.278e-01   7.118e-03   1.000e+00
+  5     21 x 4        1    4   3.0   1.476e-03   2.132e-02   1.047e-02   1.000e+00
+
+
+     Complexity:   grid = 1.364248
+               operator = 2.738599
+                 memory = 3.372777
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18     9 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+=============================================
+Setup phase times:
+=============================================
+PCG Setup:
+  wall clock time = 0.349942 seconds
+  wall MFLOPS     = 0.000000
+  cpu clock time  = 0.077634 seconds
+  cpu MFLOPS      = 0.000000
+
+<b,b>: 1.250000e+05
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+    1    8.778292e+02    2.482876    2.482876e+00
+    2    2.536617e+02    0.288965    7.174637e-01
+    3    5.941255e+01    0.234220    1.680441e-01
+    4    1.588906e+01    0.267436    4.494106e-02
+    5    3.863933e+00    0.243182    1.092885e-02
+    6    9.314704e-01    0.241068    2.634596e-03
+    7    2.182092e-01    0.234263    6.171888e-04
+    8    5.017190e-02    0.229926    1.419076e-04
+    9    1.145714e-02    0.228358    3.240567e-05
+   10    2.665931e-03    0.232687    7.540391e-06
+   11    6.246165e-04    0.234296    1.766682e-06
+   12    1.466614e-04    0.234802    4.148211e-07
+   13    3.438204e-05    0.234431    9.724709e-08
+   14    8.204660e-06    0.238632    2.320628e-08
+   15    1.954212e-06    0.238183    5.527346e-09
+
+
+=============================================
+Solve phase times:
+=============================================
+PCG Solve:
+  wall clock time = 0.010169 seconds
+  wall MFLOPS     = 0.000000
+  cpu clock time  = 0.010140 seconds
+  cpu MFLOPS      = 0.000000
+
+
+Iterations = 15
+Final Relative Residual Norm = 5.527346e-09
+
+=============================================
+Hypre init times:
+=============================================
+Hypre init:
+  wall clock time = 0.017573 seconds
+  wall MFLOPS     = 0.000000
+  cpu clock time  = 0.017501 seconds
+  cpu MFLOPS      = 0.000000
+
+
+Using HYPRE_RELEASE_VERSION: 3.1.0
+
+Running with these driver parameters:
+  solver ID    = 1
+
+  Laplacian:   num_fun = 1
+    (nx, ny, nz) = (100, 100, 100)
+    (Px, Py, Pz) = (1, 1, 1)
+    (cx, cy, cz) = (1.000000, 1.000000, 1.000000)
+
+=============================================
+Generate Matrix:
+=============================================
+Spatial Operator:
+  wall clock time = 0.022731 seconds
+  wall MFLOPS     = 0.000000
+  cpu clock time  = 0.022637 seconds
+  cpu MFLOPS      = 0.000000
+
+  Number of vector components: 1
+  RHS vector has unit coefficients
+  Initial guess is 0
+=============================================
+IJ Vector Setup:
+=============================================
+RHS and Initial Guess:
+  wall clock time = 0.016309 seconds
+  wall MFLOPS     = 0.000000
+  cpu clock time  = 0.016214 seconds
+  cpu MFLOPS      = 0.000000
+
+Solver: AMG-PCG
+HYPRE_ParCSRPCGGetPrecond got good precond
+
+
+ Num MPI tasks = 1
+
+ Num OpenMP threads = 1
+
+
+BoomerAMG SETUP PARAMETERS:
+
+ Max levels = 25
+ Num levels = 7
+
+ Strength Threshold = 0.250000
+ Interpolation Truncation Factor = 0.000000
+ Maximum Row Sum Threshold for Dependency Weakening = 1.000000
+
+ Coarsening Type = PMIS 
+
+ No. of levels of aggressive coarsening: 1
+
+ Interpolation on agg. levels = multipass
+ measures are determined locally
+
+ Interpolation = extended+i
+
+Operator Matrix Information:
+
+             nonzero            entries/row          row sums
+lev    rows  entries sparse   min  max     avg      min         max
+======================================================================
+  0 1000000  6940000  0.000     4    7     6.9   0.000e+00   3.000e+00
+  1   60300  1173618  0.000     5   33    19.5  -2.914e-14   1.073e+01
+  2   15850   884672  0.004    11  105    55.8  -4.556e-02   2.343e+01
+  3    2332   186764  0.034    12  143    80.1  -9.141e-07   3.845e+01
+  4     307    20221  0.215    14  142    65.9   9.910e-02   1.002e+02
+  5      52     1592  0.589    13   51    30.6   1.425e+01   3.389e+02
+  6       8       62  0.969     7    8     7.8   3.291e+01   4.135e+02
+
+
+Interpolation Matrix Information:
+                        entries/row        min        max            row sums
+lev    rows x cols    min  max  avgW     weight      weight       min         max
+====================================================================================
+  0 1000000 x 60300     1    8   1.5   2.646e-02   9.954e-01   3.056e-01   1.000e+00
+  1   60300 x 15850     1    4   3.9   9.739e-03   1.000e+00   2.528e-01   1.000e+00
+  2   15850 x 2332      1    4   4.0   5.601e-03   8.637e-01   1.717e-01   1.002e+00
+  3    2332 x 307       1    4   4.0   1.302e-03   6.806e-01   7.400e-02   1.000e+00
+  4     307 x 52        1    4   4.0   1.031e-03   4.006e-01   3.857e-02   1.000e+00
+  5      52 x 8         1    4   3.6   1.158e-03   1.097e-01   2.893e-02   1.000e+00
+
+
+     Complexity:   grid = 1.078849
+               operator = 1.326647
+                 memory = 1.579139
+
+
+
+
+BoomerAMG SOLVER PARAMETERS:
+
+  Maximum number of cycles:         1 
+  Stopping Tolerance:               0.000000e+00 
+  Cycle type (1 = V, 2 = W, etc.):  1
+
+  Relaxation Parameters:
+   Visiting Grid:                     down   up  coarse
+            Number of sweeps:            1    1     1 
+   Type 0=Jac, 3=hGS, 6=hSGS, 9=GE:     18   18     9 
+   Point types, partial sweeps (1=C, -1=F):
+                  Pre-CG relaxation (down):   0
+                   Post-CG relaxation (up):   0
+                             Coarsest grid:   0
+
+=============================================
+Setup phase times:
+=============================================
+PCG Setup:
+  wall clock time = 0.126856 seconds
+  wall MFLOPS     = 0.000000
+  cpu clock time  = 0.126289 seconds
+  cpu MFLOPS      = 0.000000
+
+<b,b>: 1.000000e+06
+
+
+Iters       ||r||_2     conv.rate  ||r||_2/||b||_2
+-----    ------------   ---------  ------------ 
+    1    1.153933e+04    11.539328    1.153933e+01
+    2    6.052336e+03    0.524496    6.052336e+00
+    3    2.302206e+03    0.380383    2.302206e+00
+    4    1.242497e+03    0.539698    1.242497e+00
+    5    5.988325e+02    0.481959    5.988325e-01
+    6    2.898172e+02    0.483970    2.898172e-01
+    7    1.404467e+02    0.484604    1.404467e-01
+    8    6.764315e+01    0.481629    6.764315e-02
+    9    3.317664e+01    0.490466    3.317664e-02
+   10    1.592633e+01    0.480047    1.592633e-02
+   11    7.830672e+00    0.491681    7.830672e-03
+   12    3.845677e+00    0.491104    3.845677e-03
+   13    1.894950e+00    0.492748    1.894950e-03
+   14    9.443406e-01    0.498346    9.443406e-04
+   15    4.719260e-01    0.499741    4.719260e-04
+   16    2.355447e-01    0.499114    2.355447e-04
+   17    1.168809e-01    0.496215    1.168809e-04
+   18    5.735550e-02    0.490717    5.735550e-05
+   19    2.793104e-02    0.486981    2.793104e-05
+   20    1.358044e-02    0.486213    1.358044e-05
+   21    6.570537e-03    0.483824    6.570537e-06
+   22    3.163163e-03    0.481416    3.163163e-06
+   23    1.512929e-03    0.478296    1.512929e-06
+   24    7.251573e-04    0.479307    7.251573e-07
+   25    3.467662e-04    0.478194    3.467662e-07
+   26    1.659743e-04    0.478635    1.659743e-07
+   27    7.946184e-05    0.478760    7.946184e-08
+   28    3.785286e-05    0.476365    3.785286e-08
+   29    1.804656e-05    0.476755    1.804656e-08
+   30    8.656765e-06    0.479691    8.656765e-09
+
+
+=============================================
+Solve phase times:
+=============================================
+PCG Solve:
+  wall clock time = 0.027931 seconds
+  wall MFLOPS     = 0.000000
+  cpu clock time  = 0.027830 seconds
+  cpu MFLOPS      = 0.000000
+
+
+Iterations = 30
+Final Relative Residual Norm = 8.656765e-09
+

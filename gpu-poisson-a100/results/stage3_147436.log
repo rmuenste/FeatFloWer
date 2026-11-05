@@ -1,0 +1,77 @@
+stage 3 on tardis, job 147436, 2026-10-02T12:27:22+02:00
+name, memory.total [MiB], memory.used [MiB]
+NVIDIA A100 80GB PCIe, 81920 MiB, 0 MiB
+/dev/sda4       1.7T  161G  1.5T  10% /scratch
+               total        used        free      shared  buff/cache   available
+Mem:             502          17         451           0          36         485
++ python3 gpu_amg_cg.py --build 160 160 480 --save /scratch/rmuenste/gpu-poisson/p1_160x160x480.npz --instance /scratch/rmuenste/gpu-poisson/p1_160x160x480.npz --workers 8 --tmpdir /scratch/rmuenste/gpu-poisson/tmp --storage sym --amg sa_bsr_lin,geo_lin,sa_csr_spec --tag stage3-sym --out results/gpu_p1_160x160x480.json
+[     1.2s] device NVIDIA A100 80GB PCIe (85.1 GB), cupy 14.2.0
+[     1.2s] [build] 160x160x480: 23 slabs of <= 7 planes (+halo), 8 workers
+[    89.5s] [build] slabs done in 88 s, concatenating
+[   152.6s] [build] done: nu 49,152,000 nnz 5,208,269,628 (106.0/row) in 151 s, maxrss 124.0 GB
+[   246.0s] saved /scratch/rmuenste/gpu-poisson/p1_160x160x480.npz (63.7 GB) in 83 s
+[   246.0s] instance (160, 160, 480): nu 49,152,000 nnz 5,208,269,628 (106.0/row), CSR f64/i32 62.89 GB
+[   305.8s] [op] storage=sym matvec=cusparse nnz_stored=2,628,710,814 (31.9 GB), upload 59.9 s
+[   306.7s] matvec 39.38 ms (811 GB/s effective on stored bytes); device used 33.7 GB
+[   307.0s] Jacobi-CG on the stored b (tol 1e-08, cap 20000)
+[   330.5s]   [jacobi-cg] it 500 relres 2.069e-08 (23.5 s)
+[   331.4s] Jacobi-CG: 520 it, 24.41 s, relres 9.79e-09, err vs x_true 2.90e-07
+[   335.1s] host scipy CSR for pyamg: index dtype int64, 3.6 s, maxrss 155.6 GB
+[   386.1s] [amg] tobsr 51.0 s, blocks 328,559,992
+[   582.7s] [amg] sa_bsr_lin: 4 levels, n=[49152000, 1866240, 69172, 2592], OC=1.039, GC=1.039, setup 247.7 s, maxrss 290.9 GB
+[   599.0s] [vcycle] 4 levels on device, 17.33 GB, omega=[0.878, 0.8, 0.734], coarse n=2592, setup 16.3 s
+[   603.9s]   [amg-cg/sa_bsr_lin] it 10 relres 1.864e-08 (2.2 s)
+[   604.3s] AMG-CG [sa_bsr_lin]: 11 it, 2.41 s (219 ms/it, V-cycle 189 ms), relres 5.80e-09, err vs x_true 8.36e-09
+[   655.3s] [amg] tobsr 51.0 s, blocks 328,559,992
+[   655.5s] [amg] geometric levels: (160, 160, 480) -> ... -> (3, 3, 8) (6 coarsenings)
+[   687.0s] [amg] geo_lin: 7 levels, n=[49152000, 6144000, 768000, 96000, 12000, 1500, 288], OC=1.141, GC=1.143, setup 82.6 s, maxrss 290.9 GB
+[   697.5s] [vcycle] 7 levels on device, 10.23 GB, omega=[0.878, 0.919, 0.755, 0.703, 0.686, 0.688], coarse n=288, setup 10.5 s
+[   702.3s]   [amg-cg/geo_lin] it 10 relres 1.180e-02 (2.2 s)
+[   704.8s]   [amg-cg/geo_lin] it 20 relres 3.700e-03 (4.7 s)
+[   707.2s]   [amg-cg/geo_lin] it 30 relres 1.362e-03 (7.1 s)
+[   709.6s]   [amg-cg/geo_lin] it 40 relres 5.354e-04 (9.5 s)
+[   712.1s]   [amg-cg/geo_lin] it 50 relres 2.185e-04 (12.0 s)
+[   714.5s]   [amg-cg/geo_lin] it 60 relres 9.119e-05 (14.4 s)
+[   716.9s]   [amg-cg/geo_lin] it 70 relres 3.863e-05 (16.8 s)
+[   719.4s]   [amg-cg/geo_lin] it 80 relres 1.653e-05 (19.3 s)
+[   721.8s]   [amg-cg/geo_lin] it 90 relres 7.130e-06 (21.7 s)
+[   724.3s]   [amg-cg/geo_lin] it 100 relres 3.096e-06 (24.2 s)
+[   726.8s]   [amg-cg/geo_lin] it 110 relres 1.353e-06 (26.6 s)
+[   729.2s]   [amg-cg/geo_lin] it 120 relres 5.949e-07 (29.1 s)
+[   731.7s]   [amg-cg/geo_lin] it 130 relres 2.632e-07 (31.6 s)
+[   734.1s]   [amg-cg/geo_lin] it 140 relres 1.171e-07 (34.0 s)
+[   736.6s]   [amg-cg/geo_lin] it 150 relres 5.243e-08 (36.5 s)
+[   739.1s]   [amg-cg/geo_lin] it 160 relres 2.361e-08 (39.0 s)
+[   741.5s] AMG-CG [geo_lin]: 169 it, 41.18 s (244 ms/it, V-cycle 197 ms), relres 9.60e-09, err vs x_true 5.56e-07
+[   741.7s] AMG variant sa_csr_spec FAILED: TypeError('symmetric_strength_of_connection(): incompatible function arguments. The following argument types are supported:\n    1. (n_row: typing.SupportsInt, theta: typing.SupportsFloat, Ap: numpy.typing.NDArray[numpy.int32], Aj: numpy.typing.NDArray[numpy.int32], Ax: numpy.typing.NDArray[numpy.float32], Sp: numpy.typing.NDArray[numpy.int32], Sj: numpy.typing.NDArray[numpy.int32], Sx: numpy.typing.NDArray[numpy.float32]) -> None\n    2. (n_row: typing.SupportsInt, theta: typing.SupportsFloat, Ap: numpy.typing.NDArray[numpy.int32], Aj: numpy.typing.NDArray[numpy.int32], Ax: numpy.typing.NDArray[numpy.float64], Sp: numpy.typing.NDArray[numpy.int32], Sj: numpy.typing.NDArray[numpy.int32], Sx: numpy.typing.NDArray[numpy.float64]) -> None\n    3. (n_row: typing.SupportsInt, theta: typing.SupportsFloat, Ap: numpy.typing.NDArray[numpy.int32], Aj: numpy.typing.NDArray[numpy.int32], Ax: numpy.typing.NDArray[numpy.complex64], Sp: numpy.typing.NDArray[numpy.int32], Sj: numpy.typing.NDArray[numpy.int32], Sx: numpy.typing.NDArray[numpy.complex64]) -> None\n    4. (n_row: typing.SupportsInt, theta: typing.SupportsFloat, Ap: numpy.typing.NDArray[numpy.int32], Aj: numpy.typing.NDArray[numpy.int32], Ax: numpy.typing.NDArray[numpy.complex128], Sp: numpy.typing.NDArray[numpy.int32], Sj: numpy.typing.NDArray[numpy.int32], Sx: numpy.typing.NDArray[numpy.complex128]) -> None\n\nInvoked with: 49152000, 0, array([         0,         32,         64, ..., 5208269564, 5208269596,\n       5208269628], shape=(49152001,)), array([       0,        1,        2, ..., 49151997, 49151998, 49151999],\n      shape=(5208269628,)), array([ 0.14179787, -0.01909722, -0.01909722, ...,  0.00230035,\n        0.00230035,  0.06079382], shape=(5208269628,)), array([0, 0, 0, ..., 0, 0, 0], shape=(49152001,)), array([0, 0, 0, ..., 0, 0, 0], shape=(5208269628,)), array([0., 0., 0., ..., 0., 0., 0.], shape=(5208269628,))')
+[   742.0s] peak device memory 54.9 GB (mempool 33.1 GB), host maxrss 290.9 GB, total 742 s
+[   742.0s] wrote results/gpu_p1_160x160x480.json
++ python3 gpu_amg_cg.py --instance /scratch/rmuenste/gpu-poisson/p1_160x160x480.npz --storage full --matvec kernel --amg sa_bsr_lin,geo_lin --tag stage3-full --out results/stage3_p1_160x160x480_full_kernel.json
+[     0.6s] device NVIDIA A100 80GB PCIe (85.1 GB), cupy 14.2.0
+[    55.8s] loaded /scratch/rmuenste/gpu-poisson/p1_160x160x480.npz in 55.2 s
+[    55.8s] instance (160, 160, 480): nu 49,152,000 nnz 5,208,269,628 (106.0/row), CSR f64/i32 62.89 GB
+[   115.9s] [op] storage=full matvec=kernel nnz_stored=5,208,269,628 (62.9 GB), upload 60.1 s
+[   116.9s] matvec 49.45 ms (1272 GB/s effective on stored bytes); device used 64.7 GB
+[   117.0s] Jacobi-CG on the stored b (tol 1e-08, cap 20000)
+[   145.3s]   [jacobi-cg] it 500 relres 2.069e-08 (28.3 s)
+[   146.5s] Jacobi-CG: 520 it, 29.46 s, relres 9.79e-09, err vs x_true 2.90e-07
+[   150.1s] host scipy CSR for pyamg: index dtype int64, 3.6 s, maxrss 205.6 GB
+[   201.0s] [amg] tobsr 50.9 s, blocks 328,559,992
+[   397.6s] [amg] sa_bsr_lin: 4 levels, n=[49152000, 1866240, 69172, 2592], OC=1.039, GC=1.039, setup 247.5 s, maxrss 340.9 GB
+[   414.0s] [vcycle] 4 levels on device, 17.33 GB, omega=[0.878, 0.8, 0.734], coarse n=2592, setup 16.5 s
+[   416.8s] AMG variant sa_bsr_lin FAILED: OutOfMemoryError('Out of memory allocating 393,216,000 bytes (allocated so far: 84,043,158,016 bytes).')
+[   468.4s] [amg] tobsr 51.6 s, blocks 328,559,992
+[   468.6s] [amg] geometric levels: (160, 160, 480) -> ... -> (3, 3, 8) (6 coarsenings)
+[   500.3s] [amg] geo_lin: 7 levels, n=[49152000, 6144000, 768000, 96000, 12000, 1500, 288], OC=1.141, GC=1.143, setup 83.5 s, maxrss 340.9 GB
+[   501.9s] AMG variant geo_lin FAILED: OutOfMemoryError('Out of memory allocating 786,432,000 bytes (allocated so far: 84,043,158,016 bytes).')
+[   502.2s] peak device memory 84.7 GB (mempool 83.3 GB), host maxrss 340.9 GB, total 502 s
+[   502.2s] wrote results/stage3_p1_160x160x480_full_kernel.json
++ set +x
+total 93371692
+drwxr-xr-x 3 rmuenste lsiii        4096 Oct  2 12:30 .
+drwxr-xr-x 3 rmuenste lsiii        4096 Oct  2 12:12 ..
+-rw-r--r-- 1 rmuenste lsiii 31933692872 Oct  2 12:14 p1_128x128x384.npz
+-rw-r--r-- 1 rmuenste lsiii 63678885944 Oct  2 12:31 p1_160x160x480.npz
+drwxr-xr-x 2 rmuenste lsiii        4096 Oct  2 12:29 tmp
+/dev/sda4       1.7T  220G  1.4T  14% /scratch
+stage 3 done 2026-10-02T12:48:47+02:00

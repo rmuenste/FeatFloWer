@@ -174,17 +174,55 @@ end subroutine init_sol_same_level_heat
 !                             Sub: init_sol_same_level
 !========================================================================================
 subroutine init_sol_same_level(start_file)
+use PP3D_MPI, only: COMM_Maximum
+use solution_io, only: dump_coordinates_trusted
 implicit none
 character(len=*), intent(in) :: start_file
 
 
 ! Locals
-integer :: i, ilev
+integer :: i, ilev, nvt_g
+real*8 :: dCoorBad, dExtG
 
 if (myid.ne.0) call CreateDumpStructures(1)
 
 call SolFromFile(start_file,1)
 
+! Sanity-guard the mesh overwrite (v24f seg-2 lesson, 2026-09-04/05): legacy
+! runtime dumps (ProcCtrl Dump_Out -> SolToFile) stored the raw aux work
+! arrays under "coordinates"; copying them into dcorvg destroys the mesh and
+! the first solve NaNs. Coordinates must be finite. A dump carrying the format
+! marker of write_sol_to_file is trusted beyond that (its coordinates ARE the
+! mesh, moved or not); only a legacy dump without the marker gets the
+! bounding-box check against the setup mesh. Otherwise keep the setup mesh.
+dCoorBad = 0d0
+if (myid .ne. 0) then
+  nvt_g = mg_mesh%level(mg_Mesh%maxlevel)%NVT
+  if (ANY(QuadSc%auxU(1:nvt_g).NE.QuadSc%auxU(1:nvt_g)) .or. &
+      ANY(QuadSc%auxV(1:nvt_g).NE.QuadSc%auxV(1:nvt_g)) .or. &
+      ANY(QuadSc%auxW(1:nvt_g).NE.QuadSc%auxW(1:nvt_g))) then
+    dCoorBad = 1d0
+  else if (.not. dump_coordinates_trusted(start_file)) then
+    dExtG = MAXVAL(mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(:,1:nvt_g)) - &
+            MINVAL(mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(:,1:nvt_g)) + 1d-30
+    if (ABS(MAXVAL(QuadSc%auxU(1:nvt_g))-MAXVAL(mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,1:nvt_g))).gt.1d-2*dExtG .or. &
+        ABS(MINVAL(QuadSc%auxU(1:nvt_g))-MINVAL(mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,1:nvt_g))).gt.1d-2*dExtG .or. &
+        ABS(MAXVAL(QuadSc%auxV(1:nvt_g))-MAXVAL(mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(2,1:nvt_g))).gt.1d-2*dExtG .or. &
+        ABS(MINVAL(QuadSc%auxV(1:nvt_g))-MINVAL(mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(2,1:nvt_g))).gt.1d-2*dExtG .or. &
+        ABS(MAXVAL(QuadSc%auxW(1:nvt_g))-MAXVAL(mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(3,1:nvt_g))).gt.1d-2*dExtG .or. &
+        ABS(MINVAL(QuadSc%auxW(1:nvt_g))-MINVAL(mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(3,1:nvt_g))).gt.1d-2*dExtG) then
+      dCoorBad = 1d0
+    end if
+  end if
+end if
+call COMM_Maximum(dCoorBad)
+if (dCoorBad .gt. 0.5d0) then
+  if (myid.eq.1) then
+    write(*,*) 'init_sol_same_level: dump coordinates fail the sanity check (non-finite, or a legacy dump', &
+               ' without format marker whose bounding box differs from the setup mesh) - keeping the setup mesh'
+    call FLUSH(6)
+  end if
+else
 if (myid .ne. 0) then
   do i = 1, mg_mesh%level(mg_Mesh%maxlevel)%NVT 
 
@@ -193,6 +231,7 @@ if (myid .ne. 0) then
     mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(3,i) = QuadSc%auxW(i)
 
   end do
+end if
 end if
 
 ilev = mg_Mesh%nlmin

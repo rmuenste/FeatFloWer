@@ -1,0 +1,4478 @@
+{
+ "library": "hypre",
+ "hypre_version": "3.1.0",
+ "hypre_release_date": "2026/01/23",
+ "build": {
+  "cuda": true,
+  "mixedint": true,
+  "bigint": false,
+  "unified_memory": false,
+  "sizeof_HYPRE_Int": 4,
+  "sizeof_HYPRE_BigInt": 8
+ },
+ "instance": "/scratch/rmuenste/gpu-poisson/bin/p1_40x40x120",
+ "grid": [
+  40,
+  40,
+  120
+ ],
+ "h": 0.025,
+ "nu": 768000,
+ "nnz": 79017708,
+ "nnz_per_row": 102.8876,
+ "storage": "full (ParCSR diag+offd, f64 values, int32 local indices)",
+ "fine_operator_gb": 0.951,
+ "device_memory_total_gb": 85.094,
+ "host": "tardis",
+ "slurm_jobs": [
+  "147459",
+  "147461"
+ ],
+ "timestamp": "2026-10-02T14:01:16",
+ "jacobi_cg": {
+  "iters": 141,
+  "converged": true,
+  "setup_seconds": 0.000292,
+  "seconds": 0.131912,
+  "seconds_per_iter": 0.000935546,
+  "final_relres": 8.58349e-09,
+  "true_relres": 8.58349e-09,
+  "rel_err_vs_x_true": 7.227926e-08,
+  "device_used_gb_after_setup": 1.442,
+  "device_used_gb_after_solve": 1.452,
+  "hist_every_10": [
+   1.0,
+   0.03439399,
+   0.01413221,
+   0.006091663,
+   0.002194717,
+   0.000515426,
+   0.0001990861,
+   6.185422e-05,
+   2.019058e-05,
+   6.699894e-06,
+   2.207577e-06,
+   7.323644e-07,
+   2.203091e-07,
+   4.939045e-08,
+   1.005329e-08
+  ],
+  "execution": "device",
+  "mpi_ranks": 1,
+  "label": "jacobi"
+ },
+ "jacobi_cg_rough_rhs": {
+  "iters": 274,
+  "converged": true,
+  "setup_seconds": 0.000252,
+  "seconds": 0.229997,
+  "seconds_per_iter": 0.000839406,
+  "final_relres": 9.453209e-09,
+  "true_relres": 9.453209e-09,
+  "rel_err_vs_x_true": 0.0,
+  "device_used_gb_after_setup": 1.458,
+  "device_used_gb_after_solve": 1.458,
+  "hist_every_10": [
+   1.0,
+   0.03119125,
+   0.01419479,
+   0.008335804,
+   0.005214608,
+   0.003326803,
+   0.002314709,
+   0.001395343,
+   0.0008303733,
+   0.0004072902,
+   0.0002215419,
+   0.0001367558,
+   8.911418e-05,
+   5.214486e-05,
+   3.348281e-05,
+   2.043482e-05,
+   1.068599e-05,
+   5.784928e-06,
+   3.670497e-06,
+   2.147151e-06,
+   1.29289e-06,
+   6.111302e-07,
+   3.361731e-07,
+   1.902447e-07,
+   1.087168e-07,
+   6.385435e-08,
+   3.045115e-08,
+   1.300138e-08
+  ],
+  "label": "jacobi"
+ },
+ "amg_variants": {
+  "host_nf4_hmis_agg0": {
+   "status": "done",
+   "execution": "host",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 10,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 21,
+    "converged": true,
+    "setup_seconds": 1.49891,
+    "seconds": 3.351901,
+    "seconds_per_iter": 0.159614,
+    "final_relres": 5.856641e-09,
+    "true_relres": 5.856641e-09,
+    "rel_err_vs_x_true": 2.463078e-08,
+    "device_used_gb_after_setup": 0.446,
+    "device_used_gb_after_solve": 0.446,
+    "levels": 6,
+    "operator_complexity": 1.05032,
+    "grid_complexity": 1.077751,
+    "nnz_P_total": 826580,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.058,
+    "sizes": [
+     768000,
+     48000,
+     9838,
+     1597,
+     239,
+     39
+    ],
+    "nnz_per_level": [
+     79017708,
+     2945002,
+     863652,
+     150633,
+     15919,
+     949
+    ],
+    "hist_every_10": [
+     1.0,
+     6.014881e-05,
+     1.404555e-08
+    ]
+   },
+   "peak_device_memory_gb": 0.446,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     0.446
+    ],
+    [
+     "after AMG setup",
+     0.446
+    ],
+    [
+     "after solve",
+     0.446
+    ],
+    [
+     "after AMG destroy",
+     0.446
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 6.206,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_hmis_agg0.json"
+  },
+  "host_nf4": {
+   "status": "done",
+   "execution": "host",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 1,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 45,
+    "converged": true,
+    "setup_seconds": 0.921249,
+    "seconds": 6.828304,
+    "seconds_per_iter": 0.15174,
+    "final_relres": 9.421618e-09,
+    "true_relres": 9.421618e-09,
+    "rel_err_vs_x_true": 3.199469e-08,
+    "device_used_gb_after_setup": 0.446,
+    "device_used_gb_after_solve": 0.446,
+    "levels": 5,
+    "operator_complexity": 1.001592,
+    "grid_complexity": 1.005992,
+    "nnz_P_total": 335184,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.006,
+    "sizes": [
+     768000,
+     3825,
+     674,
+     93,
+     10
+    ],
+    "nnz_per_level": [
+     79017708,
+     91935,
+     30546,
+     3189,
+     98
+    ],
+    "hist_every_10": [
+     1.0,
+     0.002169202,
+     5.730147e-05,
+     1.780946e-06,
+     5.393647e-08
+    ]
+   },
+   "peak_device_memory_gb": 0.446,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     0.446
+    ],
+    [
+     "after AMG setup",
+     0.446
+    ],
+    [
+     "after solve",
+     0.446
+    ],
+    [
+     "after AMG destroy",
+     0.446
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 9.131,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4.json"
+  },
+  "host_nf4_nodal1_agg0": {
+   "status": "done",
+   "execution": "host",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 1,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 24,
+    "converged": true,
+    "setup_seconds": 4.994553,
+    "seconds": 4.562019,
+    "seconds_per_iter": 0.190084,
+    "final_relres": 7.529332e-09,
+    "true_relres": 7.529332e-09,
+    "rel_err_vs_x_true": 1.29982e-08,
+    "device_used_gb_after_setup": 0.446,
+    "device_used_gb_after_solve": 0.446,
+    "levels": 6,
+    "operator_complexity": 1.262263,
+    "grid_complexity": 1.136005,
+    "nnz_P_total": 1692579,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.269,
+    "sizes": [
+     768000,
+     94448,
+     8856,
+     1028,
+     104,
+     16
+    ],
+    "nnz_per_level": [
+     79017708,
+     19405338,
+     1235018,
+     79504,
+     3448,
+     148
+    ],
+    "hist_every_10": [
+     1.0,
+     0.0001506685,
+     1.255088e-07
+    ]
+   },
+   "peak_device_memory_gb": 0.446,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     0.446
+    ],
+    [
+     "after AMG setup",
+     0.446
+    ],
+    [
+     "after solve",
+     0.446
+    ],
+    [
+     "after AMG destroy",
+     0.446
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.169,
+   "total_seconds": 10.905,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_nodal1_agg0.json"
+  },
+  "host_nf4_nodal1_gm3": {
+   "status": "done",
+   "execution": "host",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 1,
+    "nodal_diag": 0,
+    "interp_vectors": 3,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 1,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 46,
+    "converged": true,
+    "setup_seconds": 3.764701,
+    "seconds": 7.983797,
+    "seconds_per_iter": 0.173561,
+    "final_relres": 8.598402e-09,
+    "true_relres": 8.598402e-09,
+    "rel_err_vs_x_true": 3.75014e-08,
+    "device_used_gb_after_setup": 0.446,
+    "device_used_gb_after_solve": 0.446,
+    "levels": 6,
+    "operator_complexity": 1.145828,
+    "grid_complexity": 1.039685,
+    "nnz_P_total": 2728892,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.171,
+    "sizes": [
+     768000,
+     26663,
+     3255,
+     441,
+     98,
+     21
+    ],
+    "nnz_per_level": [
+     79017708,
+     10673549,
+     787967,
+     56189,
+     5022,
+     259
+    ],
+    "hist_every_10": [
+     1.0,
+     0.002373934,
+     6.586054e-05,
+     1.964022e-06,
+     6.735668e-08
+    ]
+   },
+   "peak_device_memory_gb": 0.446,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     0.446
+    ],
+    [
+     "after AMG setup",
+     0.446
+    ],
+    [
+     "after solve",
+     0.446
+    ],
+    [
+     "after AMG destroy",
+     0.446
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 13.101,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_nodal1_gm3.json"
+  },
+  "host_nf4_nodal1_gm3_q4": {
+   "status": "done",
+   "execution": "host",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 1,
+    "nodal_diag": 0,
+    "interp_vectors": 3,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 4,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 1,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 46,
+    "converged": true,
+    "setup_seconds": 3.795503,
+    "seconds": 7.978451,
+    "seconds_per_iter": 0.173445,
+    "final_relres": 8.544215e-09,
+    "true_relres": 8.544215e-09,
+    "rel_err_vs_x_true": 3.731959e-08,
+    "device_used_gb_after_setup": 0.446,
+    "device_used_gb_after_solve": 0.446,
+    "levels": 6,
+    "operator_complexity": 1.145037,
+    "grid_complexity": 1.039621,
+    "nnz_P_total": 2708426,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.17,
+    "sizes": [
+     768000,
+     26663,
+     3255,
+     427,
+     70,
+     14
+    ],
+    "nnz_per_level": [
+     79017708,
+     10617091,
+     788767,
+     52003,
+     2464,
+     138
+    ],
+    "hist_every_10": [
+     1.0,
+     0.002384723,
+     6.601843e-05,
+     1.955176e-06,
+     6.688407e-08
+    ]
+   },
+   "peak_device_memory_gb": 0.446,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     0.446
+    ],
+    [
+     "after AMG setup",
+     0.446
+    ],
+    [
+     "after solve",
+     0.446
+    ],
+    [
+     "after AMG destroy",
+     0.446
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 13.13,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_nodal1_gm3_q4.json"
+  },
+  "host_nf4_nodal1_gm4": {
+   "status": "done",
+   "execution": "host",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 1,
+    "nodal_diag": 0,
+    "interp_vectors": 4,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 1,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 47,
+    "converged": true,
+    "setup_seconds": 4.063705,
+    "seconds": 8.337584,
+    "seconds_per_iter": 0.177395,
+    "final_relres": 8.057221e-09,
+    "true_relres": 8.057221e-09,
+    "rel_err_vs_x_true": 4.559925e-08,
+    "device_used_gb_after_setup": 0.446,
+    "device_used_gb_after_solve": 0.446,
+    "levels": 6,
+    "operator_complexity": 1.176272,
+    "grid_complexity": 1.045542,
+    "nnz_P_total": 3071737,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.204,
+    "sizes": [
+     768000,
+     30472,
+     3704,
+     624,
+     160,
+     16
+    ],
+    "nnz_per_level": [
+     79017708,
+     12732616,
+     1069090,
+     113146,
+     13496,
+     238
+    ],
+    "hist_every_10": [
+     1.0,
+     0.002697346,
+     8.111703e-05,
+     2.580069e-06,
+     8.469218e-08
+    ]
+   },
+   "peak_device_memory_gb": 0.446,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     0.446
+    ],
+    [
+     "after AMG setup",
+     0.446
+    ],
+    [
+     "after solve",
+     0.446
+    ],
+    [
+     "after AMG destroy",
+     0.446
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.203,
+   "total_seconds": 13.763,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_nodal1_gm4.json"
+  },
+  "host_nf4_nodal1": {
+   "status": "done",
+   "execution": "host",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 1,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 1,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 50,
+    "converged": true,
+    "setup_seconds": 2.472799,
+    "seconds": 7.882099,
+    "seconds_per_iter": 0.157642,
+    "final_relres": 9.682725e-09,
+    "true_relres": 9.682725e-09,
+    "rel_err_vs_x_true": 4.916024e-08,
+    "device_used_gb_after_setup": 0.446,
+    "device_used_gb_after_solve": 0.446,
+    "levels": 5,
+    "operator_complexity": 1.037594,
+    "grid_complexity": 1.022568,
+    "nnz_P_total": 1033352,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.048,
+    "sizes": [
+     768000,
+     15236,
+     1852,
+     228,
+     16
+    ],
+    "nnz_per_level": [
+     79017708,
+     2839158,
+     124648,
+     6660,
+     154
+    ],
+    "hist_every_10": [
+     1.0,
+     0.002682699,
+     0.0001059983,
+     4.957418e-06,
+     2.279895e-07,
+     9.682725e-09
+    ]
+   },
+   "peak_device_memory_gb": 0.446,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     0.446
+    ],
+    [
+     "after AMG setup",
+     0.446
+    ],
+    [
+     "after solve",
+     0.446
+    ],
+    [
+     "after AMG destroy",
+     0.446
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 11.71,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_nodal1.json"
+  },
+  "host_nf4_nodal1_ln3": {
+   "status": "done",
+   "execution": "host",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 1,
+    "nodal_diag": 0,
+    "interp_vectors": 3,
+    "interp_vec_variant": 3,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 1,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 46,
+    "converged": true,
+    "setup_seconds": 5.552321,
+    "seconds": 8.584344,
+    "seconds_per_iter": 0.186616,
+    "final_relres": 8.821089e-09,
+    "true_relres": 8.821089e-09,
+    "rel_err_vs_x_true": 4.290245e-08,
+    "device_used_gb_after_setup": 0.446,
+    "device_used_gb_after_solve": 0.446,
+    "levels": 6,
+    "operator_complexity": 1.22673,
+    "grid_complexity": 1.039612,
+    "nnz_P_total": 4099477,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.264,
+    "sizes": [
+     768000,
+     26663,
+     3220,
+     448,
+     84,
+     7
+    ],
+    "nnz_per_level": [
+     79017708,
+     16941825,
+     906928,
+     62578,
+     4268,
+     49
+    ],
+    "hist_every_10": [
+     1.0,
+     0.002187393,
+     6.197961e-05,
+     1.860608e-06,
+     6.442371e-08
+    ]
+   },
+   "peak_device_memory_gb": 0.446,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     0.446
+    ],
+    [
+     "after AMG setup",
+     0.446
+    ],
+    [
+     "after solve",
+     0.446
+    ],
+    [
+     "after AMG destroy",
+     0.446
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.461,
+   "total_seconds": 15.496,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_nodal1_ln3.json"
+  },
+  "host_nf4_nodal4": {
+   "status": "done",
+   "execution": "host",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 4,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 1,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 48,
+    "converged": true,
+    "setup_seconds": 2.529896,
+    "seconds": 7.583504,
+    "seconds_per_iter": 0.15799,
+    "final_relres": 9.224841e-09,
+    "true_relres": 9.224841e-09,
+    "rel_err_vs_x_true": 4.066678e-08,
+    "device_used_gb_after_setup": 0.446,
+    "device_used_gb_after_solve": 0.446,
+    "levels": 5,
+    "operator_complexity": 1.037845,
+    "grid_complexity": 1.022849,
+    "nnz_P_total": 1033563,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.048,
+    "sizes": [
+     768000,
+     15236,
+     2008,
+     272,
+     32
+    ],
+    "nnz_per_level": [
+     79017708,
+     2839158,
+     141878,
+     8986,
+     414
+    ],
+    "hist_every_10": [
+     1.0,
+     0.002476621,
+     8.804865e-05,
+     3.267451e-06,
+     1.287124e-07
+    ]
+   },
+   "peak_device_memory_gb": 0.446,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     0.446
+    ],
+    [
+     "after AMG setup",
+     0.446
+    ],
+    [
+     "after solve",
+     0.446
+    ],
+    [
+     "after AMG destroy",
+     0.446
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 11.466,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__host_nf4_nodal4.json"
+  },
+  "nf1_agg0": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 1,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 24,
+    "converged": true,
+    "setup_seconds": 0.258854,
+    "seconds": 0.076236,
+    "seconds_per_iter": 0.0031765,
+    "final_relres": 8.21133e-09,
+    "true_relres": 8.21133e-09,
+    "rel_err_vs_x_true": 1.257829e-08,
+    "device_used_gb_after_setup": 1.528,
+    "device_used_gb_after_solve": 1.536,
+    "levels": 5,
+    "operator_complexity": 1.02618,
+    "grid_complexity": 1.051073,
+    "nnz_P_total": 836931,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.035,
+    "sizes": [
+     768000,
+     33291,
+     5000,
+     860,
+     73
+    ],
+    "nnz_per_level": [
+     79017708,
+     1700131,
+     320146,
+     46444,
+     1931
+    ],
+    "hist_every_10": [
+     1.0,
+     0.0001458862,
+     1.326176e-07
+    ]
+   },
+   "peak_device_memory_gb": 1.536,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.528
+    ],
+    [
+     "after solve",
+     1.536
+    ],
+    [
+     "after AMG destroy",
+     1.44
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.17,
+   "total_seconds": 1.199,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf1_agg0.json"
+  },
+  "nf1_agg0_theta05_cheby2": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 1,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 16,
+    "num_sweeps": 1,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.5,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0,
+    "cheby_order": 2,
+    "cheby_fraction": 0.3,
+    "cheby_variant": 0
+   },
+   "cg": {
+    "iters": 16,
+    "converged": true,
+    "setup_seconds": 0.296647,
+    "seconds": 0.098801,
+    "seconds_per_iter": 0.00617507,
+    "final_relres": 6.494222e-09,
+    "true_relres": 6.494222e-09,
+    "rel_err_vs_x_true": 6.974323e-08,
+    "device_used_gb_after_setup": 1.605,
+    "device_used_gb_after_solve": 1.605,
+    "levels": 7,
+    "operator_complexity": 1.074575,
+    "grid_complexity": 1.114145,
+    "nnz_P_total": 872511,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.081,
+    "sizes": [
+     768000,
+     67022,
+     15947,
+     3759,
+     778,
+     139,
+     18
+    ],
+    "nnz_per_level": [
+     79017708,
+     3840492,
+     1512495,
+     448467,
+     83136,
+     7887,
+     244
+    ],
+    "hist_every_10": [
+     1.0,
+     3.765675e-06
+    ]
+   },
+   "peak_device_memory_gb": 1.605,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.605
+    ],
+    [
+     "after solve",
+     1.605
+    ],
+    [
+     "after AMG destroy",
+     1.44
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.284,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf1_agg0_theta05_cheby2.json"
+  },
+  "nf1_pmis_exti_l1jac": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 1,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 1,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 46,
+    "converged": true,
+    "setup_seconds": 0.235687,
+    "seconds": 0.130491,
+    "seconds_per_iter": 0.00283676,
+    "final_relres": 8.522049e-09,
+    "true_relres": 8.522049e-09,
+    "rel_err_vs_x_true": 2.926888e-08,
+    "device_used_gb_after_setup": 1.488,
+    "device_used_gb_after_solve": 1.496,
+    "levels": 5,
+    "operator_complexity": 1.003575,
+    "grid_complexity": 1.012197,
+    "nnz_P_total": 388114,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.008,
+    "sizes": [
+     768000,
+     7563,
+     1460,
+     292,
+     52
+    ],
+    "nnz_per_level": [
+     79017708,
+     207677,
+     62750,
+     10976,
+     1080
+    ],
+    "hist_every_10": [
+     1.0,
+     0.002166138,
+     6.213271e-05,
+     1.941097e-06,
+     6.608814e-08
+    ]
+   },
+   "peak_device_memory_gb": 1.496,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.488
+    ],
+    [
+     "after solve",
+     1.496
+    ],
+    [
+     "after AMG destroy",
+     1.437
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.216,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf1_pmis_exti_l1jac.json"
+  },
+  "nf4_1rank_mps": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 16,
+    "num_sweeps": 1,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.5,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0,
+    "cheby_order": 2,
+    "cheby_fraction": 0.3,
+    "cheby_variant": 0
+   },
+   "cg": {
+    "iters": 16,
+    "converged": true,
+    "setup_seconds": 0.296333,
+    "seconds": 0.099826,
+    "seconds_per_iter": 0.00623913,
+    "final_relres": 5.725155e-09,
+    "true_relres": 5.725155e-09,
+    "rel_err_vs_x_true": 6.351394e-08,
+    "device_used_gb_after_setup": 1.639,
+    "device_used_gb_after_solve": 1.639,
+    "levels": 7,
+    "operator_complexity": 1.068789,
+    "grid_complexity": 1.101841,
+    "nnz_P_total": 840003,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.075,
+    "sizes": [
+     768000,
+     60275,
+     13858,
+     3265,
+     677,
+     118,
+     21
+    ],
+    "nnz_per_level": [
+     79017708,
+     3590607,
+     1368174,
+     396941,
+     72981,
+     6532,
+     349
+    ],
+    "hist_every_10": [
+     1.0,
+     3.927051e-06
+    ]
+   },
+   "peak_device_memory_gb": 1.639,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.481
+    ],
+    [
+     "matrix on device",
+     1.44
+    ],
+    [
+     "after AMG setup",
+     1.639
+    ],
+    [
+     "after solve",
+     1.639
+    ],
+    [
+     "after AMG destroy",
+     1.475
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.145,
+   "total_seconds": 1.231,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_1rank_mps.json"
+  },
+  "nf4_2ranks": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 2,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 1,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 46,
+    "converged": true,
+    "setup_seconds": 0.555254,
+    "seconds": 0.68273,
+    "seconds_per_iter": 0.014842,
+    "final_relres": 7.569957e-09,
+    "true_relres": 7.569957e-09,
+    "rel_err_vs_x_true": 2.770645e-08,
+    "device_used_gb_after_setup": 1.965,
+    "device_used_gb_after_solve": 1.982,
+    "levels": 5,
+    "operator_complexity": 1.001616,
+    "grid_complexity": 1.006046,
+    "nnz_P_total": 335784,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.006,
+    "sizes": [
+     768000,
+     3852,
+     677,
+     100,
+     14
+    ],
+    "nnz_per_level": [
+     79017708,
+     92802,
+     31167,
+     3576,
+     166
+    ],
+    "hist_every_10": [
+     1.0,
+     0.002171369,
+     5.893061e-05,
+     1.770966e-06,
+     5.510821e-08
+    ]
+   },
+   "peak_device_memory_gb": 1.982,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.888
+    ],
+    [
+     "matrix on device",
+     1.856
+    ],
+    [
+     "after AMG setup",
+     1.965
+    ],
+    [
+     "after solve",
+     1.982
+    ],
+    [
+     "after AMG destroy",
+     1.911
+    ]
+   ],
+   "host_maxrss_gb_rank0": 1.221,
+   "total_seconds": 1.917,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_2ranks.json"
+  },
+  "nf4_3ranks": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 3,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 16,
+    "num_sweeps": 1,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.5,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0,
+    "cheby_order": 2,
+    "cheby_fraction": 0.3,
+    "cheby_variant": 0
+   },
+   "cg": {
+    "iters": 16,
+    "converged": true,
+    "setup_seconds": 1.115137,
+    "seconds": 1.465161,
+    "seconds_per_iter": 0.0915726,
+    "final_relres": 7.7045e-09,
+    "true_relres": 7.7045e-09,
+    "rel_err_vs_x_true": 8.924002e-08,
+    "device_used_gb_after_setup": 2.554,
+    "device_used_gb_after_solve": 2.554,
+    "levels": 7,
+    "operator_complexity": 1.069065,
+    "grid_complexity": 1.102201,
+    "nnz_P_total": 840451,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.076,
+    "sizes": [
+     768000,
+     60429,
+     13912,
+     3306,
+     694,
+     131,
+     18
+    ],
+    "nnz_per_level": [
+     79017708,
+     3599419,
+     1374094,
+     402136,
+     73940,
+     7479,
+     270
+    ],
+    "hist_every_10": [
+     1.0,
+     4.013773e-06
+    ]
+   },
+   "peak_device_memory_gb": 2.554,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     1.33
+    ],
+    [
+     "matrix on device",
+     2.303
+    ],
+    [
+     "after AMG setup",
+     2.554
+    ],
+    [
+     "after solve",
+     2.554
+    ],
+    [
+     "after AMG destroy",
+     2.376
+    ]
+   ],
+   "host_maxrss_gb_rank0": 0.881,
+   "total_seconds": 3.325,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_3ranks.json"
+  },
+  "nf4_3ranks_mps": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 3,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 16,
+    "num_sweeps": 1,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.5,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0,
+    "cheby_order": 2,
+    "cheby_fraction": 0.3,
+    "cheby_variant": 0
+   },
+   "cg": {
+    "iters": 16,
+    "converged": true,
+    "setup_seconds": 0.307173,
+    "seconds": 0.241771,
+    "seconds_per_iter": 0.0151107,
+    "final_relres": 7.7045e-09,
+    "true_relres": 7.7045e-09,
+    "rel_err_vs_x_true": 8.924002e-08,
+    "device_used_gb_after_setup": 2.576,
+    "device_used_gb_after_solve": 2.576,
+    "levels": 7,
+    "operator_complexity": 1.069065,
+    "grid_complexity": 1.102201,
+    "nnz_P_total": 840451,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.076,
+    "sizes": [
+     768000,
+     60429,
+     13912,
+     3306,
+     694,
+     131,
+     18
+    ],
+    "nnz_per_level": [
+     79017708,
+     3599419,
+     1374094,
+     402136,
+     73940,
+     7479,
+     270
+    ],
+    "hist_every_10": [
+     1.0,
+     4.013773e-06
+    ]
+   },
+   "peak_device_memory_gb": 2.576,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     1.351
+    ],
+    [
+     "matrix on device",
+     2.324
+    ],
+    [
+     "after AMG setup",
+     2.576
+    ],
+    [
+     "after solve",
+     2.576
+    ],
+    [
+     "after AMG destroy",
+     2.398
+    ]
+   ],
+   "host_maxrss_gb_rank0": 0.857,
+   "total_seconds": 1.266,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_3ranks_mps.json"
+  },
+  "nf4_agg0_cheby2": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 16,
+    "num_sweeps": 1,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0,
+    "cheby_order": 2,
+    "cheby_fraction": 0.3,
+    "cheby_variant": 0
+   },
+   "cg": {
+    "iters": 15,
+    "converged": true,
+    "setup_seconds": 0.332771,
+    "seconds": 0.082315,
+    "seconds_per_iter": 0.00548766,
+    "final_relres": 9.447198e-09,
+    "true_relres": 9.447198e-09,
+    "rel_err_vs_x_true": 1.265333e-07,
+    "device_used_gb_after_setup": 1.549,
+    "device_used_gb_after_solve": 1.549,
+    "levels": 5,
+    "operator_complexity": 1.019452,
+    "grid_complexity": 1.034878,
+    "nnz_P_total": 792745,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.028,
+    "sizes": [
+     768000,
+     23545,
+     2773,
+     417,
+     51
+    ],
+    "nnz_per_level": [
+     79017708,
+     1326431,
+     187937,
+     21489,
+     1227
+    ],
+    "hist_every_10": [
+     1.0,
+     2.748328e-06
+    ]
+   },
+   "peak_device_memory_gb": 1.549,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.549
+    ],
+    [
+     "after solve",
+     1.549
+    ],
+    [
+     "after AMG destroy",
+     1.44
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.17,
+   "total_seconds": 1.37,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_cheby2.json"
+  },
+  "nf4_agg0_cheby3": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 16,
+    "num_sweeps": 1,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0,
+    "cheby_order": 3,
+    "cheby_fraction": 0.3,
+    "cheby_variant": 0
+   },
+   "cg": {
+    "iters": 14,
+    "converged": true,
+    "setup_seconds": 0.278271,
+    "seconds": 0.101836,
+    "seconds_per_iter": 0.007274,
+    "final_relres": 9.78672e-09,
+    "true_relres": 9.78672e-09,
+    "rel_err_vs_x_true": 1.115455e-07,
+    "device_used_gb_after_setup": 1.549,
+    "device_used_gb_after_solve": 1.549,
+    "levels": 5,
+    "operator_complexity": 1.019452,
+    "grid_complexity": 1.034878,
+    "nnz_P_total": 792745,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.028,
+    "sizes": [
+     768000,
+     23545,
+     2773,
+     417,
+     51
+    ],
+    "nnz_per_level": [
+     79017708,
+     1326431,
+     187937,
+     21489,
+     1227
+    ],
+    "hist_every_10": [
+     1.0,
+     1.251515e-06
+    ]
+   },
+   "peak_device_memory_gb": 1.549,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.549
+    ],
+    [
+     "after solve",
+     1.549
+    ],
+    [
+     "after AMG destroy",
+     1.44
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.269,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_cheby3.json"
+  },
+  "nf4_agg0_ext14": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 14,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 24,
+    "converged": true,
+    "setup_seconds": 0.265276,
+    "seconds": 0.075436,
+    "seconds_per_iter": 0.00314316,
+    "final_relres": 5.577002e-09,
+    "true_relres": 5.577002e-09,
+    "rel_err_vs_x_true": 8.447268e-09,
+    "device_used_gb_after_setup": 1.521,
+    "device_used_gb_after_solve": 1.53,
+    "levels": 5,
+    "operator_complexity": 1.019427,
+    "grid_complexity": 1.034755,
+    "nnz_P_total": 792017,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.028,
+    "sizes": [
+     768000,
+     23545,
+     2682,
+     418,
+     47
+    ],
+    "nnz_per_level": [
+     79017708,
+     1333885,
+     179260,
+     20942,
+     975
+    ],
+    "hist_every_10": [
+     1.0,
+     0.0001149464,
+     9.22409e-08
+    ]
+   },
+   "peak_device_memory_gb": 1.53,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.521
+    ],
+    [
+     "after solve",
+     1.53
+    ],
+    [
+     "after AMG destroy",
+     1.435
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.194,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_ext14.json"
+  },
+  "nf4_agg0_interp15": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 15,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0,
+    "cheby_order": 2,
+    "cheby_fraction": 0.3,
+    "cheby_variant": 0
+   },
+   "cg": {
+    "iters": 33,
+    "converged": true,
+    "setup_seconds": 0.222198,
+    "seconds": 0.103287,
+    "seconds_per_iter": 0.00312991,
+    "final_relres": 6.28883e-09,
+    "true_relres": 6.28883e-09,
+    "rel_err_vs_x_true": 3.272996e-08,
+    "device_used_gb_after_setup": 1.505,
+    "device_used_gb_after_solve": 1.513,
+    "levels": 7,
+    "operator_complexity": 1.012588,
+    "grid_complexity": 1.036863,
+    "nnz_P_total": 485353,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.018,
+    "sizes": [
+     768000,
+     23545,
+     4016,
+     633,
+     100,
+     15,
+     2
+    ],
+    "nnz_per_level": [
+     79017708,
+     791371,
+     174760,
+     25591,
+     2752,
+     167,
+     4
+    ],
+    "hist_every_10": [
+     1.0,
+     0.0008614971,
+     4.791232e-06,
+     3.027561e-08
+    ]
+   },
+   "peak_device_memory_gb": 1.513,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.505
+    ],
+    [
+     "after solve",
+     1.513
+    ],
+    [
+     "after AMG destroy",
+     1.44
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.17,
+   "total_seconds": 1.217,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_interp15.json"
+  },
+  "nf4_agg0_jac7_sweeps2": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 7,
+    "num_sweeps": 2,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0,
+    "cheby_order": 2,
+    "cheby_fraction": 0.3,
+    "cheby_variant": 0
+   },
+   "cg": {
+    "iters": 16,
+    "converged": true,
+    "setup_seconds": 0.251112,
+    "seconds": 0.082001,
+    "seconds_per_iter": 0.00512506,
+    "final_relres": 5.132496e-09,
+    "true_relres": 5.132496e-09,
+    "rel_err_vs_x_true": 5.641109e-08,
+    "device_used_gb_after_setup": 1.521,
+    "device_used_gb_after_solve": 1.53,
+    "levels": 5,
+    "operator_complexity": 1.019452,
+    "grid_complexity": 1.034878,
+    "nnz_P_total": 792745,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.028,
+    "sizes": [
+     768000,
+     23545,
+     2773,
+     417,
+     51
+    ],
+    "nnz_per_level": [
+     79017708,
+     1326431,
+     187937,
+     21489,
+     1227
+    ],
+    "hist_every_10": [
+     1.0,
+     3.909895e-06
+    ]
+   },
+   "peak_device_memory_gb": 1.53,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.521
+    ],
+    [
+     "after solve",
+     1.53
+    ],
+    [
+     "after AMG destroy",
+     1.44
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.22,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_jac7_sweeps2.json"
+  },
+  "nf4_agg0": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 24,
+    "converged": true,
+    "setup_seconds": 0.295183,
+    "seconds": 0.075537,
+    "seconds_per_iter": 0.00314738,
+    "final_relres": 7.801494e-09,
+    "true_relres": 7.801494e-09,
+    "rel_err_vs_x_true": 1.214409e-08,
+    "device_used_gb_after_setup": 1.521,
+    "device_used_gb_after_solve": 1.53,
+    "levels": 5,
+    "operator_complexity": 1.019452,
+    "grid_complexity": 1.034878,
+    "nnz_P_total": 792745,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.028,
+    "sizes": [
+     768000,
+     23545,
+     2773,
+     417,
+     51
+    ],
+    "nnz_per_level": [
+     79017708,
+     1326431,
+     187937,
+     21489,
+     1227
+    ],
+    "hist_every_10": [
+     1.0,
+     0.0001359962,
+     1.226611e-07
+    ]
+   },
+   "peak_device_memory_gb": 1.53,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.521
+    ],
+    [
+     "after solve",
+     1.53
+    ],
+    [
+     "after AMG destroy",
+     1.437
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.223,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0.json"
+  },
+  "nf4_agg0_pmax8": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 8,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 23,
+    "converged": true,
+    "setup_seconds": 0.259774,
+    "seconds": 0.071969,
+    "seconds_per_iter": 0.00312909,
+    "final_relres": 8.837235e-09,
+    "true_relres": 8.837235e-09,
+    "rel_err_vs_x_true": 1.237711e-08,
+    "device_used_gb_after_setup": 1.551,
+    "device_used_gb_after_solve": 1.559,
+    "levels": 4,
+    "operator_complexity": 1.032265,
+    "grid_complexity": 1.033128,
+    "nnz_P_total": 1538188,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.049,
+    "sizes": [
+     768000,
+     23545,
+     1783,
+     114
+    ],
+    "nnz_per_level": [
+     79017708,
+     2329273,
+     213059,
+     7164
+    ],
+    "hist_every_10": [
+     1.0,
+     0.0001015984,
+     7.526037e-08
+    ]
+   },
+   "peak_device_memory_gb": 1.559,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.551
+    ],
+    [
+     "after solve",
+     1.559
+    ],
+    [
+     "after AMG destroy",
+     1.44
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.184,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_pmax8.json"
+  },
+  "nf4_agg0_sweeps2": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 2,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 18,
+    "converged": true,
+    "setup_seconds": 0.267514,
+    "seconds": 0.090607,
+    "seconds_per_iter": 0.00503372,
+    "final_relres": 9.65616e-09,
+    "true_relres": 9.65616e-09,
+    "rel_err_vs_x_true": 4.462922e-08,
+    "device_used_gb_after_setup": 1.521,
+    "device_used_gb_after_solve": 1.53,
+    "levels": 5,
+    "operator_complexity": 1.019452,
+    "grid_complexity": 1.034878,
+    "nnz_P_total": 792745,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.028,
+    "sizes": [
+     768000,
+     23545,
+     2773,
+     417,
+     51
+    ],
+    "nnz_per_level": [
+     79017708,
+     1326431,
+     187937,
+     21489,
+     1227
+    ],
+    "hist_every_10": [
+     1.0,
+     1.676065e-05
+    ]
+   },
+   "peak_device_memory_gb": 1.53,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.521
+    ],
+    [
+     "after solve",
+     1.53
+    ],
+    [
+     "after AMG destroy",
+     1.437
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.213,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_sweeps2.json"
+  },
+  "nf4_agg0_theta05_cheby2": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 16,
+    "num_sweeps": 1,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.5,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0,
+    "cheby_order": 2,
+    "cheby_fraction": 0.3,
+    "cheby_variant": 0
+   },
+   "cg": {
+    "iters": 16,
+    "converged": true,
+    "setup_seconds": 0.294858,
+    "seconds": 0.098239,
+    "seconds_per_iter": 0.00613995,
+    "final_relres": 5.725155e-09,
+    "true_relres": 5.725155e-09,
+    "rel_err_vs_x_true": 6.351394e-08,
+    "device_used_gb_after_setup": 1.603,
+    "device_used_gb_after_solve": 1.603,
+    "levels": 7,
+    "operator_complexity": 1.068789,
+    "grid_complexity": 1.101841,
+    "nnz_P_total": 840003,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.075,
+    "sizes": [
+     768000,
+     60275,
+     13858,
+     3265,
+     677,
+     118,
+     21
+    ],
+    "nnz_per_level": [
+     79017708,
+     3590607,
+     1368174,
+     396941,
+     72981,
+     6532,
+     349
+    ],
+    "hist_every_10": [
+     1.0,
+     3.927051e-06
+    ]
+   },
+   "peak_device_memory_gb": 1.603,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.603
+    ],
+    [
+     "after solve",
+     1.603
+    ],
+    [
+     "after AMG destroy",
+     1.44
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.17,
+   "total_seconds": 1.285,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_theta05_cheby2.json"
+  },
+  "nf4_agg0_theta05_cheby2_pmax8": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 16,
+    "num_sweeps": 1,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 8,
+    "strong_threshold": 0.5,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0,
+    "cheby_order": 2,
+    "cheby_fraction": 0.3,
+    "cheby_variant": 0
+   },
+   "cg": {
+    "iters": 15,
+    "converged": true,
+    "setup_seconds": 0.329477,
+    "seconds": 0.094238,
+    "seconds_per_iter": 0.00628254,
+    "final_relres": 5.157989e-09,
+    "true_relres": 5.157989e-09,
+    "rel_err_vs_x_true": 6.404429e-08,
+    "device_used_gb_after_setup": 1.66,
+    "device_used_gb_after_solve": 1.66,
+    "levels": 7,
+    "operator_complexity": 1.113253,
+    "grid_complexity": 1.100315,
+    "nnz_P_total": 1332905,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.123,
+    "sizes": [
+     768000,
+     60275,
+     13144,
+     2896,
+     612,
+     108,
+     7
+    ],
+    "nnz_per_level": [
+     79017708,
+     5809403,
+     2358870,
+     660646,
+     112364,
+     7686,
+     49
+    ],
+    "hist_every_10": [
+     1.0,
+     1.911189e-06
+    ]
+   },
+   "peak_device_memory_gb": 1.66,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.66
+    ],
+    [
+     "after solve",
+     1.66
+    ],
+    [
+     "after AMG destroy",
+     1.44
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.312,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_theta05_cheby2_pmax8.json"
+  },
+  "nf4_agg0_theta05_interp15_cheby2": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 15,
+    "relax_type": 16,
+    "num_sweeps": 1,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.5,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0,
+    "cheby_order": 2,
+    "cheby_fraction": 0.3,
+    "cheby_variant": 0
+   },
+   "cg": {
+    "iters": 24,
+    "converged": true,
+    "setup_seconds": 0.262343,
+    "seconds": 0.144396,
+    "seconds_per_iter": 0.0060165,
+    "final_relres": 4.563594e-09,
+    "true_relres": 4.563594e-09,
+    "rel_err_vs_x_true": 1.054714e-07,
+    "device_used_gb_after_setup": 1.572,
+    "device_used_gb_after_solve": 1.572,
+    "levels": 8,
+    "operator_complexity": 1.048744,
+    "grid_complexity": 1.104562,
+    "nnz_P_total": 531653,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.053,
+    "sizes": [
+     768000,
+     60275,
+     15715,
+     3539,
+     640,
+     108,
+     22,
+     5
+    ],
+    "nnz_per_level": [
+     79017708,
+     2831021,
+     824347,
+     168117,
+     24882,
+     3024,
+     258,
+     21
+    ],
+    "hist_every_10": [
+     1.0,
+     5.100432e-05,
+     6.713885e-08
+    ]
+   },
+   "peak_device_memory_gb": 1.572,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.572
+    ],
+    [
+     "after solve",
+     1.572
+    ],
+    [
+     "after AMG destroy",
+     1.437
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.299,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_theta05_interp15_cheby2.json"
+  },
+  "nf4_agg0_theta05_jac7": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 7,
+    "num_sweeps": 1,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.5,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 19,
+    "converged": true,
+    "setup_seconds": 0.308515,
+    "seconds": 0.068344,
+    "seconds_per_iter": 0.00359705,
+    "final_relres": 9.81304e-09,
+    "true_relres": 9.81304e-09,
+    "rel_err_vs_x_true": 7.941901e-08,
+    "device_used_gb_after_setup": 1.576,
+    "device_used_gb_after_solve": 1.584,
+    "levels": 7,
+    "operator_complexity": 1.068789,
+    "grid_complexity": 1.101841,
+    "nnz_P_total": 840003,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.075,
+    "sizes": [
+     768000,
+     60275,
+     13858,
+     3265,
+     677,
+     118,
+     21
+    ],
+    "nnz_per_level": [
+     79017708,
+     3590607,
+     1368174,
+     396941,
+     72981,
+     6532,
+     349
+    ],
+    "hist_every_10": [
+     1.0,
+     3.440891e-05
+    ]
+   },
+   "peak_device_memory_gb": 1.584,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.576
+    ],
+    [
+     "after solve",
+     1.584
+    ],
+    [
+     "after AMG destroy",
+     1.44
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.225,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_theta05_jac7.json"
+  },
+  "nf4_agg0_theta05_jac7_sw2": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 7,
+    "num_sweeps": 2,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.5,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0,
+    "cheby_order": 2,
+    "cheby_fraction": 0.3,
+    "cheby_variant": 0
+   },
+   "cg": {
+    "iters": 16,
+    "converged": true,
+    "setup_seconds": 0.266921,
+    "seconds": 0.091089,
+    "seconds_per_iter": 0.00569306,
+    "final_relres": 8.099418e-09,
+    "true_relres": 8.099418e-09,
+    "rel_err_vs_x_true": 8.009526e-08,
+    "device_used_gb_after_setup": 1.576,
+    "device_used_gb_after_solve": 1.584,
+    "levels": 7,
+    "operator_complexity": 1.068789,
+    "grid_complexity": 1.101841,
+    "nnz_P_total": 840003,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.075,
+    "sizes": [
+     768000,
+     60275,
+     13858,
+     3265,
+     677,
+     118,
+     21
+    ],
+    "nnz_per_level": [
+     79017708,
+     3590607,
+     1368174,
+     396941,
+     72981,
+     6532,
+     349
+    ],
+    "hist_every_10": [
+     1.0,
+     5.194353e-06
+    ]
+   },
+   "peak_device_memory_gb": 1.584,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.576
+    ],
+    [
+     "after solve",
+     1.584
+    ],
+    [
+     "after AMG destroy",
+     1.44
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.242,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_theta05_jac7_sw2.json"
+  },
+  "nf4_agg0_theta05": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.5,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 23,
+    "converged": true,
+    "setup_seconds": 0.265292,
+    "seconds": 0.079925,
+    "seconds_per_iter": 0.003475,
+    "final_relres": 6.565647e-09,
+    "true_relres": 6.565647e-09,
+    "rel_err_vs_x_true": 3.322376e-08,
+    "device_used_gb_after_setup": 1.576,
+    "device_used_gb_after_solve": 1.584,
+    "levels": 7,
+    "operator_complexity": 1.068789,
+    "grid_complexity": 1.101841,
+    "nnz_P_total": 840003,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.075,
+    "sizes": [
+     768000,
+     60275,
+     13858,
+     3265,
+     677,
+     118,
+     21
+    ],
+    "nnz_per_level": [
+     79017708,
+     3590607,
+     1368174,
+     396941,
+     72981,
+     6532,
+     349
+    ],
+    "hist_every_10": [
+     1.0,
+     0.0001361792,
+     6.43889e-08
+    ]
+   },
+   "peak_device_memory_gb": 1.584,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.576
+    ],
+    [
+     "after solve",
+     1.584
+    ],
+    [
+     "after AMG destroy",
+     1.44
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.199,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_theta05.json"
+  },
+  "nf4_agg0_theta05_pmax8": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 8,
+    "strong_threshold": 0.5,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0,
+    "cheby_order": 2,
+    "cheby_fraction": 0.3,
+    "cheby_variant": 0
+   },
+   "cg": {
+    "iters": 21,
+    "converged": true,
+    "setup_seconds": 0.294581,
+    "seconds": 0.075911,
+    "seconds_per_iter": 0.00361481,
+    "final_relres": 9.839149e-09,
+    "true_relres": 9.839149e-09,
+    "rel_err_vs_x_true": 4.30662e-08,
+    "device_used_gb_after_setup": 1.633,
+    "device_used_gb_after_solve": 1.641,
+    "levels": 7,
+    "operator_complexity": 1.113253,
+    "grid_complexity": 1.100315,
+    "nnz_P_total": 1332905,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.123,
+    "sizes": [
+     768000,
+     60275,
+     13144,
+     2896,
+     612,
+     108,
+     7
+    ],
+    "nnz_per_level": [
+     79017708,
+     5809403,
+     2358870,
+     660646,
+     112364,
+     7686,
+     49
+    ],
+    "hist_every_10": [
+     1.0,
+     8.353365e-05,
+     2.250732e-08
+    ]
+   },
+   "peak_device_memory_gb": 1.641,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.633
+    ],
+    [
+     "after solve",
+     1.641
+    ],
+    [
+     "after AMG destroy",
+     1.44
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.256,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_theta05_pmax8.json"
+  },
+  "nf4_agg0_theta05_sweeps2": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 2,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.5,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0,
+    "cheby_order": 2,
+    "cheby_fraction": 0.3,
+    "cheby_variant": 0
+   },
+   "cg": {
+    "iters": 18,
+    "converged": true,
+    "setup_seconds": 0.334426,
+    "seconds": 0.099459,
+    "seconds_per_iter": 0.0055255,
+    "final_relres": 9.694296e-09,
+    "true_relres": 9.694296e-09,
+    "rel_err_vs_x_true": 7.22584e-08,
+    "device_used_gb_after_setup": 1.576,
+    "device_used_gb_after_solve": 1.584,
+    "levels": 7,
+    "operator_complexity": 1.068789,
+    "grid_complexity": 1.101841,
+    "nnz_P_total": 840003,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.075,
+    "sizes": [
+     768000,
+     60275,
+     13858,
+     3265,
+     677,
+     118,
+     21
+    ],
+    "nnz_per_level": [
+     79017708,
+     3590607,
+     1368174,
+     396941,
+     72981,
+     6532,
+     349
+    ],
+    "hist_every_10": [
+     1.0,
+     2.06934e-05
+    ]
+   },
+   "peak_device_memory_gb": 1.584,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.576
+    ],
+    [
+     "after solve",
+     1.584
+    ],
+    [
+     "after AMG destroy",
+     1.44
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.169,
+   "total_seconds": 1.329,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_theta05_sweeps2.json"
+  },
+  "nf4_agg0_theta07": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 0,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.7,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 26,
+    "converged": true,
+    "setup_seconds": 0.2687,
+    "seconds": 0.091721,
+    "seconds_per_iter": 0.00352773,
+    "final_relres": 8.671457e-09,
+    "true_relres": 8.671457e-09,
+    "rel_err_vs_x_true": 6.715001e-08,
+    "device_used_gb_after_setup": 1.588,
+    "device_used_gb_after_solve": 1.597,
+    "levels": 8,
+    "operator_complexity": 1.079968,
+    "grid_complexity": 1.114809,
+    "nnz_P_total": 805940,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.085,
+    "sizes": [
+     768000,
+     60275,
+     19911,
+     6100,
+     1535,
+     294,
+     51,
+     7
+    ],
+    "nnz_per_level": [
+     79017708,
+     3590607,
+     1901853,
+     665908,
+     143499,
+     15884,
+     1083,
+     47
+    ],
+    "hist_every_10": [
+     1.0,
+     0.0003210543,
+     4.228175e-07
+    ]
+   },
+   "peak_device_memory_gb": 1.597,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.588
+    ],
+    [
+     "after solve",
+     1.597
+    ],
+    [
+     "after AMG destroy",
+     1.44
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.215,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_agg0_theta07.json"
+  },
+  "nf4_aggint5": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 1,
+    "agg_interp_type": 5,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 43,
+    "converged": true,
+    "setup_seconds": 0.270922,
+    "seconds": 0.122914,
+    "seconds_per_iter": 0.00285847,
+    "final_relres": 8.075017e-09,
+    "true_relres": 8.075017e-09,
+    "rel_err_vs_x_true": 2.120314e-08,
+    "device_used_gb_after_setup": 1.519,
+    "device_used_gb_after_solve": 1.528,
+    "levels": 5,
+    "operator_complexity": 1.004148,
+    "grid_complexity": 1.005827,
+    "nnz_P_total": 1348446,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.02,
+    "sizes": [
+     768000,
+     3848,
+     532,
+     83,
+     12
+    ],
+    "nnz_per_level": [
+     79017708,
+     289730,
+     35158,
+     2761,
+     120
+    ],
+    "hist_every_10": [
+     1.0,
+     0.001731662,
+     3.371148e-05,
+     8.769122e-07,
+     2.437883e-08
+    ]
+   },
+   "peak_device_memory_gb": 1.528,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.519
+    ],
+    [
+     "after solve",
+     1.528
+    ],
+    [
+     "after AMG destroy",
+     1.437
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.248,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_aggint5.json"
+  },
+  "nf4_aggint7": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 1,
+    "agg_interp_type": 7,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 43,
+    "converged": true,
+    "setup_seconds": 0.293361,
+    "seconds": 0.123711,
+    "seconds_per_iter": 0.002877,
+    "final_relres": 9.545528e-09,
+    "true_relres": 9.545528e-09,
+    "rel_err_vs_x_true": 2.555431e-08,
+    "device_used_gb_after_setup": 1.519,
+    "device_used_gb_after_solve": 1.528,
+    "levels": 5,
+    "operator_complexity": 1.004138,
+    "grid_complexity": 1.005807,
+    "nnz_P_total": 1348805,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.02,
+    "sizes": [
+     768000,
+     3848,
+     519,
+     86,
+     7
+    ],
+    "nnz_per_level": [
+     79017708,
+     289730,
+     34213,
+     3018,
+     49
+    ],
+    "hist_every_10": [
+     1.0,
+     0.001941461,
+     3.771819e-05,
+     1.006711e-06,
+     2.869331e-08
+    ]
+   },
+   "peak_device_memory_gb": 1.528,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.519
+    ],
+    [
+     "after solve",
+     1.528
+    ],
+    [
+     "after AMG destroy",
+     1.437
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.275,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_aggint7.json"
+  },
+  "nf4_aggint8": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 1,
+    "agg_interp_type": 8,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 46,
+    "converged": true,
+    "setup_seconds": 0.233224,
+    "seconds": 0.129424,
+    "seconds_per_iter": 0.00281356,
+    "final_relres": 8.140495e-09,
+    "true_relres": 8.140495e-09,
+    "rel_err_vs_x_true": 3.019241e-08,
+    "device_used_gb_after_setup": 1.488,
+    "device_used_gb_after_solve": 1.496,
+    "levels": 5,
+    "operator_complexity": 1.001614,
+    "grid_complexity": 1.006046,
+    "nnz_P_total": 335706,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.006,
+    "sizes": [
+     768000,
+     3848,
+     680,
+     103,
+     12
+    ],
+    "nnz_per_level": [
+     79017708,
+     92692,
+     31072,
+     3681,
+     128
+    ],
+    "hist_every_10": [
+     1.0,
+     0.002252633,
+     6.130055e-05,
+     1.921693e-06,
+     6.124212e-08
+    ]
+   },
+   "peak_device_memory_gb": 1.496,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.488
+    ],
+    [
+     "after solve",
+     1.496
+    ],
+    [
+     "after AMG destroy",
+     1.437
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.217,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_aggint8.json"
+  },
+  "nf4_exte18": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 18,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 1,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 46,
+    "converged": true,
+    "setup_seconds": 0.236511,
+    "seconds": 0.129306,
+    "seconds_per_iter": 0.002811,
+    "final_relres": 7.686603e-09,
+    "true_relres": 7.686603e-09,
+    "rel_err_vs_x_true": 2.862836e-08,
+    "device_used_gb_after_setup": 1.488,
+    "device_used_gb_after_solve": 1.496,
+    "levels": 5,
+    "operator_complexity": 1.001617,
+    "grid_complexity": 1.006051,
+    "nnz_P_total": 335705,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.006,
+    "sizes": [
+     768000,
+     3848,
+     680,
+     106,
+     13
+    ],
+    "nnz_per_level": [
+     79017708,
+     92692,
+     31054,
+     3880,
+     133
+    ],
+    "hist_every_10": [
+     1.0,
+     0.002197428,
+     5.814711e-05,
+     1.850107e-06,
+     5.769572e-08
+    ]
+   },
+   "peak_device_memory_gb": 1.496,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.488
+    ],
+    [
+     "after solve",
+     1.496
+    ],
+    [
+     "after AMG destroy",
+     1.437
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.203,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_exte18.json"
+  },
+  "nf4_ij": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "HYPRE_IJMatrixSetValues2 (device arrays)",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 1,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 46,
+    "converged": true,
+    "setup_seconds": 0.28287,
+    "seconds": 0.130208,
+    "seconds_per_iter": 0.00283061,
+    "final_relres": 7.635507e-09,
+    "true_relres": 7.635507e-09,
+    "rel_err_vs_x_true": 2.828735e-08,
+    "device_used_gb_after_setup": 1.49,
+    "device_used_gb_after_solve": 1.498,
+    "levels": 5,
+    "operator_complexity": 1.001615,
+    "grid_complexity": 1.006052,
+    "nnz_P_total": 335699,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.006,
+    "sizes": [
+     768000,
+     3848,
+     680,
+     103,
+     17
+    ],
+    "nnz_per_level": [
+     79017708,
+     92692,
+     31074,
+     3655,
+     231
+    ],
+    "hist_every_10": [
+     1.0,
+     0.002187928,
+     5.771025e-05,
+     1.827044e-06,
+     5.714801e-08
+    ]
+   },
+   "peak_device_memory_gb": 2.436,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "after IJ SetValues (stash)",
+     2.436
+    ],
+    [
+     "matrix on device",
+     1.406
+    ],
+    [
+     "after AMG setup",
+     1.49
+    ],
+    [
+     "after solve",
+     1.498
+    ],
+    [
+     "after AMG destroy",
+     1.44
+    ]
+   ],
+   "host_maxrss_gb_rank0": 1.909,
+   "total_seconds": 1.262,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_ij.json"
+  },
+  "nf4_jacobi7": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 7,
+    "num_sweeps": 1,
+    "agg_num_levels": 1,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 30,
+    "converged": true,
+    "setup_seconds": 0.234924,
+    "seconds": 0.089232,
+    "seconds_per_iter": 0.00297441,
+    "final_relres": 9.938614e-09,
+    "true_relres": 9.938614e-09,
+    "rel_err_vs_x_true": 5.487285e-08,
+    "device_used_gb_after_setup": 1.488,
+    "device_used_gb_after_solve": 1.496,
+    "levels": 5,
+    "operator_complexity": 1.001615,
+    "grid_complexity": 1.006052,
+    "nnz_P_total": 335699,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.006,
+    "sizes": [
+     768000,
+     3848,
+     680,
+     103,
+     17
+    ],
+    "nnz_per_level": [
+     79017708,
+     92692,
+     31074,
+     3655,
+     231
+    ],
+    "hist_every_10": [
+     1.0,
+     0.0005527317,
+     2.274413e-06,
+     9.938614e-09
+    ]
+   },
+   "peak_device_memory_gb": 1.496,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.488
+    ],
+    [
+     "after solve",
+     1.496
+    ],
+    [
+     "after AMG destroy",
+     1.437
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.167,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_jacobi7.json"
+  },
+  "nf4_keepT0": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 1,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 0,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 46,
+    "converged": true,
+    "setup_seconds": 0.277029,
+    "seconds": 0.174684,
+    "seconds_per_iter": 0.00379748,
+    "final_relres": 7.635507e-09,
+    "true_relres": 7.635507e-09,
+    "rel_err_vs_x_true": 2.828735e-08,
+    "device_used_gb_after_setup": 1.482,
+    "device_used_gb_after_solve": 1.49,
+    "levels": 5,
+    "operator_complexity": 1.001615,
+    "grid_complexity": 1.006052,
+    "nnz_P_total": 335699,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.006,
+    "sizes": [
+     768000,
+     3848,
+     680,
+     103,
+     17
+    ],
+    "nnz_per_level": [
+     79017708,
+     92692,
+     31074,
+     3655,
+     231
+    ],
+    "hist_every_10": [
+     1.0,
+     0.002187928,
+     5.771025e-05,
+     1.827044e-06,
+     5.714801e-08
+    ]
+   },
+   "peak_device_memory_gb": 1.49,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.482
+    ],
+    [
+     "after solve",
+     1.49
+    ],
+    [
+     "after AMG destroy",
+     1.435
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.289,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_keepT0.json"
+  },
+  "nf4_nodal1_DEVICE": {
+   "status": "matrix_on_device",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 1,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 1,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": null,
+   "peak_device_memory_gb": 1.404,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 0.83,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_nodal1_DEVICE.json"
+  },
+  "nf4_pmis_exti_l1jac": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 1,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 46,
+    "converged": true,
+    "setup_seconds": 0.429288,
+    "seconds": 0.129664,
+    "seconds_per_iter": 0.00281878,
+    "final_relres": 7.635507e-09,
+    "true_relres": 7.635507e-09,
+    "rel_err_vs_x_true": 2.828735e-08,
+    "device_used_gb_after_setup": 1.488,
+    "device_used_gb_after_solve": 1.496,
+    "levels": 5,
+    "operator_complexity": 1.001615,
+    "grid_complexity": 1.006052,
+    "nnz_P_total": 335699,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.006,
+    "sizes": [
+     768000,
+     3848,
+     680,
+     103,
+     17
+    ],
+    "nnz_per_level": [
+     79017708,
+     92692,
+     31074,
+     3655,
+     231
+    ],
+    "hist_every_10": [
+     1.0,
+     0.002187928,
+     5.771025e-05,
+     1.827044e-06,
+     5.714801e-08
+    ]
+   },
+   "peak_device_memory_gb": 1.496,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.488
+    ],
+    [
+     "after solve",
+     1.496
+    ],
+    [
+     "after AMG destroy",
+     1.437
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.414,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_pmis_exti_l1jac.json"
+  },
+  "nf4_spmv_hypre": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 1,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 0,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 46,
+    "converged": true,
+    "setup_seconds": 0.23474,
+    "seconds": 0.14254,
+    "seconds_per_iter": 0.0030987,
+    "final_relres": 7.635507e-09,
+    "true_relres": 7.635507e-09,
+    "rel_err_vs_x_true": 2.828735e-08,
+    "device_used_gb_after_setup": 1.484,
+    "device_used_gb_after_solve": 1.492,
+    "levels": 5,
+    "operator_complexity": 1.001615,
+    "grid_complexity": 1.006052,
+    "nnz_P_total": 335699,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.006,
+    "sizes": [
+     768000,
+     3848,
+     680,
+     103,
+     17
+    ],
+    "nnz_per_level": [
+     79017708,
+     92692,
+     31074,
+     3655,
+     231
+    ],
+    "hist_every_10": [
+     1.0,
+     0.002187928,
+     5.771025e-05,
+     1.827044e-06,
+     5.714801e-08
+    ]
+   },
+   "peak_device_memory_gb": 1.492,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.484
+    ],
+    [
+     "after solve",
+     1.492
+    ],
+    [
+     "after AMG destroy",
+     1.433
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.17,
+   "total_seconds": 1.233,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_spmv_hypre.json"
+  },
+  "nf4_sweeps2": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 2,
+    "agg_num_levels": 1,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.25,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 34,
+    "converged": true,
+    "setup_seconds": 0.234864,
+    "seconds": 0.154066,
+    "seconds_per_iter": 0.00453136,
+    "final_relres": 7.035529e-09,
+    "true_relres": 7.035529e-09,
+    "rel_err_vs_x_true": 3.127624e-08,
+    "device_used_gb_after_setup": 1.488,
+    "device_used_gb_after_solve": 1.496,
+    "levels": 5,
+    "operator_complexity": 1.001615,
+    "grid_complexity": 1.006052,
+    "nnz_P_total": 335699,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.006,
+    "sizes": [
+     768000,
+     3848,
+     680,
+     103,
+     17
+    ],
+    "nnz_per_level": [
+     79017708,
+     92692,
+     31074,
+     3655,
+     231
+    ],
+    "hist_every_10": [
+     1.0,
+     0.0007457064,
+     5.757792e-06,
+     4.803374e-08
+    ]
+   },
+   "peak_device_memory_gb": 1.496,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.488
+    ],
+    [
+     "after solve",
+     1.496
+    ],
+    [
+     "after AMG destroy",
+     1.437
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.241,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_sweeps2.json"
+  },
+  "nf4_theta05": {
+   "status": "done",
+   "execution": "device",
+   "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate",
+   "mpi_ranks": 1,
+   "settings": {
+    "solver": "PCG (two-norm, rel. residual)",
+    "tol": 1e-08,
+    "max_iter": 500,
+    "num_functions": 4,
+    "nodal": 0,
+    "nodal_diag": 0,
+    "interp_vectors": 0,
+    "interp_vec_variant": 2,
+    "interp_vec_qmax": 0,
+    "coarsen_type": 8,
+    "interp_type": 6,
+    "relax_type": 18,
+    "num_sweeps": 1,
+    "agg_num_levels": 1,
+    "agg_interp_type": 0,
+    "p_max_elmts": 4,
+    "strong_threshold": 0.5,
+    "max_levels": 25,
+    "max_coarse_size": 9,
+    "keep_transpose": 1,
+    "mod_rap2": 1,
+    "spmv_use_vendor": 1,
+    "spgemm_use_vendor": 0
+   },
+   "cg": {
+    "iters": 36,
+    "converged": true,
+    "setup_seconds": 0.240446,
+    "seconds": 0.111062,
+    "seconds_per_iter": 0.00308506,
+    "final_relres": 8.800378e-09,
+    "true_relres": 8.800378e-09,
+    "rel_err_vs_x_true": 4.255119e-08,
+    "device_used_gb_after_setup": 1.496,
+    "device_used_gb_after_solve": 1.505,
+    "levels": 7,
+    "operator_complexity": 1.00808,
+    "grid_complexity": 1.021977,
+    "nnz_P_total": 330428,
+    "nnz_R_total": 0,
+    "hierarchy_gb_est_12B_per_nnz": 0.012,
+    "sizes": [
+     768000,
+     11664,
+     3848,
+     1031,
+     264,
+     61,
+     10
+    ],
+    "nnz_per_level": [
+     79017708,
+     325916,
+     211120,
+     80473,
+     18796,
+     2067,
+     94
+    ],
+    "hist_every_10": [
+     1.0,
+     0.00149389,
+     1.360174e-05,
+     1.366943e-07
+    ]
+   },
+   "peak_device_memory_gb": 1.505,
+   "device_memory_samples": [
+    [
+     "after HYPRE_Initialize",
+     0.446
+    ],
+    [
+     "matrix on device",
+     1.404
+    ],
+    [
+     "after AMG setup",
+     1.496
+    ],
+    [
+     "after solve",
+     1.505
+    ],
+    [
+     "after AMG destroy",
+     1.44
+    ]
+   ],
+   "host_maxrss_gb_rank0": 2.168,
+   "total_seconds": 1.19,
+   "file": "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/gpu-poisson-a100/results/hypre_p1_40x40x120__nf4_theta05.json"
+  }
+ },
+ "primary_variant": "nf4_pmis_exti_l1jac",
+ "amg_cg": {
+  "iters": 46,
+  "converged": true,
+  "setup_seconds": 0.429288,
+  "seconds": 0.129664,
+  "seconds_per_iter": 0.00281878,
+  "final_relres": 7.635507e-09,
+  "true_relres": 7.635507e-09,
+  "rel_err_vs_x_true": 2.828735e-08,
+  "device_used_gb_after_setup": 1.488,
+  "device_used_gb_after_solve": 1.496,
+  "levels": 5,
+  "operator_complexity": 1.001615,
+  "grid_complexity": 1.006052,
+  "nnz_P_total": 335699,
+  "nnz_R_total": 0,
+  "hierarchy_gb_est_12B_per_nnz": 0.006,
+  "sizes": [
+   768000,
+   3848,
+   680,
+   103,
+   17
+  ],
+  "nnz_per_level": [
+   79017708,
+   92692,
+   31074,
+   3655,
+   231
+  ],
+  "hist_every_10": [
+   1.0,
+   0.002187928,
+   5.771025e-05,
+   1.827044e-06,
+   5.714801e-08
+  ]
+ },
+ "peak_device_memory_gb": 2.576
+}

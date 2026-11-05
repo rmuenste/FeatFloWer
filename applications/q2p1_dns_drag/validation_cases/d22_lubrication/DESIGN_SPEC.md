@@ -54,14 +54,36 @@ layer 3.
 
 ## 4. FF-side wire (plumbing only)
 
-One interface call at setup passing h_min (FF already computes it — the
-`DNS_RESOLUTION` print) → `lubrication::setMeshDx()`. This activates the
-already-implemented-but-dead `lubricationMeshClampFactor_` clamp
-(`setMeshDx` currently called only from a unit test). With clamp factor
+DONE 2026-08-26 (pe feature/lubrication-meshdx-wiring 8c5eab1 + FF
+ComputeCFL commit; gate row `d22_meshdx_wiring`, job 141389 bitwise):
+`ComputeCFL` pushes the collectively reduced global `h_min` through the
+extern-C entry `set_lubrication_mesh_dx` every call — setup-function-
+agnostic (no per-setup edits; the params store is process-global), every
+rank's PE instance receives the same value. Arming prints a one-time
+`PE_LUB_MESHDX` line on the representative rank; a configured clamp with
+no pushed dx warns loudly at the first stage sweep. The same pe commit
+also centralizes `applyOptionalLubricationParams` after every
+parallel-mode setup dispatch — previously only setupKroupa applied it in
+parallel mode, so `lubricationEnabled_` was a silent no-op in the other
+twelve parallel setups. With clamp factor
 c = 2 the activation gap is **gap < 2h automatically per resolution** —
 the D2.1 crossover rule (resolved FBM tracks Brenner to ~10% down to
 2–3 cells, −20% at ~1.5 cells; departure collapses in gap/h) wired in,
 instead of a hand-computed cutoff factor per case.
+
+SIZE-DEPENDENCE AUDIT (recorded 2026-08-26, owner-raised): parameters
+that are RELATIVE and scale-free — `lubricationEpsCritical_` (h_c/a),
+`lubricationCutoffFactor_` (h_cut/a), `lubricationMeshClampFactor_`
+(·h_min), `alphaImpulseCap_`. Parameters that are ABSOLUTE lengths and
+must be restated per unit system — `minEpsLub_` (gap floor),
+`contactHysteresisDelta_` / `lubricationHysteresisDelta_` (blend
+half-widths); EL-only absolutes: `lubricationCutoff_`,
+`lubricationSlipLength_`. Campaign decks are d = 1, where the shipped
+defaults read as fractions of a diameter; a ten Cate G3 deck (d = 0.15 m
+units) must scale the three absolutes by 0.15 accordingly. Proposal for
+upstream (not implemented — schema decision for the owner): relative
+variants minEpsLubFactor_/hysteresis factors à la Kroupa's roughness
+eps_min = h_min/a, defaulting to the absolute keys when unset.
 
 ## 5. Setup procedure (the "robust by construction" requirement)
 
@@ -80,18 +102,29 @@ instead of a hand-computed cutoff factor per case.
 |---|---|---|
 | G0 | lubrication-OFF twins with refactored pe, vs certified logs — AMENDED 2026-08-20 after the hcaf_angvel_reset fix (a71c34d) joined the branch: (a) **e4_l3** stays the BITWISE instrument (settling, spin ≈ 0, ω-fix inert); (b) **DKT 20-step** is now a physics-DIFF case — the ω restoration changes rotating trajectories by construction, so its twin is EXPECTED to differ; its deviation is the ω-restoration signal and feeds the D2.3 frictional rerun (datasheet hcaf_angvel_reset) | e4_l3 bitwise; DKT diff attributed to rotation (report, don't gate); SI ten Cate family remains the AABB-sensitive one |
 | G1 | unit tests: existing 4 re-pointed at the runtime switch + the new serial/CFD-coupled test | all pass |
-| G2 | **Brenner wall-approach rerun** (D2.1 fixture, constant-V protocol, Re 0.78) with lubrication ON | sub-2h force follows Brenner's exact solution where FBM alone was −20%; ALSO measure the 2–3h overlap band overshoot = the double-counting number that decides §7 |
-| G3 | **lubricated ten Cate**: reproduce Fig. 13 (pairs S16/S18 at Re 1.5, S17/S19 at Re 4.1) — first `legacy` model (like-for-like with the paper's Eq. 10), then full Kroupa | early velocity-decay improvement reproduced; Kroupa's epsCritical saturation avoids the paper's documented time-to-contact overprediction ("the abrupt stop remains" pathology) |
+| G2 | **Brenner wall-approach rerun** (D2.1 fixture, constant-V protocol, Re 0.78) with lubrication ON — DONE 2026-08-26, job 141393, row `d22_g2_brenner` | MEASURED: full Kroupa wall term double-counts the resolved film **+75%** in the 1–2h band (FBM alone −15/−26%); Eq.-10 deficit form c=2 lands +6.7/+23.0%; superposition exact (FBM force ≡ lub-OFF baseline), so variants evaluate offline; ideal correction λ = B − FBM = 0.73→4.54 over gap/h ∈ [0.83, 2) is the §7 calibration curve. Decides §7: deficit form required |
+| G3 | **lubricated ten Cate**: reproduce Fig. 13 — DONE 2026-08-27, jobs 141665/141666, row `d22_g3_tencate`. Run with kroupaDeficit in the production config (post-G2 the deficit IS the Eq.-10-class model; the planned legacy-first pass is superseded) | PASS: gradual decay through the film band (u(1h) 15/16% slower than baseline), FINITE landing +11–13% vs baseline (no never-lands tail — saturation + deficit + hard contact). Scope: at D/h=23.9 the correction is modest by construction (FBM carries most of the film); quantitative certification is G2/G2b. **Ladder complete.** |
 
-## 7. Physics follow-up (option, not blocker)
+## 7. Physics follow-up — DECIDED 2026-08-26 (G2 measurement, row `d22_g2_brenner`)
 
-Full-vs-deficit closure: in resolved FBM the fluid already carries most of
-the lubrication force down to ~2h, so the full model double-counts in the
-overlap. Deferred by design: G2 measures the actual double-count at
-D/h = 8 before deciding. If warranted, add `modelKroupaDeficit` —
-Kroupa resistances minus their value at the activation gap (reduces to
-ten Cate Eq. 10 in the leading normal term, keeps the saturation fix).
-D2.1's inverse-collapse-curve idea remains the more ambitious variant.
+Full-vs-deficit closure: G2 measured the double-count at D/h = 23.9 —
+the full resistance set overshoots Brenner by **~+75%** in the 1–2h
+overlap band (the resolved FBM already carries ~85% of the force there).
+DECISION: `modelKroupaDeficit` — Kroupa resistances minus their value at
+the activation gap (reduces to ten Cate Eq. 10 in the leading normal
+term, keeps the saturation fix) — is REQUIRED for CFD-coupled runs; it
+lands at +6.7% (1–2h) / +23% (<1h) on the G2 data. IMPLEMENTED AND
+VERIFIED 2026-08-27 (pe 9d24437, row d22_g2b_deficit): G2b rerun measures
++7.2% / +24.0% — on the prediction, the ~1pp excess being the
+higher-order wall terms. Twin 141658 bitwise. G3 unblocked.
+The measured ideal correction λ_ideal = Brenner − FBM (0.73 → 4.54 over
+gap/h ∈ [0.83, 2), tools/d21_g2_lubrication_analysis.py) is the
+calibration curve for D2.1's inverse-collapse variant — resolution-
+collapsed in gap/h per the D2.1 finding, one calibration per method;
+it would close the residual the analytic deficit leaves below 1h.
+G2 bonus finding: superposition is exact on this fixture (FBM force
+byte-close to the lub-OFF baseline), so any future model variant can be
+scored offline against the G2 dataset without new runs.
 
 ## 8. Performance & reproducibility (recorded 2026-08-20 discussion)
 

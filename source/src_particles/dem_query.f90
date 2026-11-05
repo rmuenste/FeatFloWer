@@ -32,6 +32,50 @@ end type tParticleData
 
 
 !================================================================================================
+!                              Function get_lubrication_enabled
+!================================================================================================
+! C++ implementation: get_lubrication_enabled() in libs/pe/pe/interface/c_interface_queries.h
+! 1 while the lubrication add-on master switch is on, else 0. Gates the DNS_LUB
+! print so lubrication-off runs keep byte-identical stdout.
+interface
+integer(c_int) function get_lubrication_enabled() bind(C, name="get_lubrication_enabled")
+  use iso_c_binding, only: c_int
+  end function
+end interface
+
+!================================================================================================
+!                              Subroutine get_lubrication_stage_diag
+!================================================================================================
+! C++ implementation: get_lubrication_stage_diag() in libs/pe/pe/interface/c_interface_queries.h
+! Diagnostics of the most recent lubrication stage invocation (rank-local PE
+! instance). Single sphere-wall pair: totalForce IS the applied lubrication
+! force, maxNormalImpulse/dt its normal component. Zeros while the add-on is
+! off or the built solver does not run the stage.
+interface
+subroutine get_lubrication_stage_diag(totalForce, dissipation, maxNormalImpulse, &
+                                      numContacts, numSaturated) &
+           bind(C, name="get_lubrication_stage_diag")
+  use iso_c_binding, only: c_double, c_int
+  real(c_double) :: totalForce, dissipation, maxNormalImpulse
+  integer(c_int) :: numContacts, numSaturated
+  end subroutine
+end interface
+
+!================================================================================================
+!                              Subroutine set_lubrication_mesh_dx
+!================================================================================================
+! C++ implementation: set_lubrication_mesh_dx() in libs/pe/pe/interface/c_interface_queries.h
+! Pushes the reduced global h_min into the pe lubrication mesh clamp: with
+! lubricationMeshClampFactor_ = c > 0 the effective outer cutoff becomes
+! min(cutoffFactor*a, c*h_min). Inert while lubrication is disabled or c = 0.
+interface
+subroutine set_lubrication_mesh_dx(dx) bind(C, name="set_lubrication_mesh_dx")
+  use iso_c_binding, only: c_double
+  real(c_double) :: dx
+  end subroutine
+end interface
+
+!================================================================================================
 !                              Function getTotalParticles
 !================================================================================================
 ! C++ implementation: getTotalParts() in libs/pe/src/interface/object_queries.cpp
@@ -342,6 +386,116 @@ logical(c_bool) function isSphere(idx) bind(C, name="isTypeSphere")
   use iso_c_binding, only: c_int, c_bool
   integer(c_int) :: idx
   end function
+end interface
+
+!================================================================================================
+!                              Function isEllipsoid
+! C++ implementation: isEllipsoidType() via the extern-C wrapper isTypeEllipsoid in
+! libs/pe/pe/interface/c_interface_queries.h. The DNS_PART_AXIS record filters on
+! this rather than "not a sphere" so wall planes/boxes stay silent.
+!================================================================================================
+interface
+logical(c_bool) function isEllipsoid(idx) bind(C, name="isTypeEllipsoid")
+  use iso_c_binding, only: c_int, c_bool
+  integer(c_int) :: idx
+  end function
+end interface
+
+!================================================================================================
+!                   Layer-2 FBM classification gate: construction and introspection
+! C++ implementation: libs/pe/src/interface/fbm_gate_probe.cpp (design in the matching header).
+! Used only by applications/q2p1_hashgrid_test. All take arguments by reference (C pointers).
+!
+! A note on the OLDER setParticle / getParticle / setRemoteParticle interfaces in this file:
+! they bind to C symbols that do not exist in pe and link only because nothing calls them.
+! In particular, nothing in pe's C surface can MOVE a body - setParticle2 writes force and
+! torque only - which is why the gate's prescribed motion lives on the C++ side below.
+!================================================================================================
+interface
+  integer(c_int) function fbm_gate_grid_active() bind(C, name="fbm_gate_grid_active_")
+    use iso_c_binding, only: c_int
+  end function
+end interface
+
+interface
+  integer(c_int) function fbm_gate_body_count() bind(C, name="fbm_gate_body_count_")
+    use iso_c_binding, only: c_int
+  end function
+end interface
+
+interface
+  ! Fills spans(1:min(n,nmax)) with the cell span of every grid in pe's hierarchy and returns
+  ! n; returns -1 (after printing both numbers) if the first span is not the one the spacers
+  ! were computed to set. That -1 is the harness's tripwire against a changed hierarchyFactor,
+  ! AABB padding or re-filing order in pe.
+  integer(c_int) function fbm_gate_grid_spans(spans, nmax) bind(C, name="fbm_gate_grid_spans_")
+    use iso_c_binding, only: c_int, c_double
+    real(c_double) :: spans(*)
+    integer(c_int), intent(in) :: nmax
+  end function
+end interface
+
+interface
+  ! stage: 0 park all, 1 lattice, 2 overlapping pairs, 3 centred on the subdomain cuts.
+  ! shapeFilter: -1 every probe, 0..4 only that shape (sphere, box, capsule, ellipsoid, cylinder).
+  subroutine fbm_gate_place_stage(stage, shapeFilter, nPlaced) bind(C, name="fbm_gate_place_stage_")
+    use iso_c_binding, only: c_int
+    integer(c_int), intent(in)  :: stage, shapeFilter
+    integer(c_int), intent(out) :: nPlaced
+  end subroutine
+end interface
+
+interface
+  ! Translates every probe by d without re-filing the spatial index. That staleness is the
+  ! thing under test; refresh_spatial_index() is the caller's decision.
+  subroutine fbm_gate_nudge(d) bind(C, name="fbm_gate_nudge_")
+    use iso_c_binding, only: c_double
+    real(c_double), intent(in) :: d(3)
+  end subroutine
+end interface
+
+interface
+  subroutine fbm_gate_probe_report() bind(C, name="fbm_gate_probe_report_")
+  end subroutine
+end interface
+
+!================================================================================================
+!                              pe checkpoint pairing (libs/pe/FF-WIRING.md)
+! set_pe_checkpoint_identity: once per time step, the (timens, istep_ns) that write_time_sol
+!   puts into time.dmp, so a pe checkpoint written in this step names the FF dump it pairs with.
+! pe_write_checkpoint: writes <name>.peb + <name>.peinfo into the json checkpoint_path_ on
+!   demand - called by write_sol_to_file at the dump instant (representative rank only, PE
+!   serial mode holds identical state on every rank). Resume: json resume_ = true,
+!   resumeCheckpointFile_ = <name>, resumeExpected{Time,Step}_ from time.dmp.
+!================================================================================================
+interface
+subroutine set_pe_checkpoint_identity(simTime, step, tag) bind(C, name="set_pe_checkpoint_identity_")
+  use iso_c_binding, only: c_double, c_int, c_char
+  real(c_double), intent(in) :: simTime
+  integer(c_int), intent(in) :: step
+  character(kind=c_char), dimension(*), intent(in) :: tag
+  end subroutine
+end interface
+
+interface
+subroutine pe_write_checkpoint(name) bind(C, name="pe_write_checkpoint_")
+  use iso_c_binding, only: c_char
+  character(kind=c_char), dimension(*), intent(in) :: name
+  end subroutine
+end interface
+
+!================================================================================================
+!                              Subroutine getParticleOrientation
+! C++ implementation: getObjOrientation() via the extern-C wrapper in
+! libs/pe/pe/interface/c_interface_queries.h. Returns the world-frame
+! direction of the body-frame x axis (the ellipsoid a-axis, D6.1).
+!================================================================================================
+interface
+subroutine getParticleOrientation(idx, axis) bind(C, name="getParticleOrientation")
+  use iso_c_binding, only: c_int, c_double
+  integer(c_int) :: idx
+  real(c_double) :: axis(*)
+  end subroutine
 end interface
 
 !================================================================================================
@@ -767,6 +921,130 @@ logical function longIdMatch(idx, longFictId)
   end if
 
 end function longIdMatch
+
+!================================================================================================
+!                              compareLongId
+!================================================================================================
+! Lexicographic order of two 8-short system ids: -1 (a < b), 0 (a == b, the
+! same equality test as longIdMatch) or +1 (a > b).
+!================================================================================================
+
+integer function compareLongId(a, b)
+  use iso_c_binding, only: c_short
+  implicit none
+  integer(c_short), dimension(8), intent(in) :: a, b
+  integer :: k
+
+  compareLongId = 0
+  do k = 1, 8
+    if (a(k) < b(k)) then
+      compareLongId = -1
+      return
+    else if (a(k) > b(k)) then
+      compareLongId = 1
+      return
+    end if
+  end do
+
+end function compareLongId
+
+!================================================================================================
+!                              sortParticleIds
+!================================================================================================
+! Returns a permutation perm(1:n) such that theParticles(perm(:))%bytes is in
+! ascending compareLongId order (bottom-up merge sort, O(n log n)).
+!================================================================================================
+
+subroutine sortParticleIds(theParticles, n, perm)
+  implicit none
+  integer, intent(in) :: n
+  type(tParticleData), dimension(n), intent(in) :: theParticles
+  integer, dimension(n), intent(out) :: perm
+
+  integer, allocatable, dimension(:) :: tmp
+  integer :: width, lo, mid, hi, i, j, k
+
+  do i = 1, n
+    perm(i) = i
+  end do
+  if (n < 2) return
+
+  allocate(tmp(n))
+  width = 1
+  do while (width < n)
+    lo = 1
+    do while (lo <= n)
+      mid = min(lo + width - 1, n)
+      hi  = min(lo + 2*width - 1, n)
+      if (mid < hi) then
+        i = lo
+        j = mid + 1
+        k = lo
+        do while (i <= mid .and. j <= hi)
+          if (compareLongId(theParticles(perm(j))%bytes, &
+                            theParticles(perm(i))%bytes) < 0) then
+            tmp(k) = perm(j)
+            j = j + 1
+          else
+            tmp(k) = perm(i)
+            i = i + 1
+          end if
+          k = k + 1
+        end do
+        do while (i <= mid)
+          tmp(k) = perm(i)
+          i = i + 1
+          k = k + 1
+        end do
+        do while (j <= hi)
+          tmp(k) = perm(j)
+          j = j + 1
+          k = k + 1
+        end do
+        perm(lo:hi) = tmp(lo:hi)
+      end if
+      lo = lo + 2*width
+    end do
+    width = 2*width
+  end do
+  deallocate(tmp)
+
+end subroutine sortParticleIds
+
+!================================================================================================
+!                              findParticleId
+!================================================================================================
+! Binary search of longId in theParticles sorted by perm (see sortParticleIds).
+! Returns the index IP into theParticles whose bytes equal longId, or 0.
+!================================================================================================
+
+integer function findParticleId(longId, theParticles, perm, n)
+  use iso_c_binding, only: c_short
+  implicit none
+  integer(c_short), dimension(8), intent(in) :: longId
+  integer, intent(in) :: n
+  type(tParticleData), dimension(n), intent(in) :: theParticles
+  integer, dimension(n), intent(in) :: perm
+
+  integer :: lo, hi, mid, c
+
+  findParticleId = 0
+  lo = 1
+  hi = n
+  do while (lo <= hi)
+    mid = (lo + hi) / 2
+    c = compareLongId(longId, theParticles(perm(mid))%bytes)
+    if (c == 0) then
+      findParticleId = perm(mid)
+      return
+    else if (c < 0) then
+      hi = mid - 1
+    else
+      lo = mid + 1
+    end if
+  end do
+
+end function findParticleId
 
 !================================================================================================
 !                              Function convertSystemId

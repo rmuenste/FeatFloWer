@@ -15,7 +15,8 @@ The validated configuration is:
 - `-DUSE_PE_SERIAL_MODE=ON`
 - `-DPE_USE_JSON=ON`
 - `-DPE_USE_EIGEN=ON`
-- `-DENABLE_FBM_ACCELERATION=ON` (HashGrid + KVEL force acceleration)
+- `-DENABLE_FBM_ACCELERATION=ON` (HashGrid + KVEL force acceleration; the default with
+  `USE_PE=ON`, kept explicit so older build trees with a cached `OFF` are switched on)
 - `-DUSE_CGAL=OFF` (default; CGAL is not needed for `q2p1_bench_fluidization`)
 - GCC/G++/GFortran 14.3.0 through the OpenMPI 4.1.6 GCC 14 wrapper compilers
 

@@ -29,6 +29,13 @@ runs use `/home/user/rmuenste/nobackup/code/FF-EL/FeatFloWer/build-el-phase2-pe-
 
 ---
 
+> **STATUS: WP-A1–A4 are DONE and committed** (44b3df0b terminal, c202ccf5
+> straddling, f5ab6a16 momentum-long, 999d72a5 saffman) with passing harness runs
+> (terminal vz=−0.03556384; straddling residual 5.2e-26, record_ranks=2;
+> momentum-long drift_rel=1.000013e-5; saffman lift_z=1.27677e-6). The A-sections
+> below are kept for reference only. Remaining work = WP-B (B1 → B2 → B3) plus the
+> WP-A follow-ups in review amendment 4.
+
 ## WP-A1 — Terminal velocity: fix ranks, run, record
 
 - `tools/featflower_test/testcases/definitions/q2p1_el_pipeflow_tier2_terminal.yaml`:
@@ -119,11 +126,15 @@ in Q2, so sampled u_f and ∇u at the particle are exact.
 >    as one package (Dallavalle-type C_D, ε in Re_p, ε^(−χ), interstitial slip) —
 >    consistent with the comment's own "Di Felice original" bullet. Richardson–Zaki
 >    (V2) remains the empirical arbiter.
-> 3. B2 hard rule: source the exact Zeng et al. (2009) constants from the paper (or
->    a citable secondary source, provenance in the comment) BEFORE coding. If not
->    sourceable at implementation time: ship `saffman` + `saffman_mei` only and make
->    `saffman_mei_wall` a hard validation STOP ("wall correction not yet sourced") —
->    never code guessed constants.
+> 3. B2 hard rule: source the exact Zeng et al. (2009) constants BEFORE coding.
+>    **RESOLVED 2026-07-03: constants extracted from the full paper
+>    (zeng_2009.pdf at repo root — Zeng, Najjar, Balachandar & Fischer,
+>    Phys. Fluids 21, 033302 (2009)); see the sourced-correlation block in WP-B2.**
+>    Structural discovery: Zeng's composite is a STANDALONE lift closure valid for
+>    all wall distances within 1<Re<200 (decays to the unbounded-shear value far
+>    from the wall, including the lift sign change at Re_cr≈60–200 depending on L)
+>    — NOT a multiplicative factor →1. The original "factor →1 far from wall"
+>    test spec is withdrawn; WP-B2's model structure is revised accordingly.
 > 4. WP-A follow-ups to ride along with WP-B: widen long-momentum tolerance
 >    1.05e-5 → 2e-5 (2× measured; document the presumed linear solver-noise
 >    accumulation) + RUNBOOK step to archive the workdir simulation log (shared
@@ -174,20 +185,51 @@ Tests (`source/src_el/tests/test_el_kernel_forces.f90`):
   - `EL_MEI_LIFT_FACTOR(re_p, beta)` (pure, literature-cited: Saffman 1965 JFM 22:385;
     Mei 1992 IJMF 18:145): Re_p≤40 → `(1−0.3314√β)e^(−Re_p/10) + 0.3314√β`;
     Re_p>40 → `0.0524√(β·Re_p)`; β = clamp(0.5·Re_shear/Re_p, 0.005, 0.4) documented.
-  - `EL_ZENG_WALL_FACTOR(l_over_d, re_p)` — transcribe exact fit constants from Zeng,
-    Balachandar & Fischer (2009) DURING implementation (do not invent); structural
-    properties unit-tested: →1 as l/d→∞, finite at contact l/d=0.5, plus one tabulated
-    point from the paper.
+  - **Sourced Zeng correlation** (Zeng, Najjar, Balachandar & Fischer, Phys. Fluids
+    21, 033302 (2009) — full paper at repo root `zeng_2009.pdf`; cite eq. numbers in
+    code comments). Nondimensionalization: L = wall distance of the particle CENTER
+    in diameters (contact L=0.5), δ = L − 1/2, Re = |u_slip|·d/ν (paper: ambient
+    velocity at particle center; stationary particle ⇒ slip); lift coefficient
+    normalized as `F_L = C_Ls · ½·ρ_f·|u_slip|²·(π d²/4)`, directed wall-normal,
+    positive away from the wall:
+    - Eq. (19), contact: `C_Ls,w = 3.663 / (Re² + 0.1173)^0.22`
+      (Re→0 limit 5.87 = Leighton & Acrivos; large-Re 3.663·Re^−0.44).
+    - Eq. (28), composite, valid 1 < Re < 200, any L > 1/2:
+      `C_Ls = C_Ls,w · exp(−0.5·δ·(Re/250)^(4/3)) · [exp(α_sL·δ^β_sL) − λ_sL]`
+    - Eq. (29): `α_sL = −exp(−0.3 + 0.025·Re)`, `β_sL = 0.8 + 0.01·Re`,
+      `λ_sL = (1 − exp(−δ))·(Re/250)^(5/2)`.
+    - Reduces to C_Ls,w at δ→0; approximates unbounded-shear finite-Re lift at
+      large L (paper Fig. 21 matches Kurose–Komori at L=4), including the lift
+      SIGN CHANGE at Re_cr (paper Table VI: L=0.75→198, L=1→126, L=2→75, L=4→59).
+    - Sourced test points: Eq.19 Re→0 ⇒ 5.87; paper Table I DNS at L=0.505:
+      C_L = 2.653 (Re=2), 1.305 (Re=10), 0.3384 (Re=200) — Eq. 19 reproduces
+      these within ~5% (assert accordingly); Eq.28 δ→0 ≡ Eq.19 to 1e-12.
+    - (Noted, out of scope: the paper also provides wall-corrected DRAG
+      correlations, Eqs. 11/13/14 — candidate future `ELDragWallCorrection`.)
   - Model semantics (el_config validation list gains `'saffman'`):
     `saffman` = classic (today's formula, what Tier-2 pins); `saffman_mei` = classic ×
-    Mei factor; `saffman_mei_wall` = classic × Mei × Zeng(EL_WALL_DISTANCE(state(1:3))/d).
+    Mei factor; wall-aware model = Zeng composite per the STRUCTURE DECISION below.
     Delete the `MIN(1,MAX(0,eps_f))` placeholder. Wall distance flows via the module
     cache — no signature changes in el_transfer.
+  - **STRUCTURE DECISION — option A chosen by default (user unavailable; revisit
+    before B2 lands):** `saffman_mei_wall` (name kept for config stability) =
+    Re-based switch: Zeng composite (slip-based Re, wall-normal direction via
+    EL_WALL_DISTANCE + wall-normal from the box face that realizes the min
+    distance) for Re_p ≥ 2; Saffman–Mei for Re_p ≤ 0.5; linear-in-log(Re) blend of
+    the two force vectors for 0.5 < Re_p < 2 (blend documented in the comment as an
+    implementation choice, not literature). Wall distance unset (no
+    EL_SET_DOMAIN_BOX call) ⇒ fall back to saffman_mei with a one-time warning.
+    Outside Zeng validity (Re_p > 200) clamp Re to 200 and warn-once (document).
 - Same commit: flip `tier2_cases/saffman_lift` `ELLiftModel → saffman`; baseline
   invariant (1.27678e-6); rerun case to confirm.
 - Tests: `saffman` reproduces current STOP 48 value; Mei factor tabulated points
-  (Re→0 ⇒ 1; branch continuity at Re=40, 0.0524√40≈0.3314; Re=100,β=0.1 ⇒ 0.16572);
-  wall-factor far/near/unset cases replace STOP 49; switchability of all four names.
+  (Re→0 ⇒ 1; branch continuity at Re=40, 0.0524√40≈0.3314; Re=100,β=0.1 ⇒ 0.16572).
+  Zeng tests (replace STOP 49): Eq.19 Re→0 ⇒ 5.87 within 0.1%; Eq.19 vs paper
+  Table I DNS (L=0.505: 2.653@Re=2, 1.305@Re=10, 0.3384@Re=200) within 6%;
+  Eq.28 δ→0 ≡ Eq.19 to 1e-12; sign change bracket at L=4 (C_Ls>0 at Re=50,
+  C_Ls<0 at Re=70, paper Table VI Re_cr≈59); blend continuity at Re_p=0.5 and 2
+  (force vector continuous to 1e-12); unset-box fallback = saffman_mei exactly;
+  switchability of all four model names.
 
 ## WP-B3 — Fluid-matrix implicit drag sink/source (`ELDragCoupling = explicit | semi_implicit`)
 

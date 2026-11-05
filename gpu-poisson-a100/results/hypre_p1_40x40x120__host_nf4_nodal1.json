@@ -1,0 +1,12 @@
+{
+  "library": "hypre", "hypre_version": "3.1.0", "hypre_release_date": "2026/01/23", "status": "done", "label": "host_nf4_nodal1", "timestamp": "2026-10-02T13:55:46", "host": "tardis", "slurm_job": "147459",
+  "build": {"cuda": true, "mixedint": true, "bigint": false, "unified_memory": false, "sizeof_HYPRE_Int": 4, "sizeof_HYPRE_BigInt": 8},
+  "instance": "/scratch/rmuenste/gpu-poisson/bin/p1_40x40x120", "grid": [40, 40, 120], "h": 0.025, "nu": 768000, "nnz": 79017708, "nnz_per_row": 102.8876,
+  "execution": "host", "assembly": "direct hypre_ParCSRMatrix fill + hypre_ParCSRMatrixMigrate", "mpi_ranks": 1, "storage": "full (ParCSR diag+offd, f64 values, int32 local indices)", "fine_operator_gb": 0.951,
+  "settings": {"solver": "PCG (two-norm, rel. residual)", "tol": 1e-08, "max_iter": 500, "num_functions": 4, "nodal": 1, "nodal_diag": 0, "interp_vectors": 0, "interp_vec_variant": 2, "interp_vec_qmax": 0, "coarsen_type": 8, "interp_type": 6, "relax_type": 18, "num_sweeps": 1, "agg_num_levels": 1, "agg_interp_type": 0, "p_max_elmts": 4, "strong_threshold": 0.250, "max_levels": 25, "max_coarse_size": 9, "keep_transpose": 1, "mod_rap2": 1, "spmv_use_vendor": 1, "spgemm_use_vendor": 0},
+  "jacobi_cg": null,
+  "jacobi_cg_rough_rhs": null,
+  "amg_cg": {"iters": 50, "converged": true, "setup_seconds": 2.472799, "seconds": 7.882099, "seconds_per_iter": 0.157642, "final_relres": 9.682725e-09, "true_relres": 9.682725e-09, "rel_err_vs_x_true": 4.916024e-08, "device_used_gb_after_setup": 0.446, "device_used_gb_after_solve": 0.446, "levels": 5, "operator_complexity": 1.037594, "grid_complexity": 1.022568, "nnz_P_total": 1033352, "nnz_R_total": 0, "hierarchy_gb_est_12B_per_nnz": 0.048, "sizes": [768000, 15236, 1852, 228, 16], "nnz_per_level": [79017708, 2839158, 124648, 6660, 154], "hist_every_10": [1.000000e+00, 2.682699e-03, 1.059983e-04, 4.957418e-06, 2.279895e-07, 9.682725e-09]},
+  "device_memory_total_gb": 85.094, "peak_device_memory_gb": 0.446, "device_memory_samples": [["after HYPRE_Initialize", 0.446], ["matrix on device", 0.446], ["after AMG setup", 0.446], ["after solve", 0.446], ["after AMG destroy", 0.446]],
+  "host_maxrss_gb_rank0": 2.168, "total_seconds": 11.710
+}

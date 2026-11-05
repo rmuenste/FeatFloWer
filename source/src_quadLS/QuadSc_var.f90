@@ -111,6 +111,7 @@ MODULE var_QuadScalar
   LOGICAL :: bPrintParticleCFL = .FALSE. ! Print particle CFL each timestep (SimPar@PrintParticleCFL = Yes)
   LOGICAL :: bPrintParticleReynolds = .FALSE. ! Compute particle Reynolds diagnostics (SimPar@PrintParticleReynolds = Yes)
   LOGICAL :: bPrintParticleState = .FALSE. ! Print DNS_PART_STATE/DNS_PART_FORCE lines each step (SimPar@PrintParticleState = Yes)
+  LOGICAL :: bPeCheckpointOnDump = .FALSE. ! Write a pe checkpoint (<checkpoint_path_>/ffdump.<slot>.peb) at every FF dump (SimPar@PeCheckpointOnDump = Yes); pairs the particle state with the restart dump for segmented runs
   INTEGER :: dns_inside_dofs_local = 0 ! Rank-local FictKNPR inside-DOF count; set collective-free in QuadScalar_FictKnpr, reduced on the rank-symmetric DNS_RESOLUTION path
 
   ! DNS sawtooth watchdog state (DNS_SawtoothCheck): detects the added-mass
@@ -357,13 +358,43 @@ MODULE var_QuadScalar
     INTEGER :: nVertices                    ! Number of cached DOF indices
     INTEGER, ALLOCATABLE :: dofIndices(:)   ! DOF indices (1..ndof)
     INTEGER :: particleID                   ! Particle index for debugging
+    TYPE(tUint64) :: longId                 ! PE system id of particle IP at build time
   END TYPE tVertexCache
 
   TYPE(tVertexCache), ALLOCATABLE :: ParticleVertexCache(:)
 
+  ! Dense local particle index per DOF (serial PE + ENABLE_FBM_ACCELERATION),
+  ! built with ParticleVertexCache in QuadScalar_FictKnpr: FictKNPR_IP(i) = IP
+  ! if FictKNPR_uint64(i) holds the system id of particle IP in the
+  ! getAllParticles ordering, 0 otherwise. Valid only while bKVEL_IndexValid.
+  INTEGER, ALLOCATABLE :: FictKNPR_IP(:)
+  LOGICAL :: bKVEL_IndexValid = .FALSE.
+
   ! Runtime acceleration control flags (read from q2p1_param.dat)
+  ! The HashGrid alpha query defaults to ON only in serial PE mode. In parallel
+  ! PE mode it has not been verified yet, so the baseline linear search is the
+  ! default there (opt-in: SimPar@UseHashGridAccel = Yes). Shadow copies pending
+  ! in PE's HashGrids bodiesToAdd_ were invisible to the query before pe
+  ! 11ec5d3 (PR #42). See fbm_acceleration_usage.md.
+#ifdef PE_SERIAL_MODE
   LOGICAL :: bUseHashGridAccel = .TRUE.
+#else
+  LOGICAL :: bUseHashGridAccel = .FALSE.
+#endif
   LOGICAL :: bUseKVEL_Accel = .TRUE.
+
+  ! Layer-2 FBM classification gate (applications/q2p1_hashgrid_test, built with
+  ! ENABLE_FBM_QUERY_GATE). Which stages run, whether the index is refreshed where a
+  ! stage expects it (No turns every verdict stage into a control - a debugging knob),
+  ! and whether pe prints its per-probe construction report. Quote the list in the deck:
+  ! SimPar@GateStageList = "A1,A2,G,R,E,P".
+  CHARACTER(len=64) :: cGateStageList = 'A1,A2,G,R,E,P'
+  LOGICAL :: bGateRefreshIndex = .TRUE.
+  LOGICAL :: bGateProbeReport = .FALSE.
+
+  ! Fill the multiple-ownership CSR table (module fbm_ownership) during the classification
+  ! sweep: one extra pe query per DOF. Default off, so production classification is untouched.
+  LOGICAL :: bFbmOwnerTable = .FALSE.
 
   ! Statistics for performance monitoring
   TYPE tKVEL_Stats

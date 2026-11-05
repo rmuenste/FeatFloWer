@@ -1,0 +1,3 @@
+mpicc -O2  -fPIC -DHAVE_CONFIG_H -I. -I/scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/include    -I/sfw/cuda/12.6/include         -DHYPRE_TIMING -DHYPRE_FORTRAN -c ij.c
+Building ij ... 
+mpicxx -o ij ij.o -L/scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/lib -lHYPRE -Wl,-rpath,/scratch/rmuenste/gpu-poisson/hypre-src/src/hypre/lib           -lm  -L/sfw/cuda/12.6/lib64 -lcudart -lcusparse -lcublas -lcurand          

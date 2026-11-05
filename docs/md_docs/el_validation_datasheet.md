@@ -1,6 +1,6 @@
 # Euler-Lagrange Validation Expected-vs-Actual Datasheet
 
-Source branch: `feature/euler-lagrange-phase1`
+Source: `feature/euler-lagrange-phase1` (merged to master, PR #27, `63d3bee5`, 2026-07-31); rows last updated in `2f59bdec`.
 
 | suite | case | quantity | expected | expected_source | measured | rel_error | tolerance | verdict |
 | --- | --- | --- | ---: | --- | ---: | ---: | --- | --- |
