@@ -1,7 +1,7 @@
 """Dark-background variant of the d62_jeffery_analysis.py plot (same data, same tool, restyled).
 Usage: python3 jeffery_plot_dark.py AXIS_LOG OUT.png   (gammadot 0.2, tmin 0.5, seams 40.01,80.01 as in the datasheet row)
 """
-import sys, runpy, matplotlib
+import sys, runpy, pathlib, matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 BG, FG, GRID = "#2a2d31", "#f2f2f2", "#5a5f66"
@@ -40,4 +40,6 @@ _st = mf.Figure.suptitle
 mf.Figure.suptitle = lambda self, t, **k: _st(self, t, **{**k, "fontsize": 13})
 log, out = sys.argv[1:3]
 sys.argv = ["d62_jeffery_analysis.py", log, "--gammadot", "0.2", "--tmin", "0.5", "--seams", "40.01,80.01", "--plot", out]
-runpy.run_path("/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/tools/d62_jeffery_analysis.py", run_name="__main__")
+# The analysis tool lives one directory up (tools/); resolve it relative to this file so the
+# script runs from any checkout.
+runpy.run_path(str(pathlib.Path(__file__).resolve().parents[1] / "d62_jeffery_analysis.py"), run_name="__main__")

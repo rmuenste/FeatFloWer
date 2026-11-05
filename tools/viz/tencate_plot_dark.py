@@ -1,7 +1,7 @@
 """Dark-background variant of the compare_tencate.py plot (same data, same tool, restyled).
 Usage: python3 tencate_plot_dark.py RUN_LOG CASE TCREF OUT.png
 """
-import sys, runpy, matplotlib
+import sys, runpy, pathlib, matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from cycler import cycler
@@ -31,4 +31,6 @@ def sf(self, path, *a, **k):
 mf.Figure.savefig = sf
 log, case, tcref, out = sys.argv[1:5]
 sys.argv = ["compare_tencate.py", log, "--case", case, "--tcref", tcref, "--plot", out]
-runpy.run_path("/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/tools/compare_tencate.py", run_name="__main__")
+# The analysis tool lives one directory up (tools/); resolve it relative to this file so the
+# script runs from any checkout.
+runpy.run_path(str(pathlib.Path(__file__).resolve().parents[1] / "compare_tencate.py"), run_name="__main__")

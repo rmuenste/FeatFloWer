@@ -90,7 +90,7 @@ v.Background = [1.0, 1.0, 1.0]
 lut = GetColorTransferFunction("unorm")
 lut.AutomaticRescaleRangeMode = "Never"
 try:
-    ImportPresets(filename="/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/tu-colormaps.json")
+    ImportPresets(filename=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "tu-colormaps.json"))
     lut.ApplyPreset("TU Petrol Sequential", True)
 except Exception as e:
     print("preset fallback:", e)

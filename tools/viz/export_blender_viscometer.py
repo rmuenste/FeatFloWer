@@ -20,11 +20,14 @@ os.makedirs(outdir, exist_ok=True)
 # exact sphere holes from the logged centres (CSV written beside the textures): q = min_i |x - x_i|^2 / R^2
 import numpy as np
 cen = np.loadtxt(os.path.join(outdir, "%s_spheres_t250.csv" % tag), delimiter=",", skiprows=2, usecols=(1, 2, 3))
-np.save(os.path.join("/tmp/rmuenste/claude-3086/-data-warehouse17-rmuenste-code-FF-EL-FeatFloWer/8f6ed8f2-2f2b-4009-9047-7ed8c2680fb3/scratchpad/viz", "_centres_%s.npy" % tag), cen)
-CEN_NPY = os.path.join("/tmp/rmuenste/claude-3086/-data-warehouse17-rmuenste-code-FF-EL-FeatFloWer/8f6ed8f2-2f2b-4009-9047-7ed8c2680fb3/scratchpad/viz", "_centres_%s.npy" % tag)
+# cached beside the textures (the output directory), not in a session-specific scratch folder
+CEN_NPY = os.path.join(outdir, "_centres_%s.npy" % tag)
+np.save(CEN_NPY, cen)
 RSPH = 0.5
 UW = 0.5
-PRESET = "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/tu-colormaps.json"
+# tu-colormaps.json lives at the repository root; resolve it relative to this file so the script
+# runs from any checkout.
+PRESET = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "tu-colormaps.json")
 LEVELS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
 rd = XMLPartitionedUnstructuredGridReader(FileName=[pvtu])

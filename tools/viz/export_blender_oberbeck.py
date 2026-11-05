@@ -19,7 +19,9 @@ outdir, tag = sys.argv[5], sys.argv[6]
 os.makedirs(outdir, exist_ok=True)
 A, B = 0.26456684, 0.13228342
 C = (0.5, 0.5, 0.5)
-PRESET = "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/tu-colormaps.json"
+# tu-colormaps.json lives at the repository root; resolve it relative to this file so the script
+# runs from any checkout.
+PRESET = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "tu-colormaps.json")
 PX = 4000
 
 rd = XMLPartitionedUnstructuredGridReader(FileName=[pvtu])

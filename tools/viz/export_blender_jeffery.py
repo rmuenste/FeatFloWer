@@ -33,7 +33,9 @@ GD, U = 0.2, 0.8
 UREF = GD * A                      # velocity scale of the disturbance field: 0.1
 CMAX = 0.4                         # colour range top for |u'|/(gammadot a); peaks 0.47 (t=90), 0.34 (t=100)
 LEVELS = [0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8]
-PRESET = "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/tu-colormaps.json"
+# tu-colormaps.json lives at the repository root; resolve it relative to this file so the script
+# runs from any checkout.
+PRESET = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "tu-colormaps.json")
 PX = 4000
 
 rd = XMLPartitionedUnstructuredGridReader(FileName=[pvtu])

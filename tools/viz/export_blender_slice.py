@@ -33,7 +33,9 @@ LEVELS = [0.04, 0.08, 0.12, 0.16, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 if BANDS:
     LEVELS = [i / BANDS for i in range(1, BANDS)]   # isolines on the band edges
 NX, NZ = 34, 54                    # arrow grid
-PRESET = "/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/tu-colormaps.json"
+# tu-colormaps.json lives at the repository root; resolve it relative to this file so the script
+# runs from any checkout.
+PRESET = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "tu-colormaps.json")
 
 # ---- data: quarter domain -> full width by reflection across x = 0 ---------
 rd = XMLPartitionedUnstructuredGridReader(FileName=[os.path.join(rundir, "_vtk", "main.%s.pvtu" % frame)])
