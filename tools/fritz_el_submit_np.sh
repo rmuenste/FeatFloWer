@@ -25,6 +25,9 @@ unset SLURM_EXPORT_ENV
 source ~/ff-env-gcc14.sh
 cd $RUNDIR
 mpirun -np $NP $BIN > run_slurm.log 2>&1
-echo "exit=\$?"
+# propagate the solver status to Slurm (a bare echo would report COMPLETED on a failed run)
+status=\$?
+echo "exit=\$status"
+exit "\$status"
 EOT
 sbatch "$RUNDIR/job.sbatch"
