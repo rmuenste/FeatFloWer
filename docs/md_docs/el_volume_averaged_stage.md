@@ -387,7 +387,7 @@ SimPar@ELVAContinuityForm  = advective # advective (default) | conservative   (a
   the deposited first-moment rate at the fixed point; `EL_MEAN_SLIP` keeps the P0 weighting, so
   the two G5 readings differ by the representation and are both reported. Sample deck
   `q2p1_param_VB_bdf2_alpha_cons.dat`; unit test `test_el_va_flux`.
-- Consistency of the advective form (PR #47 review, 2026-11-06): its rate comes from the stored
+- Consistency of the advective form (PR #47 review, 2026-11-05): its rate comes from the stored
   porosity (relaxed by `ELEpsFRelax`, clipped at `ELEpsFMin`) while its gradient is the raw kernel
   field −∇α_p, so `ELEpsFRelax > 0` is refused with the advective continuity form (every certified
   deck sets 0) and clipped cells, reported per pass by the clipping warning, carry an inconsistent

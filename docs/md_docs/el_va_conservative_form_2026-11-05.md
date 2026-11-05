@@ -98,7 +98,7 @@ pass (every worker, with or without particles; the pre-advance pass does not reb
 nobody reads), the flux block and its max on audit steps after the campaign/temporal/weight
 reductions, the eps-weighted sink integral on audit steps. The default path has no new statement
 in its arithmetic or its collective pattern (gates below). Review follow-up (PR #47, finding 1,
-2026-11-06): the readiness check did not cover an empty partition, and the inherited `nel = 0`
+2026-11-05): the readiness check did not cover an empty partition, and the inherited `nel = 0`
 return before the campaign reduction is a hazard of both forms; `EL_PARTICLE_MESH_PASS` now asserts
 `nel > 0` on every worker collectively once per run (one integer reduction at the first pass, abort
 906), and the readiness check includes it.
