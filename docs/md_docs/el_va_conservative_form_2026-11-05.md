@@ -141,9 +141,43 @@ fifteen campaign-slot statements (needs its own bitwise gate), a curved-Q2 share
 real-partition `E013Sum2` test with a particle-free worker, face-trace restriction to the nine
 on-face nodes (performance), tolerance-based stopping.
 
-## Runs
+## Runs (s04 RUNBOOK section 12, datasheet rows `T10_formC_identity_L2`, `T10_formC_identity_L3`, `formC_defaults_bitwise_round1/2`)
 
-<!-- filled in as the smoke, the gates and the T10 ladder complete -->
+Smoke (VB_L2, 20 steps, 11 ranks, one, two and four correctors): the face flux equals the
+divergence of B to 1e-17, Phi and the coordinate identities are 1e-20 on the closed box, the
+unsinked row-1 residual falls 1.1e-3 -> 8.7e-6 -> 1.5e-7 over the predictor and one corrector
+(3.8e-9 with two, 3.8e-12 with four), the eps-weighted sink integral vanishes with it. The smoke
+found the two bugs now covered by the unit test (sgn(det J) in the outward normal, a SIGN misuse).
+
+Default gates (`tools/el_stream_compare.py` with the `EL_VA_*` byte checks): round 1 on dc2221e0
+(VB_L2 defaults, T9a keys, s01 G2_twoway_lev2) and round 2 on 9634485e (the full merged-VA set of
+nine: tier-2 twin, semi-implicit twin, VB_L2 defaults, T9a keys, s01, P4/P5 controls, each against
+its certified log and against the merged-VA runs of e7ae87fc) all bitwise. The six 28-rank cases of
+round 1 were cancelled unstarted when the review-fix rebuild replaced the binary they pointed to;
+never rebuild a binary that queued jobs use.
+
+T10 ladder on the VB twin (T9a decks plus the one key; means over t >= 0.002, settled window
+t >= 0.1 in brackets):
+
+- Level 2, one corrector (T10a): eps_h-weighted G5 0.99994 +- 0.00033 (1.00000 +- 0.00016); the
+  per-step identity `uf_eps_z V = m1rate` holds within 2e-6; m1rate = N V_p |w| to six digits once
+  the kernel deposition has settled (it ramps from 0.9963 over the first ~50 steps, which is all of
+  the 6e-5 in the full-window mean). dt/2 (T10c): 0.99995 (1.00000). Two and four correctors (T10d):
+  0.99994 (1.00000), identity to 2e-7 and 1e-16, row-1 residual 3.8e-9 and 3.8e-12. Uniform sink
+  (T10e): 0.99988 (0.99996), the sink integral 3e-9 and vanishing with the passes as derived.
+- Level 3, one corrector (T10b, 28 ranks, 2 h 26 min): 0.99996 +- 0.00024 (1.00000 +- 0.00001),
+  identity within 3e-6, residual 9.9e-8, sink 8e-10. The advective form had +0.21 % here (T9a) after
+  +0.55 % at level 2; with form C there is no h-dependent bias left.
+- The campaign G5 (P0 eps times the Q2 velocity, `EL_MEAN_SLIP`) reads 0.9987 at level 2 and
+  0.9986 at level 3, against +0.55 % and +0.21 % for T9a: the remaining gap is the representation
+  difference between the P0 storage porosity and its Q1 reconstruction, not a continuity defect; the
+  P0-weighted Q2-rule integral of the same loop gives the same number. Like quantities: CFDEM's
+  face-flux G5 (1.00002 in the peer's column) is to be compared with the eps_h-weighted reading.
+- Phi, S and the three coordinate identities stay at 1e-19 to 1e-17 throughout; `dvol_gap` -2.5e-9
+  (single-precision element volumes).
+- T10a2 (9634485e) reproduces T10a (dc2221e0) to rounding, not bitwise: the review fix moved the
+  row algebra into a pure array-expression routine and the compiler contracts it differently; every
+  reported digit is identical.
 
 ## Adopted from the design consultation (and what was not)
 

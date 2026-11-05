@@ -464,3 +464,75 @@ PR #55 (CI: cgal, clang-serial, gcc-serial, mpi all pass) merged as df8c8a6; its
 Gates for the record under the new pin: tier-2 twin 156017 bitwise, VB_L2 defaults 156018 bitwise vs the
 T4 log with `EL_VA_*` bytes identical to §9 round 3, T9a alpha keys 156019 bitwise vs the T9a log
 (G5 1.0055). The VA worktree now follows pe master; the EL box walls are upstream.
+
+## 12. T10: conservative continuity form (form C) on the VA head (branch feature/el-va-conservative-form, commits dc2221e0 + 9634485e, jobs 157063-157113, 2026-11-05)
+
+Design, derivation and code: `docs/md_docs/el_va_conservative_form_2026-11-05.md` (GPT-6 Astra design
+consultation before coding, Codex + Fable reviews after; `el_va_conservative_form_*_2026-11-05.md`).
+One deck key more than T9, `SimPar@ELVAContinuityForm = conservative` (sample deck
+`q2p1_param_VB_bdf2_alpha_cons.dat`): the constraint div(εu) = −∂ε/∂t is enforced in the weak form of
+all four P1 test functions with shared face fluxes of the Q1-reconstructed transport porosity ε_h, iterated
+through the existing corrector passes. The audit lines `EL_VA_FLUX` (storage rate S, boundary flux Φ,
+ε-weighted sink integral, unsinked residuals) and `EL_VA_FLUXMOM` (coordinate identities, ε_h-weighted and
+P0-weighted superficial velocity, storage first-moment rate m1rate, dvol gap) are new; `vft_g5.py` reads
+the campaign G5 as before (`EL_MEAN_SLIP`, P0 ε), the form-C numbers below come from the new lines
+(`vft_formc.py` in this folder, means over t ≥ 0.002).
+
+Smoke (VB_L2, 20 steps, 11 ranks, S10_* run dirs): the face flux equals the divergence of B to 1e-17
+(`divchk`), Φ and the three identities are 1e-20 on the closed box, the unsinked row-1 residual falls
+1.1e-3 → 8.7e-6 → 1.5e-7 over the predictor and one corrector (3.8e-9 with two, 3.8e-12 with four) and the
+ε-weighted sink integral vanishes (7e-10 → 2e-11 → 3e-14). Two bugs found by the smoke and fixed before
+the ladder: FEAT accepts left-handed hexes (only |det J| is used), so the outward normal needs sgn(det J);
+and a SIGN-intrinsic misuse. Both are covered by the unit test (`test_el_va_flux`, 21 checks).
+
+Ladder (clones of the T9 decks with the key added; `versions.txt` in each run dir; dc2221e0 binary for the
+runs started 12:20, 9634485e for T10a2 and round 2):
+
+| Run | change vs T9a | G5 ε_h-weighted (`uf_eps_z`/MOM), t ≥ 0.002 | same, settled t ≥ 0.1 | G5 campaign (`EL_MEAN_SLIP`, P0 ε) | m1rate/(N V_p\|w\|), t ≥ 0.1 | per-step identity `uf_eps_z` V/m1rate | res1_L1 max | \|sink_eps\| max | wall |
+|---|---|---|---|---|---|---|---|---|---|
+| T10a `T10a_VB_L2_cons_c1` (157089) | form C | 0.99994 ± 0.00033 | 1.00000 ± 0.00016 | 0.9987 ± 0.0003 | 1.000000 | 1 + 2.3e-6 ± 7.9e-6 | 1.5e-7 | 7e-10 | 18 min |
+| T10c `T10c_VB_L2_cons_c1_dt5e-4` (157091) | dt 5e-4, 400 steps | 0.99995 ± 0.00032 | 1.00000 ± 0.00015 | 0.9987 ± 0.0003 | 1.000000 | 1 + 4.4e-7 ± 6.8e-7 | 1.0e-9 | 2e-12 | 30 min |
+| T10d `T10d_VB_L2_cons_c2` (157092) | 2 correctors | 0.99994 ± 0.00034 | 1.00000 ± 0.00016 | 0.9987 | 1.000000 | 1 − 5e-8 ± 1.7e-7 | 3.8e-9 | 2e-11 | 20 min |
+| T10d `T10d_VB_L2_cons_c4` (157093) | 4 correctors | 0.99994 ± 0.00034 | 1.00000 ± 0.00016 | 0.9987 | 1.000000 | 1 ± 8e-17 | 3.8e-12 | 3e-14 | 29 min |
+| T10e `T10e_VB_L2_cons_c1_uniform` (157094) | uniform sink | 0.99988 ± 0.00065 | 0.99996 ± 0.00016 | 0.9986 ± 0.0006 | 1.000000 | 1 − 6.8e-5 ± 4.1e-4 | 4.3e-7 | 2.8e-9 | 21 min |
+| T10b `T10b_VB_L3_cons_c1` (157090) | level 3 | 0.99996 ± 0.00024 | 1.00000 ± 0.00001 | 0.9986 ± 0.0002 | 1.000000 | 1 + 2.7e-6 ± 1.7e-5 | 9.9e-8 | 8e-10 | 146 min |
+| T10a2 `T10a2_VB_L2_cons_c1_fixbin` (157113) | T10a with 9634485e | 0.99994 ± 0.00033 | 1.00000 ± 0.00016 | 0.9987 ± 0.0003 | 1.000000 | 1 + 2.3e-6 ± 7.9e-6 | 1.5e-7 | 7e-10 | 16 min |
+
+- **The identity closes.** With form C the ε_h-weighted return flow equals the deposited first-moment
+  rate step by step (`uf_eps_z` V/m1rate = 1 within 2e-6 with one corrector, 1e-16 with four), and
+  once the kernel deposition has settled (t ≥ 0.1; it ramps from 0.9963 over the first ~50 steps, which
+  is all the 6e-5 of the t ≥ 0.002 mean) m1rate equals N V_p|w| to six digits, so the settled
+  ε_h-weighted G5 is 1.00000 ± 0.00016 at level 2, independent of dt (T10c), of the corrector count
+  beyond one (T10d: the residual contracts by 40-1000 per pass, G5 unchanged to 1e-5) and of the sink
+  mode (T10e: the sink vanishes at the fixed point, as derived; its spread is larger only because the
+  uniform sink converges more slowly within the single pass).
+- **Level 3 closes the same way** (T10b, 2 h 26 min on 28 ranks, 200 steps, no NaN): ε_h-weighted G5
+  0.99996 ± 0.00024, settled 1.00000 ± 0.00001 (the level-3 scatter is 16 times smaller than at level 2),
+  identity within 3e-6, residual 9.9e-8, sink 8e-10. T9a had +0.21 % here with the advective form; the
+  h-dependence of that bias is gone, as the derivation requires.
+- **Like quantities.** The campaign G5 (P0 ε times the Q2 velocity) reads 0.9987 (−0.13 %), against
+  +0.55 % for T9a: the remaining gap between the two readings is the representation difference between
+  the P0 storage porosity and its Q1 reconstruction at level 2, not a continuity defect (the P0-weighted
+  Q2-rule integral of the same loop gives 0.99867). Compare CFDEM's face-flux G5 (1.00002) with the
+  ε_h-weighted number. At level 3 the campaign G5 reads 0.9986 (−0.14 %): the representation gap
+  between the P0 and the Q1 weighting of the same field does not shrink from level 2 to level 3 on
+  this ladder; why it is h-independent is not explained here (follow-up, together with the
+  campaign-slot dedup).
+- Phi, S and the coordinate identities stay at 1e-19 to 1e-17 throughout (closed box, no clipping,
+  relaxation 0); `dvol_gap` −2.5e-9 (single-precision element volumes).
+- T10a2 (review-fix binary 9634485e) reproduces T10a to rounding, not bitwise: the residual rows moved
+  into a pure array-expression routine and the compiler contracts it differently, so the conservative
+  path differs in the last bit (worst relative difference 5e-7 in a 1e-13 slip component, 1e-21 in
+  the identity residuals, m1rate now carries the Q_z term); every G5 digit, residual norm and sink
+  value is identical. The default path is unaffected (round 2 below).
+
+Default gates (`tools/el_stream_compare.py`, every certified configuration of the merged-VA set):
+round 1 with dc2221e0 = VB_L2 defaults vs the T4 log (157086), T9a keys vs the T9a log (157087,
+`EL_VA_*` bytes identical), s01 G2_twoway_lev2 (157088) bitwise; the six 28-rank cases of round 1 were
+cancelled unstarted when the review-fix rebuild replaced the binary and resubmitted as round 2 with
+9634485e (157104-157112, `runs/coupling_p4p5/formc_round2`): tier-2 twin vs the certified reference,
+semi-implicit twin vs the e0164ff5 run, VB_L2 defaults vs the T4 log, T9a keys vs the T9a log (`EL_VA_*`
+bytes identical, 600/600/600/600/400 lines), s01 G2_twoway_lev2 vs its log, P4 explicit and P5 No vs the
+pre-fix runs, and all nine vs the merged-VA runs of e7ae87fc including EL_FLUID_SOURCE: all bitwise.
+Lesson (repeated): never rebuild a binary that queued jobs point to; the T1/T2 frozen-copy rule (§6)
+applies to every rebuild.
