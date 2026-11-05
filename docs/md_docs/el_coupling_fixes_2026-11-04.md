@@ -59,6 +59,25 @@ E1 deck does.
 
 The EL_FLUID_SOURCE stream is new (absent from every reference) and is compared by the tool from now on.
 
+## Merge into feature/el-volume-averaged (2026-11-04)
+
+`fix/el-coupling-p4-p5` was fast-forwarded into `feature/el-volume-averaged` (head fc4fa9c2; the
+merge base was the branch head e0164ff5, so the tree is the reviewed one) and `build-va` rebuilt
+from it (unit test `test_el_kernel_forces` passed). The nine gate runs were restaged from
+`runs/coupling_p4p5/after_fix2` and rerun with the build-va binary
+(`runs/coupling_p4p5/merged_va`, jobs 156850-156858, `versions.txt` HEAD fc4fa9c2, dirty 0):
+
+| Run | reference | result |
+|---|---|---|
+| tier-2 twin, semi-implicit twin, VB_L2 defaults, T9a alpha keys, s01 two-way | the certified logs of the table above | bitwise, all common streams |
+| P4 explicit, P5 feedback No | the e0164ff5 runs before the fix | bitwise |
+| all nine | the df55a275 runs (`after_fix2`), including EL_FLUID_SOURCE | bitwise |
+| T9a EL_VA_SOURCE/MOMENT/TSRC/COMPAT/RESIDUAL | T9a log | byte-identical (600/600/600/600/400 lines) |
+
+Controls reproduced: P5 feedback Yes uf_super_z 8.1997e-6 (No: 8.1455e-6); P4 semi-implicit
+4.9651e-5 (explicit 4.9635e-5); EL_FLUID_SOURCE `applied= yes` in all four. The fix branch is now
+part of the VA branch; the `FeatFloWer-va-coupling` worktree is superseded.
+
 ## Follow-ups
 - Extend `EL_FLUID_PAIR` (el_diagnostics.f90) by the implicit drag operator, then lift the
   ELMomentumFix guard.
