@@ -803,6 +803,8 @@ integer(c_short), dimension(8) :: baseline_bytes
 ! from the path production uses, and under the gate from the exhaustive path too
 integer(c_int) :: nOwnA, nOwnB
 integer(c_long_long) :: ownA(FBM_OWN_MAX), ownB(FBM_OWN_MAX)
+integer :: nOwnCmp
+logical :: bOwnSetDiff
 
 #ifdef VERIFY_HASHGRID
 ! Variables for verification comparison
@@ -897,7 +899,16 @@ integer(kind=8) :: timing_start, timing_end, timing_rate, timing_max
    ! path sees and the other does not; only the full list shows that.
    if (bFbmOwnerTable) then
      call pointOwners(point, FBM_OWN_MAX, ownB, nOwnB)
-     if (nOwnA /= nOwnB .or. any(ownA(1:min(int(nOwnA),FBM_OWN_MAX)) /= ownB(1:min(int(nOwnB),FBM_OWN_MAX)))) then
+     ! Counts first, elements only when the counts agree: Fortran does not short-circuit
+     ! .or., and comparing sections of different lengths is a shape mismatch (a crash under
+     ! runtime checks) exactly on the discrepancy this gate exists to report.
+     if (nOwnA /= nOwnB) then
+       bOwnSetDiff = .true.
+     else
+       nOwnCmp = min(int(nOwnA), FBM_OWN_MAX)
+       bOwnSetDiff = any(ownA(1:nOwnCmp) /= ownB(1:nOwnCmp))
+     end if
+     if (bOwnSetDiff) then
        fbm_gate_set_viol = fbm_gate_set_viol + 1
        if (fbm_gate_reported < fbm_gate_max_report) then
          fbm_gate_reported = fbm_gate_reported + 1
