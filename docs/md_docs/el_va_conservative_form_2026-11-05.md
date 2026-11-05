@@ -193,3 +193,24 @@ box first, GAMMA = 0; fixed corrector counts with the convergence read from the 
 residual. Not done here (follow-ups): a tolerance-based stopping key with a master-communicated
 decision; open and periodic boundaries (the z-moment seam term); double-precision storage
 volumes; velocity-coefficient caches; the full operator `F H` in the pressure matrix.
+
+## Merge into feature/el-volume-averaged (2026-11-05)
+
+`feature/el-va-conservative-form` was fast-forwarded into `feature/el-volume-averaged` (head
+dadef816; the merge base was the branch head e7ae87fc, so the tree is the reviewed one) and
+`build-va` rebuilt from it (`test_el_kernel_forces`, `test_el_va_flux`, `test_el_transfer` pass).
+The nine gate runs of the coupling-fix merge were restaged from `runs/coupling_p4p5/after_fix2` and
+rerun with the build-va binary (`runs/coupling_p4p5/merged_va_formc`, jobs 157172-157180,
+`versions.txt` HEAD dadef816, pe df8c8a6, dirty 0):
+
+| Run | reference | result |
+|---|---|---|
+| tier-2 twin, semi-implicit twin, VB_L2 defaults, T9a alpha keys, s01 two-way | the certified logs | bitwise, all common streams |
+| P4 explicit, P5 feedback No | the e0164ff5 runs before the coupling fix | bitwise |
+| all nine | the df55a275 fix-branch runs (`after_fix2`), including EL_FLUID_SOURCE | bitwise |
+| all nine | the e7ae87fc merged-VA runs (`merged_va`, jobs 156850-156858) | bitwise |
+
+T9a `EL_VA_SOURCE/MOMENT/TSRC/COMPAT/RESIDUAL` bytes identical (600/600/600/600/400 lines); no NaN,
+all nine finished. The VA branch therefore carries both the coupling fixes and the switchable
+conservative form with the default path unchanged in every certified configuration.
+
