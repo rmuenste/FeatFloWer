@@ -285,9 +285,11 @@ CONTAINS
 
     IF (PRESENT(int_g_out)) int_g_out = 0.0d0
     IF (myid.EQ.master) RETURN
-    ! The conservative form validates the readiness of every worker collectively before the
-    ! rank-local returns below (inherited from the campaign code, uniform in practice), so
-    ! that an unready worker stops the run coherently instead of leaving a collective.
+    ! The rank-local returns below are inherited from the campaign code and are uniform in
+    ! practice: nel > 0 on every worker is asserted collectively once per run in
+    ! EL_PARTICLE_MESH_PASS (both forms), and the conservative form additionally validates
+    ! the readiness of every worker collectively here, so that an unready worker stops the
+    ! run coherently instead of leaving a collective.
     conservative = (EL_VA_FORM_ID().EQ.FORM_CONSERVATIVE)
     IF (conservative) CALL EL_VA_CONSERVATIVE_READINESS(defp, mesh, ilev, dt, mfile)
     IF (.NOT.EL_VOLUME_AVERAGED_ACTIVE()) RETURN
@@ -505,7 +507,7 @@ CONTAINS
 
     nel = mesh%level(ilev)%nel
     ndof = mesh%level(ilev)%nvt + mesh%level(ilev)%net + mesh%level(ilev)%nat + nel
-    ready = EL_VOLUME_AVERAGED_ACTIVE() .AND. dt.GT.0.0d0 .AND. &
+    ready = EL_VOLUME_AVERAGED_ACTIVE() .AND. dt.GT.0.0d0 .AND. nel.GT.0 .AND. &
             ALLOCATED(el_field_data%epsilon_transport_q2)
     IF (ready) ready = SIZE(el_field_data%epsilon_transport_q2).GE.ndof .AND. &
                        SIZE(el_field_data%deps_f_dt).GE.nel .AND. &
@@ -514,7 +516,7 @@ CONTAINS
     CALL MPI_Allreduce(ready, all_ready, 1, MPI_LOGICAL, MPI_LAND, MPI_COMM_SUBS, ierr)
     IF (.NOT.all_ready) THEN
       IF (myid.EQ.showid) THEN
-        WRITE(*,'(A)') 'Fatal: a worker is not ready for ELVAContinuityForm = conservative (EL fields, transport porosity, rate or pressure arrays missing or undersized).'
+        WRITE(*,'(A)') 'Fatal: a worker is not ready for ELVAContinuityForm = conservative (empty partition, or EL fields, transport porosity, rate or pressure arrays missing or undersized).'
         WRITE(mfile,'(A)') 'Fatal: a worker is not ready for ELVAContinuityForm = conservative.'
       END IF
       CALL MPI_Abort(MPI_COMM_SUBS, 908, ierr)

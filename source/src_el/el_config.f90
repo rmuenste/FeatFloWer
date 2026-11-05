@@ -107,6 +107,10 @@ MODULE EL_CONFIG
   !   Spatial form of the continuity constraint (EL_VA_CONTINUITY):
   !   'advective'    (default) div u = -(d eps/dt + u.grad eps)/eps per element, the advective
   !                  term from the vertex-mean velocity and the kernel gradient (campaign code).
+  !                  The rate comes from the stored porosity, the gradient from the raw kernel
+  !                  field -grad alpha_p: the two agree only without relaxation (ELEpsFRelax =
+  !                  0, enforced) and outside clipped cells (ELEpsFMin; clipping is reported
+  !                  per pass, the advective term is then inconsistent there).
   !   'conservative' div(eps u) = -d eps/dt in the weak form of all four P1 pressure test
   !                  functions, with shared face fluxes of a continuous (Q1-reconstructed)
   !                  transport porosity (EL_VA_FLUX): the net source telescopes to the boundary
@@ -341,6 +345,16 @@ CONTAINS
         WRITE(*,*) 'ELVAContinuityForm = conservative is not supported with ELMesoFilter = Yes.'
         STOP 1
       END IF
+    END IF
+    ! The advective form takes the rate from the stored (relaxed, clipped) porosity and the
+    ! gradient from the raw kernel field; with relaxation they describe different fields.
+    ! The conservative form reconstructs its transport porosity from the stored field and is
+    ! consistent with both relaxation and clipping.
+    IF (TRIM(el_volume_averaged).EQ.'continuity' .AND. &
+        TRIM(el_va_continuity_form).EQ.'advective' .AND. el_eps_f_relax.GT.0.0d0) THEN
+      WRITE(*,*) 'ELVolumeAveraged = continuity with ELVAContinuityForm = advective needs ', &
+                 'ELEpsFRelax = 0 (the advective term uses the unrelaxed kernel gradient).'
+      STOP 1
     END IF
 
     IF (el_tavg_window.LE.0.0d0 .OR. el_tavg_window.GT.1.0d0) THEN

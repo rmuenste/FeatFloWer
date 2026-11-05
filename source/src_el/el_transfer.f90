@@ -68,6 +68,10 @@ MODULE EL_TRANSFER
   ! Q2 dof layout of the EL coupling level verified for the flux kernel (once per run; the
   ! mesh does not change during an EL run)
   LOGICAL, SAVE :: layout_verified = .FALSE.
+  ! Every worker owns at least one element on the coupling level, asserted collectively once
+  ! per run (EL_PARTICLE_MESH_PASS): the EL stage reduces over MPI_COMM_SUBS after rank-local
+  ! early returns that an empty worker would take, leaving the others in a collective.
+  LOGICAL, SAVE :: partition_verified = .FALSE.
 
 CONTAINS
 
@@ -128,7 +132,7 @@ CONTAINS
     REAL*8 :: global_grav_buoy(3), local_particle_total(3), global_particle_total(3)
     REAL*8 :: local_rhs(3), global_rhs(3), feedback_residual(3)
     REAL*8 :: feedback_residual_norm, volume_rel_error
-    INTEGER :: n_owned, n_records, i, ierr, ndof, nel
+    INTEGER :: n_owned, n_records, i, ierr, ndof, nel, nel_min
     INTEGER :: local_record_rank, global_record_ranks
     INTEGER :: global_records, max_records
     INTEGER :: saved_mg_ilev
@@ -158,6 +162,21 @@ CONTAINS
     ndof = mesh%level(ilev)%nvt + mesh%level(ilev)%net + &
            mesh%level(ilev)%nat + nel
     CALL EL_ENSURE_FIELDS(nel, ndof)
+
+    ! Partition invariant (module header): the first pass checks it collectively before any
+    ! rank-local return of this module or of EL_VOLUME_AVERAGED can be reached, so that an
+    ! empty worker stops the run coherently instead of deadlocking it.
+    IF (.NOT.partition_verified) THEN
+      CALL MPI_Allreduce(nel, nel_min, 1, MPI_INTEGER, MPI_MIN, MPI_COMM_SUBS, ierr)
+      IF (nel_min.LE.0) THEN
+        IF (myid.EQ.showid) THEN
+          WRITE(*,'(A)') 'Fatal: a worker owns no element on the EL coupling level; the E-L transfer and the volume-averaged continuity source need a non-empty partition on every worker.'
+          WRITE(mfile,'(A)') 'Fatal: a worker owns no element on the EL coupling level.'
+        END IF
+        CALL MPI_Abort(MPI_COMM_SUBS, 906, ierr)
+      END IF
+      partition_verified = .TRUE.
+    END IF
 
     ! Pin the global /TRIAD/ mesh offsets to the EL coupling level for the whole
     ! pass. NDFGL (inside EL_INTEGRATE_PARTICLE and EL_DEPOSIT_PARTICLE) builds Q2

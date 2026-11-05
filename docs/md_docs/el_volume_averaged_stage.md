@@ -387,6 +387,16 @@ SimPar@ELVAContinuityForm  = advective # advective (default) | conservative   (a
   the deposited first-moment rate at the fixed point; `EL_MEAN_SLIP` keeps the P0 weighting, so
   the two G5 readings differ by the representation and are both reported. Sample deck
   `q2p1_param_VB_bdf2_alpha_cons.dat`; unit test `test_el_va_flux`.
+- Consistency of the advective form (PR #47 review, 2026-11-06): its rate comes from the stored
+  porosity (relaxed by `ELEpsFRelax`, clipped at `ELEpsFMin`) while its gradient is the raw kernel
+  field −∇α_p, so `ELEpsFRelax > 0` is refused with the advective continuity form (every certified
+  deck sets 0) and clipped cells, reported per pass by the clipping warning, carry an inconsistent
+  advective term there. The conservative form reconstructs ε_h from the stored field and is
+  consistent with both.
+- Partition invariant (same review): every worker must own at least one element on the coupling
+  level; the EL stage reduces over `MPI_COMM_SUBS` after rank-local early returns that an empty
+  worker would take. `EL_PARTICLE_MESH_PASS` asserts it collectively once per run (abort 906),
+  before any such return of either continuity form can be reached.
 - Module layout (2026-10-30, extended 2026-11-05): the worker reductions use named slots (`C_*`
   core block, the campaign reduction; `T_*` temporal block on audit steps; `W_*` weight block in
   the weighted sink modes; `F_*` flux block under the conservative form on audit steps), all audit
