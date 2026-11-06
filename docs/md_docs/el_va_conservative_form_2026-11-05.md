@@ -176,7 +176,11 @@ t >= 0.1 in brackets):
   0.9986 at level 3, against +0.55 % and +0.21 % for T9a: the remaining gap is the representation
   difference between the P0 storage porosity and its Q1 reconstruction, not a continuity defect; the
   P0-weighted Q2-rule integral of the same loop gives the same number. Like quantities: CFDEM's
-  face-flux G5 (1.00002 in the peer's column) is to be compared with the eps_h-weighted reading.
+  face-flux G5 is compared with the eps_h-weighted reading over the same window (spec 04 section 8
+  gate): t >= 0.002 gives 0.99992 (L2) and 0.99994 (L3) against CFDEM's 1.00002; t >= 0.1 gives
+  1.0005 +- 0.009 at both levels against CFDEM's settled 0.99951 (block standard error 0.0086), so
+  the CFDEM noise dominates there. A settled FeatFloWer value must not be divided by CFDEM's
+  full-window value (the 0.99998 quoted in the PR #47 text was that mistake, corrected 2026-11-06).
 - Phi, S and the three coordinate identities stay at 1e-19 to 1e-17 throughout; `dvol_gap` -2.5e-9
   (single-precision element volumes).
 - T10a2 (9634485e) reproduces T10a (dc2221e0) to rounding, not bitwise: the review fix moved the

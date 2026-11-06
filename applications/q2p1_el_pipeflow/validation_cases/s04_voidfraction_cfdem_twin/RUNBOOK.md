@@ -513,8 +513,13 @@ runs started 12:20, 9634485e for T10a2 and round 2):
 - **Like quantities.** The campaign G5 (P0 ε times the Q2 velocity) reads 0.9987 (−0.13 %), against
   +0.55 % for T9a: the remaining gap between the two readings is the representation difference between
   the P0 storage porosity and its Q1 reconstruction at level 2, not a continuity defect (the P0-weighted
-  Q2-rule integral of the same loop gives 0.99867). Compare CFDEM's face-flux G5 (1.00002) with the
-  ε_h-weighted number. At level 3 the campaign G5 reads 0.9986 (−0.14 %): the representation gap
+  Q2-rule integral of the same loop gives 0.99867). Compare CFDEM's face-flux G5 with the
+  ε_h-weighted number over the same window (spec 04 §8 gate, reworded 2026-11-06): over t ≥ 0.002
+  CFDEM reads 1.00002, so the twin ratios are 0.99992 (L2) and 0.99994 (L3); over t ≥ 0.1 CFDEM's
+  run 90 reads 0.99951 with a block-10 standard error of 0.0086 (101 writes), so the settled ratio is
+  1.0005 ± 0.009 at both levels and the CFDEM write-to-write noise dominates. (An earlier message and
+  the PR #47 text quoted 0.99998, which divided our settled value by CFDEM's full-window value; the
+  windows must match.) At level 3 the campaign G5 reads 0.9986 (−0.14 %): the representation gap
   between the P0 and the Q1 weighting of the same field does not shrink from level 2 to level 3 on
   this ladder; why it is h-independent is not explained here (follow-up, together with the
   campaign-slot dedup).
