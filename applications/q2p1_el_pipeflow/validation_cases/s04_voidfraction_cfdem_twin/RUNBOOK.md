@@ -541,3 +541,43 @@ bytes identical, 600/600/600/600/400 lines), s01 G2_twoway_lev2 vs its log, P4 e
 pre-fix runs, and all nine vs the merged-VA runs of e7ae87fc including EL_FLUID_SOURCE: all bitwise.
 Lesson (repeated): never rebuild a binary that queued jobs point to; the T1/T2 frozen-copy rule (§6)
 applies to every rebuild.
+
+## 13. M02: the shipped VB form-C case rerun with every-step output for movie production (jobs 157458/157464, 2026-11-06)
+
+Deck = the shipped sample deck `q2p1_param_VB_bdf2_alpha_cons.dat` (level 2, 200 steps of 1 ms,
+BDF2 + 1 corrector + alpha + conservative; diffed identical before the edits) with three output-only
+changes: `SimPar@OutputFreq = 0.00099d0` (one fluid frame per step, see below), `ELParticleLogFreq = 1`,
+and pe's own sphere writer on in `example.json` (`vtk_ true`, `visspacing_ 1`, output under
+`paraview/`). Binary `build-va` at 369d512b (the PR #47 head; the EL sources are identical to master
+f0340380), pe df8c8a6, `versions.txt` in the run dir. Run `runs/vft04/M02_VB_L2_cons_movie`, job
+157464, 11 ranks, 11 min 20 s, no NaN, finished.
+
+Output-only changes must not move the solution: all common streams bitwise vs T10a2 (job 157113),
+`EL_VA_FLUX`, `EL_VA_FLUXMOM` and `EL_MEAN_SLIP` bytes identical.
+
+What the run dir holds for ParaView:
+
+| Series | Files | Frames | Size |
+|---|---|---|---|
+| fluid: Pressure_V, Velocity, ELAlphaP, ELEpsilonF, ELDepsFDt, ELReactionForce (level 2, Q2) | `_vtk/main.<k>.pvtu` + 10 `res_node_<rank>.<k>.vtu` pieces per frame; `_vtk/main.pvd` time series from `el_fluid_pvd.py --dt 0.001` | 200, t = 0.001 .. 0.200 | 6.4 GB |
+| particles from the EL trajectory logs (id, radius 1.5 mm, velocity, force) | `_vtk/particles_<k>.vtp` + `_vtk/particles.pvd` from `el_particles_to_vtp.py` (per-rank logs merged, the ~10 boundary-straddling particles that two ranks log are deduplicated by id) | 200, t = 0.001 .. 0.200 | 39 MB |
+| particles from pe (spheres incl. shadow copies, per process) | `paraview/<rank>/spheres<n>.vtu`, `paraview/collector.pvd` (pe step index as time) | 200 | 58 MB |
+
+Frame-to-time mapping: the fluid frame index is the step counter minus one (`postprocessing_app`,
+`iXgmv = istep_ns - 1`), so frame k is the state after step k+1, t = (k+1) ms; the particle series
+carry the time themselves. `main.pvd` and `particles.pvd` therefore align frame by frame.
+
+**Finding (framework, recorded as a follow-up, not fixed):** the first attempt M01 (job 157458,
+`OutputFreq = 0.001 = TimeStep`) wrote 199 frames, `main.00004.pvtu` missing. The output clock
+`dout` is single precision in every q2p1 application (`REAL :: dout`) and in the shared
+`postprocessing_app` (`real, intent(inout) :: dout`, `source/postprocessing/solution_io.f90`),
+accumulated as `dout + dtgmv` and tested as `dout .LE. timens + 1e-10` against the double-precision
+time: after five single-precision additions of 1e-3 it exceeds the time by more than 1e-10 and step
+5 writes nothing (the trigger writes at most one frame per step, so the skip is not caught up).
+With `OutputFreq` just below the step (0.00099) the clock lags the time at every step and each step
+writes exactly one frame (M02: 200 frames, gap-free; the frames common to M01 and M02 are byte-identical).
+The proper fix is `REAL*8` for `dout` in every application and the shared routine (output-only, but
+touches all apps, so it needs its own check across them). `el_fluid_pvd.py` refuses a gapped
+numbering so that a skipped step cannot silently shift a movie's clock. M01 is kept as the evidence
+(its `_vtk` is another 6.4 GB; delete when no longer needed).
+
