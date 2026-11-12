@@ -603,6 +603,7 @@ END SUBROUTINE get_global_domain_extents
                         el_meso_filter, el_meso_filter_bins, &
                         el_write_diagnostics, el_momentum_audit_freq, el_particle_log_freq, &
                         el_tavg_window, &
+                        el_inlet_u0, el_inlet_u1, el_inlet_tramp, &
                         EL_VALIDATE_CONFIG, &
                         EL_PRINT_CONFIG
 #endif
@@ -852,6 +853,12 @@ END SUBROUTINE get_global_domain_extents
          END IF
        CASE ("ELTAvgWindow")
          READ(string(iEq+1:),*) el_tavg_window
+       CASE ("ELInletVelocityStart")
+         READ(string(iEq+1:),*) el_inlet_u0
+       CASE ("ELInletVelocityEnd")
+         READ(string(iEq+1:),*) el_inlet_u1
+       CASE ("ELInletRampTime")
+         READ(string(iEq+1:),*) el_inlet_tramp
 #endif
        CASE ("MinTimeAdapt")
          READ(string(iEq+1:),*) DTMIN

@@ -123,6 +123,15 @@ MODULE EL_CONFIG
   ! 1 conservative).
   CHARACTER(LEN=12), PARAMETER :: el_va_form_names(0:1) = (/ 'advective   ', 'conservative' /)
   REAL*8 :: el_tavg_window = 0.5d0
+  ! Uniform ramped inlet (boundary type Inflow975, GetVeloBCVal): axial velocity normal to a
+  ! z-plane inlet, ramped linearly from ELInletVelocityStart to ELInletVelocityEnd over
+  ! ELInletRampTime and constant afterwards (EL_INLET_VELOCITY). The value is the superficial
+  ! velocity when the inlet plane is particle-free (CFDEM ErgunTestMPI twin, case 05). All
+  ! three default to an inert inlet (0, 0, ramp 1 s); a mesh that carries Inflow975 with both
+  ! velocities zero is refused, because it would silently be a no-slip floor.
+  REAL*8 :: el_inlet_u0 = 0.0d0
+  REAL*8 :: el_inlet_u1 = 0.0d0
+  REAL*8 :: el_inlet_tramp = 1.0d0
   ! Mesoscale lane-mode filter for periodic settling boxes: each step,
   ! subtract from u_z its zero-mean x-binned and y-binned plane averages
   ! (the gravest "lane" modes of the two-way-coupled concentration
@@ -357,6 +366,11 @@ CONTAINS
       STOP 1
     END IF
 
+    IF (el_inlet_tramp.LE.0.0d0) THEN
+      WRITE(*,*) 'ELInletRampTime must be positive.'
+      STOP 1
+    END IF
+
     IF (el_tavg_window.LE.0.0d0 .OR. el_tavg_window.GT.1.0d0) THEN
       WRITE(*,*) 'ELTAvgWindow must be in (0,1].'
       STOP 1
@@ -401,6 +415,7 @@ CONTAINS
     WRITE(mfile,'(A,A)') 'EL VA compatibility       = ', TRIM(el_va_compatibility)
     WRITE(mfile,'(A,A)') 'EL VA continuity form     = ', TRIM(el_va_continuity_form)
     WRITE(mfile,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
+    WRITE(mfile,'(A,3ES14.6)') 'EL inlet u0 / u1 / ramp   = ', el_inlet_u0, el_inlet_u1, el_inlet_tramp
 
     IF (mterm.NE.mfile) THEN
       WRITE(mterm,'(A,A)') 'EL kernel                 = ', TRIM(el_kernel)
@@ -436,6 +451,7 @@ CONTAINS
       WRITE(mterm,'(A,A)') 'EL VA compatibility       = ', TRIM(el_va_compatibility)
       WRITE(mterm,'(A,A)') 'EL VA continuity form     = ', TRIM(el_va_continuity_form)
       WRITE(mterm,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
+      WRITE(mterm,'(A,3ES14.6)') 'EL inlet u0 / u1 / ramp   = ', el_inlet_u0, el_inlet_u1, el_inlet_tramp
     END IF
 
   END SUBROUTINE EL_PRINT_CONFIG
@@ -467,6 +483,18 @@ CONTAINS
   ! 1 conservative; the deck is validated against the same table). Deck-only, identical on
   ! every rank; the single lookup behind EL_VA_CONSERVATIVE_FORM and the form dispatch of
   ! EL_VA_CONTINUITY.
+  ! Inlet velocity of boundary type Inflow975 at time t (end-of-step time of the caller).
+  PURE REAL*8 FUNCTION EL_INLET_VELOCITY(t)
+    REAL*8, INTENT(IN) :: t
+    EL_INLET_VELOCITY = el_inlet_u0 + (el_inlet_u1 - el_inlet_u0)* &
+                        MIN(1.0d0, MAX(0.0d0, t)/el_inlet_tramp)
+  END FUNCTION EL_INLET_VELOCITY
+
+  ! True when the deck configures the Inflow975 inlet (either velocity nonzero).
+  PURE LOGICAL FUNCTION EL_INLET_CONFIGURED()
+    EL_INLET_CONFIGURED = (el_inlet_u0.NE.0.0d0 .OR. el_inlet_u1.NE.0.0d0)
+  END FUNCTION EL_INLET_CONFIGURED
+
   INTEGER FUNCTION EL_VA_FORM_ID()
     INTEGER :: m
     EL_VA_FORM_ID = 0
