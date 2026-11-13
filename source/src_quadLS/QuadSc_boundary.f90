@@ -614,6 +614,7 @@ END SUBROUTINE Boundary_QuadScalar_Def
 !=========================================================================
 SUBROUTINE Boundary_QuadScalar_Val()
   use fbm, only: fbm_velBCUpdate
+  USE EL_FIELDS, ONLY: EL_INLET_INTERSTITIAL_FACTOR
   implicit none
   REAL*8 PX,PY,PZ,DAUX
   INTEGER i,inpr,finpr,minpr,inprU,inprV,inprW,ndof,iType
@@ -635,6 +636,9 @@ SUBROUTINE Boundary_QuadScalar_Val()
       inpr = 1
       iType = myBoundary%iInflow(i)
       CALL GetVeloBCVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i),iType,timens)
+      ! EL superficial inlet (type 975): the deck value is a superficial velocity, the solver
+      ! velocity under the volume-averaged continuity stage is interstitial (factor 1 otherwise)
+      IF (iType.EQ.975) QuadSc%valW(i) = QuadSc%valW(i)*EL_INLET_INTERSTITIAL_FACTOR(i)
     END IF
     finpr = FictKNPR(i)
     minpr = MixerKNPR(i)

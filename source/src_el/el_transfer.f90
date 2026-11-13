@@ -25,7 +25,7 @@ MODULE EL_TRANSFER
                        el_apply_particle_forces, el_apply_fluid_feedback, &
                        el_write_diagnostics, el_momentum_audit_freq, &
                        el_drag_semi_implicit, el_pressure_feedback, el_prescribed_field, &
-                       EL_VA_CONSERVATIVE_FORM
+                       EL_VA_CONSERVATIVE_FORM, EL_INLET_SUPERFICIAL
   USE EL_VA_FLUX, ONLY: EL_VA_RECONSTRUCT_EPS_LOCAL, EL_VA_EMBED_Q1_IN_Q2, &
                         EL_VA_CHECK_DOF_LAYOUT
   USE EL_FORCES, ONLY: tElForceResult, EL_COMPUTE_PARTICLE_FORCES, &
@@ -386,9 +386,11 @@ CONTAINS
     ! takes the collective, with or without particles; only the post-advance pass builds it
     ! (eps^{n+1}, the field the fluid step reads; a pre-advance build would be overwritten).
     ! The first build verifies the Q2 dof layout the flux kernel assumes, rank-uniformly.
-    IF (EL_VA_CONSERVATIVE_FORM() .AND. .NOT.advance_history) THEN
+    ! The superficial inlet (EL_INLET_SUPERFICIAL, deck-only) reads the same nodal field on
+    ! the inlet plane; it needs no layout check (values only, no flux kernel).
+    IF ((EL_VA_CONSERVATIVE_FORM() .OR. EL_INLET_SUPERFICIAL()) .AND. .NOT.advance_history) THEN
       CALL EL_ENSURE_TRANSPORT_EPS(ndof)
-      IF (.NOT.layout_verified) THEN
+      IF (EL_VA_CONSERVATIVE_FORM() .AND. .NOT.layout_verified) THEN
         layout_bad = EL_VA_CHECK_DOF_LAYOUT(mesh, ilev, mesh%level(ilev)%dcorvg)
         CALL MPI_Allreduce(layout_bad, layout_bad_global, 1, MPI_INTEGER, MPI_MAX, &
                            MPI_COMM_SUBS, ierr)
@@ -412,6 +414,7 @@ CONTAINS
       END DO
       CALL EL_VA_EMBED_Q1_IN_Q2(mesh, ilev, el_field_data%epsilon_transport_q2)
       DEALLOCATE(eps_num, eps_den)
+      el_field_data%inlet_eps_ready = EL_INLET_SUPERFICIAL()
     END IF
 
     ! Slice dvol to nel: it carries the FEAT total-volume slot at nel+1

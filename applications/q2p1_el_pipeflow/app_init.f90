@@ -604,6 +604,7 @@ END SUBROUTINE get_global_domain_extents
                         el_write_diagnostics, el_momentum_audit_freq, el_particle_log_freq, &
                         el_tavg_window, &
                         el_inlet_u0, el_inlet_u1, el_inlet_tramp, &
+                        EL_INLET_SUPERFICIAL, &
                         EL_VALIDATE_CONFIG, &
                         EL_PRINT_CONFIG
 #endif
@@ -977,6 +978,25 @@ END SUBROUTINE get_global_domain_extents
      WRITE(*,'(A,I0)') 'ELVAContinuityForm = conservative needs communication scheme 3 or 4, got ', &
        iCommSwitch
      STOP 1
+   END IF
+   ! the superficial inlet sums its nodal porosity with the same routine
+   IF (EL_INLET_SUPERFICIAL() .AND. iCommSwitch.NE.3 .AND. iCommSwitch.NE.4) THEN
+     WRITE(*,'(A,I0)') 'ELInletVelocity* with ELVolumeAveraged = continuity needs communication scheme 3 or 4, got ', &
+       iCommSwitch
+     STOP 1
+   END IF
+   ! Compatibility removal and the boundary type must agree: a closed or periodic domain
+   ! needs the removal (singular pressure problem otherwise), an open one must not have it
+   ! (it would act as a spurious volume source; case 05 E2).
+   IF (TRIM(el_volume_averaged).EQ.'continuity') THEN
+     IF (bNoOutflow .AND. TRIM(el_va_compatibility).EQ.'none') THEN
+       WRITE(*,'(A)') 'ELVACompatibility = none needs an outflow boundary (SimPar@NoOutflow = No).'
+       STOP 1
+     END IF
+     IF (.NOT.bNoOutflow .AND. TRIM(el_va_compatibility).NE.'none') THEN
+       WRITE(*,'(A)') 'ELVolumeAveraged = continuity with an outflow boundary (SimPar@NoOutflow = No) needs ELVACompatibility = none.'
+       STOP 1
+     END IF
    END IF
 #endif
 

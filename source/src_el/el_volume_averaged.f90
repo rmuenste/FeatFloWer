@@ -148,7 +148,7 @@ MODULE EL_VA_CONTINUITY
 
   ! Sink modes: id = index into el_va_compat_names (EL_CONFIG; deck value = audit label, the
   ! deck is validated against the same table); EL_VA_SINK_WEIGHT gives the per-element weight.
-  INTEGER, PARAMETER :: SINK_UNIFORM = 0, SINK_ALPHA = 1
+  INTEGER, PARAMETER :: SINK_UNIFORM = 0, SINK_ALPHA = 1, SINK_NONE = 2
   ! Continuity forms: id = index into el_va_form_names (EL_CONFIG, EL_VA_FORM_ID).
   INTEGER, PARAMETER :: FORM_ADVECTIVE = 0, FORM_CONSERVATIVE = 1
 
@@ -212,9 +212,15 @@ CONTAINS
     INTEGER, INTENT(IN) :: requested_mode
     REAL*8, INTENT(IN) :: w_total
     EL_VA_EFFECTIVE_SINK_MODE = requested_mode
-    IF (requested_mode.NE.SINK_UNIFORM .AND. w_total.LT.1.0d-30) &
+    IF (EL_VA_SINK_WEIGHTED(requested_mode) .AND. w_total.LT.1.0d-30) &
       EL_VA_EFFECTIVE_SINK_MODE = SINK_UNIFORM
   END FUNCTION EL_VA_EFFECTIVE_SINK_MODE
+
+  ! Weighted modes carry a per-element weight and the W reductions; uniform and none do not.
+  PURE LOGICAL FUNCTION EL_VA_SINK_WEIGHTED(mode)
+    INTEGER, INTENT(IN) :: mode
+    EL_VA_SINK_WEIGHTED = (mode.EQ.SINK_ALPHA)
+  END FUNCTION EL_VA_SINK_WEIGHTED
 
   ! Per-element weight w_e of a weighted sink mode (a new mode is one CASE here).
   PURE REAL*8 FUNCTION EL_VA_SINK_WEIGHT(mode, alpha_e)
@@ -237,6 +243,9 @@ CONTAINS
     SELECT CASE (mode)
     CASE (SINK_UNIFORM)
       EL_VA_SINK = gbar
+    CASE (SINK_NONE)
+      ! open domain (outflow boundary): the raw source is applied unchanged
+      EL_VA_SINK = 0.0d0
     CASE DEFAULT
       EL_VA_SINK = int_g*w_e/w_total
     END SELECT
@@ -302,7 +311,7 @@ CONTAINS
 
     requested_mode = EL_VA_SINK_MODE()
     effective_mode = requested_mode
-    weighted = (requested_mode.NE.SINK_UNIFORM)
+    weighted = EL_VA_SINK_WEIGHTED(requested_mode)
     use_bdf2 = EL_VA_USE_BDF2()
     a_bdf2 = 0.0d0
     IF (use_bdf2) a_bdf2 = EL_VA_BDF2_WEIGHT()
@@ -390,7 +399,7 @@ CONTAINS
     w_total = wsum_g(W_SUM)
     effective_mode = EL_VA_EFFECTIVE_SINK_MODE(requested_mode, w_total)
     z_w = 0.0d0
-    IF (effective_mode.NE.SINK_UNIFORM) z_w = wsum_g(W_ZSUM)/w_total
+    IF (EL_VA_SINK_WEIGHTED(effective_mode)) z_w = wsum_g(W_ZSUM)/w_total
 
     ! ---- corrected source into the P1 dofs -------------------------------------------------
     int_gc = 0.0d0
@@ -455,7 +464,7 @@ CONTAINS
         ! mshift: the moment the sink moves relative to the uniform removal (zero under the
         ! no-particle fallback); the field names keep the wording of the T9 record (z_alpha)
         mshift = 0.0d0
-        IF (effective_mode.NE.SINK_UNIFORM) mshift = (z_w-EL_DOMAIN_Z_CENTER())*core_g(C_INT_G)
+        IF (EL_VA_SINK_WEIGHTED(effective_mode)) mshift = (z_w-EL_DOMAIN_Z_CENTER())*core_g(C_INT_G)
         WRITE(line,'(A,ES14.6,A,I0,A,ES13.6,A,ES13.6,A,ES13.6,A,ES13.6,A,ES13.6,A,A,A)') &
           'EL_VA_COMPAT t= ', time, ' step= ', istep, &
           ' int_g_raw= ', core_g(C_INT_G), ' int_g_corr= ', int_gc_g, ' W= ', w_total, &

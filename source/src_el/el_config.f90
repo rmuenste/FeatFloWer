@@ -101,8 +101,13 @@ MODULE EL_CONFIG
   !   particles). 'alpha' closes the level-3 return-flow deficit of the VB twin (s04 RUNBOOK
   !   section 10).
   CHARACTER(LEN=32) :: el_va_compatibility = 'uniform'
-  ! The valid values, blank-padded; index = sink mode id of EL_VA_CONTINUITY (0 uniform, 1 alpha).
-  CHARACTER(LEN=7), PARAMETER :: el_va_compat_names(0:1) = (/ 'uniform', 'alpha  ' /)
+  !   'none' applies the raw source unchanged: required when the domain has an outflow
+  !   boundary (SimPar@NoOutflow = No; the pressure problem is solvable for any source and a
+  !   removal would act as a spurious source, case 05 E2), refused in a closed box (checked
+  !   in the application, where NoOutflow is known).
+  ! The valid values, blank-padded; index = sink mode id of EL_VA_CONTINUITY (0 uniform, 1 alpha,
+  ! 2 none).
+  CHARACTER(LEN=7), PARAMETER :: el_va_compat_names(0:2) = (/ 'uniform', 'alpha  ', 'none   ' /)
   ! SimPar@ELVAContinuityForm = advective | conservative
   !   Spatial form of the continuity constraint (EL_VA_CONTINUITY):
   !   'advective'    (default) div u = -(d eps/dt + u.grad eps)/eps per element, the advective
@@ -125,8 +130,11 @@ MODULE EL_CONFIG
   REAL*8 :: el_tavg_window = 0.5d0
   ! Uniform ramped inlet (boundary type Inflow975, GetVeloBCVal): axial velocity normal to a
   ! z-plane inlet, ramped linearly from ELInletVelocityStart to ELInletVelocityEnd over
-  ! ELInletRampTime and constant afterwards (EL_INLET_VELOCITY). The value is the superficial
-  ! velocity when the inlet plane is particle-free (CFDEM ErgunTestMPI twin, case 05). All
+  ! ELInletRampTime and constant afterwards (EL_INLET_VELOCITY). The deck value is the
+  ! SUPERFICIAL velocity: under ELVolumeAveraged = continuity the solver velocity is
+  ! interstitial, so the boundary value is divided by the nodal porosity on the inlet plane
+  ! (EL_INLET_SUPERFICIAL, EL_FIELDS:EL_INLET_INTERSTITIAL_FACTOR; a bed resting on the inlet
+  ! has eps < 1 there). Without the continuity stage the value is applied as it is. All
   ! three default to an inert inlet (0, 0, ramp 1 s); a mesh that carries Inflow975 with both
   ! velocities zero is refused, because it would silently be a no-slip floor.
   REAL*8 :: el_inlet_u0 = 0.0d0
@@ -325,7 +333,7 @@ CONTAINS
       STOP 1
     END IF
     IF (.NOT.ANY(TRIM(el_va_compatibility).EQ.el_va_compat_names)) THEN
-      WRITE(*,'(A,A)') 'Invalid ELVACompatibility (uniform|alpha): ', TRIM(el_va_compatibility)
+      WRITE(*,'(A,A)') 'Invalid ELVACompatibility (uniform|alpha|none): ', TRIM(el_va_compatibility)
       STOP 1
     END IF
     IF (.NOT.ANY(TRIM(el_va_continuity_form).EQ.el_va_form_names)) THEN
@@ -494,6 +502,13 @@ CONTAINS
   PURE LOGICAL FUNCTION EL_INLET_CONFIGURED()
     EL_INLET_CONFIGURED = (el_inlet_u0.NE.0.0d0 .OR. el_inlet_u1.NE.0.0d0)
   END FUNCTION EL_INLET_CONFIGURED
+
+  ! True when the inlet value has to be converted from superficial to interstitial velocity
+  ! (deck-only: the same on every rank; decides the nodal-porosity collective of the transfer
+  ! pass).
+  PURE LOGICAL FUNCTION EL_INLET_SUPERFICIAL()
+    EL_INLET_SUPERFICIAL = EL_INLET_CONFIGURED() .AND. (TRIM(el_volume_averaged).EQ.'continuity')
+  END FUNCTION EL_INLET_SUPERFICIAL
 
   INTEGER FUNCTION EL_VA_FORM_ID()
     INTEGER :: m
