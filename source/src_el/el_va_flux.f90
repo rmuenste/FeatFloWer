@@ -28,7 +28,8 @@ MODULE EL_VA_FLUX
   !
   ! Quadrature: 3-point Gauss per direction (faces 3x3, volume 3x3x3), the Q2 isoparametric
   ! geometry map of the B matrices (ILINT = 2, all 27 nodes). On trilinear cells the face
-  ! integrands (Q1 eps x Q2 u x degree-2 cofactor) are of degree <= 5 and integrated exactly.
+  ! integrands (Q1 eps x Q2 u x degree-2 cofactor) are of degree <= 5 and integrated exactly
+  ! (curved cells: see Geometry below).
   ! The outward normal is n dS = sign_f sgn(det J) (dx/dxi_a x dx/dxi_b) dxi_a dxi_b with the
   ! cyclic tangent pair (a,b) of the fixed reference coordinate of face f (tables below) and the
   ! sign of the Jacobian determinant, so that left-handed (mirrored) elements, which FEAT
@@ -40,10 +41,18 @@ MODULE EL_VA_FLUX
   ! is unit-tested on the synthetic mesh of el_test_helpers (test_el_va_flux). Errors are
   ! returned to the caller (nbad, ierr), which decides on a rank-uniform stop.
   !
-  ! Geometry restriction: the EL meshes are straight-edged (trilinear) hexes, as the kernel
-  ! deposition (EL_Q1_MAP) already assumes; EL_VA_CHECK_DOF_LAYOUT relies on it (every edge,
-  ! face and centre node at the mean of its vertices) and would report a curved Q2 mesh as a
-  ! layout mismatch.
+  ! Geometry: the kernel integrates on the Q2 isoparametric map, so curved cells (boundary
+  ! mid-nodes projected onto an analytic surface, e.g. the hull of an O-grid pipe) are covered:
+  ! both elements at a face still evaluate the same nodal data at the same points with
+  ! opposite normals, hence the telescoping of sum_e F_1 to the boundary flux stays exact.
+  ! The coordinate-moment identities are algebraic as well (the volume term cancels within
+  ! each element, the face terms telescope) and stay exact. What is no longer exact on a
+  ! curved cell is the 3-point rule for the face integrands (degree > 5), so the element flux
+  ! matches the volume integral of the divergence, and hence the B-matrix divergence (divchk),
+  ! only to the quadrature error of the curvature there. The transport
+  ! porosity is embedded by values (mid-node value = mean of the vertex values), which does
+  ! not depend on where the mid-node sits. EL_VA_CHECK_DOF_LAYOUT identifies every mid-node
+  ! by the nearest reference position and tolerates the curvature.
   !
   ! Local Q2 dof numbering (FEAT E013): 1-8 vertices, 9-20 edges, 21-26 faces, 27 centre, in
   ! the order of kvert / kedge / karea / element; global index of local l:
@@ -108,84 +117,109 @@ MODULE EL_VA_FLUX
 
 CONTAINS
 
-  ! Self-check of the dof layout assumed by EL_VA_ELEMENT_DOFS against the coordinates:
-  ! every edge, face and centre dof must sit at the mean of its defining vertices
-  ! (straight-edged hexes). Returns the number of offending dofs of the first offending
-  ! element (0 = consistent) and prints the real pairing of that element; the caller
-  ! (EL_TRANSFER, once per mesh, rank-uniform via a reduction) stops the run, because the
-  ! flux kernel would otherwise gather the wrong nodes silently.
-  INTEGER FUNCTION EL_VA_CHECK_DOF_LAYOUT(mesh, ilev, coor) RESULT(nbad)
+  ! Self-check of the dof layout assumed by EL_VA_ELEMENT_DOFS against the coordinates. Each
+  ! edge, face and centre dof of an element has a reference position, the mean of its defining
+  ! vertices (12 + 6 + 1 = 19 positions). A dof is accepted when, among these 19, its own
+  ! position is the nearest one and it lies within LAYOUT_MAX_OFFSET of the element size from
+  ! it: exact on straight-edged hexes, tolerant of curved Q2 cells (mid-nodes on an analytic
+  ! boundary), and still a failure for any permuted numbering, whose nearest position is
+  ! another dof's. Returns the number of offending dofs of the first offending element
+  ! (0 = consistent) and prints the real pairing of that element; the caller (EL_TRANSFER,
+  ! once per mesh, rank-uniform via a reduction) stops the run, because the flux kernel would
+  ! otherwise gather the wrong nodes silently. ncurved (optional) counts the accepted dofs
+  ! that are off their reference position by more than 1e-6 of the element size.
+  INTEGER FUNCTION EL_VA_CHECK_DOF_LAYOUT(mesh, ilev, coor, ncurved) RESULT(nbad)
 
     TYPE(tMultiMesh), INTENT(IN) :: mesh
     INTEGER, INTENT(IN) :: ilev
     REAL*8, INTENT(IN) :: coor(:,:)
+    INTEGER, INTENT(OUT), OPTIONAL :: ncurved
 
-    INTEGER :: iel, l, dofs(NQ2), a, b, c
-    REAL*8 :: v(3,8), mid(3), h, tol
+    ! largest accepted offset of a mid-node from its reference position, in element sizes;
+    ! neighbouring reference positions are half an edge apart
+    REAL*8, PARAMETER :: LAYOUT_MAX_OFFSET = 0.2d0
+    INTEGER, PARAMETER :: NREF = 19
+    INTEGER :: iel, l, k, dofs(NQ2), nearest, ncurv
+    REAL*8 :: v(3,8), ref(3,NREF), h, dist, dmin
 
     nbad = 0
+    ncurv = 0
     DO iel = 1, mesh%level(ilev)%nel
       CALL EL_VA_ELEMENT_DOFS(mesh, ilev, iel, dofs)
       DO l = 1, 8
         v(:,l) = coor(:,dofs(l))
       END DO
       h = MAXVAL(MAXVAL(v,DIM=2) - MINVAL(v,DIM=2))
-      tol = 1.0d-6*h
-      DO l = 1, 12
-        mid = 0.5d0*(v(:,edge_vertices(1,l)) + v(:,edge_vertices(2,l)))
-        IF (MAXVAL(ABS(coor(:,dofs(8+l)) - mid)).GT.tol) nbad = nbad + 1
+      CALL reference_positions(v, ref)
+      DO l = 1, NREF
+        CALL nearest_reference(coor(:,dofs(8+l)), ref, nearest, dmin)
+        dist = SQRT(SUM((coor(:,dofs(8+l)) - ref(:,l))**2))
+        IF (nearest.NE.l .OR. dist.GT.LAYOUT_MAX_OFFSET*h) THEN
+          nbad = nbad + 1
+        ELSE IF (dist.GT.1.0d-6*h) THEN
+          ncurv = ncurv + 1
+        END IF
       END DO
-      DO l = 1, NFACE
-        mid = 0.25d0*(v(:,face_vertices(1,l)) + v(:,face_vertices(2,l)) + &
-                      v(:,face_vertices(3,l)) + v(:,face_vertices(4,l)))
-        IF (MAXVAL(ABS(coor(:,dofs(20+l)) - mid)).GT.tol) nbad = nbad + 1
-      END DO
-      mid = 0.125d0*SUM(v, DIM=2)
-      IF (MAXVAL(ABS(coor(:,dofs(NQ2)) - mid)).GT.tol) nbad = nbad + 1
       IF (nbad.GT.0) THEN
         WRITE(*,'(A,I0,A,I0)') 'EL_VA_FLUX dof layout mismatch in element ', iel, &
           ', bad dofs: ', nbad
-        DO l = 1, 12
-          CALL find_pair(coor(:,dofs(8+l)), v, tol, a, b)
-          WRITE(*,'(A,I0,A,I0,A,I0,A,I0,A,I0)') '  edge ', l, ': assumed ', &
-            edge_vertices(1,l), '-', edge_vertices(2,l), ' found ', a, '-', b
+        DO l = 1, NREF
+          CALL nearest_reference(coor(:,dofs(8+l)), ref, nearest, dmin)
+          k = nearest
+          IF (dmin.GT.LAYOUT_MAX_OFFSET*h) k = 0
+          IF (l.LE.12) THEN
+            IF (k.GE.1 .AND. k.LE.12) THEN
+              WRITE(*,'(A,I0,A,I0,A,I0,A,I0,A,I0)') '  edge ', l, ': assumed ', &
+                edge_vertices(1,l), '-', edge_vertices(2,l), ' found ', &
+                edge_vertices(1,k), '-', edge_vertices(2,k)
+            ELSE
+              WRITE(*,'(A,I0,A,I0,A,I0,A)') '  edge ', l, ': assumed ', &
+                edge_vertices(1,l), '-', edge_vertices(2,l), ' found no edge position'
+            END IF
+          ELSE IF (l.LE.18) THEN
+            WRITE(*,'(A,I0,A,I0,A,I0)') '  face ', l-12, ': assumed ', l-12, ' found ', &
+              MERGE(k-12, 0, k.GE.13 .AND. k.LE.18)
+          END IF
         END DO
-        DO l = 1, NFACE
-          CALL find_face(coor(:,dofs(20+l)), v, tol, c)
-          WRITE(*,'(A,I0,A,I0,A,I0)') '  face ', l, ': assumed ', l, ' found ', c
-        END DO
+        IF (PRESENT(ncurved)) ncurved = ncurv
         RETURN
       END IF
     END DO
+    IF (PRESENT(ncurved)) ncurved = ncurv
 
   CONTAINS
 
-    SUBROUTINE find_pair(x, v, tol, a, b)
-      REAL*8, INTENT(IN) :: x(3), v(3,8), tol
-      INTEGER, INTENT(OUT) :: a, b
-      INTEGER :: i, j
-      a = 0
-      b = 0
-      DO i = 1, 8
-        DO j = i+1, 8
-          IF (MAXVAL(ABS(x - 0.5d0*(v(:,i)+v(:,j)))).LE.tol) THEN
-            a = i
-            b = j
-          END IF
-        END DO
+    ! the 19 reference positions of the edge (1-12), face (13-18) and centre (19) dofs
+    PURE SUBROUTINE reference_positions(v, ref)
+      REAL*8, INTENT(IN) :: v(3,8)
+      REAL*8, INTENT(OUT) :: ref(3,NREF)
+      INTEGER :: i
+      DO i = 1, 12
+        ref(:,i) = 0.5d0*(v(:,edge_vertices(1,i)) + v(:,edge_vertices(2,i)))
       END DO
-    END SUBROUTINE find_pair
+      DO i = 1, NFACE
+        ref(:,12+i) = 0.25d0*(v(:,face_vertices(1,i)) + v(:,face_vertices(2,i)) + &
+                              v(:,face_vertices(3,i)) + v(:,face_vertices(4,i)))
+      END DO
+      ref(:,NREF) = 0.125d0*SUM(v, DIM=2)
+    END SUBROUTINE reference_positions
 
-    SUBROUTINE find_face(x, v, tol, c)
-      REAL*8, INTENT(IN) :: x(3), v(3,8), tol
-      INTEGER, INTENT(OUT) :: c
-      INTEGER :: f
-      c = 0
-      DO f = 1, NFACE
-        IF (MAXVAL(ABS(x - 0.25d0*(v(:,face_vertices(1,f)) + v(:,face_vertices(2,f)) + &
-            v(:,face_vertices(3,f)) + v(:,face_vertices(4,f))))).LE.tol) c = f
+    PURE SUBROUTINE nearest_reference(x, ref, nearest, dmin)
+      REAL*8, INTENT(IN) :: x(3), ref(3,NREF)
+      INTEGER, INTENT(OUT) :: nearest
+      REAL*8, INTENT(OUT) :: dmin
+      INTEGER :: i
+      REAL*8 :: d
+      nearest = 0
+      dmin = HUGE(1.0d0)
+      DO i = 1, NREF
+        d = SQRT(SUM((x - ref(:,i))**2))
+        IF (d.LT.dmin) THEN
+          dmin = d
+          nearest = i
+        END IF
       END DO
-    END SUBROUTINE find_face
+    END SUBROUTINE nearest_reference
 
   END FUNCTION EL_VA_CHECK_DOF_LAYOUT
 
