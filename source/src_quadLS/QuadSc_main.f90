@@ -33,7 +33,7 @@ use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS, EL_WRITE_PARTICLE_LOG, 
 use EL_FIELDS, only: EL_APPLY_FLUID_FEEDBACK_SOURCE, el_field_data
 use EL_VA_CONTINUITY, only: EL_ADD_CONTINUITY_SOURCE, EL_VOLUME_AVERAGED_ACTIVE
 use EL_CONFIG, only: EL_VA_SOURCE_CORRECTORS_ENABLED
-use EL_MOMENTUM_MODEL, only: EL_MM_WEIGHTED_INERTIA, EL_MM_VISCOUS_FORCE, EL_MM_OPERATOR_FORM
+use EL_MOMENTUM_MODEL, only: EL_MM_ACTIVE, EL_MM_WEIGHTED_INERTIA, EL_MM_OPERATOR_FORM
 
 use, intrinsic :: ieee_arithmetic
 
@@ -360,9 +360,9 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
   dummy_velocity = 0.0d0
   inl_u = 0
 
-  ! Momentum models with a particle viscous force need the Dirichlet-boundary mask of the
-  ! velocity dofs before the first transfer pass (built once; never entered for 'none').
-  IF (EL_MM_VISCOUS_FORCE()) CALL EL_MM_Prepare_Wall_Mask()
+  ! Momentum models: solver-setting check, boundary-face mask and porosity priming before
+  ! the first pass (collective, deck-only guard; never entered for 'none').
+  IF (EL_MM_ACTIVE()) CALL EL_MM_Begin_Step(mfile)
   prescribed_active = TRIM(el_prescribed_field).NE.'none'
 
   IF (ALLOCATED(FictKNPR)) FictKNPR = 0
@@ -653,7 +653,9 @@ IF (myid.ne.master) THEN
  END IF
  ! Euler-Lagrange momentum model A: -eps grad p and div(eps tau) as solid-fraction
  ! corrections of the unweighted terms above (deck-only guard, EL transport only)
- IF (.NOT.enable_fbm .AND. EL_MM_OPERATOR_FORM()) CALL EL_MM_Add_Operator_Terms()
+ IF (.NOT.enable_fbm) THEN
+   IF (EL_MM_OPERATOR_FORM()) CALL EL_MM_Add_Operator_Terms()
+ END IF
 
  ! Set dirichlet boundary conditions on the defect
  CALL Boundary_QuadScalar_Def()
@@ -836,7 +838,9 @@ IF (myid.ne.0) THEN
  !if (myid.eq.1) write(*,*) 'no correction ... '
  CALL Velocity_Correction()
  ! model A: the correction with the eps-weighted gradient of the increment
- IF (.NOT.enable_fbm .AND. EL_MM_OPERATOR_FORM()) CALL EL_MM_Correct_Velocity_Operator()
+ IF (.NOT.enable_fbm) THEN
+   IF (EL_MM_OPERATOR_FORM()) CALL EL_MM_Correct_Velocity_Operator()
+ END IF
  CALL Pressure_Correction()
  CALL ZTIME(tttt1)
  myStat%tCorrUVWP = myStat%tCorrUVWP + (tttt1-tttt0)

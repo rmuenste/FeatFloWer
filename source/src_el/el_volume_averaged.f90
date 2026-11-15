@@ -560,6 +560,7 @@ CONTAINS
 
     INTEGER :: iel, nel, i, ig, m, ioff, ierr
     REAL*8 :: eps, deps_dt, d_cont, adv, g, gv, vol, vgeom, zc, alpha, h_e
+    REAL*8 :: r_audit(4), gv_audit
     REAL*8 :: xc(3), q(4), d(4), r(4)
     REAL*8, ALLOCATABLE :: flux(:,:), eps_u(:,:), vol_u(:,:), geom(:,:), div_u(:)
 
@@ -597,7 +598,16 @@ CONTAINS
       res(:,iel) = r
       g = gv/vol
       gk(iel) = g
-      adv = -(wdiv(iel)*gv + d_cont*vol)/vol
+      ! "advective" audit term u.grad eps = (F_1 - eps D_1)/|e|, always formed with the
+      ! porosity: with the campaign divisor gv is that source (the expression certified logs
+      ! were written with); for a model whose divisor is 1 the row algebra is evaluated once
+      ! more with eps for the audit only
+      IF (wdiv(iel).EQ.eps) THEN
+        adv = -(eps*gv + d_cont*vol)/vol
+      ELSE
+        CALL EL_VA_CONSERVATIVE_ROWS(flux(:,iel), d_cont, q, d, eps, r_audit, gv_audit)
+        adv = -(eps*gv_audit + d_cont*vol)/vol
+      END IF
       alpha = 1.0d0 - eps
       IF (ALLOCATED(el_field_data%alpha_p)) THEN
         IF (SIZE(el_field_data%alpha_p).GE.nel) alpha = el_field_data%alpha_p(iel)

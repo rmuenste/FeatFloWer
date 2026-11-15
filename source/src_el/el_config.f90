@@ -143,9 +143,30 @@ MODULE EL_CONFIG
   !   accepts (a recognised but unimplemented name is refused, never silently run as 'none').
   !   Behaviour lives in EL_MOMENTUM_MODEL; nothing else tests the name.
   CHARACTER(LEN=32) :: el_momentum_model = 'none'
-  ! The valid values, blank-padded; index = model id (EL_MM_ID).
+  ! ---- The model table: the one place that says what a model is -------------------------
+  ! Index = model id. EL_MOMENTUM_MODEL answers the run-time questions from these columns and
+  ! EL_RESOLVE_MOMENTUM_MODEL the key set; a further model is one more column.
+  INTEGER, PARAMETER :: EL_MM_NONE = 0, EL_MM_BFULL = 1, EL_MM_B = 2, EL_MM_A = 3
   CHARACTER(LEN=5), PARAMETER :: el_mm_names(0:3) = (/ 'none ', 'bfull', 'b    ', 'a    ' /)
-  LOGICAL, PARAMETER :: el_mm_implemented(0:3) = (/ .TRUE., .TRUE., .TRUE., .TRUE. /)
+  LOGICAL, PARAMETER :: el_mm_implemented(0:3)       = (/ .TRUE.,  .TRUE.,  .TRUE.,  .TRUE.  /)
+  ! the particle receives -V grad p / its reaction is deposited on the fluid
+  LOGICAL, PARAMETER :: el_mmt_particle_pressure(0:3) = (/ .FALSE., .TRUE.,  .FALSE., .TRUE.  /)
+  LOGICAL, PARAMETER :: el_mmt_pressure_feedback(0:3) = (/ .FALSE., .TRUE.,  .FALSE., .FALSE. /)
+  ! the particle receives V c lap u / its reaction is deposited on the fluid
+  LOGICAL, PARAMETER :: el_mmt_viscous_force(0:3)     = (/ .FALSE., .TRUE.,  .FALSE., .TRUE.  /)
+  LOGICAL, PARAMETER :: el_mmt_viscous_feedback(0:3)  = (/ .FALSE., .TRUE.,  .FALSE., .FALSE. /)
+  ! drag force and coefficient divided by eps
+  LOGICAL, PARAMETER :: el_mmt_drag_over_eps(0:3)     = (/ .FALSE., .FALSE., .TRUE.,  .FALSE. /)
+  ! eps-weighted fluid inertia / -eps grad p and div(eps tau) in the fluid operator
+  LOGICAL, PARAMETER :: el_mmt_weighted_inertia(0:3)  = (/ .FALSE., .TRUE.,  .TRUE.,  .TRUE.  /)
+  LOGICAL, PARAMETER :: el_mmt_operator_form(0:3)     = (/ .FALSE., .FALSE., .FALSE., .TRUE.  /)
+  ! the conservative continuity residual is divided by the element porosity (else by 1) before
+  ! it enters the pressure right-hand side (EL_MOMENTUM_MODEL: EL_MM_RESIDUAL_DIVISOR)
+  LOGICAL, PARAMETER :: el_mmt_divisor_eps(0:3)       = (/ .TRUE.,  .FALSE., .FALSE., .TRUE.  /)
+  ! (row 'none' of the two pressure columns is not used: the campaign keys decide there)
+  ! Model id of the validated deck value, set by EL_VALIDATE_CONFIG (0 = none before that and
+  ! by default); read through EL_MM_ID. Code that changes el_momentum_model must validate again.
+  INTEGER :: el_mm_id_validated = 0
   ! Deck keys of the SimPar@EL* family that the parameter file set explicitly (recorded by the
   ! application parser through EL_NOTE_KEY_SET). A momentum model implies values for other
   ! keys; the registry lets the resolution tell "left at its default" from "set to a
@@ -158,6 +179,7 @@ MODULE EL_CONFIG
   INTEGER, PARAMETER :: el_max_implied = 16
   CHARACTER(LEN=96) :: el_mm_implied(el_max_implied) = ' '
   INTEGER :: el_n_implied = 0
+  INTEGER :: el_mm_conflicts = 0
   REAL*8 :: el_tavg_window = 0.5d0
   ! Uniform ramped inlet (boundary type Inflow975, GetVeloBCVal): axial velocity normal to a
   ! z-plane inlet, ramped linearly from ELInletVelocityStart to ELInletVelocityEnd over
@@ -202,7 +224,8 @@ CONTAINS
     CALL EL_LOWERCASE(el_cylinder_axis)
     CALL EL_LOWERCASE(el_momentum_model)
 
-    IF (.NOT.ANY(TRIM(el_momentum_model).EQ.el_mm_names)) THEN
+    el_mm_id_validated = EL_MM_LOOKUP(el_momentum_model)
+    IF (el_mm_id_validated.LT.0) THEN
       WRITE(*,'(A,A)') 'Invalid ELMomentumModel (none|Bfull|B|A): ', TRIM(el_momentum_model)
       STOP 1
     END IF
@@ -579,7 +602,8 @@ CONTAINS
   ! valid and implemented, before any other key is validated. For 'none' nothing happens (the
   ! campaign keys keep their deck values). For a model every key of its consistent set is
   ! assigned; a key the deck set explicitly to a different value is refused (el_keys_set),
-  ! and the settings a model cannot be combined with are refused. Checks that need solver
+  ! and the settings a model cannot be combined with are refused (all conflicts are listed
+  ! before the one stop). The values come from the model table at the top of the module. Checks that need solver
   ! state (matrix renewal, GAMMA, material law) are made by the fluid adapter at its first
   ! call (Transport_Q2P1: EL_MM_Check_Solver_Settings).
   !
@@ -600,52 +624,49 @@ CONTAINS
   SUBROUTINE EL_RESOLVE_MOMENTUM_MODEL()
 
     INTEGER :: id
-    LOGICAL :: particle_pressure, pressure_feedback
 
     id = EL_MM_ID()
-    IF (id.EQ.0) RETURN
+    IF (id.EQ.EL_MM_NONE) RETURN
     el_n_implied = 0
-
-    ! ids: 1 bfull, 2 b, 3 a (el_mm_names)
-    particle_pressure = (id.EQ.1 .OR. id.EQ.3)
-    pressure_feedback = (id.EQ.1)
+    el_mm_conflicts = 0
 
     CALL EL_MM_IMPLY_TEXT('ELVolumeAveraged', el_volume_averaged, 'continuity')
     CALL EL_MM_IMPLY_TEXT('ELVAContinuityForm', el_va_continuity_form, 'conservative')
     CALL EL_MM_IMPLY_TEXT('ELDragCoupling', el_drag_coupling, 'semi_implicit')
     CALL EL_MM_IMPLY_LOGICAL('ELApplyFluidFeedback', el_apply_fluid_feedback, .TRUE.)
-    CALL EL_MM_IMPLY_LOGICAL('ELPressureForce', el_pressure_force, particle_pressure)
-    CALL EL_MM_IMPLY_LOGICAL('ELPressureFeedback', el_pressure_feedback, pressure_feedback)
+    CALL EL_MM_IMPLY_LOGICAL('ELPressureForce', el_pressure_force, el_mmt_particle_pressure(id))
+    CALL EL_MM_IMPLY_LOGICAL('ELPressureFeedback', el_pressure_feedback, &
+                             el_mmt_pressure_feedback(id))
     CALL EL_MM_IMPLY_LOGICAL('ELFluidGravity', el_fluid_gravity, .FALSE.)
     IF (.NOT.EL_KEY_SET('ELVASourceCorrectors')) THEN
       el_va_source_correctors = 1
       CALL EL_MM_NOTE_IMPLIED('ELVASourceCorrectors = 1')
     END IF
 
-    IF (TRIM(el_drag_model).EQ.'difelice') THEN
-      WRITE(*,*) 'ELMomentumModel needs a drag law in the standard porosity convention; ', &
-                 'ELDragModel = difelice (campaign form without eps^2) is refused, use difelice_std.'
-      STOP 1
-    END IF
-    IF (el_meso_filter) THEN
-      WRITE(*,*) 'ELMomentumModel is not supported with ELMesoFilter = Yes.'
-      STOP 1
-    END IF
-    IF (el_momentum_fix) THEN
-      WRITE(*,*) 'ELMomentumModel is not supported with ELMomentumFix = Yes ', &
-                 '(the compensator acts on the unweighted fluid momentum).'
-      STOP 1
-    END IF
-    IF (el_eps_f_relax.GT.0.0d0) THEN
-      WRITE(*,*) 'ELMomentumModel needs ELEpsFRelax = 0.'
-      STOP 1
-    END IF
-    IF (TRIM(el_prescribed_field).NE.'none') THEN
-      WRITE(*,*) 'ELMomentumModel is not supported with a prescribed fluid field.'
-      STOP 1
-    END IF
+    ! settings a model cannot be combined with; every conflict is reported before the stop
+    IF (TRIM(el_drag_model).EQ.'difelice') CALL EL_MM_CONFLICT( &
+      'needs a drag law in the standard porosity convention; ELDragModel = difelice '// &
+      '(campaign form without eps^2) is refused, use difelice_std.')
+    IF (el_meso_filter) CALL EL_MM_CONFLICT('is not supported with ELMesoFilter = Yes.')
+    IF (el_momentum_fix) CALL EL_MM_CONFLICT('is not supported with ELMomentumFix = Yes '// &
+      '(the compensator acts on the unweighted fluid momentum).')
+    IF (el_eps_f_relax.GT.0.0d0) CALL EL_MM_CONFLICT('needs ELEpsFRelax = 0.')
+    IF (TRIM(el_prescribed_field).NE.'none') CALL EL_MM_CONFLICT( &
+      'is not supported with a prescribed fluid field.')
+    ! the weak kernel average of the viscous force assumes a kernel that vanishes at the edge
+    ! of its support; the gaussian is cut at a finite value there (an 8 % low Laplacian)
+    IF (el_mmt_viscous_force(id) .AND. TRIM(el_kernel).EQ.'gaussian') CALL EL_MM_CONFLICT( &
+      'with a particle viscous force needs ELKernel = deen_poly (the truncated gaussian '// &
+      'kernel is not supported by the viscous average).')
+    IF (el_mm_conflicts.GT.0) STOP 1
 
   END SUBROUTINE EL_RESOLVE_MOMENTUM_MODEL
+
+  SUBROUTINE EL_MM_CONFLICT(text)
+    CHARACTER(LEN=*), INTENT(IN) :: text
+    WRITE(*,'(4A)') 'ELMomentumModel = ', TRIM(el_momentum_model), ' ', text
+    el_mm_conflicts = el_mm_conflicts + 1
+  END SUBROUTINE EL_MM_CONFLICT
 
   SUBROUTINE EL_MM_NOTE_IMPLIED(line)
     CHARACTER(LEN=*), INTENT(IN) :: line
@@ -662,7 +683,8 @@ CONTAINS
       WRITE(*,'(6A)') 'ELMomentumModel = ', TRIM(el_momentum_model), ' implies ', key, &
         ' = ', value
       WRITE(*,'(4A)') '  the parameter file sets ', key, ' = ', TRIM(var)
-      STOP 1
+      el_mm_conflicts = el_mm_conflicts + 1
+      RETURN
     END IF
     IF (TRIM(var).NE.TRIM(value) .OR. .NOT.EL_KEY_SET(key)) &
       CALL EL_MM_NOTE_IMPLIED(key//' = '//value)
@@ -681,22 +703,29 @@ CONTAINS
       WRITE(*,'(6A)') 'ELMomentumModel = ', TRIM(el_momentum_model), ' implies ', key, &
         ' = ', TRIM(text)
       WRITE(*,'(3A)') '  the parameter file sets ', key, ' to the opposite value.'
-      STOP 1
+      el_mm_conflicts = el_mm_conflicts + 1
+      RETURN
     END IF
     IF ((var.NEQV.value) .OR. .NOT.EL_KEY_SET(key)) &
       CALL EL_MM_NOTE_IMPLIED(key//' = '//TRIM(text))
     var = value
   END SUBROUTINE EL_MM_IMPLY_LOGICAL
 
-  ! Id of the momentum model (index into el_mm_names; 0 = none). Deck-only, valid on every
-  ! rank; -1 for a name outside the table (EL_VALIDATE_CONFIG refuses it before any use).
+  ! Id of the momentum model of the validated configuration (index of the model table;
+  ! EL_MM_NONE before EL_VALIDATE_CONFIG has run). Deck-only, the same on every rank.
   INTEGER FUNCTION EL_MM_ID()
-    INTEGER :: i
-    EL_MM_ID = -1
-    DO i=LBOUND(el_mm_names,1),UBOUND(el_mm_names,1)
-      IF (TRIM(el_momentum_model).EQ.TRIM(el_mm_names(i))) EL_MM_ID = i
-    END DO
+    EL_MM_ID = el_mm_id_validated
   END FUNCTION EL_MM_ID
+
+  ! Index of a (lower-case) model name in the table, -1 if it is not a model name.
+  INTEGER FUNCTION EL_MM_LOOKUP(name)
+    CHARACTER(LEN=*), INTENT(IN) :: name
+    INTEGER :: i
+    EL_MM_LOOKUP = -1
+    DO i=LBOUND(el_mm_names,1),UBOUND(el_mm_names,1)
+      IF (TRIM(name).EQ.TRIM(el_mm_names(i))) EL_MM_LOOKUP = i
+    END DO
+  END FUNCTION EL_MM_LOOKUP
 
   ! Record that the parameter file set the SimPar@EL* key `name` (called by the parser for
   ! every such key, before EL_VALIDATE_CONFIG).

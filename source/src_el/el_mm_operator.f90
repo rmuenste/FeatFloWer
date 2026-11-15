@@ -23,7 +23,8 @@
 MODULE EL_MM_OPERATOR
 
   USE TYPES, ONLY: tMultiMesh
-  USE EL_VA_FLUX, ONLY: tElVaFluxTables, EL_VA_FLUX_TABLES, EL_VA_ELEMENT_DOFS, NQ2, NGPV
+  USE EL_VA_FLUX, ONLY: tElVaFluxTables, EL_VA_FLUX_TABLES, EL_VA_ELEMENT_DOFS, &
+                        EL_VA_INVERT3, NQ2, NGPV
 
   IMPLICIT NONE
   PRIVATE
@@ -58,7 +59,7 @@ CONTAINS
         END DO
         xq = xq + x(:,l)*t%vval(l,q)
       END DO
-      CALL invert3(jac, inv, detj)
+      CALL EL_VA_INVERT3(jac, inv, detj)
       w = t%vw(q)*ABS(detj)
       phiq = 0.0d0
       gphi = 0.0d0
@@ -86,24 +87,6 @@ CONTAINS
         END IF
       END DO
     END DO
-
-  CONTAINS
-
-    PURE SUBROUTINE invert3(a, b, det)
-      REAL*8, INTENT(IN) :: a(3,3)
-      REAL*8, INTENT(OUT) :: b(3,3), det
-      det = a(1,1)*(a(2,2)*a(3,3)-a(2,3)*a(3,2)) - a(1,2)*(a(2,1)*a(3,3)-a(2,3)*a(3,1)) &
-          + a(1,3)*(a(2,1)*a(3,2)-a(2,2)*a(3,1))
-      b(1,1) =  (a(2,2)*a(3,3)-a(2,3)*a(3,2))/det
-      b(1,2) = -(a(1,2)*a(3,3)-a(1,3)*a(3,2))/det
-      b(1,3) =  (a(1,2)*a(2,3)-a(1,3)*a(2,2))/det
-      b(2,1) = -(a(2,1)*a(3,3)-a(2,3)*a(3,1))/det
-      b(2,2) =  (a(1,1)*a(3,3)-a(1,3)*a(3,1))/det
-      b(2,3) = -(a(1,1)*a(2,3)-a(1,3)*a(2,1))/det
-      b(3,1) =  (a(2,1)*a(3,2)-a(2,2)*a(3,1))/det
-      b(3,2) = -(a(1,1)*a(3,2)-a(1,2)*a(3,1))/det
-      b(3,3) =  (a(1,1)*a(2,2)-a(1,2)*a(2,1))/det
-    END SUBROUTINE invert3
 
   END SUBROUTINE EL_MM_ELEMENT_PHI_OPERATORS
 

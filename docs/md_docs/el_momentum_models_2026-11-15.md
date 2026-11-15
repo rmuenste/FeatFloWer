@@ -28,18 +28,18 @@ CFDEM's full pressure plus Archimedes.
 
 | Piece | File | Notes |
 |---|---|---|
-| key, table of names, registry of explicit keys, implied keys and refusals | `source/src_el/el_config.f90` | `EL_RESOLVE_MOMENTUM_MODEL`, `EL_NOTE_KEY_SET` |
-| policy (the only place that tests the model) | `source/src_el/el_momentum_model.f90` | `EL_MM_ACTIVE`, `_WEIGHTED_INERTIA`, `_DRAG_SCALE`, `_RESIDUAL_DIVISOR`, `_VISCOUS_FORCE`, `_VISCOUS_FEEDBACK`, `_OPERATOR_FORM` |
+| key, the model table (one column per model: id, name, property columns), registry of explicit keys, implied keys and refusals | `source/src_el/el_config.f90` | `EL_RESOLVE_MOMENTUM_MODEL`, `EL_NOTE_KEY_SET`, `EL_MM_ID` |
+| policy: the run-time questions, answered from the table | `source/src_el/el_momentum_model.f90` | `EL_MM_ACTIVE`, `_WEIGHTED_INERTIA`, `_DRAG_SCALE`, `_RESIDUAL_DIVISOR`, `_VISCOUS_FORCE`, `_VISCOUS_FEEDBACK`, `_OPERATOR_FORM` |
 | kernel average of lap u at a particle | `source/src_el/el_viscous.f90` | weak form with wall term and consistency correction |
 | solid-fraction operators of model A | `source/src_el/el_mm_operator.f90` | fp = int p div(phi_h N), fv = int phi_h grad u : grad N |
-| mesh / MPI / operator work | `source/src_quadLS/QuadSc_el_mm.f90` (included in `Transport_Q2P1`) | coefficient field, solver-setting check, wall mask, model A terms |
+| mesh / MPI / operator work | `source/src_quadLS/QuadSc_el_mm.f90` (included in `Transport_Q2P1`) | begin-of-step (setting check, boundary-face mask, porosity priming), coefficient field, model A terms |
 | force split | `source/src_el/el_forces.f90`, `el_transfer.f90` | `particle_nondrag`, `feedback_nondrag`, `viscous` |
 | residual scaling | `source/src_el/el_volume_averaged.f90`, `el_va_flux.f90` | divisor w_e in the source, the right-hand side and the sink identity |
 | audit | `source/src_el/el_diagnostics.f90` | `EL_FLUID_PAIR` on the eps-weighted momentum under a model; new line `EL_MM_FORCE` |
 
 Shared (non-Euler-Lagrange) code: `QuadSc_main.f90` gains one include and four guarded calls, two
-in `Transport_q2p1_UxyzP_el` and two in the fluid core behind `.NOT.enable_fbm .AND.
-EL_MM_OPERATOR_FORM()`, next to the Euler-Lagrange calls that were already there. No assembly
+in `Transport_q2p1_UxyzP_el` and two in the fluid core inside `IF (.NOT.enable_fbm)` (the model
+predicate is not evaluated on the FBM path), next to the Euler-Lagrange calls that were already there. No assembly
 routine, `Create_CMat`, the multigrid, `AddPressureGradient` or `Velocity_Correction` is changed.
 Applications that never call the Euler-Lagrange transport routine cannot reach the code (DNS twins).
 
@@ -50,8 +50,20 @@ ELVASourceCorrectors >= 1, ELApplyFluidFeedback = Yes, ELDragCoupling = semi_imp
 ELFluidGravity = No, and ELPressureForce / ELPressureFeedback = Yes/Yes (Bfull), No/No (B), Yes/No
 (A). A key the deck sets to a different value is refused; the implied values are echoed. Refused
 with any model: ELDragModel = difelice (campaign form without eps^2), the meso filter, the
-momentum-fix compensator, porosity relaxation, a prescribed field. Checked at the first fluid
-step: MatrixRenewal M >= 1, K = 2 or 3, C = 1; GAMMA = 0; convective form; Newtonian path.
+momentum-fix compensator, porosity relaxation, a prescribed field; with a viscous-force model
+(Bfull, A) also ELKernel = gaussian. All conflicts of a deck are listed before the one stop.
+Checked at the start of the first step, before any pass: MatrixRenewal M >= 1, K = 2 or 3, C = 1;
+GAMMA = 0; convective form; Newtonian path without viscoelastic stress.
+
+**First step.** A fresh run has the porosity field at 1 when the pre-advance pass samples the
+forces. Under a model one deposit-only pass (label 0: no PE arming, no history advance, nothing
+captured for the fluid) builds the porosity of the initial positions first, so the first particle
+advance already sees the right porosity in the drag, in the 1/eps scale of model B and in the
+inertia weight. `none` keeps its start-up sequence.
+
+**ConstantForcing under a model** is a fluid acceleration and is weighted like the inertia (eps
+rho f on the fluid, nothing on the particles). It is not a driving pressure gradient of any of
+the three equation sets; use it as what it is.
 
 **eps-weighted inertia (all models).** `EL_MM_Update_Fluid_Coefficients` writes the element-wise
 coefficient field `mgDensity = rho * eps_f` once per step after the last particle-mesh pass,
@@ -71,7 +83,9 @@ observed per run in `EL_VA_FLUX` (res1_L1 per corrector), not assumed.
 **Particle viscous force (Bfull, A).** <lap u_c> = (A_c - B.G_c)/N with A_c = -int grad W.grad u_c
 + int_wall W grad u_c.n, B = -int grad W + int_wall W n, G_c the kernel-averaged gradient, N the
 kernel integral. The B.G term removes the quadrature defect, so a uniform velocity gradient gives
-exactly zero. Wall faces are the faces whose centre dof is Dirichlet in all three components.
+exactly zero. The boundary integrals run over all faces on the physical boundary of the domain
+(a face with one adjacent element over all ranks, whatever its boundary condition); the kernel
+must vanish at the edge of its support, hence deen_poly only.
 Additive across ranks (summed at the owner). Enters the semi-implicit particle update, the
 Newton-pair expectation and, under Bfull, the deposited feedback.
 
@@ -116,6 +130,27 @@ models" of the s05 RUNBOOK (Ergun column: the three models against each other an
 | ELFluidGravity with a hydrostatic pressure double-counts buoyancy | ELFluidGravity = No implied |
 | mass projection with stiff implicit drag is a splitting | unchanged from the campaign scheme; open (section 6) |
 | restart equivalence, output weights | open (section 6) |
+
+## 5b. Code reviews of 0fb06e5a (GPT-6 Astra high; an independent Claude agent) and the fix round
+
+Both: no change of a floating-point result or an MPI sequence on the default path; signs and
+scalings of the model A terms, the residual divisor, the force split, the drag scale and the
+parallel restriction correct. Findings and what was done:
+
+| Finding (who) | Done |
+|---|---|
+| truncated gaussian kernel: viscous average 8 % low (both) | gaussian refused with Bfull / A |
+| boundary term only on all-Dirichlet faces: wrong at outlets and slip planes (both) | geometric boundary-face mask (one adjacent element over all ranks) |
+| model B without its 1/eps on the first particle advance, porosity still 1 (Astra) | porosity priming pass under a model |
+| Newtonian check lets a viscoelastic deck through (Astra) | refused |
+| `.AND.` need not short-circuit: FBM path may evaluate the predicate (Astra) | nested guard |
+| "advective" audit term changes meaning with divisor 1 (agent) | formed with the porosity for every model; default expression untouched |
+| model ids as literals in EL_CONFIG, table in two modules (both) | one model table in EL_CONFIG, EL_MOMENTUM_MODEL reads it; id cached at validation |
+| duplicated 3 x 3 inverse; misplaced header comment (agent) | `EL_VA_INVERT3`; comment restored. The face-normal code of `EL_VA_ELEMENT_FACE_FLUX` stays inline on purpose (certified arithmetic) |
+| tests never select A, loose tolerances (both) | A in policy / keys / force split; tolerances at the measured accuracy |
+| setting check late and printed by every rank; refusals one at a time; mask lifecycle; readiness of the transport porosity (agent) | check at the first step start on one rank; conflicts collected; mask released and rebuilt with the fields; readiness stop |
+| not unit-tested: adapter (restriction, mass rebuild, model A corrections as applied), multi-rank viscous record (both) | stated in the test header; covered by the s06 and s05 runs and the rank-count gates only |
+| per-step mass rebuild assembles the consistent mass and prints a line (agent) | left; cost in the s06 RUNBOOK |
 
 ## 6. Open points
 

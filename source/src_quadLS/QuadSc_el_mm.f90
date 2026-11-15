@@ -42,12 +42,6 @@ SUBROUTINE EL_MM_Update_Fluid_Coefficients()
 
   INTEGER :: ilev_save, jlev, iel, j, nel_c, child
   REAL*8 :: rho, vol, vsum, wsum
-  LOGICAL, SAVE :: checked = .FALSE.
-
-  IF (.NOT.checked) THEN
-    CALL EL_MM_Check_Solver_Settings()
-    checked = .TRUE.
-  END IF
 
   rho = Properties%Density(1)
   ilev_save = ILEV
@@ -92,39 +86,41 @@ SUBROUTINE EL_MM_Update_Fluid_Coefficients()
 END SUBROUTINE EL_MM_Update_Fluid_Coefficients
 
 !=========================================================================
-! Solver settings a momentum model relies on, checked once at the first call (same deck
-! values on every rank, hence a coordinated stop):
+! Solver settings a momentum model relies on, checked once at the start of the first
+! Euler-Lagrange step, before any pass (EL_MM_Begin_Step; same deck values on every rank,
+! hence a coordinated stop):
 !   MatrixRenewal  M >= 1 (the mass arrays exist), K = 2 or 3 (convection rebuilt every step
 !                  from the weighted coefficient), C = 1 (the start-up pressure matrix is the
 !                  preconditioner; a per-step rebuild would take the weighted mass),
 !   GAMMA = 0      (the rotational pressure update assumes the unweighted divergence source),
 !   convective form of the convection term (the divergence form lacks the compensating
 !                  -u div(eps u) of the non-conservative weighted inertia),
-!   Newtonian fluid with one material.
+!   Newtonian fluid path without viscoelastic stress.
 !=========================================================================
 SUBROUTINE EL_MM_Check_Solver_Settings()
 
-  USE var_QuadScalar, ONLY: iConvectionForm, GAMMA, bNonNewtonian
+  USE var_QuadScalar, ONLY: iConvectionForm, GAMMA, bNonNewtonian, bViscoElastic
+  USE PP3D_MPI, ONLY: myid, showid
 
   LOGICAL :: ok
 
   ok = .TRUE.
   IF (myMatrixRenewal%M.LT.1 .OR. (myMatrixRenewal%K.NE.2 .AND. myMatrixRenewal%K.NE.3) .OR. &
       myMatrixRenewal%C.NE.1) THEN
-    WRITE(*,'(A,3(A,I0))') 'ELMomentumModel needs SimPar@MatrixRenewal with M >= 1, K = 2 or 3, C = 1;', &
+    IF (myid.EQ.showid) WRITE(*,'(A,3(A,I0))') 'ELMomentumModel needs SimPar@MatrixRenewal with M >= 1, K = 2 or 3, C = 1;', &
       ' got M', myMatrixRenewal%M, ' K', myMatrixRenewal%K, ' C', myMatrixRenewal%C
     ok = .FALSE.
   END IF
   IF (GAMMA.NE.0.0d0) THEN
-    WRITE(*,'(A)') 'ELMomentumModel needs GAMMA = 0.'
+    IF (myid.EQ.showid) WRITE(*,'(A)') 'ELMomentumModel needs GAMMA = 0.'
     ok = .FALSE.
   END IF
   IF (iConvectionForm.NE.0) THEN
-    WRITE(*,'(A)') 'ELMomentumModel needs ELConvectionForm = convective.'
+    IF (myid.EQ.showid) WRITE(*,'(A)') 'ELMomentumModel needs ELConvectionForm = convective.'
     ok = .FALSE.
   END IF
-  IF (bNonNewtonian) THEN
-    WRITE(*,'(A)') 'ELMomentumModel is implemented for the Newtonian fluid path only.'
+  IF (bNonNewtonian .OR. bViscoElastic) THEN
+    IF (myid.EQ.showid) WRITE(*,'(A)') 'ELMomentumModel is implemented for the Newtonian fluid path only (FlowType = Newtonian, no viscoelastic stress).'
     ok = .FALSE.
   END IF
   IF (.NOT.ok) STOP 1
@@ -132,28 +128,102 @@ SUBROUTINE EL_MM_Check_Solver_Settings()
 END SUBROUTINE EL_MM_Check_Solver_Settings
 
 !=========================================================================
-! Dirichlet-boundary mask of the velocity dofs for the particle viscous force (EL_VISCOUS):
-! a dof is marked when all three velocity components carry a Dirichlet condition (no-slip
-! walls, inlets). Built once from the boundary flags of the finest level; workers only.
+! EL_MM_Begin_Step - start of every Euler-Lagrange step under a momentum model, before the
+! first particle-mesh pass (called from Transport_q2p1_UxyzP_el on every rank, deck-only
+! guard). Once per run: the solver-setting check. Whenever the fields were (re)allocated: the
+! boundary-face mask of the viscous force. Once per run: the porosity priming.
+!
+! Priming: a fresh run starts with the porosity field at its initialisation value 1, and the
+! pre-advance pass samples the forces before it deposits. Without priming the first particle
+! advance would use eps = 1 in the drag closure, in the 1/eps scale of model B and in the
+! inertia weight. One deposit-only pass (step label 0: no PE arming, no history advance,
+! nothing captured for the fluid) builds the porosity of the initial positions first; the
+! pre-advance pass that follows then finds eps_old = eps and a zero rate, which is the state
+! of a suspension at rest. Never entered for 'none', whose start-up sequence is unchanged.
 !=========================================================================
-SUBROUTINE EL_MM_Prepare_Wall_Mask()
+SUBROUTINE EL_MM_Begin_Step(mfile)
 
-  USE EL_FIELDS, ONLY: el_field_data
+  USE EL_TRANSFER, ONLY: EL_PARTICLE_MESH_PASS
+  USE EL_MOMENTUM_MODEL, ONLY: EL_MM_VISCOUS_FORCE
   USE PP3D_MPI, ONLY: myid, master
 
-  INTEGER :: i, ndof
+  INTEGER, INTENT(IN) :: mfile
+  LOGICAL, SAVE :: checked = .FALSE., primed = .FALSE.
+  REAL*8 :: dummy_velocity(1)
 
-  IF (myid.EQ.master) RETURN
-  IF (ALLOCATED(el_field_data%wall_dof)) RETURN
+  IF (.NOT.checked) THEN
+    CALL EL_MM_Check_Solver_Settings()
+    checked = .TRUE.
+  END IF
+
+  IF (EL_MM_VISCOUS_FORCE()) CALL EL_MM_Prepare_Boundary_Mask()
+
+  IF (.NOT.primed) THEN
+    dummy_velocity = 0.0d0
+    IF (myid.EQ.master) THEN
+      CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, dummy_velocity, &
+        dummy_velocity, dummy_velocity, dummy_velocity, Properties%Density(1), &
+        Properties%Viscosity(1), Properties%Gravity, tstep, mfile, 0)
+    ELSE
+      CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, QuadSc%valU, QuadSc%valV, &
+        QuadSc%valW, LinSc%valP(NLMAX)%x, Properties%Density(1), Properties%Viscosity(1), &
+        Properties%Gravity, tstep, mfile, 0)
+    END IF
+    primed = .TRUE.
+  END IF
+
+END SUBROUTINE EL_MM_Begin_Step
+
+!=========================================================================
+! Boundary-face mask for the particle viscous force (EL_VISCOUS): the face-centre dof of an
+! element face is marked when the face has exactly one adjacent element over all ranks, i.e.
+! lies on the physical boundary of the domain (interior faces and subdomain interfaces have
+! two). Independent of the boundary condition: walls, inlets, outlets and slip planes all
+! cut the kernel support. Built when the mask is not allocated (first step, after a release
+! of the EL fields); every worker joins the parallel sum, the master holds no fields.
+!=========================================================================
+SUBROUTINE EL_MM_Prepare_Boundary_Mask()
+
+  USE EL_FIELDS, ONLY: el_field_data
+  USE EL_VA_FLUX, ONLY: EL_VA_ELEMENT_DOFS, NQ2, NFACE
+  USE EL_VISCOUS, ONLY: EL_VISCOUS_FACE_CENTRE_DOF
+  USE PP3D_MPI, ONLY: myid, master, MPI_COMM_SUBS
+  USE MPI, ONLY: MPI_LOGICAL, MPI_LOR
+
+  INTEGER :: i, ndof, iel, f, dofs(NQ2), ilev_save, ierr
+  REAL*8, ALLOCATABLE :: count(:)
+  LOGICAL :: need_local, need_any
+
+  ! rank-uniform decision (the sum below is collective among the workers)
+  need_local = .FALSE.
+  IF (myid.NE.master) need_local = .NOT.ALLOCATED(el_field_data%boundary_face_dof)
+  CALL MPI_Allreduce(need_local, need_any, 1, MPI_LOGICAL, MPI_LOR, MPI_COMM_SUBS, ierr)
+  IF (.NOT.need_any .OR. myid.EQ.master) RETURN
+
   ndof = QuadSc%ndof
-  ALLOCATE(el_field_data%wall_dof(ndof))
-  DO i = 1, ndof
-    el_field_data%wall_dof(i) = (QuadSc%knprU(NLMAX)%x(i).NE.0 .AND. &
-                                 QuadSc%knprV(NLMAX)%x(i).NE.0 .AND. &
-                                 QuadSc%knprW(NLMAX)%x(i).NE.0)
+  ALLOCATE(count(ndof))
+  count = 0.0d0
+  DO iel = 1, mg_mesh%level(NLMAX)%nel
+    CALL EL_VA_ELEMENT_DOFS(mg_mesh, NLMAX, iel, dofs)
+    DO f = 1, NFACE
+      i = dofs(EL_VISCOUS_FACE_CENTRE_DOF(f))
+      count(i) = count(i) + 1.0d0
+    END DO
   END DO
+  ! parallel sum on the finest level (the global level pinned as in EL_TRANSFER)
+  ilev_save = ILEV
+  ILEV = NLMAX
+  CALL E013Sum(count)
+  ILEV = ilev_save
 
-END SUBROUTINE EL_MM_Prepare_Wall_Mask
+  IF (ALLOCATED(el_field_data%boundary_face_dof)) DEALLOCATE(el_field_data%boundary_face_dof)
+  ALLOCATE(el_field_data%boundary_face_dof(ndof))
+  DO i = 1, ndof
+    el_field_data%boundary_face_dof(i) = (ABS(count(i) - 1.0d0).LT.0.5d0)
+  END DO
+  DEALLOCATE(count)
+
+END SUBROUTINE EL_MM_Prepare_Boundary_Mask
 
 !=========================================================================
 ! Model A, operator form: solid-fraction corrections of the unweighted operators
@@ -183,6 +253,10 @@ SUBROUTINE EL_MM_Add_Operator_Terms()
   INTEGER :: ndof, i
 
   IF (myid.EQ.master) RETURN
+  IF (.NOT.ALLOCATED(el_field_data%epsilon_transport_q2)) THEN
+    WRITE(*,*) 'Momentum model A: transport porosity not built on rank ', myid
+    STOP 1
+  END IF
   ndof = QuadSc%ndof
   ALLOCATE(fp(3,ndof), fv(3,ndof))
   CALL EL_MM_PHI_OPERATORS(mg_mesh, NLMAX, mg_mesh%level(NLMAX)%dcorvg, &
@@ -203,7 +277,8 @@ END SUBROUTINE EL_MM_Add_Operator_Terms
 ! Pressure_Correction (LinSc%valP(NLMAX) still holds the pressure increment q):
 !     Velocity_Correction:   u += dt M^-1 B q        (unweighted gradient of the increment)
 !     here:                  u -= dt M^-1 fp(q)      -> u += dt M^-1 int q div(eps_h N)
-! with the same parallel sum, Dirichlet treatment and weighted lumped mass.
+! with the same parallel sum, Dirichlet treatment and weighted lumped mass: the tail below
+! repeats the one of Velocity_Correction on purpose, so that the shared routine stays as it is.
 !=========================================================================
 SUBROUTINE EL_MM_Correct_Velocity_Operator()
 
@@ -215,6 +290,10 @@ SUBROUTINE EL_MM_Correct_Velocity_Operator()
   INTEGER :: ndof, i
 
   IF (myid.EQ.master) RETURN
+  IF (.NOT.ALLOCATED(el_field_data%epsilon_transport_q2)) THEN
+    WRITE(*,*) 'Momentum model A: transport porosity not built on rank ', myid
+    STOP 1
+  END IF
   ndof = QuadSc%ndof
   ALLOCATE(fp(3,ndof), fv(3,ndof))
   CALL EL_MM_PHI_OPERATORS(mg_mesh, NLMAX, mg_mesh%level(NLMAX)%dcorvg, &

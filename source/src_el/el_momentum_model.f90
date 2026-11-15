@@ -1,9 +1,9 @@
 !=========================================================================
 ! EL_MOMENTUM_MODEL - momentum formulation of the Euler-Lagrange fluid-particle set
 !
-! SimPar@ELMomentumModel selects one of the CFDEM model types (EL_CONFIG: key, table of names,
-! el_mm_implemented). This module owns everything a model changes and answers it through a few
-! questions, so that no other code tests the model name:
+! SimPar@ELMomentumModel selects one of the CFDEM model types. What a model IS is one table in
+! EL_CONFIG (one column per model: ids, names, the property columns). This module turns the
+! table into the run-time questions the solver asks, so that no other code tests the model:
 !
 !   EL_MM_ACTIVE()     .TRUE. when a model other than 'none' is selected (deck-only, valid on
 !                      every rank including particle-free workers and the master).
@@ -49,13 +49,15 @@
 !=========================================================================
 MODULE EL_MOMENTUM_MODEL
 
-  USE EL_CONFIG, ONLY: EL_MM_ID
+  USE EL_CONFIG, ONLY: EL_MM_ID, EL_MM_NONE, EL_MM_BFULL, EL_MM_B, EL_MM_A, &
+                       el_mmt_weighted_inertia, el_mmt_drag_over_eps, el_mmt_divisor_eps, &
+                       el_mmt_viscous_force, el_mmt_viscous_feedback, el_mmt_operator_form
 
   IMPLICIT NONE
   PRIVATE
 
-  ! model ids = indices of el_mm_names (EL_CONFIG)
-  INTEGER, PARAMETER, PUBLIC :: EL_MM_NONE = 0, EL_MM_BFULL = 1, EL_MM_B = 2, EL_MM_A = 3
+  ! model ids, defined with the model table in EL_CONFIG
+  PUBLIC :: EL_MM_NONE, EL_MM_BFULL, EL_MM_B, EL_MM_A
 
   PUBLIC :: EL_MM_ACTIVE, EL_MM_WEIGHTED_INERTIA, EL_MM_DRAG_SCALE, EL_MM_RESIDUAL_DIVISOR
   PUBLIC :: EL_MM_VISCOUS_FORCE, EL_MM_VISCOUS_FEEDBACK, EL_MM_OPERATOR_FORM
@@ -67,40 +69,39 @@ CONTAINS
   END FUNCTION EL_MM_ACTIVE
 
   LOGICAL FUNCTION EL_MM_WEIGHTED_INERTIA()
-    EL_MM_WEIGHTED_INERTIA = EL_MM_ACTIVE()
+    EL_MM_WEIGHTED_INERTIA = el_mmt_weighted_inertia(EL_MM_ID())
   END FUNCTION EL_MM_WEIGHTED_INERTIA
 
-  ! The particle receives the viscous force V div tau (models Bfull and A) ...
+  ! The particle receives the viscous force V c lap u (EL_VISCOUS) ...
   LOGICAL FUNCTION EL_MM_VISCOUS_FORCE()
-    EL_MM_VISCOUS_FORCE = (EL_MM_ID().EQ.EL_MM_BFULL .OR. EL_MM_ID().EQ.EL_MM_A)
+    EL_MM_VISCOUS_FORCE = el_mmt_viscous_force(EL_MM_ID())
   END FUNCTION EL_MM_VISCOUS_FORCE
 
-  ! ... and its reaction is deposited on the fluid (Bfull only; in model A the fluid operator
+  ! ... and its reaction is deposited on the fluid (in the operator form the fluid operator
   ! carries div(eps tau) itself).
   LOGICAL FUNCTION EL_MM_VISCOUS_FEEDBACK()
-    EL_MM_VISCOUS_FEEDBACK = (EL_MM_ID().EQ.EL_MM_BFULL)
+    EL_MM_VISCOUS_FEEDBACK = el_mmt_viscous_feedback(EL_MM_ID())
   END FUNCTION EL_MM_VISCOUS_FEEDBACK
 
-  ! Model A: the fluid operator itself carries -eps grad p and div(eps tau) (EL_MM_OPERATOR,
-  ! applied by the fluid adapter as solid-fraction corrections of the unweighted operators).
+  ! The fluid operator itself carries -eps grad p and div(eps tau) (EL_MM_OPERATOR, applied by
+  ! the fluid adapter as solid-fraction corrections of the unweighted operators).
   LOGICAL FUNCTION EL_MM_OPERATOR_FORM()
-    EL_MM_OPERATOR_FORM = (EL_MM_ID().EQ.EL_MM_A)
+    EL_MM_OPERATOR_FORM = el_mmt_operator_form(EL_MM_ID())
   END FUNCTION EL_MM_OPERATOR_FORM
 
   REAL*8 FUNCTION EL_MM_DRAG_SCALE(eps)
     REAL*8, INTENT(IN) :: eps
     EL_MM_DRAG_SCALE = 1.0d0
-    IF (EL_MM_ID().EQ.EL_MM_B) EL_MM_DRAG_SCALE = 1.0d0/eps
+    IF (el_mmt_drag_over_eps(EL_MM_ID())) EL_MM_DRAG_SCALE = 1.0d0/eps
   END FUNCTION EL_MM_DRAG_SCALE
 
   REAL*8 FUNCTION EL_MM_RESIDUAL_DIVISOR(eps_e)
     REAL*8, INTENT(IN) :: eps_e
-    SELECT CASE (EL_MM_ID())
-    CASE (EL_MM_BFULL, EL_MM_B)
-      EL_MM_RESIDUAL_DIVISOR = 1.0d0
-    CASE DEFAULT
+    IF (el_mmt_divisor_eps(EL_MM_ID())) THEN
       EL_MM_RESIDUAL_DIVISOR = eps_e
-    END SELECT
+    ELSE
+      EL_MM_RESIDUAL_DIVISOR = 1.0d0
+    END IF
   END FUNCTION EL_MM_RESIDUAL_DIVISOR
 
 END MODULE EL_MOMENTUM_MODEL

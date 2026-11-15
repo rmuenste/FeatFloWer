@@ -68,7 +68,7 @@ MODULE EL_VA_FLUX
   PUBLIC :: EL_VA_FLUX_MOMENTS, EL_VA_ELEMENT_FLUX_MOMENTS, EL_VA_ELEMENT_FACE_FLUX
   PUBLIC :: EL_VA_ELEMENT_DOFS, EL_VA_Q2_BASIS, EL_VA_FLUX_TABLES, tElVaFluxTables
   PUBLIC :: EL_VA_CHECK_DOF_LAYOUT, EL_VA_CONSERVATIVE_ROWS
-  PUBLIC :: EL_VA_FACE_GEOMETRY
+  PUBLIC :: EL_VA_FACE_GEOMETRY, EL_VA_INVERT3
   PUBLIC :: NQ2, NFACE, NGPF, NGPV
 
   INTEGER, PARAMETER :: NQ2 = 27      ! Q2 dofs per element
@@ -353,12 +353,11 @@ CONTAINS
 
   END SUBROUTINE EL_VA_ELEMENT_DOFS
 
-  ! Flux moments of one face f of an element: moments(1) = int_f eps u.n dS (outward),
-  ! moments(1+m) = int_f (x_m - xc_m) eps u.n dS, and the unweighted flux int_f u.n dS.
-  ! Exposed for the pairwise-cancellation test.
   ! Geometry of face point p of reference face f for the Q2-mapped element with dof coordinates
   ! x: Jacobian jac(:,k) = dx/dxi_k and the outward area vector n dS including the quadrature
-  ! weight (the convention of EL_VA_ELEMENT_FACE_FLUX: sign sgn(det J) (dx/dxi_a x dx/dxi_b) w).
+  ! weight (the convention of EL_VA_ELEMENT_FACE_FLUX: sign sgn(det J) (dx/dxi_a x dx/dxi_b) w;
+  ! that routine keeps its own inline copy so that the conservative-form arithmetic of the
+  ! certified runs is untouched).
   PURE SUBROUTINE EL_VA_FACE_GEOMETRY(t, f, p, x, jac, detj, nds)
 
     TYPE(tElVaFluxTables), INTENT(IN) :: t
@@ -385,6 +384,26 @@ CONTAINS
 
   END SUBROUTINE EL_VA_FACE_GEOMETRY
 
+  ! Inverse and determinant of a 3 x 3 Jacobian (cofactor formula).
+  PURE SUBROUTINE EL_VA_INVERT3(a, b, det)
+    REAL*8, INTENT(IN) :: a(3,3)
+    REAL*8, INTENT(OUT) :: b(3,3), det
+    det = a(1,1)*(a(2,2)*a(3,3)-a(2,3)*a(3,2)) - a(1,2)*(a(2,1)*a(3,3)-a(2,3)*a(3,1)) &
+        + a(1,3)*(a(2,1)*a(3,2)-a(2,2)*a(3,1))
+    b(1,1) =  (a(2,2)*a(3,3)-a(2,3)*a(3,2))/det
+    b(1,2) = -(a(1,2)*a(3,3)-a(1,3)*a(3,2))/det
+    b(1,3) =  (a(1,2)*a(2,3)-a(1,3)*a(2,2))/det
+    b(2,1) = -(a(2,1)*a(3,3)-a(2,3)*a(3,1))/det
+    b(2,2) =  (a(1,1)*a(3,3)-a(1,3)*a(3,1))/det
+    b(2,3) = -(a(1,1)*a(2,3)-a(1,3)*a(2,1))/det
+    b(3,1) =  (a(2,1)*a(3,2)-a(2,2)*a(3,1))/det
+    b(3,2) = -(a(1,1)*a(3,2)-a(1,2)*a(3,1))/det
+    b(3,3) =  (a(1,1)*a(2,2)-a(1,2)*a(2,1))/det
+  END SUBROUTINE EL_VA_INVERT3
+
+  ! Flux moments of one face f of an element: moments(1) = int_f eps u.n dS (outward),
+  ! moments(1+m) = int_f (x_m - xc_m) eps u.n dS, and the unweighted flux int_f u.n dS.
+  ! Exposed for the pairwise-cancellation test.
   PURE SUBROUTINE EL_VA_ELEMENT_FACE_FLUX(t, f, x, eps, u, xc, moments, flux_unweighted)
 
     TYPE(tElVaFluxTables), INTENT(IN) :: t

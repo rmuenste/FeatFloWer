@@ -250,14 +250,14 @@ CONTAINS
     viscous_force = EL_MM_VISCOUS_FORCE()
     local_viscous = 0.0d0
     IF (viscous_force) THEN
-      IF (.NOT.ALLOCATED(el_field_data%wall_dof)) THEN
-        WRITE(*,*) 'EL_PARTICLE_MESH_PASS: wall mask for the viscous force not set on rank ', myid
+      IF (.NOT.ALLOCATED(el_field_data%boundary_face_dof)) THEN
+        WRITE(*,*) 'EL_PARTICLE_MESH_PASS: boundary-face mask for the viscous force not set on rank ', myid
         CALL MPI_Abort(MPI_COMM_SUBS, 910, ierr)
       END IF
       ALLOCATE(local_lap(EL_VIS_SIZE,n_records), owned_lap(EL_VIS_SIZE,n_owned))
       DO i=1,n_records
         CALL EL_INTEGRATE_PARTICLE_VISCOUS(mesh, ilev, mesh%level(ilev)%dcorvg, val_u, val_v, &
-          val_w, el_field_data%wall_dof, records(i)%position, &
+          val_w, el_field_data%boundary_face_dof, records(i)%position, &
           2.0d0*el_kernel_width_factor*records(i)%radius, local_lap(:,i))
       END DO
       owned_lap = 0.0d0

@@ -1,14 +1,20 @@
 PROGRAM TEST_EL_MOMENTUM_MODEL
 
-  ! Unit tests of the Euler-Lagrange momentum models (EL_MOMENTUM_MODEL, EL_VISCOUS, the model
-  ! parts of EL_CONFIG and EL_FORCES) on the synthetic structured mesh of el_test_helpers.
+  ! Unit tests of the Euler-Lagrange momentum models (EL_MOMENTUM_MODEL, EL_VISCOUS,
+  ! EL_MM_OPERATOR, the model parts of EL_CONFIG and EL_FORCES) on the synthetic structured
+  ! mesh of el_test_helpers. Not covered here (they live in Transport_Q2P1 and need the
+  ! solver): the coefficient update with its restriction and mass rebuild, the two model A
+  ! corrections as applied, the refusals (STOP paths; exercised by negative runs), the
+  ! multi-rank sum of the viscous record.
   !   1 policy table: drag scale, residual divisor, viscous force / feedback per model
   !   2 key resolution: implied values, registry of explicit keys
   !   3 force split per model: particle and feedback sums against a hand table
   !   4 viscous kernel average: zero for a linear velocity (interior and at a wall, brick and
   !     warped mesh), the Laplacian of a quadratic field in the interior and at a wall
-  !   5 start-up balance: the 1-D slip equation with the model's mass weights and force set
-  !     gives the time-constant ratios 1.25 (unweighted inertia) and 0.62 (model B)
+  !   5 start-up balance: the drag scale of each model in the 1-D slip equation gives the
+  !     time-constant ratios 1.25 (unweighted inertia) and 0.62 (model B). This pins the policy
+  !     and the algebra of the prediction only; that the solver realises the inertia weights is
+  !     shown by the runs of validation case s06_startup_inertia, not by a unit test.
   !   6 model A operators: fp is the transpose of the solid-fraction part of the conservative
   !     divergence (element identity against EL_VA_ELEMENT_FLUX_MOMENTS), a constant pressure
   !     gives no force at interior nodes for a continuous solid fraction, fv is the
@@ -23,7 +29,7 @@ PROGRAM TEST_EL_MOMENTUM_MODEL
                        el_n_keys_set, el_n_implied, EL_MM_ID
   USE EL_MOMENTUM_MODEL, ONLY: EL_MM_ACTIVE, EL_MM_DRAG_SCALE, EL_MM_RESIDUAL_DIVISOR, &
                                EL_MM_VISCOUS_FORCE, EL_MM_VISCOUS_FEEDBACK, &
-                               EL_MM_WEIGHTED_INERTIA
+                               EL_MM_WEIGHTED_INERTIA, EL_MM_OPERATOR_FORM, EL_MM_NONE, EL_MM_A
   USE EL_FORCES, ONLY: tElForceResult, EL_COMPUTE_PARTICLE_FORCES, EL_FLUID_OPERATOR_VISCOSITY
   USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION, EL_SAMPLE_UF_BEGIN, &
                            EL_SAMPLE_GRAD_P_BEGIN, EL_SAMPLE_EPSILON_F
@@ -96,7 +102,17 @@ CONTAINS
       ABS(EL_MM_DRAG_SCALE(eps)-1.0d0/eps).LT.1.0d-15 .AND. &
       EL_MM_RESIDUAL_DIVISOR(eps).EQ.1.0d0 .AND. .NOT.EL_MM_VISCOUS_FORCE(), &
       'policy: B (drag / eps, divisor 1, no viscous force)', nf, rank)
+    CALL select_model('A')
+    CALL EL_TEST_CHECK(EL_MM_WEIGHTED_INERTIA() .AND. EL_MM_OPERATOR_FORM() .AND. &
+      EL_MM_DRAG_SCALE(eps).EQ.1.0d0 .AND. EL_MM_RESIDUAL_DIVISOR(eps).EQ.eps .AND. &
+      EL_MM_VISCOUS_FORCE() .AND. .NOT.EL_MM_VISCOUS_FEEDBACK(), &
+      'policy: A (operator form, divisor eps, viscous force without feedback)', nf, rank)
+    CALL select_model('bfull')
+    CALL EL_TEST_CHECK(.NOT.EL_MM_OPERATOR_FORM(), 'policy: Bfull is not the operator form', &
+      nf, rank)
     CALL select_model('none')
+    CALL EL_TEST_CHECK(.NOT.EL_MM_OPERATOR_FORM() .AND. EL_MM_ID().EQ.EL_MM_NONE, &
+      'policy: none has no operator form, id reset by the validation', nf, rank)
   END SUBROUTINE test_policy_table
 
   SUBROUTINE test_key_resolution(nf)
@@ -112,6 +128,10 @@ CONTAINS
     CALL select_model('bfull')
     CALL EL_TEST_CHECK(el_pressure_force .AND. el_pressure_feedback, &
       'keys: Bfull implies pressure force and feedback', nf, rank)
+    CALL select_model('a')
+    CALL EL_TEST_CHECK(el_pressure_force .AND. .NOT.el_pressure_feedback .AND. &
+      EL_MM_ID().EQ.EL_MM_A .AND. TRIM(el_va_continuity_form).EQ.'conservative', &
+      'keys: A implies the pressure force without feedback', nf, rank)
     ! an explicit key with the implied value is accepted and a larger corrector count kept
     el_momentum_model = 'bfull'
     el_n_keys_set = 0
@@ -130,7 +150,7 @@ CONTAINS
     INTEGER, INTENT(INOUT) :: nf
     REAL*8 :: state(8), sample(EL_SAMPLE_SIZE), gravity(3), lap(3)
     REAL*8, PARAMETER :: rho = 1000.0d0, nu = 1.0d-6, eps = 0.6d0
-    TYPE(tElForceResult) :: r0, rb, rf
+    TYPE(tElForceResult) :: r0, rb, rf, ra
     REAL*8 :: vol, fv(3)
 
     state = 0.0d0
@@ -171,6 +191,14 @@ CONTAINS
       MAXVAL(ABS(rf%feedback_nondrag-(rf%pressure+rf%lift+fv))).LE.1.0d-20 .AND. &
       MAXVAL(ABS(rf%particle_nondrag-(rf%pressure+rf%lift+rf%grav_buoy+fv))).LE.1.0d-20, &
       'forces: Bfull adds V c lap u to particle and feedback', nf, rank)
+    CALL select_model('a')
+    CALL EL_COMPUTE_PARTICLE_FORCES(state, sample, rho, nu, gravity, ra, lap)
+    CALL EL_TEST_CHECK(MAXVAL(ABS(ra%viscous-fv)).LE.1.0d-30 .AND. &
+      ALL(ra%pressure.EQ.r0%pressure) .AND. ALL(ra%drag.EQ.r0%drag) .AND. &
+      MAXVAL(ABS(ra%particle_total-rf%particle_total)).LE.1.0d-20 .AND. &
+      ALL(ra%feedback_force.EQ.ra%drag+ra%lift) .AND. ALL(ra%feedback_nondrag.EQ.ra%lift), &
+      'forces: A gives the particle pressure and viscous force, feeds back the drag only', &
+      nf, rank)
     CALL select_model('none')
   END SUBROUTINE test_force_split
 
@@ -237,16 +265,16 @@ CONTAINS
     err = MAXVAL(ABS(lap - (/ 2.0d0, -4.0d0, 6.0d0 /)))/6.0d0
     IF (rank.EQ.0) WRITE(*,'(A,A,A,3ES13.5,A,ES10.2)') '    viscous ', TRIM(tag), &
       ' interior lap = ', lap, '  rel. error ', err
-    CALL EL_TEST_CHECK(err.LE.0.05d0, 'viscous '//TRIM(tag)// &
-      ': Laplacian of a quadratic field, interior (5 %)', nf, rank)
+    CALL EL_TEST_CHECK(err.LE.0.003d0, 'viscous '//TRIM(tag)// &
+      ': Laplacian of a quadratic field, interior (0.3 %)', nf, rank)
     pos = (/ 0.52d0, 0.47d0, 0.6d0*h /)
     CALL EL_INTEGRATE_PARTICLE_VISCOUS(mesh, 1, coor, u, v, w, wall, pos, width, vis)
     lap = EL_VISCOUS_LAPLACIAN(vis)
     err = MAXVAL(ABS(lap - (/ 2.0d0, -4.0d0, 6.0d0 /)))/6.0d0
     IF (rank.EQ.0) WRITE(*,'(A,A,A,3ES13.5,A,ES10.2)') '    viscous ', TRIM(tag), &
       ' wall     lap = ', lap, '  rel. error ', err
-    CALL EL_TEST_CHECK(err.LE.0.10d0, 'viscous '//TRIM(tag)// &
-      ': Laplacian of a quadratic field, kernel cut by a wall (10 %)', nf, rank)
+    CALL EL_TEST_CHECK(err.LE.0.003d0, 'viscous '//TRIM(tag)// &
+      ': Laplacian of a quadratic field, kernel cut by a wall (0.3 %)', nf, rank)
     ! without the boundary term the wall value is badly wrong: the term matters
     wall = .FALSE.
     CALL EL_INTEGRATE_PARTICLE_VISCOUS(mesh, 1, coor, u, v, w, wall, pos, width, vis)
@@ -331,8 +359,8 @@ CONTAINS
     END DO
     IF (warped) THEN
       ! on the warped mesh the nodal interpolant of the trilinear function is not trilinear in
-      ! the reference element; the identity then holds to quadrature accuracy only
-      tol = 2.0d-3
+      ! the reference element; the identity then holds to quadrature accuracy only (7e-9 here)
+      tol = 1.0d-6
     ELSE
       tol = 1.0d-12
     END IF

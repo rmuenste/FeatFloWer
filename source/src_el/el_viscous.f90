@@ -9,9 +9,12 @@
 ! with the kernel average taken in the weak form (no second derivatives of the Q2 field, the
 ! gradient jumps between elements are included automatically):
 !     <lap u_c>_W = ( - int_Omega grad W . grad u_c dV + int_dOmega W du_c/dn dS ) / int_Omega W dV.
-! The boundary integral runs over the element faces on a physical Dirichlet boundary inside the
-! kernel support (the kernel is cut by the wall there; without the term the average would be
-! biased for wall-adjacent particles). Subdomain interfaces are not boundaries: every rank
+! The boundary integral runs over the element faces on the physical boundary of the domain
+! inside the kernel support, whatever their boundary condition (the kernel is cut by the
+! boundary there; the identity is plain integration by parts over the cut support, and without
+! the term the average is off by 14 % for a particle next to a wall, unit test). The kernel
+! must vanish at the edge of its support (deen_poly; the truncated gaussian is refused with a
+! viscous-force model, EL_CONFIG). Subdomain interfaces are not boundaries: every rank
 ! integrates its own elements and the owner sums the contributions (EL_HALO), so the volume
 ! term is additive and interior faces cancel in the continuous sense.
 !
@@ -36,12 +39,13 @@ MODULE EL_VISCOUS
   USE TYPES, ONLY: tMultiMesh
   USE EL_KERNEL_FUNCTIONS, ONLY: EL_KERNEL_VALUE, EL_KERNEL_DERIVATIVE
   USE EL_VA_FLUX, ONLY: tElVaFluxTables, EL_VA_FLUX_TABLES, EL_VA_ELEMENT_DOFS, &
-                        EL_VA_FACE_GEOMETRY, NQ2, NFACE, NGPF, NGPV
+                        EL_VA_FACE_GEOMETRY, EL_VA_INVERT3, NQ2, NFACE, NGPF, NGPV
   USE EL_QUADRATURE, ONLY: EL_ELEMENT_INTERSECTS_SUPPORT
 
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: EL_INTEGRATE_PARTICLE_VISCOUS, EL_VISCOUS_ELEMENT, EL_VISCOUS_LAPLACIAN, EL_VIS_SIZE
+  PUBLIC :: EL_VISCOUS_FACE_CENTRE_DOF
 
   ! layout of the additive record: A(1:3), B(4:6), int W grad u (7:15, row c at 7+3(c-1)), N (16)
   INTEGER, PARAMETER :: EL_VIS_SIZE = 16
@@ -62,9 +66,16 @@ CONTAINS
     END DO
   END SUBROUTINE EL_VISCOUS_SETUP
 
+  ! Local Q2 dof at the centre of reference face f (for the boundary-face mask of the adapter).
+  INTEGER FUNCTION EL_VISCOUS_FACE_CENTRE_DOF(f)
+    INTEGER, INTENT(IN) :: f
+    CALL EL_VISCOUS_SETUP()
+    EL_VISCOUS_FACE_CENTRE_DOF = face_dof(f)
+  END FUNCTION EL_VISCOUS_FACE_CENTRE_DOF
+
   ! Contribution of one element with dof coordinates x and nodal velocities u to the numerator
   ! of <lap u>_W for a kernel centred at `position` with support radius `width`; wall(f) marks
-  ! the faces on a physical Dirichlet boundary.
+  ! the faces on the physical boundary of the domain.
   PURE SUBROUTINE EL_VISCOUS_ELEMENT(t, x, u, wall, position, width, vis)
 
     TYPE(tElVaFluxTables), INTENT(IN) :: t
@@ -89,7 +100,7 @@ CONTAINS
       rvec = xq - position
       rlen = SQRT(SUM(rvec*rvec))
       IF (rlen.GE.width) CYCLE
-      CALL invert3(jac, inv, detj)
+      CALL EL_VA_INVERT3(jac, inv, detj)
       dv = t%vw(p)*ABS(detj)
       w = EL_KERNEL_VALUE(rlen, width)
       gw = 0.0d0
@@ -114,7 +125,7 @@ CONTAINS
         w = EL_KERNEL_VALUE(rlen, width)
         IF (w.LE.0.0d0) CYCLE
         CALL EL_VA_FACE_GEOMETRY(t, f, p, x, jac, detj, nds)
-        CALL invert3(jac, inv, detj)
+        CALL EL_VA_INVERT3(jac, inv, detj)
         CALL velocity_gradient(u, t%fder(:,:,p,f), inv, gu)
         DO k = 1, 3
           vis(k) = vis(k) + w*DOT_PRODUCT(gu(k,:), nds)
@@ -143,33 +154,18 @@ CONTAINS
       END DO
     END SUBROUTINE velocity_gradient
 
-    PURE SUBROUTINE invert3(a, b, det)
-      REAL*8, INTENT(IN) :: a(3,3)
-      REAL*8, INTENT(OUT) :: b(3,3), det
-      det = a(1,1)*(a(2,2)*a(3,3)-a(2,3)*a(3,2)) - a(1,2)*(a(2,1)*a(3,3)-a(2,3)*a(3,1)) &
-          + a(1,3)*(a(2,1)*a(3,2)-a(2,2)*a(3,1))
-      b(1,1) =  (a(2,2)*a(3,3)-a(2,3)*a(3,2))/det
-      b(1,2) = -(a(1,2)*a(3,3)-a(1,3)*a(3,2))/det
-      b(1,3) =  (a(1,2)*a(2,3)-a(1,3)*a(2,2))/det
-      b(2,1) = -(a(2,1)*a(3,3)-a(2,3)*a(3,1))/det
-      b(2,2) =  (a(1,1)*a(3,3)-a(1,3)*a(3,1))/det
-      b(2,3) = -(a(1,1)*a(2,3)-a(1,3)*a(2,1))/det
-      b(3,1) =  (a(2,1)*a(3,2)-a(2,2)*a(3,1))/det
-      b(3,2) = -(a(1,1)*a(3,2)-a(1,2)*a(3,1))/det
-      b(3,3) =  (a(1,1)*a(2,2)-a(1,2)*a(2,1))/det
-    END SUBROUTINE invert3
-
   END SUBROUTINE EL_VISCOUS_ELEMENT
 
   ! Additive pieces of <lap u>_W over the elements of this rank. coor = Q2 dof coordinates of the
-  ! level (mesh%level(ilev)%dcorvg), wall_dof = Dirichlet-boundary mask of the velocity dofs.
-  SUBROUTINE EL_INTEGRATE_PARTICLE_VISCOUS(mesh, ilev, coor, val_u, val_v, val_w, wall_dof, &
+  ! level (mesh%level(ilev)%dcorvg), boundary_face_dof = face-centre dofs of the physical boundary faces
+  ! (EL_FIELDS).
+  SUBROUTINE EL_INTEGRATE_PARTICLE_VISCOUS(mesh, ilev, coor, val_u, val_v, val_w, boundary_face_dof, &
                                            position, width, vis)
 
     TYPE(tMultiMesh), INTENT(IN) :: mesh
     INTEGER, INTENT(IN) :: ilev
     REAL*8, INTENT(IN) :: coor(:,:), val_u(:), val_v(:), val_w(:), position(3), width
-    LOGICAL, INTENT(IN) :: wall_dof(:)
+    LOGICAL, INTENT(IN) :: boundary_face_dof(:)
     REAL*8, INTENT(OUT) :: vis(EL_VIS_SIZE)
 
     INTEGER :: iel, l, f, dofs(NQ2)
@@ -189,7 +185,7 @@ CONTAINS
         u(3,l) = val_w(dofs(l))
       END DO
       DO f = 1, NFACE
-        wall(f) = wall_dof(dofs(face_dof(f)))
+        wall(f) = boundary_face_dof(dofs(face_dof(f)))
       END DO
       CALL EL_VISCOUS_ELEMENT(tables, x, u, wall, position, width, part)
       vis = vis + part
