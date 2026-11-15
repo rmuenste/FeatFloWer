@@ -27,7 +27,9 @@ MODULE EL_FIELDS
     ! the fluid adapter (Transport_Q2P1: EL_MM_Prepare_Boundary_Mask) when a momentum model
     ! with a particle viscous force is selected: the weak kernel average of lap u needs the
     ! boundary integrals on those faces whatever their boundary condition (EL_VISCOUS). Not
-    ! allocated otherwise; released with the other fields and rebuilt at the next step.
+    ! allocated otherwise. Mesh topology, not a particle field: it is NOT released with the
+    ! other fields (EL_ENSURE_FIELDS releases them on its first call, after the mask is
+    ! built); the adapter rebuilds it when its size no longer matches the dof count.
     LOGICAL, ALLOCATABLE :: boundary_face_dof(:)
     REAL*8, ALLOCATABLE :: epsilon_f_old(:)
     REAL*8, ALLOCATABLE :: deps_f_dt(:)
@@ -182,7 +184,6 @@ CONTAINS
     IF (ALLOCATED(el_field_data%alpha_p)) DEALLOCATE(el_field_data%alpha_p)
     IF (ALLOCATED(el_field_data%grad_alpha_p)) DEALLOCATE(el_field_data%grad_alpha_p)
     IF (ALLOCATED(el_field_data%epsilon_f)) DEALLOCATE(el_field_data%epsilon_f)
-    IF (ALLOCATED(el_field_data%boundary_face_dof)) DEALLOCATE(el_field_data%boundary_face_dof)
     IF (ALLOCATED(el_field_data%epsilon_f_old)) DEALLOCATE(el_field_data%epsilon_f_old)
     IF (ALLOCATED(el_field_data%deps_f_dt)) DEALLOCATE(el_field_data%deps_f_dt)
     IF (ALLOCATED(el_field_data%deps_f_dt_prev)) DEALLOCATE(el_field_data%deps_f_dt_prev)

@@ -148,7 +148,7 @@ parallel restriction correct. Findings and what was done:
 | model ids as literals in EL_CONFIG, table in two modules (both) | one model table in EL_CONFIG, EL_MOMENTUM_MODEL reads it; id cached at validation |
 | duplicated 3 x 3 inverse; misplaced header comment (agent) | `EL_VA_INVERT3`; comment restored. The face-normal code of `EL_VA_ELEMENT_FACE_FLUX` stays inline on purpose (certified arithmetic) |
 | tests never select A, loose tolerances (both) | A in policy / keys / force split; tolerances at the measured accuracy |
-| setting check late and printed by every rank; refusals one at a time; mask lifecycle; readiness of the transport porosity (agent) | check at the first step start on one rank; conflicts collected; mask released and rebuilt with the fields; readiness stop |
+| setting check late and printed by every rank; refusals one at a time; mask lifecycle; readiness of the transport porosity (agent) | check at the first step start (show rank and master); conflicts collected; mask kept across the field release and rebuilt on a size change; readiness stop |
 | not unit-tested: adapter (restriction, mass rebuild, model A corrections as applied), multi-rank viscous record (both) | stated in the test header; covered by the s06 and s05 runs and the rank-count gates only |
 | per-step mass rebuild assembles the consistent mass and prints a line (agent) | left; cost in the s06 RUNBOOK |
 

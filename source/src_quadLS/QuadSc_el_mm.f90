@@ -181,8 +181,8 @@ END SUBROUTINE EL_MM_Begin_Step
 ! element face is marked when the face has exactly one adjacent element over all ranks, i.e.
 ! lies on the physical boundary of the domain (interior faces and subdomain interfaces have
 ! two). Independent of the boundary condition: walls, inlets, outlets and slip planes all
-! cut the kernel support. Built when the mask is not allocated (first step, after a release
-! of the EL fields); every worker joins the parallel sum, the master holds no fields.
+! cut the kernel support. Built when the mask is not allocated or has the wrong size (first
+! step, changed mesh); every worker joins the parallel sum, the master holds no fields.
 !=========================================================================
 SUBROUTINE EL_MM_Prepare_Boundary_Mask()
 
@@ -200,6 +200,7 @@ SUBROUTINE EL_MM_Prepare_Boundary_Mask()
   IF (myid.EQ.master) RETURN
   ! worker-uniform decision (the parallel sum below is collective among the workers)
   need_local = .NOT.ALLOCATED(el_field_data%boundary_face_dof)
+  IF (.NOT.need_local) need_local = (SIZE(el_field_data%boundary_face_dof).NE.QuadSc%ndof)
   CALL MPI_Allreduce(need_local, need_any, 1, MPI_LOGICAL, MPI_LOR, MPI_COMM_SUBS, ierr)
   IF (.NOT.need_any) RETURN
 
