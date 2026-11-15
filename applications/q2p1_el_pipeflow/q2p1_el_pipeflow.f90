@@ -15,6 +15,9 @@ PROGRAM Q2P1_EL_PIPEFLOW
 
   CALL init_q2p1_app(ufile)
 
+  ! SimPar@ELFluidViscosity = dynamic: the fluid operator gets mu = rho*nu (no-op by default)
+  CALL EL_APPLY_FLUID_VISCOSITY(ufile)
+
   ! Seed the linear Couette profile as IC (no-op unless
   ! ELInitialField=linear_shear); restarts keep their loaded field.
   IF (ISTART.EQ.0) CALL EL_IMPOSE_INITIAL_FIELD()

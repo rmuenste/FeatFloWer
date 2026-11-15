@@ -26,7 +26,8 @@ PROGRAM TEST_EL_MOMENTUM_MODEL
                        el_volume_averaged, el_va_continuity_form, el_drag_coupling, &
                        el_apply_fluid_feedback, el_fluid_gravity, el_va_source_correctors, &
                        el_drag_model, el_kernel, EL_VALIDATE_CONFIG, EL_NOTE_KEY_SET, &
-                       el_n_keys_set, el_n_implied, EL_MM_ID
+                       el_n_keys_set, el_n_implied, EL_MM_ID, el_fluid_viscosity, &
+                       el_closure_nu, EL_CLOSURE_VISCOSITY
   USE EL_MOMENTUM_MODEL, ONLY: EL_MM_ACTIVE, EL_MM_DRAG_SCALE, EL_MM_RESIDUAL_DIVISOR, &
                                EL_MM_VISCOUS_FORCE, EL_MM_VISCOUS_FEEDBACK, &
                                EL_MM_WEIGHTED_INERTIA, EL_MM_OPERATOR_FORM, EL_MM_NONE, EL_MM_A
@@ -53,6 +54,7 @@ PROGRAM TEST_EL_MOMENTUM_MODEL
   failures = 0
   CALL test_policy_table(failures)
   CALL test_key_resolution(failures)
+  CALL test_viscosity_convention(failures)
   CALL test_force_split(failures)
   CALL test_viscous_average(failures, .FALSE.)
   CALL test_viscous_average(failures, .TRUE.)
@@ -84,6 +86,31 @@ CONTAINS
     el_n_implied = 0
     CALL EL_VALIDATE_CONFIG()
   END SUBROUTINE select_model
+
+  ! SimPar@ELFluidViscosity: what the closures and the viscous force receive in the two
+  ! conventions (the conversion of the property itself is done by the application).
+  SUBROUTINE test_viscosity_convention(nf)
+    INTEGER, INTENT(INOUT) :: nf
+    REAL*8, PARAMETER :: rho = 10.0d0, nu = 1.5d-4
+
+    el_fluid_viscosity = 'kinematic'
+    CALL select_model('none')
+    CALL EL_TEST_CHECK(EL_CLOSURE_VISCOSITY(nu).EQ.nu .AND. &
+      EL_FLUID_OPERATOR_VISCOSITY(rho, nu).EQ.nu, &
+      'viscosity: default = campaign convention (closures nu, operator nu)', nf, rank)
+    el_fluid_viscosity = 'Dynamic'
+    CALL select_model('none')
+    el_closure_nu = nu
+    ! the property now holds mu = rho nu; the closures get the recorded nu back bit for bit
+    CALL EL_TEST_CHECK(EL_CLOSURE_VISCOSITY(rho*nu).EQ.nu .AND. &
+      EL_FLUID_OPERATOR_VISCOSITY(rho, EL_CLOSURE_VISCOSITY(rho*nu)).EQ.rho*nu, &
+      'viscosity: dynamic (closures nu, operator and viscous force rho nu)', nf, rank)
+    el_fluid_viscosity = 'kinematic'
+    el_closure_nu = -1.0d0
+    CALL select_model('none')
+    CALL EL_TEST_CHECK(EL_FLUID_OPERATOR_VISCOSITY(rho, nu).EQ.nu, &
+      'viscosity: back to the default after re-validation', nf, rank)
+  END SUBROUTINE test_viscosity_convention
 
   SUBROUTINE test_policy_table(nf)
     INTEGER, INTENT(INOUT) :: nf

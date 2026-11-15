@@ -32,7 +32,7 @@ use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS, EL_WRITE_PARTICLE_LOG, 
                           EL_WRITE_SS_RADIUS, EL_FLUID_PAIR_STAGE
 use EL_FIELDS, only: EL_APPLY_FLUID_FEEDBACK_SOURCE, el_field_data
 use EL_VA_CONTINUITY, only: EL_ADD_CONTINUITY_SOURCE, EL_VOLUME_AVERAGED_ACTIVE
-use EL_CONFIG, only: EL_VA_SOURCE_CORRECTORS_ENABLED
+use EL_CONFIG, only: EL_VA_SOURCE_CORRECTORS_ENABLED, EL_CLOSURE_VISCOSITY
 use EL_MOMENTUM_MODEL, only: EL_MM_ACTIVE, EL_MM_WEIGHTED_INERTIA, EL_MM_OPERATOR_FORM
 
 use, intrinsic :: ieee_arithmetic
@@ -368,20 +368,23 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
   IF (ALLOCATED(FictKNPR)) FictKNPR = 0
   IF (myid.NE.master .AND. prescribed_active) CALL EL_IMPOSE_PRESCRIBED_FIELD()
 
-  ! Viscosity convention: Properties%Viscosity is KINEMATIC (param_parser
-  ! stores Prop@Viscosity as-is and converts Prop@DynVisc via /Density);
-  ! the EL closures take the kinematic value and form mu = rho*nu
-  ! internally (el_forces.f90 dynamic_viscosity). Do NOT pre-multiply by
+  ! Viscosity convention: the EL closures take the KINEMATIC viscosity and form
+  ! mu = rho*nu internally (el_forces.f90 dynamic_viscosity). EL decks give nu
+  ! (param_parser stores Prop@Viscosity as-is and converts Prop@DynVisc via /Density), so by
+  ! default Properties%Viscosity is nu and is passed on unchanged; under
+  ! SimPar@ELFluidViscosity = dynamic the application has stored mu there for the fluid
+  ! operator and EL_CLOSURE_VISCOSITY returns the recorded nu. Do NOT pre-multiply by
   ! density here -- that double-counts rho for any fluid with rho /= 1
   ! (caught by the ten Cate SI validation case).
   ! Evaluate hydrodynamic particle forces from the current fluid state.
   IF (myid.EQ.master) THEN
     CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, dummy_velocity, &
       dummy_velocity, dummy_velocity, dummy_velocity, Properties%Density(1), &
-      Properties%Viscosity(1), Properties%Gravity, tstep, mfile, -itns)
+      EL_CLOSURE_VISCOSITY(Properties%Viscosity(1)), Properties%Gravity, tstep, mfile, -itns)
   ELSE
     CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, QuadSc%valU, QuadSc%valV, &
-      QuadSc%valW, LinSc%valP(NLMAX)%x, Properties%Density(1), Properties%Viscosity(1), &
+      QuadSc%valW, LinSc%valP(NLMAX)%x, Properties%Density(1), &
+      EL_CLOSURE_VISCOSITY(Properties%Viscosity(1)), &
       Properties%Gravity, tstep, mfile, -itns)
   END IF
 
@@ -404,10 +407,11 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
   IF (myid.EQ.master) THEN
     CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, dummy_velocity, &
       dummy_velocity, dummy_velocity, dummy_velocity, Properties%Density(1), &
-      Properties%Viscosity(1), Properties%Gravity, tstep, mfile, itns)
+      EL_CLOSURE_VISCOSITY(Properties%Viscosity(1)), Properties%Gravity, tstep, mfile, itns)
   ELSE
     CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, QuadSc%valU, QuadSc%valV, &
-      QuadSc%valW, LinSc%valP(NLMAX)%x, Properties%Density(1), Properties%Viscosity(1), &
+      QuadSc%valW, LinSc%valP(NLMAX)%x, Properties%Density(1), &
+      EL_CLOSURE_VISCOSITY(Properties%Viscosity(1)), &
       Properties%Gravity, tstep, mfile, itns)
   END IF
 
@@ -469,7 +473,8 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
   IF (myid.NE.master) THEN
     CALL EL_WRITE_MOMENTUM_DIAGNOSTICS(QuadSc%valU, QuadSc%valV, &
       QuadSc%valW, timens, mfile, itns, mg_mesh, NLMAX, &
-      Properties%Density(1), Properties%Viscosity(1), el_field_data%epsilon_f)
+      Properties%Density(1), EL_CLOSURE_VISCOSITY(Properties%Viscosity(1)), &
+      el_field_data%epsilon_f)
     CALL EL_WRITE_PARTICLE_LOG(timens, itns)
   END IF
 

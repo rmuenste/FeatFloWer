@@ -63,6 +63,65 @@ end subroutine init_q2p1_ext
 !
 !----------------------------------------------
 !
+!=========================================================================
+! SimPar@ELFluidViscosity = dynamic (EL_CONFIG): put the fluid's viscous operator on the
+! dynamic viscosity. The solver initialisation has parsed the properties and built the
+! diffusion matrix with Properties%Viscosity = nu (the Euler-Lagrange deck convention). Here
+! the kinematic value is recorded for the closures (EL_CLOSURE_VISCOSITY), the property and
+! the element viscosity field become mu = rho*nu, and the diffusion matrix is rebuilt with
+! the solver's own assembly; every later rebuild (MatrixRenewal D) then uses mu as well.
+! Called once by the main program right after the solver initialisation (init_q2p1_app:
+! properties parsed, operators built), before the first step, on every rank; nothing happens for the
+! default 'kinematic'. Newtonian single-material path only.
+!=========================================================================
+SUBROUTINE EL_APPLY_FLUID_VISCOSITY(mfile)
+
+  USE def_FEAT, ONLY: ILEV, MTERM
+  USE PP3D_MPI, ONLY: myid, showid
+  USE var_QuadScalar, ONLY: QuadSc, Properties, Viscosity, bNonNewtonian, bViscoElastic
+  USE Transport_Q2P1, ONLY: Create_DiffMat
+  USE EL_CONFIG, ONLY: el_fluid_visc_dynamic, el_closure_nu
+
+  IMPLICIT NONE
+  INTEGER, INTENT(IN) :: mfile
+  INTEGER :: ilev_save
+  REAL*8 :: visc_kin, dens
+
+  IF (.NOT.el_fluid_visc_dynamic) RETURN
+  IF (bNonNewtonian .OR. bViscoElastic) THEN
+    WRITE(*,'(A)') 'ELFluidViscosity = dynamic is implemented for the Newtonian fluid path only.'
+    STOP 1
+  END IF
+  IF (el_closure_nu.GT.0.0d0) THEN
+    WRITE(*,'(A)') 'EL_APPLY_FLUID_VISCOSITY called twice.'
+    STOP 1
+  END IF
+  visc_kin = Properties%Viscosity(1)
+  dens = Properties%Density(1)
+  IF (visc_kin.LE.0.0d0 .OR. dens.LE.0.0d0) THEN
+    WRITE(*,'(A)') 'ELFluidViscosity = dynamic needs a positive viscosity and density.'
+    STOP 1
+  END IF
+  el_closure_nu = visc_kin
+  Properties%Viscosity(1) = dens*visc_kin
+  IF (ALLOCATED(Viscosity)) Viscosity = Properties%Viscosity(1)
+
+  ilev_save = ILEV
+  CALL Create_DiffMat(QuadSc)
+  ILEV = ilev_save
+  CALL SETLEV(2)
+
+  IF (myid.EQ.showid) THEN
+    WRITE(MTERM,'(A,ES16.8,A,ES16.8,A)') ' EL fluid viscosity: diffusion operator rebuilt with mu = ', &
+      Properties%Viscosity(1), ' (nu = ', visc_kin, ' for the closures)'
+    WRITE(mfile,'(A,ES16.8,A,ES16.8,A)') ' EL fluid viscosity: diffusion operator rebuilt with mu = ', &
+      Properties%Viscosity(1), ' (nu = ', visc_kin, ' for the closures)'
+  END IF
+
+END SUBROUTINE EL_APPLY_FLUID_VISCOSITY
+!
+! ----------------------------------------------
+!
 SUBROUTINE General_init_ext(MDATA,MFILE)
  USE def_FEAT
  USE PP3D_MPI
@@ -605,7 +664,7 @@ END SUBROUTINE get_global_domain_extents
                         el_tavg_window, &
                         el_inlet_u0, el_inlet_u1, el_inlet_tramp, &
                         EL_INLET_SUPERFICIAL, &
-                        el_momentum_model, EL_NOTE_KEY_SET, &
+                        el_momentum_model, el_fluid_viscosity, EL_NOTE_KEY_SET, &
                         EL_VALIDATE_CONFIG, &
                         EL_PRINT_CONFIG
 #endif
@@ -820,6 +879,8 @@ END SUBROUTINE get_global_domain_extents
          READ(string(iEq+1:),*) el_va_continuity_form
        CASE ("ELMomentumModel")
          READ(string(iEq+1:),*) el_momentum_model
+       CASE ("ELFluidViscosity")
+         READ(string(iEq+1:),*) el_fluid_viscosity
        CASE ("ELCylinderCenter")
          READ(string(iEq+1:),*) el_cylinder_center
        CASE ("ELCylinderRadius")
