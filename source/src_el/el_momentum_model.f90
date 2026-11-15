@@ -31,6 +31,11 @@
 !                      mass against the Q1 transport porosity of the flux): C0 is a
 !                      preconditioner, the fixed point r = 0 does not depend on it, and the
 !                      contraction is measured (EL_VA_FLUX res1_L1 per corrector), not assumed.
+!                      With SimPar@ELMMPressureOperator = weighted (EL_MM_PRESSURE_REBUILD,
+!                      model A) the adapter rebuilds the matrix as B^T (rho Ml / eps)^-1 B,
+!                      the discrete div(eps grad), and the divisor is 1: eps C0 differs from
+!                      it by grad eps . grad q, which in a dense bed over-corrects the flux
+!                      through the bed by up to 1/eps.
 !
 !   EL_MM_VISCOUS_FORCE() / EL_MM_VISCOUS_FEEDBACK()
 !                      the particle receives V div tau (Bfull, A) and the reaction is deposited
@@ -51,7 +56,8 @@ MODULE EL_MOMENTUM_MODEL
 
   USE EL_CONFIG, ONLY: EL_MM_ID, EL_MM_NONE, EL_MM_BFULL, EL_MM_B, EL_MM_A, &
                        el_mmt_weighted_inertia, el_mmt_drag_over_eps, el_mmt_divisor_eps, &
-                       el_mmt_viscous_force, el_mmt_viscous_feedback, el_mmt_operator_form
+                       el_mmt_viscous_force, el_mmt_viscous_feedback, el_mmt_operator_form, &
+                       EL_MM_PRESSURE_REBUILD
 
   IMPLICIT NONE
   PRIVATE
@@ -61,6 +67,7 @@ MODULE EL_MOMENTUM_MODEL
 
   PUBLIC :: EL_MM_ACTIVE, EL_MM_WEIGHTED_INERTIA, EL_MM_DRAG_SCALE, EL_MM_RESIDUAL_DIVISOR
   PUBLIC :: EL_MM_VISCOUS_FORCE, EL_MM_VISCOUS_FEEDBACK, EL_MM_OPERATOR_FORM
+  PUBLIC :: EL_MM_PRESSURE_REBUILD
 
 CONTAINS
 
@@ -97,7 +104,7 @@ CONTAINS
 
   REAL*8 FUNCTION EL_MM_RESIDUAL_DIVISOR(eps_e)
     REAL*8, INTENT(IN) :: eps_e
-    IF (el_mmt_divisor_eps(EL_MM_ID())) THEN
+    IF (el_mmt_divisor_eps(EL_MM_ID()) .AND. .NOT.EL_MM_PRESSURE_REBUILD()) THEN
       EL_MM_RESIDUAL_DIVISOR = eps_e
     ELSE
       EL_MM_RESIDUAL_DIVISOR = 1.0d0

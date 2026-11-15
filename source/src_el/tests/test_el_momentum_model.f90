@@ -26,10 +26,11 @@ PROGRAM TEST_EL_MOMENTUM_MODEL
                        el_volume_averaged, el_va_continuity_form, el_drag_coupling, &
                        el_apply_fluid_feedback, el_fluid_gravity, el_va_source_correctors, &
                        el_drag_model, el_kernel, EL_VALIDATE_CONFIG, EL_NOTE_KEY_SET, &
-                       el_n_keys_set, el_n_implied, EL_MM_ID
+                       el_n_keys_set, el_n_implied, EL_MM_ID, el_mm_pressure_operator
   USE EL_MOMENTUM_MODEL, ONLY: EL_MM_ACTIVE, EL_MM_DRAG_SCALE, EL_MM_RESIDUAL_DIVISOR, &
                                EL_MM_VISCOUS_FORCE, EL_MM_VISCOUS_FEEDBACK, &
-                               EL_MM_WEIGHTED_INERTIA, EL_MM_OPERATOR_FORM, EL_MM_NONE, EL_MM_A
+                               EL_MM_WEIGHTED_INERTIA, EL_MM_OPERATOR_FORM, EL_MM_NONE, EL_MM_A, &
+                               EL_MM_PRESSURE_REBUILD
   USE EL_FORCES, ONLY: tElForceResult, EL_COMPUTE_PARTICLE_FORCES, EL_FLUID_OPERATOR_VISCOSITY
   USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION, EL_SAMPLE_UF_BEGIN, &
                            EL_SAMPLE_GRAD_P_BEGIN, EL_SAMPLE_EPSILON_F
@@ -68,9 +69,12 @@ PROGRAM TEST_EL_MOMENTUM_MODEL
 CONTAINS
 
   ! Select a model the way a deck would: defaults, no explicit keys, then the resolution.
-  SUBROUTINE select_model(name)
+  SUBROUTINE select_model(name, pressure_operator)
     CHARACTER(LEN=*), INTENT(IN) :: name
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: pressure_operator
     el_momentum_model = name
+    el_mm_pressure_operator = 'startup'
+    IF (PRESENT(pressure_operator)) el_mm_pressure_operator = pressure_operator
     el_pressure_force = .TRUE.
     el_pressure_feedback = .FALSE.
     el_volume_averaged = 'none'
@@ -107,6 +111,18 @@ CONTAINS
       EL_MM_DRAG_SCALE(eps).EQ.1.0d0 .AND. EL_MM_RESIDUAL_DIVISOR(eps).EQ.eps .AND. &
       EL_MM_VISCOUS_FORCE() .AND. .NOT.EL_MM_VISCOUS_FEEDBACK(), &
       'policy: A (operator form, divisor eps, viscous force without feedback)', nf, rank)
+    CALL EL_TEST_CHECK(.NOT.EL_MM_PRESSURE_REBUILD(), &
+      'policy: A keeps the start-up pressure matrix by default', nf, rank)
+    CALL select_model('A', 'Weighted')
+    CALL EL_TEST_CHECK(EL_MM_PRESSURE_REBUILD() .AND. EL_MM_RESIDUAL_DIVISOR(eps).EQ.1.0d0, &
+      'policy: A with the weighted pressure operator (rebuild, divisor 1)', nf, rank)
+    CALL select_model('bfull', 'weighted')
+    CALL EL_TEST_CHECK(.NOT.EL_MM_PRESSURE_REBUILD() .AND. &
+      EL_MM_RESIDUAL_DIVISOR(eps).EQ.1.0d0, &
+      'policy: Bfull accepts the weighted pressure operator without a rebuild', nf, rank)
+    CALL select_model('b', 'weighted')
+    CALL EL_TEST_CHECK(.NOT.EL_MM_PRESSURE_REBUILD(), &
+      'policy: B accepts the weighted pressure operator without a rebuild', nf, rank)
     CALL select_model('bfull')
     CALL EL_TEST_CHECK(.NOT.EL_MM_OPERATOR_FORM(), 'policy: Bfull is not the operator form', &
       nf, rank)

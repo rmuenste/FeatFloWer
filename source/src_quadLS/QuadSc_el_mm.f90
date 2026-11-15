@@ -22,10 +22,11 @@
 ! with the porosity one step older; the difference is O(dt d eps/dt du/dt) and deliberate
 ! (one coefficient field for time derivative and convection).
 !
-! Not rebuilt: the pressure matrix C0 = B^T (rho Ml)^-1 B of start-up (MatrixRenewal C1). It
-! is the preconditioner of the conservative continuity iteration
+! Not rebuilt by default: the pressure matrix C0 = B^T (rho Ml)^-1 B of start-up
+! (MatrixRenewal C1). It is the preconditioner of the conservative continuity iteration
 ! (EL_MOMENTUM_MODEL:EL_MM_RESIDUAL_DIVISOR); the coefficients stored in mg_CMat do not depend
-! on later mass rebuilds.
+! on later mass rebuilds. SimPar@ELMMPressureOperator = weighted replaces it every step by
+! the operator of the model (EL_MM_Pressure_Operator below).
 !
 ! Lifecycle of the mass arrays under a model: mg_MlRhoMat / mg_MlRhoPmat hold the weighted
 ! lumped mass from the first fluid solve on (also for the P1->Q2 pressure output projection
@@ -86,12 +87,94 @@ SUBROUTINE EL_MM_Update_Fluid_Coefficients()
 END SUBROUTINE EL_MM_Update_Fluid_Coefficients
 
 !=========================================================================
+! Pressure matrix of the operator form (model A) under SimPar@ELMMPressureOperator = weighted.
+!
+! With the weighted lumped mass W = lump(eps rho) the velocity correction of model A is
+!     du = dt W^-1 (B - fp) q = dt W^-1 D_eps^T q        (EL_MM_Correct_Velocity_Operator)
+! and the conservative continuity residual changes by D_eps du, D_eps the conservative
+! divergence: the projection operator is D_eps W^-1 D_eps^T, the discrete div((eps/rho) grad).
+! The start-up matrix scaled by the element porosity (divisor eps) misses grad eps . grad q:
+! at the edge of a dense bed the flux correction through the bed comes out too large by up to
+! 1/eps, the residual iteration alternates and needs several correctors (case 05, moving bed).
+!
+! Here the matrix is rebuilt with the existing assembly B^T m^-1 B and the nodal mass
+!     m = U0^2 / W,     U0 = lump(rho) (the unweighted mass of start-up),
+! i.e. W divided by the square of the nodal porosity W/U0 (D_eps ~ eps B^T): the same sparsity,
+! symmetric, on every multigrid level and on the master from data each rank already holds
+! (no new exchange). The residual divisor is then 1 (EL_MM_RESIDUAL_DIVISOR). It stays a
+! preconditioner: the fixed point of the residual iteration does not depend on it.
+!
+!   stage 0   remember U0 on every level; effective at the first call only, which must come
+!             before the first weighted mass rebuild (the caller's order).
+!   stage 1   after EL_MM_Update_Fluid_Coefficients: build C on all levels from m, the
+!             parallel matrix on the workers and the coarse solver (the tail of the
+!             MatrixRenewal C branch of the solver; B is unchanged and not rebuilt), then
+!             put W back. mg_MlRhoPmat holds W again on return.
+! Collective (every rank, deck-only guard EL_MM_PRESSURE_REBUILD at the call site).
+! Not covered: a restart reads the start-up mass like a fresh run, so U0 is valid there too,
+! but the combination is not certified.
+!=========================================================================
+SUBROUTINE EL_MM_Pressure_Operator(stage)
+
+  USE PP3D_MPI, ONLY: myid, master
+
+  INTEGER, INTENT(IN) :: stage
+
+  TYPE(mg_Matrix), ALLOCATABLE, SAVE :: unweighted(:)
+  TYPE(mg_Matrix), ALLOCATABLE :: weighted(:)
+  INTEGER :: jlev, ilev_save, i
+
+  IF (stage.EQ.0) THEN
+    IF (ALLOCATED(unweighted)) RETURN
+    ALLOCATE(unweighted(NLMIN:NLMAX))
+    DO jlev = NLMIN, NLMAX
+      IF (ALLOCATED(mg_MlRhoPmat(jlev)%a)) THEN
+        ALLOCATE(unweighted(jlev)%a(SIZE(mg_MlRhoPmat(jlev)%a)))
+        unweighted(jlev)%a = mg_MlRhoPmat(jlev)%a
+      END IF
+    END DO
+    RETURN
+  END IF
+
+  IF (.NOT.ALLOCATED(unweighted)) THEN
+    WRITE(*,*) 'EL_MM_Pressure_Operator: unweighted mass not recorded on rank ', myid
+    STOP 1
+  END IF
+  ilev_save = ILEV
+
+  ALLOCATE(weighted(NLMIN:NLMAX))
+  DO jlev = NLMIN, NLMAX
+    IF (.NOT.ALLOCATED(unweighted(jlev)%a)) CYCLE
+    ALLOCATE(weighted(jlev)%a(SIZE(unweighted(jlev)%a)))
+    weighted(jlev)%a = mg_MlRhoPmat(jlev)%a
+    DO i = 1, SIZE(unweighted(jlev)%a)
+      mg_MlRhoPmat(jlev)%a(i) = unweighted(jlev)%a(i)*unweighted(jlev)%a(i)/weighted(jlev)%a(i)
+    END DO
+  END DO
+
+  CALL Create_CMat(QuadSc%knprU, QuadSc%knprV, QuadSc%knprW, LinSc%knprP, &
+                   LinSc%prm%MGprmIn%MinLev, LinSc%prm%MGprmIn%CrsSolverType)
+  IF (myid.NE.master) CALL Create_ParCMat(QuadSc%knprU, QuadSc%knprV, QuadSc%knprW)
+
+  DO jlev = NLMIN, NLMAX
+    IF (ALLOCATED(weighted(jlev)%a)) mg_MlRhoPmat(jlev)%a = weighted(jlev)%a
+  END DO
+  DEALLOCATE(weighted)
+
+  ILEV = ilev_save
+  CALL SETLEV(2)
+  MlRhoPmat => mg_MlRhoPmat(NLMAX)%a
+
+END SUBROUTINE EL_MM_Pressure_Operator
+
+!=========================================================================
 ! Solver settings a momentum model relies on, checked once at the start of the first
 ! Euler-Lagrange step, before any pass (EL_MM_Begin_Step; same deck values on every rank,
 ! hence a coordinated stop):
 !   MatrixRenewal  M >= 1 (the mass arrays exist), K = 2 or 3 (convection rebuilt every step
 !                  from the weighted coefficient), C = 1 (the start-up pressure matrix is the
-!                  preconditioner; a per-step rebuild would take the weighted mass),
+!                  preconditioner; a per-step rebuild would take the weighted mass - the
+!                  rebuild of ELMMPressureOperator = weighted is done by the adapter itself),
 !   GAMMA = 0      (the rotational pressure update assumes the unweighted divergence source),
 !   convective form of the convection term (the divergence form lacks the compensating
 !                  -u div(eps u) of the non-conservative weighted inertia),

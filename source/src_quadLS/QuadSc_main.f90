@@ -33,7 +33,8 @@ use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS, EL_WRITE_PARTICLE_LOG, 
 use EL_FIELDS, only: EL_APPLY_FLUID_FEEDBACK_SOURCE, el_field_data
 use EL_VA_CONTINUITY, only: EL_ADD_CONTINUITY_SOURCE, EL_VOLUME_AVERAGED_ACTIVE
 use EL_CONFIG, only: EL_VA_SOURCE_CORRECTORS_ENABLED
-use EL_MOMENTUM_MODEL, only: EL_MM_ACTIVE, EL_MM_WEIGHTED_INERTIA, EL_MM_OPERATOR_FORM
+use EL_MOMENTUM_MODEL, only: EL_MM_ACTIVE, EL_MM_WEIGHTED_INERTIA, EL_MM_OPERATOR_FORM, &
+                             EL_MM_PRESSURE_REBUILD
 
 use, intrinsic :: ieee_arithmetic
 
@@ -430,8 +431,12 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
     IF (el_fluid_gravity) el_ext_force = el_ext_force + &
       Properties%Density(1)*Properties%Gravity
     ! Momentum models: inertia coefficient eps*rho for the coming solve, from the porosity
-    ! of the pass above (collective, deck-only guard; never entered for 'none').
+    ! of the pass above (collective, deck-only guard; never entered for 'none'). With
+    ! ELMMPressureOperator = weighted the pressure matrix follows (call 0 remembers the
+    ! unweighted mass before the first weighted rebuild, call 1 rebuilds the matrix).
+    IF (EL_MM_PRESSURE_REBUILD()) CALL EL_MM_Pressure_Operator(0)
     IF (EL_MM_WEIGHTED_INERTIA()) CALL EL_MM_Update_Fluid_Coefficients()
+    IF (EL_MM_PRESSURE_REBUILD()) CALL EL_MM_Pressure_Operator(1)
     IF (myid.NE.master .AND. el_apply_fluid_feedback .AND. &
         ALLOCATED(el_field_data%fluid_feedback_source)) THEN
       ILEV = NLMAX

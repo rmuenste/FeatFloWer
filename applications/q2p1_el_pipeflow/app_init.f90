@@ -605,7 +605,7 @@ END SUBROUTINE get_global_domain_extents
                         el_tavg_window, &
                         el_inlet_u0, el_inlet_u1, el_inlet_tramp, &
                         EL_INLET_SUPERFICIAL, &
-                        el_momentum_model, EL_NOTE_KEY_SET, &
+                        el_momentum_model, el_mm_pressure_operator, EL_NOTE_KEY_SET, &
                         EL_VALIDATE_CONFIG, &
                         EL_PRINT_CONFIG
 #endif
@@ -820,6 +820,8 @@ END SUBROUTINE get_global_domain_extents
          READ(string(iEq+1:),*) el_va_continuity_form
        CASE ("ELMomentumModel")
          READ(string(iEq+1:),*) el_momentum_model
+       CASE ("ELMMPressureOperator")
+         READ(string(iEq+1:),*) el_mm_pressure_operator
        CASE ("ELCylinderCenter")
          READ(string(iEq+1:),*) el_cylinder_center
        CASE ("ELCylinderRadius")

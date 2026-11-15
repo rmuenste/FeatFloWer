@@ -143,6 +143,21 @@ MODULE EL_CONFIG
   !   accepts (a recognised but unimplemented name is refused, never silently run as 'none').
   !   Behaviour lives in EL_MOMENTUM_MODEL; nothing else tests the name.
   CHARACTER(LEN=32) :: el_momentum_model = 'none'
+  ! SimPar@ELMMPressureOperator = startup | weighted
+  !   Pressure matrix of the projection under a momentum model (the preconditioner of the
+  !   conservative continuity iteration; the converged state does not depend on it):
+  !   'startup'  (default) the matrix of start-up, C0 = B^T (rho Ml)^-1 B, with the residual
+  !              divisor of the model (EL_MOMENTUM_MODEL: EL_MM_RESIDUAL_DIVISOR). For model A
+  !              that is eps C0 against the true operator div(eps grad): in a dense bed the
+  !              flux through the bed is over-corrected and the iteration converges slowly
+  !              with alternating sign (case 05, moving bed: about 4 correctors needed).
+  !   'weighted' the matrix is rebuilt every step from the current porosity,
+  !              C = B^T (rho Ml / eps)^-1 B, the divisor is 1. Available for the models whose
+  !              table column el_mmt_pressure_rebuild is set (A); accepted without effect for
+  !              the models whose start-up matrix already is the operator (bfull, b); refused
+  !              without a model.
+  CHARACTER(LEN=32) :: el_mm_pressure_operator = 'startup'
+  CHARACTER(LEN=8), PARAMETER :: el_mm_pop_names(0:1) = (/ 'startup ', 'weighted' /)
   ! ---- The model table: the one place that says what a model is -------------------------
   ! Index = model id. EL_MOMENTUM_MODEL answers the run-time questions from these columns and
   ! EL_RESOLVE_MOMENTUM_MODEL the key set; a further model is one more column.
@@ -163,6 +178,10 @@ MODULE EL_CONFIG
   ! the conservative continuity residual is divided by the element porosity (else by 1) before
   ! it enters the pressure right-hand side (EL_MOMENTUM_MODEL: EL_MM_RESIDUAL_DIVISOR)
   LOGICAL, PARAMETER :: el_mmt_divisor_eps(0:3)       = (/ .TRUE.,  .FALSE., .FALSE., .TRUE.  /)
+  ! the projection operator of the model is not the start-up pressure matrix and
+  ! SimPar@ELMMPressureOperator = weighted can rebuild it (for bfull and b the start-up matrix
+  ! already is the operator; for 'none' the rebuild is not implemented)
+  LOGICAL, PARAMETER :: el_mmt_pressure_rebuild(0:3)  = (/ .FALSE., .FALSE., .FALSE., .TRUE.  /)
   ! (row 'none' of the two pressure columns is not used: the campaign keys decide there)
   ! Model id of the validated deck value, set by EL_VALIDATE_CONFIG (0 = none before that and
   ! by default); read through EL_MM_ID. Code that changes el_momentum_model must validate again.
@@ -223,6 +242,7 @@ CONTAINS
     CALL EL_LOWERCASE(el_va_continuity_form)
     CALL EL_LOWERCASE(el_cylinder_axis)
     CALL EL_LOWERCASE(el_momentum_model)
+    CALL EL_LOWERCASE(el_mm_pressure_operator)
 
     el_mm_id_validated = EL_MM_LOOKUP(el_momentum_model)
     IF (el_mm_id_validated.LT.0) THEN
@@ -491,6 +511,8 @@ CONTAINS
     WRITE(mfile,'(A,A)') 'EL VA compatibility       = ', TRIM(el_va_compatibility)
     WRITE(mfile,'(A,A)') 'EL VA continuity form     = ', TRIM(el_va_continuity_form)
     WRITE(mfile,'(A,A)') 'EL momentum model         = ', TRIM(el_momentum_model)
+    IF (EL_MM_ID().NE.EL_MM_NONE) WRITE(mfile,'(A,A)') 'EL MM pressure operator   = ', &
+      TRIM(EL_MM_PRESSURE_OPERATOR_TEXT())
     DO i_implied=1,el_n_implied
       WRITE(mfile,'(A,A)') '  implied by the model    : ', TRIM(el_mm_implied(i_implied))
     END DO
@@ -531,6 +553,8 @@ CONTAINS
       WRITE(mterm,'(A,A)') 'EL VA compatibility       = ', TRIM(el_va_compatibility)
       WRITE(mterm,'(A,A)') 'EL VA continuity form     = ', TRIM(el_va_continuity_form)
       WRITE(mterm,'(A,A)') 'EL momentum model         = ', TRIM(el_momentum_model)
+      IF (EL_MM_ID().NE.EL_MM_NONE) WRITE(mterm,'(A,A)') 'EL MM pressure operator   = ', &
+        TRIM(EL_MM_PRESSURE_OPERATOR_TEXT())
       DO i_implied=1,el_n_implied
         WRITE(mterm,'(A,A)') '  implied by the model    : ', TRIM(el_mm_implied(i_implied))
       END DO
@@ -626,7 +650,18 @@ CONTAINS
     INTEGER :: id
 
     id = EL_MM_ID()
-    IF (id.EQ.EL_MM_NONE) RETURN
+    IF (.NOT.ANY(TRIM(el_mm_pressure_operator).EQ.el_mm_pop_names)) THEN
+      WRITE(*,'(A,A)') 'Invalid ELMMPressureOperator (startup|weighted): ', &
+        TRIM(el_mm_pressure_operator)
+      STOP 1
+    END IF
+    IF (id.EQ.EL_MM_NONE) THEN
+      IF (TRIM(el_mm_pressure_operator).NE.'startup') THEN
+        WRITE(*,'(A)') 'ELMMPressureOperator = weighted needs a momentum model (ELMomentumModel).'
+        STOP 1
+      END IF
+      RETURN
+    END IF
     el_n_implied = 0
     el_mm_conflicts = 0
 
@@ -661,6 +696,21 @@ CONTAINS
     IF (el_mm_conflicts.GT.0) STOP 1
 
   END SUBROUTINE EL_RESOLVE_MOMENTUM_MODEL
+
+  ! Deck-only: the pressure matrix is rebuilt from the porosity every step (identical on
+  ! every rank; decides a collective of the fluid adapter and the residual divisor).
+  LOGICAL FUNCTION EL_MM_PRESSURE_REBUILD()
+    EL_MM_PRESSURE_REBUILD = (TRIM(el_mm_pressure_operator).EQ.'weighted') .AND. &
+                             el_mmt_pressure_rebuild(EL_MM_ID())
+  END FUNCTION EL_MM_PRESSURE_REBUILD
+
+  ! Echo text: the deck value and what it means for the selected model.
+  FUNCTION EL_MM_PRESSURE_OPERATOR_TEXT() RESULT(text)
+    CHARACTER(LEN=96) :: text
+    text = el_mm_pressure_operator
+    IF (TRIM(el_mm_pressure_operator).EQ.'weighted' .AND. .NOT.EL_MM_PRESSURE_REBUILD()) &
+      text = 'weighted (no rebuild: the start-up matrix is the operator of this model)'
+  END FUNCTION EL_MM_PRESSURE_OPERATOR_TEXT
 
   SUBROUTINE EL_MM_CONFLICT(text)
     CHARACTER(LEN=*), INTENT(IN) :: text
