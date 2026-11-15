@@ -107,8 +107,8 @@ of fp: 5e-14 (brick), 7e-9 (warped).
 
 Gates at the default (ten certified configurations against `ergun_gates2`, strict comparison):
 stage 1 (key only) jobs 160443-160452, combined code jobs 160466-160475: bitwise. DNS twins e4_l3
-and DKT: stage 1 jobs 160455/160456 bitwise; combined code: see the case RUNBOOK. Final round on
-the commit: RUNBOOK of `s06_startup_inertia`.
+and DKT: stage 1 jobs 160455/160456 bitwise. Final round on the commit 08f7d420 (ten EL gates
+160541-160550, DNS twins 160562/160563, all bitwise): RUNBOOK of `s06_startup_inertia`.
 
 Validation: `applications/q2p1_el_pipeflow/validation_cases/s06_startup_inertia/RUNBOOK.md`
 (inertia weighting, time constant of a suspension starting from rest) and section "Momentum

@@ -37,25 +37,33 @@ Staging of a run directory: mesh `make_box_mesh.py sus_box --size L L 0.06 --cel
 `example.json`, `particles.xyz`; submit `tools/el_slurm_submit_np.sh <dir> <name> 00:30:00 short 7 1 25G`.
 Run directories: /data/warehouse17/rmuenste/runs/startup06/.
 
-## Results (binaries of the working tree before the final commit; `runs_versions.txt`)
+## Results
 
-Box T, all 6 528 particles of the middle third; reference at phi 0.4:
+Box T on the final commit 08f7d420 (binary build-el-e, clean tree; `runs_versions.txt`), all
+6 528 particles of the middle third; reference at phi 0.4:
 
-| Run | job | tau fit (ms) | reference | ratio | amplitude (mm/s) | reference |
-|---|---|---|---|---|---|---|
-| T0 `none` + pf + fb | 160485 | 8.844 | 9.009 | 0.982 | -4.110 | -4.110 |
-| T1 B | 160486 | 4.483 | 4.351 | 1.030 | -4.226 | -4.051 |
-| T2 Bfull | 160487 | 7.057 | 7.106 | 0.993 | -4.120 | -4.083 |
-| T3 A | 160488 | 7.221 | 7.106 | 1.016 | -4.166 | -4.083 |
+| Run | job | wall | tau fit (ms) | reference | ratio | amplitude (mm/s) | reference |
+|---|---|---|---|---|---|---|---|
+| F_none_pf_fb | 160551 | 3 min 31 s | 8.844 | 9.009 | 0.982 | -4.110 | -4.110 |
+| F_B | 160552 | 3 min 08 s | 4.493 | 4.351 | 1.033 | -4.227 | -4.051 |
+| F_Bfull | 160553 | 4 min 55 s | 7.057 | 7.106 | 0.993 | -4.120 | -4.083 |
+| F_A | 160554 | 5 min 11 s | 7.221 | 7.106 | 1.016 | -4.165 | -4.083 |
 
-- Inertia weighting: tau(none)/tau(Bfull) = 1.253 (predicted 1.268), tau(B)/tau(Bfull) = 0.635
+- Inertia weighting: tau(none)/tau(Bfull) = 1.253 (predicted 1.268), tau(B)/tau(Bfull) = 0.637
   (predicted 0.612), tau(A)/tau(Bfull) = 1.023 (predicted 1).
-- Every formulation is within 3 % of its own prediction in tau; B is 4.3 % high in the amplitude.
+- Every formulation is within 3.3 % of its own prediction in tau; B is 4.3 % high in the
+  amplitude (not explained).
 - Particles more than 4 mm from the side walls only (2 314 of them) relax faster and settle
-  slower (tau 8.16 / 4.00 / 6.50 / 6.75 ms, amplitude -3.82 .. -3.92 mm/s): a lateral flow
+  slower (tau 8.16 / 4.00 / 6.51 / 6.75 ms, amplitude -3.82 .. -3.92 mm/s): a lateral flow
   structure remains in a box of 21 d; the ratios between the formulations are the same within 2 %.
+- The same four runs on the pre-review working tree (T0..T3, jobs 160485-160488) gave 8.844 /
+  4.483 / 7.057 / 7.221 ms: the porosity priming of the first step moves model B by 0.2 %.
+- Cost: the viscous sampling of Bfull and A adds about 55 % to the wall time here (19 584
+  particles on 1 536 elements); the per-step mass rebuild is not visible in B against `none`.
 
-Box S, particles of the middle third more than 4 mm from the walls (2 314):
+Box S (pre-review working-tree binaries, three different builds; kept as the record of why box T
+exists, not as certified numbers), particles of the middle third more than 4 mm from the walls
+(2 314):
 
 | Run | job | tau fit (ms) | ratio to S2 | predicted (phi 0.374) |
 |---|---|---|---|---|
@@ -79,6 +87,27 @@ drag here (uniform flow, and see the viscosity-convention note in the design not
 Not done: a periodic variant (pe needs three processes per periodic direction and the partitioner
 call for a 3 x 3 column split was not available); dt and level convergence; the CFDEM side (the
 peer has the case definition; nothing has run there yet).
+
+## Certification of the final commit 08f7d420 (2026-11-15)
+
+- Default path: the ten certified EL configurations (tier-2 twin, semi-implicit twin, VB_L2
+  defaults, T9a, s01 two-way, P4 / P5 controls, conservative T10a4) bitwise against
+  runs/coupling_p4p5/ergun_gates2 with the strict comparison, jobs 160541-160550
+  (runs/coupling_p4p5/mm_final; versions.txt HEAD 08f7d420, dirty 0). Earlier rounds on the way:
+  key only (160443-160452), combined code before the reviews (160466-160475), review fixes
+  697d9f49 (160491-160500): all bitwise.
+- Negative tests (jobs 160555-160558), each refused at start-up with exit 1: B with
+  ELPressureForce = Yes and ELDragCoupling = explicit (both conflicts listed); Bfull with
+  ELKernel = gaussian; A with MatrixRenewal C2; Bfull with ELDragModel = difelice.
+- DNS twins (build-dns5, certified DNS recipe, HEAD 08f7d420; rundirs
+  q2p1_dns_rundir_twin_mmf_{e4l3,dkt} in the DNS clone): e4_l3 job 160562 and DKT job 160563
+  bitwise against the certified heads (particle_force.log / bulk_flow.log md5 ca98e7af225b /
+  89abce88b675 and 82411f64f661 / cfb8b42d0969, all log streams identical, no NaN).
+- Unit tests: test_el_momentum_model (37 checks), test_el_kernel_forces, test_el_va_flux,
+  test_el_transfer pass.
+- Found by this round and fixed before it passed: the boundary-face mask made a workers-only
+  MPI call on the master (bdc70e3e) and was released by the first field allocation (08f7d420);
+  both stopped every Bfull / A run at step 1 and neither touched the default path.
 
 ## Gates proposed for the datasheet
 

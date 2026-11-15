@@ -231,3 +231,47 @@ q2p1_dns_rundir_twin_ergun_{e4l3,dkt}, inputs identical to the master twins.
 | DKT | 160030 | particle_force.log 82411f64f661, bulk_flow.log cfb8b42d0969, five log streams: bitwise |
 
 The EL gates (ergun_gates2) ran on b8baaf2f binaries; 46fb4c55 differs only in line endings.
+
+## Momentum models B / Bfull / A on the E2 column (2026-11-15)
+
+Branch feature/el-momentum-models, final commit 08f7d420 (binary FeatFloWer-mommodels/build-el-e,
+versions.txt dirty 0), pe 43e8fb5. Deck `q2p1_param_E2_model.dat` = `q2p1_param_E2_cons_pf_fb.dat`
+with the eight coupling keys replaced by the single key `SimPar@ELMomentumModel` (the model
+implies them; shown value Bfull, the B and A runs differ in this one value). Same bed, ramp,
+mesh and partition as the feedback rung (job 159991). 800 steps each, no NaN, no clipping. Slopes
+over U in (0.003, 0.0075), bed weight / A = 166.53 Pa, CFDEM R2 slope 12 129 Pa s/m.
+
+| Run | job | wall time | drag slope | total slope (drag + pressure force) | / CFDEM R2 | / structured prediction 12 561 | force reaches bed weight at | plateau max | fluid dp at the end |
+|---|---|---|---|---|---|---|---|---|---|
+| E2f pf + fb, no model (reference rung) | 159991 | - | 5450 | 12 686 | 1.046 | 1.010 | 0.01375 m/s | 1.019 | 170.5 Pa |
+| E2n_ramp0.4_B | 160559 | 1 h 51 | 13 069 | 13 069 | 1.077 | 1.040 | 0.01449 m/s | 1.014 | 170.4 Pa |
+| E2n_ramp0.4_Bfull | 160560 | 2 h 57 | 5412 | 13 301 | 1.097 | 1.059 | 0.01390 m/s | 1.018 | 170.2 Pa |
+| E2n_ramp0.4_A | 160561 | 2 h 57 | 5465 | 12 731 | 1.050 | 1.014 | 0.01370 m/s | 1.017 | 170.2 Pa |
+
+- All three models carry the bed: slope within +5 ... +10 % of CFDEM R2 (spec G6 +-10 %), force
+  reaches the bed weight at 0.0137 ... 0.0145 m/s (CFDEM R2 line 0.0141; -3 ... +3 %, spec +-15 %),
+  plateau 1.014 ... 1.018 x bed weight (spec 1 +- 0.03), fluid dp across the column 1.022 ... 1.023
+  x bed weight / A.
+- Spread between the models in the fitted slope: 4.5 % (A lowest, Bfull highest). The fit window
+  lies in the ramp and the lines have different intercepts (B +0.1, Bfull -5.7, A +2.6 Pa); total
+  dp at fixed U: 65.3 / 61.4 / 66.4 Pa at U 0.005 and 131.5 / 124.8 / 129.5 Pa at U 0.01
+  (B / Bfull / A). Chord slopes 0.005 -> 0.01: 13 242 / 12 676 / 12 624. The models agree in the
+  steady fixed-bed limit only in the continuum; here B takes drag / eps with the local eps, Bfull
+  and A add V_p grad p from the sampled pressure gradient. The spread is not broken down further.
+- Viscous particle force (Bfull, A; EL_MM_FORCE): total z -1.7e-5 N at the end, negligible against
+  drag and pressure force in this case.
+- Flux: superficial fluid flux / U_in 1.003 at U 0.005 and 1.002 at U 0.01 in all three. After
+  the bed starts to move the domain mean of eps u_z falls below U_in (particle volume flux):
+  B 0.970, Bfull 0.970, A 0.921 at U 0.02 (reference rung 0.934). **Open:** with models B and
+  Bfull the audit values of predictor and corrector passes agree to 5e-4 at the end; with model A
+  and with the no-model rung they alternate (1.840e-2 / 2.102e-2 / 1.843e-2 m/s at step 800 for A),
+  i.e. the source corrector does not converge on the moving bed where the residual divisor is eps
+  (none, A), and does where it is 1 (B, Bfull). The fixed-bed part of the curve is not affected
+  (values agree to 3 digits up to U 0.011). Not investigated further; a moving-bed statement with
+  model A needs more correctors or the divisor looked at.
+- Runs of the code before the two reviews (E2m_ramp0.4_{B,Bfull,A}, jobs 160459 / 160464 / 160465):
+  slopes 13 064 / 13 301 / 12 730, i.e. the review fixes changed nothing here beyond 0.04 %.
+- Cost: Bfull and A 1.6 x the wall time of B (per-step viscous integration and, for A, the
+  operator terms); every model rebuilds the weighted mass matrix once per step.
+- G6 verdict: the momentum stage now exists, all three models are inside the three spec
+  tolerances. PASS / RECORDED wording left to the owner and the peer (datasheet rows RECORDED).
