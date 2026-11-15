@@ -74,7 +74,7 @@ end subroutine init_q2p1_ext
 ! solver's own assembly; later rebuilds (MatrixRenewal D2/D3) read mu from the property.
 ! Called once by the main program right after the solver initialisation (init_q2p1_app:
 ! properties parsed, operators built, restart read), before the first step, on every rank;
-! nothing happens for the default 'kinematic'.
+! nothing happens for 'kinematic'.
 ! Supported settings, refused otherwise: Newtonian fluid without viscoelastic stress,
 ! Prop@PowerLawExp = 1 (the viscosity field is re-derived from the property every step with
 ! that exponent), MatrixRenewal D >= 1 (there is a diffusion matrix) and S = 0 (the stress

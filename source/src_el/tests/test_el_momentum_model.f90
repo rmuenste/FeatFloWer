@@ -52,6 +52,9 @@ PROGRAM TEST_EL_MOMENTUM_MODEL
   CALL EL_TEST_INIT()
 
   failures = 0
+  ! the checks below state their expectations in the campaign convention unless they say
+  ! otherwise (the deck default is 'dynamic')
+  el_fluid_viscosity = 'kinematic'
   CALL test_policy_table(failures)
   CALL test_key_resolution(failures)
   CALL test_viscosity_convention(failures)
@@ -98,7 +101,7 @@ CONTAINS
     CALL select_model('none')
     CALL EL_TEST_CHECK(EL_CLOSURE_VISCOSITY(nu).EQ.nu .AND. &
       EL_FLUID_OPERATOR_VISCOSITY(rho, nu).EQ.nu, &
-      'viscosity: default = campaign convention (closures nu, operator nu)', nf, rank)
+      'viscosity: kinematic = campaign convention (closures nu, operator nu)', nf, rank)
     el_fluid_viscosity = 'Dynamic'
     CALL select_model('none')
     mu = EL_SET_FLUID_VISCOSITY(nu, rho)
@@ -109,7 +112,7 @@ CONTAINS
     el_fluid_viscosity = 'kinematic'
     CALL select_model('none')
     CALL EL_TEST_CHECK(EL_FLUID_OPERATOR_VISCOSITY(rho, nu).EQ.nu, &
-      'viscosity: back to the default after re-validation', nf, rank)
+      'viscosity: back to kinematic after re-validation', nf, rank)
   END SUBROUTINE test_viscosity_convention
 
   SUBROUTINE test_policy_table(nf)

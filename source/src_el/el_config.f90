@@ -48,10 +48,11 @@ MODULE EL_CONFIG
   !   The Euler-Lagrange decks give the KINEMATIC viscosity (Prop@Viscosity, or Prop@DynVisc
   !   which the parser divides by the density), because the drag closures form mu = rho nu
   !   themselves.
-  !   'kinematic' (default) the campaign behaviour: the diffusion matrix carries nu, i.e. the
-  !               fluid's viscous term is too small by the factor rho_f (no effect for
-  !               rho_f = 1). Every certified log bitwise.
-  !   'dynamic'   the application stores mu = rho nu in Properties%Viscosity after the solver
+  !   'kinematic' the campaign behaviour up to 2026-11-15: the diffusion matrix carries nu,
+  !               i.e. the fluid's viscous term is too small by the factor rho_f (no effect
+  !               for rho_f = 1). Set it explicitly to reproduce a certified log of a case
+  !               with rho_f /= 1 bit for bit.
+  !   'dynamic'   (default since 2026-11-15, owner decision) the application stores mu = rho nu in Properties%Viscosity after the solver
   !               initialisation and rebuilds the diffusion matrix (EL_APPLY_FLUID_VISCOSITY in
   !               the application); the closures keep receiving nu (EL_CLOSURE_VISCOSITY), the
   !               particle viscous force and model A follow the operator
@@ -62,7 +63,7 @@ MODULE EL_CONFIG
   !               Euler-Lagrange pass. The deck convention does not change (still nu or
   !               Prop@DynVisc); fluidViscosity_ of the particle json is an independent input
   !               and must hold mu as before.
-  CHARACTER(LEN=32) :: el_fluid_viscosity = 'kinematic'
+  CHARACTER(LEN=32) :: el_fluid_viscosity = 'dynamic'
   CHARACTER(LEN=9), PARAMETER :: el_fluid_visc_names(0:1) = (/ 'kinematic', 'dynamic  ' /)
   ! Resolved by EL_VALIDATE_CONFIG (deck-only):
   LOGICAL :: el_fluid_visc_dynamic = .FALSE.
@@ -526,8 +527,7 @@ CONTAINS
     WRITE(mfile,'(A,A)') 'EL VA compatibility       = ', TRIM(el_va_compatibility)
     WRITE(mfile,'(A,A)') 'EL VA continuity form     = ', TRIM(el_va_continuity_form)
     WRITE(mfile,'(A,A)') 'EL momentum model         = ', TRIM(el_momentum_model)
-    IF (el_fluid_visc_dynamic) WRITE(mfile,'(A)') &
-      'EL fluid viscosity        = dynamic (diffusion operator with rho*nu)'
+    WRITE(mfile,'(A,A)') 'EL fluid viscosity        = ', TRIM(el_fluid_viscosity)
     DO i_implied=1,el_n_implied
       WRITE(mfile,'(A,A)') '  implied by the model    : ', TRIM(el_mm_implied(i_implied))
     END DO
@@ -568,8 +568,7 @@ CONTAINS
       WRITE(mterm,'(A,A)') 'EL VA compatibility       = ', TRIM(el_va_compatibility)
       WRITE(mterm,'(A,A)') 'EL VA continuity form     = ', TRIM(el_va_continuity_form)
       WRITE(mterm,'(A,A)') 'EL momentum model         = ', TRIM(el_momentum_model)
-      IF (el_fluid_visc_dynamic) WRITE(mterm,'(A)') &
-        'EL fluid viscosity        = dynamic (diffusion operator with rho*nu)'
+      WRITE(mterm,'(A,A)') 'EL fluid viscosity        = ', TRIM(el_fluid_viscosity)
       DO i_implied=1,el_n_implied
         WRITE(mterm,'(A,A)') '  implied by the model    : ', TRIM(el_mm_implied(i_implied))
       END DO
@@ -702,7 +701,7 @@ CONTAINS
   END SUBROUTINE EL_RESOLVE_MOMENTUM_MODEL
 
   ! Kinematic viscosity for the closures and diagnostics of the Euler-Lagrange path. The
-  ! argument is Properties%Viscosity(1): the kinematic value itself by default (returned
+  ! argument is Properties%Viscosity(1): the kinematic value itself under 'kinematic' (returned
   ! unchanged), the dynamic one under ELFluidViscosity = dynamic, where the kinematic value
   ! recorded at the conversion is returned (not mu/rho: the closures see the same bits in
   ! both conventions). Under 'dynamic' the argument must be the recorded mu: a property that

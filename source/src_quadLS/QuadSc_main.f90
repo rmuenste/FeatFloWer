@@ -370,10 +370,10 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
 
   ! Viscosity convention: the EL closures take the KINEMATIC viscosity and form
   ! mu = rho*nu internally (el_forces.f90 dynamic_viscosity). EL decks give nu
-  ! (param_parser stores Prop@Viscosity as-is and converts Prop@DynVisc via /Density), so by
-  ! default Properties%Viscosity is nu and is passed on unchanged; under
-  ! SimPar@ELFluidViscosity = dynamic the application has stored mu there for the fluid
-  ! operator and EL_CLOSURE_VISCOSITY returns the recorded nu. Do NOT pre-multiply by
+  ! (param_parser stores Prop@Viscosity as-is and converts Prop@DynVisc via /Density). Under
+  ! SimPar@ELFluidViscosity = dynamic (default) the application has stored mu in
+  ! Properties%Viscosity for the fluid operator and EL_CLOSURE_VISCOSITY returns the recorded
+  ! nu; under 'kinematic' the property is nu and is passed on unchanged. Do NOT pre-multiply by
   ! density here -- that double-counts rho for any fluid with rho /= 1
   ! (caught by the ten Cate SI validation case).
   ! Evaluate hydrodynamic particle forces from the current fluid state.

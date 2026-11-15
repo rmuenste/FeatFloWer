@@ -15,7 +15,8 @@ PROGRAM Q2P1_EL_PIPEFLOW
 
   CALL init_q2p1_app(ufile)
 
-  ! SimPar@ELFluidViscosity = dynamic: the fluid operator gets mu = rho*nu (no-op by default)
+  ! SimPar@ELFluidViscosity = dynamic (default): the fluid operator gets mu = rho*nu
+  ! (no-op for 'kinematic')
   CALL EL_APPLY_FLUID_VISCOSITY(ufile)
 
   ! Seed the linear Couette profile as IC (no-op unless

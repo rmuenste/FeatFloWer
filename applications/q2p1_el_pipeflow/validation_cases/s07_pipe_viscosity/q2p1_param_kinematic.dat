@@ -38,6 +38,7 @@ SimPar@ELCylinderAxis = z
 SimPar@ELApplyParticleForces = No
 SimPar@ELApplyFluidFeedback = No
 SimPar@ELFluidGravity = No
+SimPar@ELFluidViscosity = kinematic
 SimPar@ELMomentumFix = No
 SimPar@ELVolumeAveraged = none
 SimPar@ELWriteDiagnostics = Yes

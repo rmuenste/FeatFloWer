@@ -108,9 +108,9 @@ CONTAINS
   ! assembles it on the Newtonian path (DIFFQ2_NEWT: Properties%Viscosity(1), no density
   ! factor, against a mass matrix that carries the density). The particle viscous force and
   ! model A use the same coefficient so that particle and fluid see one stress. The argument
-  ! is the kinematic viscosity of the closures: by default (ELFluidViscosity = kinematic) the
-  ! operator carries that value, i.e. mu/rho; under ELFluidViscosity = dynamic it carries
-  ! mu = rho nu (EL_CONFIG). This function is the single place the viscous force follows it.
+  ! is the kinematic viscosity of the closures: under ELFluidViscosity = dynamic (default) the
+  ! operator carries mu = rho nu, under 'kinematic' (campaign behaviour) that value itself,
+  ! i.e. mu/rho (EL_CONFIG). This function is the single place the viscous force follows it.
   PURE REAL*8 FUNCTION EL_FLUID_OPERATOR_VISCOSITY(density, viscosity)
     REAL*8, INTENT(IN) :: density, viscosity
     IF (el_fluid_visc_dynamic) THEN
