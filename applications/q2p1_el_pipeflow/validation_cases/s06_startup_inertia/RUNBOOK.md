@@ -109,7 +109,7 @@ peer has the case definition; nothing has run there yet).
   MPI call on the master (bdc70e3e) and was released by the first field allocation (08f7d420);
   both stopped every Bfull / A run at step 1 and neither touched the default path.
 
-## Gates proposed for the datasheet
+## Gates in the datasheet (owner verdict 2026-11-15: PASS)
 
 | Quantity | Expected | Tolerance |
 |---|---|---|

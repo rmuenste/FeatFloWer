@@ -274,4 +274,5 @@ over U in (0.003, 0.0075), bed weight / A = 166.53 Pa, CFDEM R2 slope 12 129 Pa 
 - Cost: Bfull and A 1.6 x the wall time of B (per-step viscous integration and, for A, the
   operator terms); every model rebuilds the weighted mass matrix once per step.
 - G6 verdict: the momentum stage now exists, all three models are inside the three spec
-  tolerances. PASS / RECORDED wording left to the owner and the peer (datasheet rows RECORDED).
+  tolerances. Owner verdict 2026-11-15: PASS (the three model rows of the datasheet; the rows of the
+  feedback rung without a model, job 159991, stay RECORDED).
