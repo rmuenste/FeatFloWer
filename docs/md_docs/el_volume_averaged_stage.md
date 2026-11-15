@@ -335,7 +335,7 @@ SimPar@ELVASourceCorrectors = 0         # 0 (default) .. 20 source/projection co
 SimPar@ELVACompatibility   = uniform   # uniform (default) | alpha   (added 2026-10-30, fix A)
 SimPar@ELVAContinuityForm  = advective # advective (default) | conservative   (added 2026-11-05, form C)
 SimPar@ELMomentumModel     = none      # none (default) | Bfull | B | A   (added 2026-11-15; implies the keys of its set)
-SimPar@ELFluidViscosity    = kinematic # kinematic (default) | dynamic   (added 2026-11-15; dynamic: fluid viscous operator with mu = rho*nu, matters for rho_f /= 1)
+SimPar@ELFluidViscosity    = dynamic   # dynamic (default) | kinematic   (added 2026-11-15; dynamic: fluid viscous operator with mu = rho*nu; kinematic = campaign behaviour, differs for rho_f /= 1)
 ```
 
 - `BDF2`: the rate in g = −(∂ε/∂t + u·∇ε)/ε becomes (1+a) (∂ε/∂t)^{n+1} − a (∂ε/∂t)^n with
