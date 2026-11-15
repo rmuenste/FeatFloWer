@@ -73,7 +73,8 @@ carry eps rho. Time level: eps^{n+1} (u^{n+1} - u^n)/dt + eps^{n+1} u.grad u. CF
 backward-Euler assembly gives eps^n (u^{n+1} - u^n)/dt; the difference is O(dt d eps/dt du/dt) and
 was kept deliberately (one coefficient field).
 
-**Projection.** The start-up pressure matrix C0 = B^T (rho Ml)^-1 B is not rebuilt. It is the
+**Projection.** By default the start-up pressure matrix C0 = B^T (rho Ml)^-1 B is not rebuilt
+(`SimPar@ELMMPressureOperator = weighted` rebuilds it for model A, section 7). It is the
 preconditioner of the conservative residual iteration: the residual r_m of an element enters the
 pressure right-hand side as -r_m/(w_e dt), with w_e = 1 for B and Bfull (the eps of the flux and
 the 1/eps of the weighted mass cancel) and w_e = eps_e for `none` and A. The cancellation is exact
@@ -170,3 +171,44 @@ parallel restriction correct. Findings and what was done:
 6. Periodic domains with a model: not run (the conservative form is certified for closed boxes
    and, since case 05, open outlets).
 7. Cost of the viscous sampling: one more loop over the supported elements per particle.
+
+## 7. Weighted pressure matrix for model A (2026-11-15, branch feature/el-va-weighted-pressure)
+
+**Finding.** On the Ergun column (case 05) the continuity iteration of model A and of the
+unweighted set did not converge with one corrector once the bed moved: the net boundary flux of
+eps u alternated in sign from pass to pass (+-3e-7 m3/s, a few per cent of the inlet flux), while
+B and Bfull reached 1e-15. Cause: the projection operator of model A is D_eps W^-1 D_eps^T, a
+discrete div((eps/rho) grad); the start-up matrix scaled by the element porosity is
+(eps/rho) lap. They differ by grad eps . grad q. For a residual inside a dense bed below a free
+region the scaled matrix corrects the through-flow too strongly by up to 1/eps (0.42 here). The
+iteration still contracts (measured factors -0.7, -0.4, -0.3 per pass; four correctors bring the
+flux error from 3e-7 to 7e-9), so the start-up matrix with more correctors is a valid setting.
+
+**Key.** `SimPar@ELMMPressureOperator = startup | weighted`, default `startup` (every existing
+run unchanged; no echo line). `weighted` with model A: the adapter routine
+`EL_MM_Pressure_Operator` (QuadSc_el_mm.f90) rebuilds the pressure matrix every step as
+B^T m^-1 B with the nodal mass m = U0^2/W (U0 = rho Ml, the unweighted lumped mass `mg_MlPMat`;
+W the weighted one), i.e. the nodal porosity W/U0 inside the operator, on every level of each
+rank, with the parallel matrix and the coarse solver; the residual divisor becomes 1
+(`EL_MM_RESIDUAL_DIVISOR`). Under Bfull and B the key is accepted and changes nothing (their
+start-up matrix with divisor 1 already is this approximation); without a model it is refused.
+Table column `el_mmt_pressure_rebuild`, resolved once (`el_mm_pressure_rebuild_on`).
+
+**Restrictions (checked at the first step).** Pres@MGCrsSolverType 1-4 or 9 (the hypre solvers
+keep their own copy of the matrix); Pres@MGMinLev = MGMedLev = coarsest mesh level (the master
+receives the porosity on that level only). The previous UMFPACK factorisation is released before
+each rebuild.
+
+**Reviews of bf2fd6b0** (GPT-6 Astra high; an independent Claude agent): no finding on the
+default path, operator and divisor confirmed as a preconditioner. Fixed in f06d70d6: UMFPACK
+factorisation leaked once per step (both); hypre solver types neither working nor refused
+(both); master levels above the coarsest rebuilt unweighted (both) - refused; SAVE'd snapshot of
+the unweighted mass replaced by rho * mg_MlPMat (agent; GPT: lifecycle); key resolved once,
+predicate in EL_MOMENTUM_MODEL, echo only for `weighted` and with honest wording (both). Left
+and stated: no unit test of the adapter rebuild (covered by the runs only); the rebuild is done
+every step also for an unchanged porosity; the coarse-solver diagnostic block and the assembly
+progress fragments are printed every step; the hypre refusal could not be run (this build has no
+hypre; such a deck stops earlier at solver set-up); restart with the key not certified.
+
+**Verification:** case RUNBOOKs s05 (section "Model A with the weighted pressure matrix") and s06
+(certification section).
