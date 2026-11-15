@@ -100,27 +100,29 @@ END SUBROUTINE EL_MM_Update_Fluid_Coefficients
 SUBROUTINE EL_MM_Check_Solver_Settings()
 
   USE var_QuadScalar, ONLY: iConvectionForm, GAMMA, bNonNewtonian, bViscoElastic
-  USE PP3D_MPI, ONLY: myid, showid
+  USE PP3D_MPI, ONLY: myid, showid, master
 
-  LOGICAL :: ok
+  LOGICAL :: ok, tell
 
   ok = .TRUE.
+  ! one line per message on the terminal: the master stops first, so it reports as well
+  tell = (myid.EQ.showid .OR. myid.EQ.master)
   IF (myMatrixRenewal%M.LT.1 .OR. (myMatrixRenewal%K.NE.2 .AND. myMatrixRenewal%K.NE.3) .OR. &
       myMatrixRenewal%C.NE.1) THEN
-    IF (myid.EQ.showid) WRITE(*,'(A,3(A,I0))') 'ELMomentumModel needs SimPar@MatrixRenewal with M >= 1, K = 2 or 3, C = 1;', &
+    IF (tell) WRITE(*,'(A,3(A,I0))') 'ELMomentumModel needs SimPar@MatrixRenewal with M >= 1, K = 2 or 3, C = 1;', &
       ' got M', myMatrixRenewal%M, ' K', myMatrixRenewal%K, ' C', myMatrixRenewal%C
     ok = .FALSE.
   END IF
   IF (GAMMA.NE.0.0d0) THEN
-    IF (myid.EQ.showid) WRITE(*,'(A)') 'ELMomentumModel needs GAMMA = 0.'
+    IF (tell) WRITE(*,'(A)') 'ELMomentumModel needs GAMMA = 0.'
     ok = .FALSE.
   END IF
   IF (iConvectionForm.NE.0) THEN
-    IF (myid.EQ.showid) WRITE(*,'(A)') 'ELMomentumModel needs ELConvectionForm = convective.'
+    IF (tell) WRITE(*,'(A)') 'ELMomentumModel needs ELConvectionForm = convective.'
     ok = .FALSE.
   END IF
   IF (bNonNewtonian .OR. bViscoElastic) THEN
-    IF (myid.EQ.showid) WRITE(*,'(A)') 'ELMomentumModel is implemented for the Newtonian fluid path only (FlowType = Newtonian, no viscoelastic stress).'
+    IF (tell) WRITE(*,'(A)') 'ELMomentumModel is implemented for the Newtonian fluid path only (FlowType = Newtonian, no viscoelastic stress).'
     ok = .FALSE.
   END IF
   IF (.NOT.ok) STOP 1
@@ -194,11 +196,12 @@ SUBROUTINE EL_MM_Prepare_Boundary_Mask()
   REAL*8, ALLOCATABLE :: count(:)
   LOGICAL :: need_local, need_any
 
-  ! rank-uniform decision (the sum below is collective among the workers)
-  need_local = .FALSE.
-  IF (myid.NE.master) need_local = .NOT.ALLOCATED(el_field_data%boundary_face_dof)
+  ! the master holds no fields and is not a member of the workers' communicator
+  IF (myid.EQ.master) RETURN
+  ! worker-uniform decision (the parallel sum below is collective among the workers)
+  need_local = .NOT.ALLOCATED(el_field_data%boundary_face_dof)
   CALL MPI_Allreduce(need_local, need_any, 1, MPI_LOGICAL, MPI_LOR, MPI_COMM_SUBS, ierr)
-  IF (.NOT.need_any .OR. myid.EQ.master) RETURN
+  IF (.NOT.need_any) RETURN
 
   ndof = QuadSc%ndof
   ALLOCATE(count(ndof))
