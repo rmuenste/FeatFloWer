@@ -41,6 +41,36 @@ MODULE EL_CONFIG
   ! grav_buoy = (rho_p-rho_f)*V*g. Default Yes preserves bounded-domain
   ! behavior (tier2 terminal, ten Cate).
   LOGICAL :: el_fluid_gravity = .TRUE.
+  ! SimPar@ELFluidViscosity = kinematic | dynamic
+  !   Coefficient of the fluid's viscous term. The solver assembles its diffusion matrix with
+  !   Properties%Viscosity and no density factor, against mass and convection matrices that
+  !   carry the density: it expects the DYNAMIC viscosity there (the DNS decks give it so).
+  !   The Euler-Lagrange decks give the KINEMATIC viscosity (Prop@Viscosity, or Prop@DynVisc
+  !   which the parser divides by the density), because the drag closures form mu = rho nu
+  !   themselves.
+  !   'kinematic' the campaign behaviour up to 2026-11-15: the diffusion matrix carries nu,
+  !               i.e. the fluid's viscous term is too small by the factor rho_f (no effect
+  !               for rho_f = 1). Set it explicitly to reproduce a certified log of a case
+  !               with rho_f /= 1 bit for bit.
+  !   'dynamic'   (default since 2026-11-15, owner decision) the application stores mu = rho nu in Properties%Viscosity after the solver
+  !               initialisation and rebuilds the diffusion matrix (EL_APPLY_FLUID_VISCOSITY in
+  !               the application); the closures keep receiving nu (EL_CLOSURE_VISCOSITY), the
+  !               particle viscous force and model A follow the operator
+  !               (EL_FORCES: EL_FLUID_OPERATOR_VISCOSITY). Supported: Newtonian fluid without
+  !               viscoelastic stress, Prop@PowerLawExp = 1, MatrixRenewal D >= 1 and S = 0
+  !               (refused otherwise). A property reload at run time (Reload_Prop of the
+  !               process control) would put nu back: the run then stops at the next
+  !               Euler-Lagrange pass. The deck convention does not change (still nu or
+  !               Prop@DynVisc); fluidViscosity_ of the particle json is an independent input
+  !               and must hold mu as before.
+  CHARACTER(LEN=32) :: el_fluid_viscosity = 'dynamic'
+  CHARACTER(LEN=9), PARAMETER :: el_fluid_visc_names(0:1) = (/ 'kinematic', 'dynamic  ' /)
+  ! Resolved by EL_VALIDATE_CONFIG (deck-only):
+  LOGICAL :: el_fluid_visc_dynamic = .FALSE.
+  ! Recorded by EL_SET_FLUID_VISCOSITY when the application converts the property: the
+  ! kinematic value for the closures and the dynamic one now stored in Properties%Viscosity.
+  ! Read through EL_CLOSURE_VISCOSITY / EL_FLUID_VISCOSITY_CONVERTED only.
+  REAL*8, PRIVATE :: el_closure_nu = -1.0d0, el_operator_mu = -1.0d0
   LOGICAL :: el_drag_semi_implicit = .FALSE.
   LOGICAL :: el_pressure_force = .TRUE.
   ! Feed the particle pressure force -V grad p back to the fluid (kernel
@@ -253,6 +283,12 @@ CONTAINS
     CALL EL_LOWERCASE(el_cylinder_axis)
     CALL EL_LOWERCASE(el_momentum_model)
     CALL EL_LOWERCASE(el_mm_pressure_operator)
+    CALL EL_LOWERCASE(el_fluid_viscosity)
+    IF (.NOT.ANY(TRIM(el_fluid_viscosity).EQ.el_fluid_visc_names)) THEN
+      WRITE(*,'(A,A)') 'Invalid ELFluidViscosity (kinematic|dynamic): ', TRIM(el_fluid_viscosity)
+      STOP 1
+    END IF
+    el_fluid_visc_dynamic = (TRIM(el_fluid_viscosity).EQ.TRIM(el_fluid_visc_names(1)))
 
     el_mm_id_validated = EL_MM_LOOKUP(el_momentum_model)
     IF (el_mm_id_validated.LT.0) THEN
@@ -523,6 +559,7 @@ CONTAINS
     WRITE(mfile,'(A,A)') 'EL momentum model         = ', TRIM(el_momentum_model)
     IF (el_mm_pop_weighted) WRITE(mfile,'(A,A)') 'EL MM pressure operator   = ', &
       TRIM(EL_MM_PRESSURE_OPERATOR_TEXT())
+    WRITE(mfile,'(A,A)') 'EL fluid viscosity        = ', TRIM(el_fluid_viscosity)
     DO i_implied=1,el_n_implied
       WRITE(mfile,'(A,A)') '  implied by the model    : ', TRIM(el_mm_implied(i_implied))
     END DO
@@ -565,6 +602,7 @@ CONTAINS
       WRITE(mterm,'(A,A)') 'EL momentum model         = ', TRIM(el_momentum_model)
       IF (el_mm_pop_weighted) WRITE(mterm,'(A,A)') 'EL MM pressure operator   = ', &
         TRIM(EL_MM_PRESSURE_OPERATOR_TEXT())
+      WRITE(mterm,'(A,A)') 'EL fluid viscosity        = ', TRIM(el_fluid_viscosity)
       DO i_implied=1,el_n_implied
         WRITE(mterm,'(A,A)') '  implied by the model    : ', TRIM(el_mm_implied(i_implied))
       END DO
@@ -716,6 +754,46 @@ CONTAINS
     IF (.NOT.el_mm_pressure_rebuild_on) &
       text = 'weighted accepted; start-up preconditioner retained for this model'
   END FUNCTION EL_MM_PRESSURE_OPERATOR_TEXT
+
+  ! Kinematic viscosity for the closures and diagnostics of the Euler-Lagrange path. The
+  ! argument is Properties%Viscosity(1): the kinematic value itself under 'kinematic' (returned
+  ! unchanged), the dynamic one under ELFluidViscosity = dynamic, where the kinematic value
+  ! recorded at the conversion is returned (not mu/rho: the closures see the same bits in
+  ! both conventions). Under 'dynamic' the argument must be the recorded mu: a property that
+  ! was never converted, or changed afterwards (Reload_Prop), stops the run here instead of
+  ! running with mixed conventions.
+  REAL*8 FUNCTION EL_CLOSURE_VISCOSITY(properties_viscosity)
+    REAL*8, INTENT(IN) :: properties_viscosity
+    IF (.NOT.el_fluid_visc_dynamic) THEN
+      EL_CLOSURE_VISCOSITY = properties_viscosity
+    ELSE
+      IF (el_closure_nu.LE.0.0d0) THEN
+        WRITE(*,*) 'EL_CLOSURE_VISCOSITY: ELFluidViscosity = dynamic, but the property was ', &
+                   'not converted (EL_APPLY_FLUID_VISCOSITY not called).'
+        STOP 1
+      END IF
+      IF (properties_viscosity.NE.el_operator_mu) THEN
+        WRITE(*,*) 'EL_CLOSURE_VISCOSITY: ELFluidViscosity = dynamic, but the fluid viscosity ', &
+                   'changed after the conversion (property reload is not supported): ', &
+                   properties_viscosity, ' /= ', el_operator_mu
+        STOP 1
+      END IF
+      EL_CLOSURE_VISCOSITY = el_closure_nu
+    END IF
+  END FUNCTION EL_CLOSURE_VISCOSITY
+
+  ! Record the conversion (the application's EL_APPLY_FLUID_VISCOSITY; unit tests): nu for the
+  ! closures, mu = rho nu for the operator. Returns mu, the value to store in the property.
+  REAL*8 FUNCTION EL_SET_FLUID_VISCOSITY(nu, rho)
+    REAL*8, INTENT(IN) :: nu, rho
+    el_closure_nu = nu
+    el_operator_mu = rho*nu
+    EL_SET_FLUID_VISCOSITY = el_operator_mu
+  END FUNCTION EL_SET_FLUID_VISCOSITY
+
+  LOGICAL FUNCTION EL_FLUID_VISCOSITY_CONVERTED()
+    EL_FLUID_VISCOSITY_CONVERTED = (el_closure_nu.GT.0.0d0)
+  END FUNCTION EL_FLUID_VISCOSITY_CONVERTED
 
   SUBROUTINE EL_MM_CONFLICT(text)
     CHARACTER(LEN=*), INTENT(IN) :: text

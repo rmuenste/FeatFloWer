@@ -266,10 +266,11 @@ SUBROUTINE EL_MM_Begin_Step(mfile)
     IF (myid.EQ.master) THEN
       CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, dummy_velocity, &
         dummy_velocity, dummy_velocity, dummy_velocity, Properties%Density(1), &
-        Properties%Viscosity(1), Properties%Gravity, tstep, mfile, 0)
+        EL_CLOSURE_VISCOSITY(Properties%Viscosity(1)), Properties%Gravity, tstep, mfile, 0)
     ELSE
       CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, QuadSc%valU, QuadSc%valV, &
-        QuadSc%valW, LinSc%valP(NLMAX)%x, Properties%Density(1), Properties%Viscosity(1), &
+        QuadSc%valW, LinSc%valP(NLMAX)%x, Properties%Density(1), &
+        EL_CLOSURE_VISCOSITY(Properties%Viscosity(1)), &
         Properties%Gravity, tstep, mfile, 0)
     END IF
     primed = .TRUE.
@@ -367,7 +368,8 @@ SUBROUTINE EL_MM_Add_Operator_Terms()
   CALL EL_MM_PHI_OPERATORS(mg_mesh, NLMAX, mg_mesh%level(NLMAX)%dcorvg, &
     el_field_data%epsilon_transport_q2, LinSc%valP(NLMAX)%x, QuadSc%valU, QuadSc%valV, &
     QuadSc%valW, .TRUE., fp, fv)
-  c = EL_FLUID_OPERATOR_VISCOSITY(Properties%Density(1), Properties%Viscosity(1))
+  c = EL_FLUID_OPERATOR_VISCOSITY(Properties%Density(1), &
+                                  EL_CLOSURE_VISCOSITY(Properties%Viscosity(1)))
   DO i = 1, ndof
     QuadSc%defU(i) = QuadSc%defU(i) + TSTEP*(c*fv(1,i) - fp(1,i))
     QuadSc%defV(i) = QuadSc%defV(i) + TSTEP*(c*fv(2,i) - fp(2,i))

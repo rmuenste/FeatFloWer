@@ -155,13 +155,16 @@ parallel restriction correct. Findings and what was done:
 
 ## 6. Open points
 
-1. **Viscosity convention of the fluid operator.** The diffusion matrix carries
-   `Properties%Viscosity(1)` without a density factor against a mass matrix that carries the
-   density. With `Prop@DynVisc` the parser stores mu/rho there (the drag closures form mu =
-   rho nu themselves), so for rho /= 1 the fluid's viscous term is too small by the factor rho in
-   every Euler-Lagrange run; the DNS decks give the dynamic viscosity in `Prop@Viscosity` and are
-   consistent. Pre-existing, owner decision. `EL_FLUID_OPERATOR_VISCOSITY` is the one place the
-   particle viscous force and model A follow whatever is decided.
+1. **Viscosity convention of the fluid operator** - resolved by a key (2026-11-15, branch
+   feature/el-fluid-viscosity). The diffusion matrix carries `Properties%Viscosity(1)` without a
+   density factor against a mass matrix that carries the density; Euler-Lagrange decks give the
+   kinematic viscosity there, so for rho /= 1 the fluid's viscous term is too small by the
+   factor rho (measured: developed pipe flow at rho 10 gives 0.10 of the Hagen-Poiseuille
+   pressure gradient). `SimPar@ELFluidViscosity = dynamic` puts mu = rho nu into the operator
+   (1.0000 of Hagen-Poiseuille); the default `kinematic` keeps the campaign behaviour and every
+   certified log. `EL_FLUID_OPERATOR_VISCOSITY` is the one place the particle viscous force and
+   model A follow the convention. Validation case `s07_pipe_viscosity`; all results in this
+   note were obtained with the default.
 2. Stress form: the Newtonian path uses the component Laplacian; CFDEM's deviatoric form differs
    where div u /= 0. The particle force matches this solver's operator.
 3. Momentum-aware pressure mobility (drag in the projection), outer momentum/pressure iterations.
