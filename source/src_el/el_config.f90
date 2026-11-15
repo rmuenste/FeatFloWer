@@ -127,6 +127,37 @@ MODULE EL_CONFIG
   ! The valid values, blank-padded; index = form id of EL_VA_CONTINUITY (0 advective,
   ! 1 conservative).
   CHARACTER(LEN=12), PARAMETER :: el_va_form_names(0:1) = (/ 'advective   ', 'conservative' /)
+  ! SimPar@ELMomentumModel = none | Bfull | B | A
+  !   Momentum formulation of the fluid-particle set, named after the CFDEM model types
+  !   (cfdemSolverPiso; docs/md_docs/el_momentum_models_plan_2026-11-15.md):
+  !   'none'  (default) unweighted fluid momentum rho Du/Dt = -grad p + ..., the particle force
+  !           split is whatever ELPressureForce / ELPressureFeedback say (campaign behaviour,
+  !           every certified log bitwise).
+  !   'bfull' eps rho Du/Dt = -grad p + div tau - n (F_d + F_p + F_v): particle pressure and
+  !           viscous force, both fed back to the fluid.
+  !   'b'     eps rho Du/Dt = -grad p + div tau - n F_d/eps: drag divided by eps, no particle
+  !           pressure or viscous force.
+  !   'a'     eps rho Du/Dt = -eps grad p + div(eps tau) - n F_d: eps in the operator, particle
+  !           pressure and viscous force without feedback.
+  !   A model implies its consistent key set; el_mm_implemented says which names this build
+  !   accepts (a recognised but unimplemented name is refused, never silently run as 'none').
+  !   Behaviour lives in EL_MOMENTUM_MODEL; nothing else tests the name.
+  CHARACTER(LEN=32) :: el_momentum_model = 'none'
+  ! The valid values, blank-padded; index = model id (EL_MM_ID).
+  CHARACTER(LEN=5), PARAMETER :: el_mm_names(0:3) = (/ 'none ', 'bfull', 'b    ', 'a    ' /)
+  LOGICAL, PARAMETER :: el_mm_implemented(0:3) = (/ .TRUE., .TRUE., .TRUE., .TRUE. /)
+  ! Deck keys of the SimPar@EL* family that the parameter file set explicitly (recorded by the
+  ! application parser through EL_NOTE_KEY_SET). A momentum model implies values for other
+  ! keys; the registry lets the resolution tell "left at its default" from "set to a
+  ! contradicting value", which is refused.
+  INTEGER, PARAMETER :: el_max_keys_set = 128
+  CHARACTER(LEN=32) :: el_keys_set(el_max_keys_set) = ' '
+  INTEGER :: el_n_keys_set = 0
+  ! Echo lines of the key values a momentum model implied (EL_RESOLVE_MOMENTUM_MODEL),
+  ! printed by EL_PRINT_CONFIG after the model name.
+  INTEGER, PARAMETER :: el_max_implied = 16
+  CHARACTER(LEN=96) :: el_mm_implied(el_max_implied) = ' '
+  INTEGER :: el_n_implied = 0
   REAL*8 :: el_tavg_window = 0.5d0
   ! Uniform ramped inlet (boundary type Inflow975, GetVeloBCVal): axial velocity normal to a
   ! z-plane inlet, ramped linearly from ELInletVelocityStart to ELInletVelocityEnd over
@@ -169,6 +200,19 @@ CONTAINS
     CALL EL_LOWERCASE(el_va_compatibility)
     CALL EL_LOWERCASE(el_va_continuity_form)
     CALL EL_LOWERCASE(el_cylinder_axis)
+    CALL EL_LOWERCASE(el_momentum_model)
+
+    IF (.NOT.ANY(TRIM(el_momentum_model).EQ.el_mm_names)) THEN
+      WRITE(*,'(A,A)') 'Invalid ELMomentumModel (none|Bfull|B|A): ', TRIM(el_momentum_model)
+      STOP 1
+    END IF
+    IF (.NOT.el_mm_implemented(EL_MM_ID())) THEN
+      WRITE(*,'(A,A,A)') 'ELMomentumModel = ', TRIM(el_momentum_model), &
+        ' is not implemented in this build.'
+      STOP 1
+    END IF
+    ! a model fixes other keys; resolved before the ordinary validation below reads them
+    CALL EL_RESOLVE_MOMENTUM_MODEL()
 
     SELECT CASE (TRIM(el_kernel))
     CASE ('deen_poly', 'gaussian')
@@ -389,6 +433,7 @@ CONTAINS
   SUBROUTINE EL_PRINT_CONFIG(mfile, mterm)
 
     INTEGER, INTENT(IN) :: mfile, mterm
+    INTEGER :: i_implied
 
     WRITE(mfile,'(A,A)') 'EL kernel                 = ', TRIM(el_kernel)
     WRITE(mfile,'(A,ES14.6)') 'EL kernel width factor    = ', el_kernel_width_factor
@@ -422,6 +467,10 @@ CONTAINS
     WRITE(mfile,'(A,I0)') 'EL VA source correctors   = ', el_va_source_correctors
     WRITE(mfile,'(A,A)') 'EL VA compatibility       = ', TRIM(el_va_compatibility)
     WRITE(mfile,'(A,A)') 'EL VA continuity form     = ', TRIM(el_va_continuity_form)
+    WRITE(mfile,'(A,A)') 'EL momentum model         = ', TRIM(el_momentum_model)
+    DO i_implied=1,el_n_implied
+      WRITE(mfile,'(A,A)') '  implied by the model    : ', TRIM(el_mm_implied(i_implied))
+    END DO
     WRITE(mfile,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
     WRITE(mfile,'(A,3ES14.6)') 'EL inlet u0 / u1 / ramp   = ', el_inlet_u0, el_inlet_u1, el_inlet_tramp
 
@@ -458,6 +507,10 @@ CONTAINS
       WRITE(mterm,'(A,I0)') 'EL VA source correctors   = ', el_va_source_correctors
       WRITE(mterm,'(A,A)') 'EL VA compatibility       = ', TRIM(el_va_compatibility)
       WRITE(mterm,'(A,A)') 'EL VA continuity form     = ', TRIM(el_va_continuity_form)
+      WRITE(mterm,'(A,A)') 'EL momentum model         = ', TRIM(el_momentum_model)
+      DO i_implied=1,el_n_implied
+        WRITE(mterm,'(A,A)') '  implied by the model    : ', TRIM(el_mm_implied(i_implied))
+      END DO
       WRITE(mterm,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
       WRITE(mterm,'(A,3ES14.6)') 'EL inlet u0 / u1 / ramp   = ', el_inlet_u0, el_inlet_u1, el_inlet_tramp
     END IF
@@ -522,6 +575,151 @@ CONTAINS
   ! Deck-only switch for the conservative continuity form (EL_VA_FLUX): decides the nodal
   ! reconstruction and its collective in the transfer pass and the flux-moment path of the
   ! source; identical on every rank.
+  ! Key set of a momentum model. Called by EL_VALIDATE_CONFIG after the name is known to be
+  ! valid and implemented, before any other key is validated. For 'none' nothing happens (the
+  ! campaign keys keep their deck values). For a model every key of its consistent set is
+  ! assigned; a key the deck set explicitly to a different value is refused (el_keys_set),
+  ! and the settings a model cannot be combined with are refused. Checks that need solver
+  ! state (matrix renewal, GAMMA, material law) are made by the fluid adapter at its first
+  ! call (Transport_Q2P1: EL_MM_Check_Solver_Settings).
+  !
+  !   key                    bfull          b              a
+  !   ELVolumeAveraged       continuity     continuity     continuity
+  !   ELVAContinuityForm     conservative   conservative   conservative
+  !   ELVASourceCorrectors   >= 1 (1 if the deck does not set it)
+  !   ELApplyFluidFeedback   Yes            Yes            Yes
+  !   ELDragCoupling         semi_implicit  semi_implicit  semi_implicit
+  !   ELPressureForce        Yes            No             Yes
+  !   ELPressureFeedback     Yes            No             No
+  !   ELFluidGravity         No             No             No
+  ! ELFluidGravity = No is the dynamic-pressure formulation all three share here: the fluid
+  ! carries no gravity term, the particle the buoyant weight (rho_p - rho_f) V g, and the
+  ! pressure force uses the gradient of that pressure; with a hydrostatic pressure in the
+  ! field the buoyancy would be counted twice. SimPar@ConstantForcing stays available (a fluid
+  ! acceleration, weighted with eps like the inertia).
+  SUBROUTINE EL_RESOLVE_MOMENTUM_MODEL()
+
+    INTEGER :: id
+    LOGICAL :: particle_pressure, pressure_feedback
+
+    id = EL_MM_ID()
+    IF (id.EQ.0) RETURN
+    el_n_implied = 0
+
+    ! ids: 1 bfull, 2 b, 3 a (el_mm_names)
+    particle_pressure = (id.EQ.1 .OR. id.EQ.3)
+    pressure_feedback = (id.EQ.1)
+
+    CALL EL_MM_IMPLY_TEXT('ELVolumeAveraged', el_volume_averaged, 'continuity')
+    CALL EL_MM_IMPLY_TEXT('ELVAContinuityForm', el_va_continuity_form, 'conservative')
+    CALL EL_MM_IMPLY_TEXT('ELDragCoupling', el_drag_coupling, 'semi_implicit')
+    CALL EL_MM_IMPLY_LOGICAL('ELApplyFluidFeedback', el_apply_fluid_feedback, .TRUE.)
+    CALL EL_MM_IMPLY_LOGICAL('ELPressureForce', el_pressure_force, particle_pressure)
+    CALL EL_MM_IMPLY_LOGICAL('ELPressureFeedback', el_pressure_feedback, pressure_feedback)
+    CALL EL_MM_IMPLY_LOGICAL('ELFluidGravity', el_fluid_gravity, .FALSE.)
+    IF (.NOT.EL_KEY_SET('ELVASourceCorrectors')) THEN
+      el_va_source_correctors = 1
+      CALL EL_MM_NOTE_IMPLIED('ELVASourceCorrectors = 1')
+    END IF
+
+    IF (TRIM(el_drag_model).EQ.'difelice') THEN
+      WRITE(*,*) 'ELMomentumModel needs a drag law in the standard porosity convention; ', &
+                 'ELDragModel = difelice (campaign form without eps^2) is refused, use difelice_std.'
+      STOP 1
+    END IF
+    IF (el_meso_filter) THEN
+      WRITE(*,*) 'ELMomentumModel is not supported with ELMesoFilter = Yes.'
+      STOP 1
+    END IF
+    IF (el_momentum_fix) THEN
+      WRITE(*,*) 'ELMomentumModel is not supported with ELMomentumFix = Yes ', &
+                 '(the compensator acts on the unweighted fluid momentum).'
+      STOP 1
+    END IF
+    IF (el_eps_f_relax.GT.0.0d0) THEN
+      WRITE(*,*) 'ELMomentumModel needs ELEpsFRelax = 0.'
+      STOP 1
+    END IF
+    IF (TRIM(el_prescribed_field).NE.'none') THEN
+      WRITE(*,*) 'ELMomentumModel is not supported with a prescribed fluid field.'
+      STOP 1
+    END IF
+
+  END SUBROUTINE EL_RESOLVE_MOMENTUM_MODEL
+
+  SUBROUTINE EL_MM_NOTE_IMPLIED(line)
+    CHARACTER(LEN=*), INTENT(IN) :: line
+    IF (el_n_implied.GE.el_max_implied) RETURN
+    el_n_implied = el_n_implied + 1
+    el_mm_implied(el_n_implied) = line
+  END SUBROUTINE EL_MM_NOTE_IMPLIED
+
+  ! Assign the model's value to a text key; refuse a different explicit deck value.
+  SUBROUTINE EL_MM_IMPLY_TEXT(key, var, value)
+    CHARACTER(LEN=*), INTENT(IN) :: key, value
+    CHARACTER(LEN=*), INTENT(INOUT) :: var
+    IF (EL_KEY_SET(key) .AND. TRIM(var).NE.TRIM(value)) THEN
+      WRITE(*,'(6A)') 'ELMomentumModel = ', TRIM(el_momentum_model), ' implies ', key, &
+        ' = ', value
+      WRITE(*,'(4A)') '  the parameter file sets ', key, ' = ', TRIM(var)
+      STOP 1
+    END IF
+    IF (TRIM(var).NE.TRIM(value) .OR. .NOT.EL_KEY_SET(key)) &
+      CALL EL_MM_NOTE_IMPLIED(key//' = '//value)
+    var = value
+  END SUBROUTINE EL_MM_IMPLY_TEXT
+
+  ! Assign the model's value to a Yes/No key; refuse a different explicit deck value.
+  SUBROUTINE EL_MM_IMPLY_LOGICAL(key, var, value)
+    CHARACTER(LEN=*), INTENT(IN) :: key
+    LOGICAL, INTENT(INOUT) :: var
+    LOGICAL, INTENT(IN) :: value
+    CHARACTER(LEN=3) :: text
+    text = 'No'
+    IF (value) text = 'Yes'
+    IF (EL_KEY_SET(key) .AND. (var.NEQV.value)) THEN
+      WRITE(*,'(6A)') 'ELMomentumModel = ', TRIM(el_momentum_model), ' implies ', key, &
+        ' = ', TRIM(text)
+      WRITE(*,'(3A)') '  the parameter file sets ', key, ' to the opposite value.'
+      STOP 1
+    END IF
+    IF ((var.NEQV.value) .OR. .NOT.EL_KEY_SET(key)) &
+      CALL EL_MM_NOTE_IMPLIED(key//' = '//TRIM(text))
+    var = value
+  END SUBROUTINE EL_MM_IMPLY_LOGICAL
+
+  ! Id of the momentum model (index into el_mm_names; 0 = none). Deck-only, valid on every
+  ! rank; -1 for a name outside the table (EL_VALIDATE_CONFIG refuses it before any use).
+  INTEGER FUNCTION EL_MM_ID()
+    INTEGER :: i
+    EL_MM_ID = -1
+    DO i=LBOUND(el_mm_names,1),UBOUND(el_mm_names,1)
+      IF (TRIM(el_momentum_model).EQ.TRIM(el_mm_names(i))) EL_MM_ID = i
+    END DO
+  END FUNCTION EL_MM_ID
+
+  ! Record that the parameter file set the SimPar@EL* key `name` (called by the parser for
+  ! every such key, before EL_VALIDATE_CONFIG).
+  SUBROUTINE EL_NOTE_KEY_SET(name)
+    CHARACTER(LEN=*), INTENT(IN) :: name
+    IF (EL_KEY_SET(name)) RETURN
+    IF (el_n_keys_set.GE.el_max_keys_set) THEN
+      WRITE(*,*) 'EL_NOTE_KEY_SET: more than el_max_keys_set distinct SimPar@EL* keys.'
+      STOP 1
+    END IF
+    el_n_keys_set = el_n_keys_set + 1
+    el_keys_set(el_n_keys_set) = name
+  END SUBROUTINE EL_NOTE_KEY_SET
+
+  LOGICAL FUNCTION EL_KEY_SET(name)
+    CHARACTER(LEN=*), INTENT(IN) :: name
+    INTEGER :: i
+    EL_KEY_SET = .FALSE.
+    DO i=1,el_n_keys_set
+      IF (TRIM(el_keys_set(i)).EQ.TRIM(name)) EL_KEY_SET = .TRUE.
+    END DO
+  END FUNCTION EL_KEY_SET
+
   LOGICAL FUNCTION EL_VA_CONSERVATIVE_FORM()
     EL_VA_CONSERVATIVE_FORM = (EL_VA_FORM_ID().EQ.1)
   END FUNCTION EL_VA_CONSERVATIVE_FORM

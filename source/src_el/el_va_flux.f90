@@ -68,6 +68,7 @@ MODULE EL_VA_FLUX
   PUBLIC :: EL_VA_FLUX_MOMENTS, EL_VA_ELEMENT_FLUX_MOMENTS, EL_VA_ELEMENT_FACE_FLUX
   PUBLIC :: EL_VA_ELEMENT_DOFS, EL_VA_Q2_BASIS, EL_VA_FLUX_TABLES, tElVaFluxTables
   PUBLIC :: EL_VA_CHECK_DOF_LAYOUT, EL_VA_CONSERVATIVE_ROWS
+  PUBLIC :: EL_VA_FACE_GEOMETRY
   PUBLIC :: NQ2, NFACE, NGPF, NGPV
 
   INTEGER, PARAMETER :: NQ2 = 27      ! Q2 dofs per element
@@ -225,18 +226,21 @@ CONTAINS
 
   ! Row algebra of the conservative constraint for one element (design note): with the flux
   ! moments F_m of the current velocity, the storage rate d_cont, the storage moments Q_m, the
-  ! assembled divergence moments D_m and the preconditioning coefficient eps_e,
+  ! assembled divergence moments D_m and the preconditioning divisor w_e
+  ! (EL_MOMENTUM_MODEL:EL_MM_RESIDUAL_DIVISOR; the element porosity for the unweighted
+  ! campaign momentum, 1 for eps-weighted inertia with an unweighted pressure gradient),
   !   r_m  = F_m + d_cont Q_m          unsinked residual
-  !   gV_1 = D_1 - r_1/eps_e           volume integral of the row-1 source (sink bookkeeping)
-  ! and the projection right-hand side is -r_m/(eps_e dt) (row 1 minus the sink), applied by
-  ! the caller. At the fixed point r_m = 0 (compatible storage), i.e. gV_1 = D_1.
-  PURE SUBROUTINE EL_VA_CONSERVATIVE_ROWS(flux, d_cont, q, d, eps, r, gv1)
+  !   gV_1 = D_1 - r_1/w_e             volume integral of the row-1 source (sink bookkeeping)
+  ! and the projection right-hand side is -r_m/(w_e dt) (row 1 minus the sink), applied by
+  ! the caller with the same w_e. At the fixed point r_m = 0 (compatible storage), i.e.
+  ! gV_1 = D_1.
+  PURE SUBROUTINE EL_VA_CONSERVATIVE_ROWS(flux, d_cont, q, d, divisor, r, gv1)
 
-    REAL*8, INTENT(IN) :: flux(4), d_cont, q(4), d(4), eps
+    REAL*8, INTENT(IN) :: flux(4), d_cont, q(4), d(4), divisor
     REAL*8, INTENT(OUT) :: r(4), gv1
 
     r = flux + d_cont*q
-    gv1 = d(1) - r(1)/eps
+    gv1 = d(1) - r(1)/divisor
 
   END SUBROUTINE EL_VA_CONSERVATIVE_ROWS
 
@@ -352,6 +356,35 @@ CONTAINS
   ! Flux moments of one face f of an element: moments(1) = int_f eps u.n dS (outward),
   ! moments(1+m) = int_f (x_m - xc_m) eps u.n dS, and the unweighted flux int_f u.n dS.
   ! Exposed for the pairwise-cancellation test.
+  ! Geometry of face point p of reference face f for the Q2-mapped element with dof coordinates
+  ! x: Jacobian jac(:,k) = dx/dxi_k and the outward area vector n dS including the quadrature
+  ! weight (the convention of EL_VA_ELEMENT_FACE_FLUX: sign sgn(det J) (dx/dxi_a x dx/dxi_b) w).
+  PURE SUBROUTINE EL_VA_FACE_GEOMETRY(t, f, p, x, jac, detj, nds)
+
+    TYPE(tElVaFluxTables), INTENT(IN) :: t
+    INTEGER, INTENT(IN) :: f, p
+    REAL*8, INTENT(IN) :: x(3,NQ2)
+    REAL*8, INTENT(OUT) :: jac(3,3), detj, nds(3)
+    INTEGER :: l, k, a, b
+
+    a = face_ta(f)
+    b = face_tb(f)
+    jac = 0.0d0
+    DO l = 1, NQ2
+      DO k = 1, 3
+        jac(:,k) = jac(:,k) + x(:,l)*t%fder(k,l,p,f)
+      END DO
+    END DO
+    detj = jac(1,1)*(jac(2,2)*jac(3,3)-jac(3,2)*jac(2,3)) &
+         - jac(2,1)*(jac(1,2)*jac(3,3)-jac(3,2)*jac(1,3)) &
+         + jac(3,1)*(jac(1,2)*jac(2,3)-jac(2,2)*jac(1,3))
+    nds(1) = jac(2,a)*jac(3,b) - jac(3,a)*jac(2,b)
+    nds(2) = jac(3,a)*jac(1,b) - jac(1,a)*jac(3,b)
+    nds(3) = jac(1,a)*jac(2,b) - jac(2,a)*jac(1,b)
+    nds = face_sign(f)*SIGN(1.0d0, detj)*t%fw(p)*nds
+
+  END SUBROUTINE EL_VA_FACE_GEOMETRY
+
   PURE SUBROUTINE EL_VA_ELEMENT_FACE_FLUX(t, f, x, eps, u, xc, moments, flux_unweighted)
 
     TYPE(tElVaFluxTables), INTENT(IN) :: t

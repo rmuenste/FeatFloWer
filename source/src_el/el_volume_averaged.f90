@@ -66,7 +66,11 @@ MODULE EL_VA_CONTINUITY
   !                  variable). Per element and row m, with D_m = int_e q_m div u^k read from
   !                  the assembled defp (the quadrature of B itself), the unsinked residual
   !                      r_m = F_m(u^k) + d_cont Q_m,   Q_1 = |e|, Q_m = |e| int_e q_m / |e|_geom
-  !                  and the preconditioning coefficient eps_e = MAX(eps, 1e-3), the source is
+  !                  and the preconditioning divisor eps_e, the source is (eps_e stands for
+  !                  w_e = EL_MM_RESIDUAL_DIVISOR(MAX(eps, 1e-3)): the element porosity for the
+  !                  campaign momentum and momentum model A, 1 for the models B and Bfull, whose
+  !                  eps-weighted inertia cancels the eps of the flux; the same w_e in gV, in
+  !                  the right-hand side and in the sink identity below)
   !                      gV_m = D_m - r_m/eps_e,  defp_m := -r_m/(eps_e dt)  (row 1: - s_e|e|/dt)
   !                  i.e. defp_m + D_m/dt = gV_m/dt. Row 1 enters the sink bookkeeping as
   !                  g = gV_1/|e| (same slot meaning as the advective form; the "advective"
@@ -100,6 +104,7 @@ MODULE EL_VA_CONTINUITY
                        el_va_compat_names, EL_VA_FORM_ID
   USE EL_FIELDS, ONLY: el_field_data
   USE EL_VA_FLUX, ONLY: EL_VA_FLUX_MOMENTS, EL_VA_CONSERVATIVE_ROWS
+  USE EL_MOMENTUM_MODEL, ONLY: EL_MM_RESIDUAL_DIVISOR
   USE EL_GEOMETRY, ONLY: EL_DOMAIN_Z_CENTER
 
   IMPLICIT NONE
@@ -282,7 +287,7 @@ CONTAINS
     ! conservative: the continuity form of the deck (the same on every worker)
     LOGICAL :: conservative
     REAL*8 :: fsum(N_FLUX), fsum_g(N_FLUX), fmax, fmax_g, s_e, sink_eps, sink_eps_g
-    REAL*8, ALLOCATABLE :: res(:,:), epsk(:)
+    REAL*8, ALLOCATABLE :: res(:,:), wdiv(:)
     REAL*8 :: u(3), eps, deps_dt, d_cont, adv, g, g_corr, vol, zc, alpha, a_bdf2, w_e
     REAL*8 :: core(N_CORE), core_g(N_CORE), tsrc(N_TSRC), tsrc_g(N_TSRC)
     REAL*8 :: wsum(N_WSUM), wsum_g(N_WSUM)
@@ -329,9 +334,9 @@ CONTAINS
 
     ! ---- raw source per element and the local sums --------------------------------------
     IF (conservative) THEN
-      ALLOCATE(res(4,nel), epsk(nel))
+      ALLOCATE(res(4,nel), wdiv(nel))
       CALL EL_VA_CONSERVATIVE_RAW_SOURCE(defp, val_u, val_v, val_w, mesh, ilev, dt, &
-        use_bdf2, a_bdf2, requested_mode, weighted, gk, wk, epsk, res, core, tsrc, wsum, &
+        use_bdf2, a_bdf2, requested_mode, weighted, gk, wk, wdiv, res, core, tsrc, wsum, &
         fsum, fmax)
     ELSE
     ! campaign loop, verbatim; indentation kept so that the diff against the parent is empty
@@ -413,12 +418,12 @@ CONTAINS
         IF (weighted) w_e = wk(iel)
         s_e = EL_VA_SINK(effective_mode, gbar, core_g(C_INT_G), w_e, w_total)
         g_corr = gk(iel) - s_e
-        defp(4*(iel-1)+1) = -res(1,iel)/(epsk(iel)*dt) - s_e*vol/dt
+        defp(4*(iel-1)+1) = -res(1,iel)/(wdiv(iel)*dt) - s_e*vol/dt
         DO m = 2, 4
-          defp(4*(iel-1)+m) = -res(m,iel)/(epsk(iel)*dt)
+          defp(4*(iel-1)+m) = -res(m,iel)/(wdiv(iel)*dt)
         END DO
         int_gc = int_gc + g_corr*vol
-        sink_eps = sink_eps + epsk(iel)*s_e*vol
+        sink_eps = sink_eps + wdiv(iel)*s_e*vol
       END DO
     ELSE
     ! campaign update, verbatim; indentation kept so that the diff against the parent is empty
@@ -496,7 +501,7 @@ CONTAINS
     DEALLOCATE(gk)
     IF (ALLOCATED(wk)) DEALLOCATE(wk)
     IF (ALLOCATED(res)) DEALLOCATE(res)
-    IF (ALLOCATED(epsk)) DEALLOCATE(epsk)
+    IF (ALLOCATED(wdiv)) DEALLOCATE(wdiv)
 
   END SUBROUTINE EL_ADD_CONTINUITY_SOURCE
 
@@ -541,7 +546,7 @@ CONTAINS
   ! centre node of the P1 basis of B, for the moments and identities; they coincide on the
   ! straight-edged EL meshes. Local sums only, no collective, no early return.
   SUBROUTINE EL_VA_CONSERVATIVE_RAW_SOURCE(defp, val_u, val_v, val_w, mesh, ilev, dt, &
-      use_bdf2, a_bdf2, requested_mode, weighted, gk, wk, epsk, res, core, tsrc, wsum, &
+      use_bdf2, a_bdf2, requested_mode, weighted, gk, wk, wdiv, res, core, tsrc, wsum, &
       fsum, fmax)
 
     REAL*8, INTENT(IN) :: defp(:), val_u(:), val_v(:), val_w(:)
@@ -549,7 +554,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: ilev, requested_mode
     REAL*8, INTENT(IN) :: dt, a_bdf2
     LOGICAL, INTENT(IN) :: use_bdf2, weighted
-    REAL*8, INTENT(OUT) :: gk(:), epsk(:), res(:,:)
+    REAL*8, INTENT(OUT) :: gk(:), wdiv(:), res(:,:)
     REAL*8, ALLOCATABLE, INTENT(INOUT) :: wk(:)
     REAL*8, INTENT(INOUT) :: core(N_CORE), tsrc(N_TSRC), wsum(N_WSUM), fsum(N_FLUX), fmax
 
@@ -576,7 +581,8 @@ CONTAINS
       zc = 0.125d0*zc
       xc = mesh%level(ilev)%dcorvg(:,ioff+iel)
       eps = MAX(el_field_data%epsilon_f(iel), 1.0d-3)
-      epsk(iel) = eps
+      ! preconditioning divisor of the residual (momentum model; eps for the campaign set)
+      wdiv(iel) = EL_MM_RESIDUAL_DIVISOR(eps)
       deps_dt = el_field_data%deps_f_dt(iel)
       d_cont = EL_VA_CONTINUITY_RATE(iel, use_bdf2, a_bdf2)
       vol = mesh%level(ilev)%dvol(iel)
@@ -587,11 +593,11 @@ CONTAINS
       DO m = 1, 4
         d(m) = -dt*defp(4*(iel-1)+m)
       END DO
-      CALL EL_VA_CONSERVATIVE_ROWS(flux(:,iel), d_cont, q, d, eps, r, gv)
+      CALL EL_VA_CONSERVATIVE_ROWS(flux(:,iel), d_cont, q, d, wdiv(iel), r, gv)
       res(:,iel) = r
       g = gv/vol
       gk(iel) = g
-      adv = -(eps*gv + d_cont*vol)/vol
+      adv = -(wdiv(iel)*gv + d_cont*vol)/vol
       alpha = 1.0d0 - eps
       IF (ALLOCATED(el_field_data%alpha_p)) THEN
         IF (SIZE(el_field_data%alpha_p).GE.nel) alpha = el_field_data%alpha_p(iel)

@@ -22,6 +22,11 @@ MODULE EL_FIELDS
     REAL*8, ALLOCATABLE :: alpha_p(:)
     REAL*8, ALLOCATABLE :: grad_alpha_p(:,:)   ! cell-averaged kernel gradient of alpha_p (3,nel)
     REAL*8, ALLOCATABLE :: epsilon_f(:)
+    ! Velocity dofs on a physical boundary with a Dirichlet condition in all three components
+    ! (walls, inlets). Set once by the fluid adapter (Transport_Q2P1: EL_MM_Prepare_Wall_Mask)
+    ! when a momentum model with a particle viscous force is selected; the kernel average of
+    ! div tau needs the boundary traction on those faces (EL_VISCOUS). Not allocated otherwise.
+    LOGICAL, ALLOCATABLE :: wall_dof(:)
     REAL*8, ALLOCATABLE :: epsilon_f_old(:)
     REAL*8, ALLOCATABLE :: deps_f_dt(:)
     REAL*8, ALLOCATABLE :: force_rhs(:,:)

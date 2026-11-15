@@ -302,7 +302,10 @@ ${CMAKE_SOURCE_DIR}/source/src_el/el_forces.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_halo.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_quadrature.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_diagnostics.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_momentum_model.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_va_flux.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_viscous.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_mm_operator.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_transfer.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_volume_averaged.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
@@ -332,7 +335,10 @@ ${CMAKE_SOURCE_DIR}/source/src_el/el_forces.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_halo.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_quadrature.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_diagnostics.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_momentum_model.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_va_flux.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_viscous.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_mm_operator.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_transfer.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_volume_averaged.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
@@ -426,6 +432,13 @@ if(BUILD_TESTING)
   target_include_directories(test_el_va_flux PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
   target_compile_options(test_el_va_flux PRIVATE ${Fortran_FLAGS})
   add_test(NAME el-va-flux-serial COMMAND test_el_va_flux)
+
+  add_executable(test_el_momentum_model
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_el_momentum_model.f90)
+  target_link_libraries(test_el_momentum_model ff_quadLS_app el_test_helpers)
+  target_include_directories(test_el_momentum_model PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_el_momentum_model PRIVATE ${Fortran_FLAGS})
+  add_test(NAME el-momentum-model-serial COMMAND test_el_momentum_model)
 endif()
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=

@@ -33,6 +33,7 @@ use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS, EL_WRITE_PARTICLE_LOG, 
 use EL_FIELDS, only: EL_APPLY_FLUID_FEEDBACK_SOURCE, el_field_data
 use EL_VA_CONTINUITY, only: EL_ADD_CONTINUITY_SOURCE, EL_VOLUME_AVERAGED_ACTIVE
 use EL_CONFIG, only: EL_VA_SOURCE_CORRECTORS_ENABLED
+use EL_MOMENTUM_MODEL, only: EL_MM_WEIGHTED_INERTIA, EL_MM_VISCOUS_FORCE, EL_MM_OPERATOR_FORM
 
 use, intrinsic :: ieee_arithmetic
 
@@ -358,6 +359,10 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
 
   dummy_velocity = 0.0d0
   inl_u = 0
+
+  ! Momentum models with a particle viscous force need the Dirichlet-boundary mask of the
+  ! velocity dofs before the first transfer pass (built once; never entered for 'none').
+  IF (EL_MM_VISCOUS_FORCE()) CALL EL_MM_Prepare_Wall_Mask()
   prescribed_active = TRIM(el_prescribed_field).NE.'none'
 
   IF (ALLOCATED(FictKNPR)) FictKNPR = 0
@@ -424,6 +429,9 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
       Properties%Density(1)*ConstForce
     IF (el_fluid_gravity) el_ext_force = el_ext_force + &
       Properties%Density(1)*Properties%Gravity
+    ! Momentum models: inertia coefficient eps*rho for the coming solve, from the porosity
+    ! of the pass above (collective, deck-only guard; never entered for 'none').
+    IF (EL_MM_WEIGHTED_INERTIA()) CALL EL_MM_Update_Fluid_Coefficients()
     IF (myid.NE.master .AND. el_apply_fluid_feedback .AND. &
         ALLOCATED(el_field_data%fluid_feedback_source)) THEN
       ILEV = NLMAX
@@ -643,6 +651,9 @@ IF (myid.ne.master) THEN
    CALL EL_APPLY_FLUID_FEEDBACK_SOURCE(QuadSc%defU, QuadSc%defV, &
      QuadSc%defW, tstep)
  END IF
+ ! Euler-Lagrange momentum model A: -eps grad p and div(eps tau) as solid-fraction
+ ! corrections of the unweighted terms above (deck-only guard, EL transport only)
+ IF (.NOT.enable_fbm .AND. EL_MM_OPERATOR_FORM()) CALL EL_MM_Add_Operator_Terms()
 
  ! Set dirichlet boundary conditions on the defect
  CALL Boundary_QuadScalar_Def()
@@ -824,6 +835,8 @@ IF (myid.ne.0) THEN
  CALL ZTIME(tttt0)
  !if (myid.eq.1) write(*,*) 'no correction ... '
  CALL Velocity_Correction()
+ ! model A: the correction with the eps-weighted gradient of the increment
+ IF (.NOT.enable_fbm .AND. EL_MM_OPERATOR_FORM()) CALL EL_MM_Correct_Velocity_Operator()
  CALL Pressure_Correction()
  CALL ZTIME(tttt1)
  myStat%tCorrUVWP = myStat%tCorrUVWP + (tttt1-tttt0)
@@ -1008,6 +1021,10 @@ include 'QuadSc_handlers.f90'
 ! 
 !=========================================================================
 include 'QuadSc_el_va.f90'
+!=========================================================================
+!
+!=========================================================================
+include 'QuadSc_el_mm.f90'
 !=========================================================================
 ! 
 !=========================================================================

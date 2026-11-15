@@ -1,0 +1,48 @@
+== S0_none_pf_fb
+FeatFloWer HEAD 1c3ead6cbfb1f670503b376330e127072faaec16 (feature/el-momentum-models)
+libs/pe HEAD 43e8fb541edc6d0c0d533a49ce4246786b36ff18
+dirty source files 7
+binary /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer-mommodels/build-el/applications/q2p1_el_pipeflow/q2p1_el_pipeflow (mtime 2026-11-15 13:05:01.874346113 +0100; build-el)
+written 2026-11-15 13:14:37 by el_write_versions.sh
+== S1_B
+FeatFloWer HEAD 1c3ead6cbfb1f670503b376330e127072faaec16 (feature/el-momentum-models)
+libs/pe HEAD 43e8fb541edc6d0c0d533a49ce4246786b36ff18
+dirty source files 7
+binary /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer-mommodels/build-el-b/applications/q2p1_el_pipeflow/q2p1_el_pipeflow (mtime 2026-11-15 13:14:29.408418765 +0100; build-el-b)
+written 2026-11-15 13:14:51 by el_write_versions.sh
+== S2_Bfull
+FeatFloWer HEAD 1c3ead6cbfb1f670503b376330e127072faaec16 (feature/el-momentum-models)
+libs/pe HEAD 43e8fb541edc6d0c0d533a49ce4246786b36ff18
+dirty source files 9
+binary /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer-mommodels/build-el/applications/q2p1_el_pipeflow/q2p1_el_pipeflow (mtime 2026-11-15 13:26:26.159079305 +0100; build-el)
+written 2026-11-15 13:26:42 by el_write_versions.sh
+== S3_A
+FeatFloWer HEAD 1c3ead6cbfb1f670503b376330e127072faaec16 (feature/el-momentum-models)
+libs/pe HEAD 43e8fb541edc6d0c0d533a49ce4246786b36ff18
+dirty source files 10
+binary /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer-mommodels/build-el-c/applications/q2p1_el_pipeflow/q2p1_el_pipeflow (mtime 2026-11-15 13:32:01.170350410 +0100; build-el-c)
+written 2026-11-15 13:32:36 by el_write_versions.sh
+== T0_none_pf_fb
+FeatFloWer HEAD 1c3ead6cbfb1f670503b376330e127072faaec16 (feature/el-momentum-models)
+libs/pe HEAD 43e8fb541edc6d0c0d533a49ce4246786b36ff18
+dirty source files 11
+binary /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer-mommodels/build-el-c/applications/q2p1_el_pipeflow/q2p1_el_pipeflow (mtime 2026-11-15 13:32:01.170350410 +0100; build-el-c)
+written 2026-11-15 13:47:13 by el_write_versions.sh
+== T1_B
+FeatFloWer HEAD 1c3ead6cbfb1f670503b376330e127072faaec16 (feature/el-momentum-models)
+libs/pe HEAD 43e8fb541edc6d0c0d533a49ce4246786b36ff18
+dirty source files 11
+binary /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer-mommodels/build-el-c/applications/q2p1_el_pipeflow/q2p1_el_pipeflow (mtime 2026-11-15 13:32:01.170350410 +0100; build-el-c)
+written 2026-11-15 13:47:15 by el_write_versions.sh
+== T2_Bfull
+FeatFloWer HEAD 1c3ead6cbfb1f670503b376330e127072faaec16 (feature/el-momentum-models)
+libs/pe HEAD 43e8fb541edc6d0c0d533a49ce4246786b36ff18
+dirty source files 11
+binary /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer-mommodels/build-el-c/applications/q2p1_el_pipeflow/q2p1_el_pipeflow (mtime 2026-11-15 13:32:01.170350410 +0100; build-el-c)
+written 2026-11-15 13:47:16 by el_write_versions.sh
+== T3_A
+FeatFloWer HEAD 1c3ead6cbfb1f670503b376330e127072faaec16 (feature/el-momentum-models)
+libs/pe HEAD 43e8fb541edc6d0c0d533a49ce4246786b36ff18
+dirty source files 11
+binary /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer-mommodels/build-el-c/applications/q2p1_el_pipeflow/q2p1_el_pipeflow (mtime 2026-11-15 13:32:01.170350410 +0100; build-el-c)
+written 2026-11-15 13:47:18 by el_write_versions.sh

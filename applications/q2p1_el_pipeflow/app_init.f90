@@ -605,6 +605,7 @@ END SUBROUTINE get_global_domain_extents
                         el_tavg_window, &
                         el_inlet_u0, el_inlet_u1, el_inlet_tramp, &
                         EL_INLET_SUPERFICIAL, &
+                        el_momentum_model, EL_NOTE_KEY_SET, &
                         EL_VALIDATE_CONFIG, &
                         EL_PRINT_CONFIG
 #endif
@@ -675,6 +676,12 @@ END SUBROUTINE get_global_domain_extents
 
        READ(string(iAt+1:iEq-1),*) cPar
        !     IF (myid.eq.1) WRITE(*,*) TRIM(ADJUSTL(cName))//"#"//TRIM(ADJUSTL(cPar))
+#ifdef BUILD_Q2P1_EL_PIPEFLOW
+       ! registry of the explicitly set SimPar@EL* keys (EL_CONFIG: a momentum model implies
+       ! values for other keys and refuses a contradicting explicit one)
+       cPar = ADJUSTL(cPar)
+       IF (cPar(1:2).EQ.'EL') CALL EL_NOTE_KEY_SET(TRIM(cPar))
+#endif
        SELECT CASE (TRIM(ADJUSTL(cPar)))
 
        CASE ("MeshFolder")
@@ -811,6 +818,8 @@ END SUBROUTINE get_global_domain_extents
          READ(string(iEq+1:),*) el_va_compatibility
        CASE ("ELVAContinuityForm")
          READ(string(iEq+1:),*) el_va_continuity_form
+       CASE ("ELMomentumModel")
+         READ(string(iEq+1:),*) el_momentum_model
        CASE ("ELCylinderCenter")
          READ(string(iEq+1:),*) el_cylinder_center
        CASE ("ELCylinderRadius")
