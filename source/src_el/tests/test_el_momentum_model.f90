@@ -27,7 +27,7 @@ PROGRAM TEST_EL_MOMENTUM_MODEL
                        el_apply_fluid_feedback, el_fluid_gravity, el_va_source_correctors, &
                        el_drag_model, el_kernel, EL_VALIDATE_CONFIG, EL_NOTE_KEY_SET, &
                        el_n_keys_set, el_n_implied, EL_MM_ID, el_fluid_viscosity, &
-                       el_closure_nu, EL_CLOSURE_VISCOSITY
+                       EL_SET_FLUID_VISCOSITY, EL_CLOSURE_VISCOSITY
   USE EL_MOMENTUM_MODEL, ONLY: EL_MM_ACTIVE, EL_MM_DRAG_SCALE, EL_MM_RESIDUAL_DIVISOR, &
                                EL_MM_VISCOUS_FORCE, EL_MM_VISCOUS_FEEDBACK, &
                                EL_MM_WEIGHTED_INERTIA, EL_MM_OPERATOR_FORM, EL_MM_NONE, EL_MM_A
@@ -92,6 +92,7 @@ CONTAINS
   SUBROUTINE test_viscosity_convention(nf)
     INTEGER, INTENT(INOUT) :: nf
     REAL*8, PARAMETER :: rho = 10.0d0, nu = 1.5d-4
+    REAL*8 :: mu
 
     el_fluid_viscosity = 'kinematic'
     CALL select_model('none')
@@ -100,13 +101,12 @@ CONTAINS
       'viscosity: default = campaign convention (closures nu, operator nu)', nf, rank)
     el_fluid_viscosity = 'Dynamic'
     CALL select_model('none')
-    el_closure_nu = nu
+    mu = EL_SET_FLUID_VISCOSITY(nu, rho)
     ! the property now holds mu = rho nu; the closures get the recorded nu back bit for bit
-    CALL EL_TEST_CHECK(EL_CLOSURE_VISCOSITY(rho*nu).EQ.nu .AND. &
-      EL_FLUID_OPERATOR_VISCOSITY(rho, EL_CLOSURE_VISCOSITY(rho*nu)).EQ.rho*nu, &
+    CALL EL_TEST_CHECK(mu.EQ.rho*nu .AND. EL_CLOSURE_VISCOSITY(mu).EQ.nu .AND. &
+      EL_FLUID_OPERATOR_VISCOSITY(rho, EL_CLOSURE_VISCOSITY(mu)).EQ.mu, &
       'viscosity: dynamic (closures nu, operator and viscous force rho nu)', nf, rank)
     el_fluid_viscosity = 'kinematic'
-    el_closure_nu = -1.0d0
     CALL select_model('none')
     CALL EL_TEST_CHECK(EL_FLUID_OPERATOR_VISCOSITY(rho, nu).EQ.nu, &
       'viscosity: back to the default after re-validation', nf, rank)
@@ -177,7 +177,7 @@ CONTAINS
     INTEGER, INTENT(INOUT) :: nf
     REAL*8 :: state(8), sample(EL_SAMPLE_SIZE), gravity(3), lap(3)
     REAL*8, PARAMETER :: rho = 1000.0d0, nu = 1.0d-6, eps = 0.6d0
-    TYPE(tElForceResult) :: r0, rb, rf, ra
+    TYPE(tElForceResult) :: r0, rb, rf, ra, rd
     REAL*8 :: vol, fv(3)
 
     state = 0.0d0
@@ -226,6 +226,18 @@ CONTAINS
       ALL(ra%feedback_force.EQ.ra%drag+ra%lift) .AND. ALL(ra%feedback_nondrag.EQ.ra%lift), &
       'forces: A gives the particle pressure and viscous force, feeds back the drag only', &
       nf, rank)
+    ! ELFluidViscosity = dynamic: the same closures (they receive nu), the viscous force with
+    ! mu = rho nu, against a literal reference
+    el_fluid_viscosity = 'dynamic'
+    CALL select_model('bfull')
+    CALL EL_COMPUTE_PARTICLE_FORCES(state, sample, rho, nu, gravity, rd, lap)
+    CALL EL_TEST_CHECK(MAXVAL(ABS(rd%viscous-vol*rho*nu*lap)).LE.1.0d-14*MAXVAL(ABS(vol*rho*nu*lap)) &
+      .AND. ALL(rd%drag.EQ.rf%drag) .AND. ALL(rd%pressure.EQ.rf%pressure) .AND. &
+      MAXVAL(ABS(rd%feedback_force-(rf%feedback_force-rf%viscous+rd%viscous))).LE. &
+        1.0d-14*MAXVAL(ABS(rd%feedback_force)), &
+      'forces: dynamic convention, viscous force V rho nu lap u, drag and pressure unchanged', &
+      nf, rank)
+    el_fluid_viscosity = 'kinematic'
     CALL select_model('none')
   END SUBROUTINE test_force_split
 

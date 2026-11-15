@@ -1,3 +1,5 @@
+! NOTE: not called by this application (the main program uses the shared init_q2p1_app and
+! then EL_APPLY_FLUID_VISCOSITY); kept as it was.
 subroutine init_q2p1_ext(log_unit)
     
   USE def_FEAT
@@ -67,43 +69,64 @@ end subroutine init_q2p1_ext
 ! SimPar@ELFluidViscosity = dynamic (EL_CONFIG): put the fluid's viscous operator on the
 ! dynamic viscosity. The solver initialisation has parsed the properties and built the
 ! diffusion matrix with Properties%Viscosity = nu (the Euler-Lagrange deck convention). Here
-! the kinematic value is recorded for the closures (EL_CLOSURE_VISCOSITY), the property and
-! the element viscosity field become mu = rho*nu, and the diffusion matrix is rebuilt with
-! the solver's own assembly; every later rebuild (MatrixRenewal D) then uses mu as well.
+! the conversion is recorded (EL_SET_FLUID_VISCOSITY: nu for the closures, mu = rho*nu), the
+! property and the viscosity field become mu, and the diffusion matrix is rebuilt with the
+! solver's own assembly; later rebuilds (MatrixRenewal D2/D3) read mu from the property.
 ! Called once by the main program right after the solver initialisation (init_q2p1_app:
-! properties parsed, operators built), before the first step, on every rank; nothing happens for the
-! default 'kinematic'. Newtonian single-material path only.
+! properties parsed, operators built, restart read), before the first step, on every rank;
+! nothing happens for the default 'kinematic'.
+! Supported settings, refused otherwise: Newtonian fluid without viscoelastic stress,
+! Prop@PowerLawExp = 1 (the viscosity field is re-derived from the property every step with
+! that exponent), MatrixRenewal D >= 1 (there is a diffusion matrix) and S = 0 (the stress
+! matrices are assembled at initialisation from nu and are not rebuilt here). The second
+! property entry (Viscosity(2)) is not touched; its consumers are viscoelastic.
 !=========================================================================
 SUBROUTINE EL_APPLY_FLUID_VISCOSITY(mfile)
 
   USE def_FEAT, ONLY: ILEV, MTERM
-  USE PP3D_MPI, ONLY: myid, showid
-  USE var_QuadScalar, ONLY: QuadSc, Properties, Viscosity, bNonNewtonian, bViscoElastic
+  USE PP3D_MPI, ONLY: myid, showid, master
+  USE var_QuadScalar, ONLY: QuadSc, Properties, Viscosity, bNonNewtonian, bViscoElastic, &
+                            myMatrixRenewal
   USE Transport_Q2P1, ONLY: Create_DiffMat
-  USE EL_CONFIG, ONLY: el_fluid_visc_dynamic, el_closure_nu
+  USE EL_CONFIG, ONLY: el_fluid_visc_dynamic, EL_SET_FLUID_VISCOSITY, &
+                       EL_FLUID_VISCOSITY_CONVERTED
 
   IMPLICIT NONE
   INTEGER, INTENT(IN) :: mfile
   INTEGER :: ilev_save
   REAL*8 :: visc_kin, dens
+  LOGICAL :: ok, tell
 
   IF (.NOT.el_fluid_visc_dynamic) RETURN
+  ! deck values and one call order on every rank: a coordinated stop, reported once
+  tell = (myid.EQ.showid .OR. myid.EQ.master)
+  ok = .TRUE.
   IF (bNonNewtonian .OR. bViscoElastic) THEN
-    WRITE(*,'(A)') 'ELFluidViscosity = dynamic is implemented for the Newtonian fluid path only.'
-    STOP 1
+    IF (tell) WRITE(*,'(A)') 'ELFluidViscosity = dynamic is implemented for the Newtonian fluid path only.'
+    ok = .FALSE.
   END IF
-  IF (el_closure_nu.GT.0.0d0) THEN
-    WRITE(*,'(A)') 'EL_APPLY_FLUID_VISCOSITY called twice.'
-    STOP 1
+  IF (Properties%PowerLawExp.NE.1.0d0) THEN
+    IF (tell) WRITE(*,'(A)') 'ELFluidViscosity = dynamic needs Prop@PowerLawExp = 1.'
+    ok = .FALSE.
+  END IF
+  IF (myMatrixRenewal%D.LT.1 .OR. myMatrixRenewal%S.NE.0) THEN
+    IF (tell) WRITE(*,'(A,2(A,I0))') 'ELFluidViscosity = dynamic needs SimPar@MatrixRenewal with D >= 1 and S = 0;', &
+      ' got D', myMatrixRenewal%D, ' S', myMatrixRenewal%S
+    ok = .FALSE.
+  END IF
+  IF (EL_FLUID_VISCOSITY_CONVERTED()) THEN
+    IF (tell) WRITE(*,'(A)') 'EL_APPLY_FLUID_VISCOSITY called twice.'
+    ok = .FALSE.
   END IF
   visc_kin = Properties%Viscosity(1)
   dens = Properties%Density(1)
   IF (visc_kin.LE.0.0d0 .OR. dens.LE.0.0d0) THEN
-    WRITE(*,'(A)') 'ELFluidViscosity = dynamic needs a positive viscosity and density.'
-    STOP 1
+    IF (tell) WRITE(*,'(A)') 'ELFluidViscosity = dynamic needs a positive viscosity and density.'
+    ok = .FALSE.
   END IF
-  el_closure_nu = visc_kin
-  Properties%Viscosity(1) = dens*visc_kin
+  IF (.NOT.ok) STOP 1
+
+  Properties%Viscosity(1) = EL_SET_FLUID_VISCOSITY(visc_kin, dens)
   IF (ALLOCATED(Viscosity)) Viscosity = Properties%Viscosity(1)
 
   ilev_save = ILEV
@@ -112,6 +135,8 @@ SUBROUTINE EL_APPLY_FLUID_VISCOSITY(mfile)
   CALL SETLEV(2)
 
   IF (myid.EQ.showid) THEN
+    ! Create_DiffMat leaves its progress fragment without a line end on the terminal
+    WRITE(MTERM,'(A)') ''
     WRITE(MTERM,'(A,ES16.8,A,ES16.8,A)') ' EL fluid viscosity: diffusion operator rebuilt with mu = ', &
       Properties%Viscosity(1), ' (nu = ', visc_kin, ' for the closures)'
     WRITE(mfile,'(A,ES16.8,A,ES16.8,A)') ' EL fluid viscosity: diffusion operator rebuilt with mu = ', &

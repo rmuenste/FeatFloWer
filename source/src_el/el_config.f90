@@ -55,12 +55,21 @@ MODULE EL_CONFIG
   !               initialisation and rebuilds the diffusion matrix (EL_APPLY_FLUID_VISCOSITY in
   !               the application); the closures keep receiving nu (EL_CLOSURE_VISCOSITY), the
   !               particle viscous force and model A follow the operator
-  !               (EL_FORCES: EL_FLUID_OPERATOR_VISCOSITY). Newtonian path only.
+  !               (EL_FORCES: EL_FLUID_OPERATOR_VISCOSITY). Supported: Newtonian fluid without
+  !               viscoelastic stress, Prop@PowerLawExp = 1, MatrixRenewal D >= 1 and S = 0
+  !               (refused otherwise). A property reload at run time (Reload_Prop of the
+  !               process control) would put nu back: the run then stops at the next
+  !               Euler-Lagrange pass. The deck convention does not change (still nu or
+  !               Prop@DynVisc); fluidViscosity_ of the particle json is an independent input
+  !               and must hold mu as before.
   CHARACTER(LEN=32) :: el_fluid_viscosity = 'kinematic'
   CHARACTER(LEN=9), PARAMETER :: el_fluid_visc_names(0:1) = (/ 'kinematic', 'dynamic  ' /)
-  ! Resolved by EL_VALIDATE_CONFIG / set by the application when it converts the property:
+  ! Resolved by EL_VALIDATE_CONFIG (deck-only):
   LOGICAL :: el_fluid_visc_dynamic = .FALSE.
-  REAL*8 :: el_closure_nu = -1.0d0
+  ! Recorded by EL_SET_FLUID_VISCOSITY when the application converts the property: the
+  ! kinematic value for the closures and the dynamic one now stored in Properties%Viscosity.
+  ! Read through EL_CLOSURE_VISCOSITY / EL_FLUID_VISCOSITY_CONVERTED only.
+  REAL*8, PRIVATE :: el_closure_nu = -1.0d0, el_operator_mu = -1.0d0
   LOGICAL :: el_drag_semi_implicit = .FALSE.
   LOGICAL :: el_pressure_force = .TRUE.
   ! Feed the particle pressure force -V grad p back to the fluid (kernel
@@ -696,7 +705,9 @@ CONTAINS
   ! argument is Properties%Viscosity(1): the kinematic value itself by default (returned
   ! unchanged), the dynamic one under ELFluidViscosity = dynamic, where the kinematic value
   ! recorded at the conversion is returned (not mu/rho: the closures see the same bits in
-  ! both conventions).
+  ! both conventions). Under 'dynamic' the argument must be the recorded mu: a property that
+  ! was never converted, or changed afterwards (Reload_Prop), stops the run here instead of
+  ! running with mixed conventions.
   REAL*8 FUNCTION EL_CLOSURE_VISCOSITY(properties_viscosity)
     REAL*8, INTENT(IN) :: properties_viscosity
     IF (.NOT.el_fluid_visc_dynamic) THEN
@@ -707,9 +718,28 @@ CONTAINS
                    'not converted (EL_APPLY_FLUID_VISCOSITY not called).'
         STOP 1
       END IF
+      IF (properties_viscosity.NE.el_operator_mu) THEN
+        WRITE(*,*) 'EL_CLOSURE_VISCOSITY: ELFluidViscosity = dynamic, but the fluid viscosity ', &
+                   'changed after the conversion (property reload is not supported): ', &
+                   properties_viscosity, ' /= ', el_operator_mu
+        STOP 1
+      END IF
       EL_CLOSURE_VISCOSITY = el_closure_nu
     END IF
   END FUNCTION EL_CLOSURE_VISCOSITY
+
+  ! Record the conversion (the application's EL_APPLY_FLUID_VISCOSITY; unit tests): nu for the
+  ! closures, mu = rho nu for the operator. Returns mu, the value to store in the property.
+  REAL*8 FUNCTION EL_SET_FLUID_VISCOSITY(nu, rho)
+    REAL*8, INTENT(IN) :: nu, rho
+    el_closure_nu = nu
+    el_operator_mu = rho*nu
+    EL_SET_FLUID_VISCOSITY = el_operator_mu
+  END FUNCTION EL_SET_FLUID_VISCOSITY
+
+  LOGICAL FUNCTION EL_FLUID_VISCOSITY_CONVERTED()
+    EL_FLUID_VISCOSITY_CONVERTED = (el_closure_nu.GT.0.0d0)
+  END FUNCTION EL_FLUID_VISCOSITY_CONVERTED
 
   SUBROUTINE EL_MM_CONFLICT(text)
     CHARACTER(LEN=*), INTENT(IN) :: text
