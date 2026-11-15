@@ -25,7 +25,7 @@ MODULE EL_TRANSFER
                        el_apply_particle_forces, el_apply_fluid_feedback, &
                        el_write_diagnostics, el_momentum_audit_freq, &
                        el_drag_semi_implicit, el_pressure_feedback, el_prescribed_field, &
-                       EL_VA_CONSERVATIVE_FORM
+                       EL_VA_CONSERVATIVE_FORM, EL_INLET_SUPERFICIAL
   USE EL_VA_FLUX, ONLY: EL_VA_RECONSTRUCT_EPS_LOCAL, EL_VA_EMBED_Q1_IN_Q2, &
                         EL_VA_CHECK_DOF_LAYOUT
   USE EL_FORCES, ONLY: tElForceResult, EL_COMPUTE_PARTICLE_FORCES, &
@@ -34,6 +34,9 @@ MODULE EL_TRANSFER
                        EL_CAPTURE_FLUID_FEEDBACK_SOURCE, EL_ENSURE_TRANSPORT_EPS
   USE EL_HALO, ONLY: tElParticleRecord, EL_REFRESH_COUPLING_HALO, &
                      EL_REDUCE_TO_OWNERS, EL_BROADCAST_FROM_OWNERS
+  USE EL_MOMENTUM_MODEL, ONLY: EL_MM_VISCOUS_FORCE
+  USE EL_VISCOUS, ONLY: EL_INTEGRATE_PARTICLE_VISCOUS, EL_VISCOUS_LAPLACIAN, EL_VIS_SIZE
+  USE EL_CONFIG, ONLY: el_kernel_width_factor
   USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION, &
                            EL_INTEGRATE_PARTICLE, &
                            EL_DEPOSIT_PARTICLE
@@ -129,6 +132,9 @@ CONTAINS
     REAL*8 :: local_drag_impl(3), global_drag_impl(3)
     INTEGER :: n_sub
     REAL*8 :: local_pressure(3), global_pressure(3), local_grav_buoy(3)
+    REAL*8 :: local_viscous(3), global_viscous(3)
+    REAL*8, ALLOCATABLE :: local_lap(:,:), owned_lap(:,:)
+    LOGICAL :: viscous_force
     REAL*8 :: global_grav_buoy(3), local_particle_total(3), global_particle_total(3)
     REAL*8 :: local_rhs(3), global_rhs(3), feedback_residual(3)
     REAL*8 :: feedback_residual_norm, volume_rel_error
@@ -238,6 +244,25 @@ CONTAINS
         el_field_data%epsilon_f, records(i), local_samples(:,i))
     END DO
     CALL EL_REDUCE_TO_OWNERS(local_samples, owned_samples)
+    ! Momentum models Bfull / A: kernel average of lap u for the particle viscous force
+    ! (EL_VISCOUS; numerator per rank, summed at the owner like the samples; deck-only guard,
+    ! so every rank joins the reduction).
+    viscous_force = EL_MM_VISCOUS_FORCE()
+    local_viscous = 0.0d0
+    IF (viscous_force) THEN
+      IF (.NOT.ALLOCATED(el_field_data%boundary_face_dof)) THEN
+        WRITE(*,*) 'EL_PARTICLE_MESH_PASS: boundary-face mask for the viscous force not set on rank ', myid
+        CALL MPI_Abort(MPI_COMM_SUBS, 910, ierr)
+      END IF
+      ALLOCATE(local_lap(EL_VIS_SIZE,n_records), owned_lap(EL_VIS_SIZE,n_owned))
+      DO i=1,n_records
+        CALL EL_INTEGRATE_PARTICLE_VISCOUS(mesh, ilev, mesh%level(ilev)%dcorvg, val_u, val_v, &
+          val_w, el_field_data%boundary_face_dof, records(i)%position, &
+          2.0d0*el_kernel_width_factor*records(i)%radius, local_lap(:,i))
+      END DO
+      owned_lap = 0.0d0
+      CALL EL_REDUCE_TO_OWNERS(local_lap, owned_lap)
+    END IF
 
     DO i=1,n_owned
       IF (owned_samples(1,i).LE.0.0d0) THEN
@@ -246,8 +271,15 @@ CONTAINS
           ' has no positive fluid support at ', owned_particles(i)%position
         CALL MPI_Abort(MPI_COMM_SUBS, 901, ierr)
       END IF
-      CALL EL_FORCES_FROM_PARTICLE(owned_particles(i), owned_samples(:,i), &
-        density, viscosity, gravity, force_result)
+      IF (viscous_force) THEN
+        CALL EL_FORCES_FROM_PARTICLE(owned_particles(i), owned_samples(:,i), &
+          density, viscosity, gravity, force_result, &
+          EL_VISCOUS_LAPLACIAN(owned_lap(:,i)))
+        local_viscous = local_viscous + force_result%viscous
+      ELSE
+        CALL EL_FORCES_FROM_PARTICLE(owned_particles(i), owned_samples(:,i), &
+          density, viscosity, gravity, force_result)
+      END IF
       owned_result(1,i) = owned_samples(EL_SAMPLE_NORMALIZATION,i)
       owned_result(5,i) = force_result%drag_B
       ! Default: the explicit feedback force (drag + lift, + the pressure reaction
@@ -287,8 +319,8 @@ CONTAINS
         owned_particles(i)%force = force_result%particle_total
         owned_particles(i)%torque = 0.0d0
         CALL setForcesMapped(owned_particles(i))
-        f_other = force_result%pressure + force_result%lift + &
-                  force_result%grav_buoy
+        ! pressure + lift + buoyant weight (+ the viscous force of a momentum model)
+        f_other = force_result%particle_nondrag
         ! Issue-D fix: feed the fluid the drag impulse PE will actually apply over
         ! its n_sub sub-cycled semi-implicit steps (drag_force_eff), plus explicit
         ! lift -- not the explicit old-velocity drag -- so the momentum the fluid
@@ -305,8 +337,7 @@ CONTAINS
         ! to drop the pressure term while the post-advance log line kept it).
         ! The pressure stays in f_other on the PE side (it shapes the implicit
         ! particle velocity there) and enters the fluid once, here.
-        feedback_nondrag = force_result%lift
-        IF (el_pressure_feedback) feedback_nondrag = feedback_nondrag + force_result%pressure
+        feedback_nondrag = force_result%feedback_nondrag
         IF (el_drag_semi_implicit) THEN
           ! Fluid semi-implicit split, linearised around the sampled carrier
           ! velocity u_f: the matrix carries the theta-weighted B u^{n+1}
@@ -386,9 +417,11 @@ CONTAINS
     ! takes the collective, with or without particles; only the post-advance pass builds it
     ! (eps^{n+1}, the field the fluid step reads; a pre-advance build would be overwritten).
     ! The first build verifies the Q2 dof layout the flux kernel assumes, rank-uniformly.
-    IF (EL_VA_CONSERVATIVE_FORM() .AND. .NOT.advance_history) THEN
+    ! The superficial inlet (EL_INLET_SUPERFICIAL, deck-only) reads the same nodal field on
+    ! the inlet plane; it needs no layout check (values only, no flux kernel).
+    IF ((EL_VA_CONSERVATIVE_FORM() .OR. EL_INLET_SUPERFICIAL()) .AND. .NOT.advance_history) THEN
       CALL EL_ENSURE_TRANSPORT_EPS(ndof)
-      IF (.NOT.layout_verified) THEN
+      IF (EL_VA_CONSERVATIVE_FORM() .AND. .NOT.layout_verified) THEN
         layout_bad = EL_VA_CHECK_DOF_LAYOUT(mesh, ilev, mesh%level(ilev)%dcorvg)
         CALL MPI_Allreduce(layout_bad, layout_bad_global, 1, MPI_INTEGER, MPI_MAX, &
                            MPI_COMM_SUBS, ierr)
@@ -412,6 +445,7 @@ CONTAINS
       END DO
       CALL EL_VA_EMBED_Q1_IN_Q2(mesh, ilev, el_field_data%epsilon_transport_q2)
       DEALLOCATE(eps_num, eps_den)
+      el_field_data%inlet_eps_ready = EL_INLET_SUPERFICIAL()
     END IF
 
     ! Slice dvol to nel: it carries the FEAT total-volume slot at nel+1
@@ -439,6 +473,9 @@ CONTAINS
       MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
     CALL MPI_Allreduce(local_grav_buoy, global_grav_buoy, 3, &
       MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
+    global_viscous = 0.0d0
+    IF (viscous_force) CALL MPI_Allreduce(local_viscous, global_viscous, 3, &
+      MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
     CALL MPI_Allreduce(local_particle_total, global_particle_total, 3, &
       MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
     CALL MPI_Allreduce(local_rhs, global_rhs, 3, &
@@ -459,6 +496,7 @@ CONTAINS
     IF (advance_history) THEN
       el_pair_expected_impulse = dt*(global_drag_impl + global_lift + &
         global_pressure + global_grav_buoy)
+      IF (viscous_force) el_pair_expected_impulse = el_pair_expected_impulse + dt*global_viscous
     END IF
 
     feedback_residual = global_rhs + global_feedback
@@ -487,6 +525,10 @@ CONTAINS
         'EL_FORCE_BUDGET step= ', istep, ' drag= ', global_drag, &
         ' pressure= ', global_pressure, ' lift= ', global_lift, &
         ' grav_buoy= ', global_grav_buoy, ' total= ', global_particle_total
+      IF (viscous_force) THEN
+        WRITE(*,'(A,I0,A,3ES14.6)') 'EL_MM_FORCE step= ', istep, ' viscous= ', global_viscous
+        WRITE(mfile,'(A,I0,A,3ES14.6)') 'EL_MM_FORCE step= ', istep, ' viscous= ', global_viscous
+      END IF
       WRITE(*,'(A,I0,A,I0,A,I0,A,I0)') 'EL_HALO_RECORDS step= ', &
         istep, ' record_ranks= ', global_record_ranks, &
         ' total_records= ', global_records, ' max_records= ', max_records
@@ -544,20 +586,26 @@ CONTAINS
   END SUBROUTINE EL_PARTICLE_MESH_PASS
 
   SUBROUTINE EL_FORCES_FROM_PARTICLE(particle, sample, density, viscosity, &
-                                     gravity, result)
+                                     gravity, result, visc_laplacian)
 
     TYPE(tParticleData), INTENT(IN) :: particle
     REAL*8, INTENT(IN) :: sample(EL_SAMPLE_SIZE)
     REAL*8, INTENT(IN) :: density, viscosity, gravity(3)
     TYPE(tElForceResult), INTENT(OUT) :: result
+    REAL*8, INTENT(IN), OPTIONAL :: visc_laplacian(3)
     REAL*8 :: state(8)
 
     state(1:3) = particle%position
     state(4:6) = particle%velocity
     state(7) = particle%radius
     state(8) = particle%density
-    CALL EL_COMPUTE_PARTICLE_FORCES(state, sample, density, viscosity, &
-                                    gravity, result)
+    IF (PRESENT(visc_laplacian)) THEN
+      CALL EL_COMPUTE_PARTICLE_FORCES(state, sample, density, viscosity, &
+                                      gravity, result, visc_laplacian)
+    ELSE
+      CALL EL_COMPUTE_PARTICLE_FORCES(state, sample, density, viscosity, &
+                                      gravity, result)
+    END IF
 
   END SUBROUTINE EL_FORCES_FROM_PARTICLE
 

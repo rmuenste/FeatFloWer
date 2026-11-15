@@ -7,6 +7,7 @@ MODULE EL_FORCES
                        el_cylinder_center, el_cylinder_radius, &
                        el_cylinder_axis
   USE EL_GEOMETRY, ONLY: el_domain_set, EL_WALL_DISTANCE_AND_NORMAL
+  USE EL_MOMENTUM_MODEL, ONLY: EL_MM_DRAG_SCALE, EL_MM_VISCOUS_FORCE, EL_MM_VISCOUS_FEEDBACK
   USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION, &
                            EL_SAMPLE_UF_BEGIN, EL_SAMPLE_UF_END, &
                            EL_SAMPLE_GRAD_U_BEGIN, EL_SAMPLE_GRAD_U_END, &
@@ -19,6 +20,12 @@ MODULE EL_FORCES
     REAL*8 :: drag(3) = 0.0d0
     REAL*8 :: pressure(3) = 0.0d0
     REAL*8 :: lift(3) = 0.0d0
+    ! viscous force V c <lap u> of the momentum models Bfull / A (zero otherwise)
+    REAL*8 :: viscous(3) = 0.0d0
+    ! everything the particle receives besides the drag (pressure + lift + buoyant weight
+    ! + viscous) and everything besides the drag whose reaction the fluid receives
+    REAL*8 :: particle_nondrag(3) = 0.0d0
+    REAL*8 :: feedback_nondrag(3) = 0.0d0
     REAL*8 :: grav_buoy(3) = 0.0d0
     REAL*8 :: particle_total(3) = 0.0d0
     REAL*8 :: feedback_force(3) = 0.0d0
@@ -28,15 +35,18 @@ MODULE EL_FORCES
 
 CONTAINS
 
+  ! visc_laplacian (optional): kernel average <lap u> at the particle (EL_VISCOUS), supplied by
+  ! the transfer pass when the momentum model gives the particle a viscous force.
   SUBROUTINE EL_COMPUTE_PARTICLE_FORCES(state, sample, density, viscosity, &
-      gravity, result)
+      gravity, result, visc_laplacian)
 
     REAL*8, INTENT(IN) :: state(8), sample(EL_SAMPLE_SIZE)
     REAL*8, INTENT(IN) :: density, viscosity, gravity(3)
     TYPE(tElForceResult), INTENT(OUT) :: result
+    REAL*8, INTENT(IN), OPTIONAL :: visc_laplacian(3)
 
     REAL*8 :: norm, grad_u(3,3), grad_p(3), eps_f, volume
-    REAL*8 :: inertial_lift(3)
+    REAL*8 :: inertial_lift(3), drag_scale
 
     result = tElForceResult()
     norm = sample(EL_SAMPLE_NORMALIZATION)
@@ -52,6 +62,12 @@ CONTAINS
 
     CALL EL_DRAG_CLOSURE(state, result%u_f, density, viscosity, eps_f, &
                          result%drag, result%drag_B)
+    ! Momentum model B carries the whole interaction in the drag: force and coefficient are
+    ! divided by eps once, here, before every particle and feedback consumer (factor 1 and
+    ! therefore bitwise unchanged for every other model).
+    drag_scale = EL_MM_DRAG_SCALE(eps_f)
+    result%drag = drag_scale*result%drag
+    result%drag_B = drag_scale*result%drag_B
     IF (el_pressure_force) result%pressure = -volume*grad_p
     CALL EL_LIFT_CLOSURE(state, result%u_f, grad_u, density, viscosity, &
                          eps_f, result%lift)
@@ -68,8 +84,38 @@ CONTAINS
     ! (cell-averaged -eps grad p). Keyed so certified logs stay bitwise.
     IF (el_pressure_feedback) result%feedback_force = result%feedback_force + &
                                                       result%pressure
+    ! Non-drag parts in the summation order the transfer pass has always used (bitwise for
+    ! the campaign set): what the particle receives, and what is fed back to the fluid.
+    result%particle_nondrag = result%pressure + result%lift + result%grav_buoy
+    result%feedback_nondrag = result%lift
+    IF (el_pressure_feedback) result%feedback_nondrag = result%feedback_nondrag + &
+                                                        result%pressure
+    ! Viscous force of the momentum models Bfull / A, with the coefficient of the fluid's own
+    ! diffusion operator; fed back under Bfull.
+    IF (PRESENT(visc_laplacian) .AND. EL_MM_VISCOUS_FORCE()) THEN
+      result%viscous = volume*EL_FLUID_OPERATOR_VISCOSITY(density, viscosity)*visc_laplacian
+      result%particle_total = result%particle_total + result%viscous
+      result%particle_nondrag = result%particle_nondrag + result%viscous
+      IF (EL_MM_VISCOUS_FEEDBACK()) THEN
+        result%feedback_force = result%feedback_force + result%viscous
+        result%feedback_nondrag = result%feedback_nondrag + result%viscous
+      END IF
+    END IF
 
   END SUBROUTINE EL_COMPUTE_PARTICLE_FORCES
+
+  ! Coefficient c of the viscous term c lap u in the fluid momentum equation as the solver
+  ! assembles it on the Newtonian path (DIFFQ2_NEWT: Properties%Viscosity(1), no density
+  ! factor, against a mass matrix that carries the density). The particle viscous force uses
+  ! the same coefficient so that particle and fluid see one stress. NOTE: with Prop@DynVisc
+  ! the parser stores mu/rho in Properties%Viscosity, so for rho /= 1 this coefficient is
+  ! mu/rho, not mu (the drag closures form mu = rho*nu themselves and are unaffected). The
+  ! convention of the fluid operator is an open owner decision; this function is the single
+  ! place the viscous force follows it.
+  PURE REAL*8 FUNCTION EL_FLUID_OPERATOR_VISCOSITY(density, viscosity)
+    REAL*8, INTENT(IN) :: density, viscosity
+    EL_FLUID_OPERATOR_VISCOSITY = viscosity
+  END FUNCTION EL_FLUID_OPERATOR_VISCOSITY
 
   SUBROUTINE EL_DRAG_FORCE(state, carrier_velocity, density, viscosity, force)
 

@@ -603,6 +603,9 @@ END SUBROUTINE get_global_domain_extents
                         el_meso_filter, el_meso_filter_bins, &
                         el_write_diagnostics, el_momentum_audit_freq, el_particle_log_freq, &
                         el_tavg_window, &
+                        el_inlet_u0, el_inlet_u1, el_inlet_tramp, &
+                        EL_INLET_SUPERFICIAL, &
+                        el_momentum_model, EL_NOTE_KEY_SET, &
                         EL_VALIDATE_CONFIG, &
                         EL_PRINT_CONFIG
 #endif
@@ -673,6 +676,12 @@ END SUBROUTINE get_global_domain_extents
 
        READ(string(iAt+1:iEq-1),*) cPar
        !     IF (myid.eq.1) WRITE(*,*) TRIM(ADJUSTL(cName))//"#"//TRIM(ADJUSTL(cPar))
+#ifdef BUILD_Q2P1_EL_PIPEFLOW
+       ! registry of the explicitly set SimPar@EL* keys (EL_CONFIG: a momentum model implies
+       ! values for other keys and refuses a contradicting explicit one)
+       cPar = ADJUSTL(cPar)
+       IF (cPar(1:2).EQ.'EL') CALL EL_NOTE_KEY_SET(TRIM(cPar))
+#endif
        SELECT CASE (TRIM(ADJUSTL(cPar)))
 
        CASE ("MeshFolder")
@@ -809,6 +818,8 @@ END SUBROUTINE get_global_domain_extents
          READ(string(iEq+1:),*) el_va_compatibility
        CASE ("ELVAContinuityForm")
          READ(string(iEq+1:),*) el_va_continuity_form
+       CASE ("ELMomentumModel")
+         READ(string(iEq+1:),*) el_momentum_model
        CASE ("ELCylinderCenter")
          READ(string(iEq+1:),*) el_cylinder_center
        CASE ("ELCylinderRadius")
@@ -852,6 +863,12 @@ END SUBROUTINE get_global_domain_extents
          END IF
        CASE ("ELTAvgWindow")
          READ(string(iEq+1:),*) el_tavg_window
+       CASE ("ELInletVelocityStart")
+         READ(string(iEq+1:),*) el_inlet_u0
+       CASE ("ELInletVelocityEnd")
+         READ(string(iEq+1:),*) el_inlet_u1
+       CASE ("ELInletRampTime")
+         READ(string(iEq+1:),*) el_inlet_tramp
 #endif
        CASE ("MinTimeAdapt")
          READ(string(iEq+1:),*) DTMIN
@@ -970,6 +987,25 @@ END SUBROUTINE get_global_domain_extents
      WRITE(*,'(A,I0)') 'ELVAContinuityForm = conservative needs communication scheme 3 or 4, got ', &
        iCommSwitch
      STOP 1
+   END IF
+   ! the superficial inlet sums its nodal porosity with the same routine
+   IF (EL_INLET_SUPERFICIAL() .AND. iCommSwitch.NE.3 .AND. iCommSwitch.NE.4) THEN
+     WRITE(*,'(A,I0)') 'ELInletVelocity* with ELVolumeAveraged = continuity needs communication scheme 3 or 4, got ', &
+       iCommSwitch
+     STOP 1
+   END IF
+   ! Compatibility removal and the boundary type must agree: a closed or periodic domain
+   ! needs the removal (singular pressure problem otherwise), an open one must not have it
+   ! (it would act as a spurious volume source; case 05 E2).
+   IF (TRIM(el_volume_averaged).EQ.'continuity') THEN
+     IF (bNoOutflow .AND. TRIM(el_va_compatibility).EQ.'none') THEN
+       WRITE(*,'(A)') 'ELVACompatibility = none needs an outflow boundary (SimPar@NoOutflow = No).'
+       STOP 1
+     END IF
+     IF (.NOT.bNoOutflow .AND. TRIM(el_va_compatibility).NE.'none') THEN
+       WRITE(*,'(A)') 'ELVolumeAveraged = continuity with an outflow boundary (SimPar@NoOutflow = No) needs ELVACompatibility = none.'
+       STOP 1
+     END IF
    END IF
 #endif
 
