@@ -33,9 +33,9 @@
 !                      contraction is measured (EL_VA_FLUX res1_L1 per corrector), not assumed.
 !                      With SimPar@ELMMPressureOperator = weighted (EL_MM_PRESSURE_REBUILD,
 !                      model A) the adapter rebuilds the matrix as B^T (rho Ml / eps)^-1 B,
-!                      the discrete div(eps grad), and the divisor is 1: eps C0 differs from
-!                      it by grad eps . grad q, which in a dense bed over-corrects the flux
-!                      through the bed by up to 1/eps.
+!                      a nodal approximation of div(eps grad), and the divisor is 1: eps C0
+!                      differs from it by grad eps . grad q, which in a dense bed over-corrects
+!                      the flux through the bed by up to 1/eps.
 !
 !   EL_MM_VISCOUS_FORCE() / EL_MM_VISCOUS_FEEDBACK()
 !                      the particle receives V div tau (Bfull, A) and the reaction is deposited
@@ -57,7 +57,7 @@ MODULE EL_MOMENTUM_MODEL
   USE EL_CONFIG, ONLY: EL_MM_ID, EL_MM_NONE, EL_MM_BFULL, EL_MM_B, EL_MM_A, &
                        el_mmt_weighted_inertia, el_mmt_drag_over_eps, el_mmt_divisor_eps, &
                        el_mmt_viscous_force, el_mmt_viscous_feedback, el_mmt_operator_form, &
-                       EL_MM_PRESSURE_REBUILD
+                       el_mm_pressure_rebuild_on
 
   IMPLICIT NONE
   PRIVATE
@@ -95,6 +95,14 @@ CONTAINS
   LOGICAL FUNCTION EL_MM_OPERATOR_FORM()
     EL_MM_OPERATOR_FORM = el_mmt_operator_form(EL_MM_ID())
   END FUNCTION EL_MM_OPERATOR_FORM
+
+  ! SimPar@ELMMPressureOperator = weighted for a model that rebuilds its pressure matrix
+  ! (A): the fluid adapter rebuilds the matrix every step (QuadSc_el_mm.f90:
+  ! EL_MM_Pressure_Operator) and the residual divisor is 1. Deck-only, resolved once by
+  ! EL_CONFIG; decides a collective, so it must not depend on rank-local state.
+  LOGICAL FUNCTION EL_MM_PRESSURE_REBUILD()
+    EL_MM_PRESSURE_REBUILD = el_mm_pressure_rebuild_on
+  END FUNCTION EL_MM_PRESSURE_REBUILD
 
   REAL*8 FUNCTION EL_MM_DRAG_SCALE(eps)
     REAL*8, INTENT(IN) :: eps

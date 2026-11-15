@@ -432,11 +432,9 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
       Properties%Density(1)*Properties%Gravity
     ! Momentum models: inertia coefficient eps*rho for the coming solve, from the porosity
     ! of the pass above (collective, deck-only guard; never entered for 'none'). With
-    ! ELMMPressureOperator = weighted the pressure matrix follows (call 0 remembers the
-    ! unweighted mass before the first weighted rebuild, call 1 rebuilds the matrix).
-    IF (EL_MM_PRESSURE_REBUILD()) CALL EL_MM_Pressure_Operator(0)
+    ! ELMMPressureOperator = weighted the pressure matrix follows from the new mass.
     IF (EL_MM_WEIGHTED_INERTIA()) CALL EL_MM_Update_Fluid_Coefficients()
-    IF (EL_MM_PRESSURE_REBUILD()) CALL EL_MM_Pressure_Operator(1)
+    IF (EL_MM_PRESSURE_REBUILD()) CALL EL_MM_Pressure_Operator()
     IF (myid.NE.master .AND. el_apply_fluid_feedback .AND. &
         ALLOCATED(el_field_data%fluid_feedback_source)) THEN
       ILEV = NLMAX
