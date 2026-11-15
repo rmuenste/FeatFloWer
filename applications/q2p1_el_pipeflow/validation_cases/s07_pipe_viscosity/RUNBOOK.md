@@ -14,7 +14,7 @@ Run directories: /data/warehouse17/rmuenste/runs/visc07.
 
 ## Set-up
 
-Column mesh of case s05 (pipe R 13.85 mm, length 54.6 mm, O-grid, level 3, 27 z slabs, 28 ranks;
+Column mesh of case s05 (pipe R 13.85 mm, length 55.4 mm, O-grid, level 3, 27 z slabs, 28 ranks;
 mesh not committed, see the s05 RUNBOOK), uniform inlet U = 0.002 m/s (boundary type Inflow975,
 constant), open outlet, rho 10, `Prop@DynVisc = 1.5e-3` (nu 1.5e-4), Re = rho U D / mu = 0.37.
 Single-phase flow: 30 resting spheres from the floor of the s05 bed only because the application
