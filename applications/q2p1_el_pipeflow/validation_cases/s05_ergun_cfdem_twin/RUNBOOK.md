@@ -371,3 +371,20 @@ probe job 160706, full ramp job 160707, 800 steps, 3 h 01 min, no NaN.
   1.93811e-2 m/s).
 - Model A in its intended configuration (dynamic viscosity, weighted matrix): slope 1.053 of
   CFDEM R2, onset 0.01366 m/s (-3 %), plateau 1.017, fluid dp 170.4 Pa: inside spec G6.
+- Slope definitions. The FeatFloWer slopes here are force-based and fitted with an intercept
+  over U in (0.003, 0.0075); CFDEM's 12 129 is the inlet-outlet pressure difference fitted
+  through the origin. The peer refitted its run R2 (ergun_R2_am_if_od_nz52_xy4_ramp0.4) on the
+  FeatFloWer definition (peer message 2026-11-16, its values, not recomputed here):
+
+  | CFDEM R2 fit | through the origin | with intercept |
+  |---|---|---|
+  | force-based (forces.txt, Archimedes removed, / A_dem) | 12 009 | **12 307** (intercept -1.66 Pa) |
+  | pressure-based (pInlet - pOutlet) | 12 129 | 12 344 (intercept -1.20 Pa) |
+
+  Like for like (12 307) the ratios of the table above are: drag only 0.453, + feedback 1.039,
+  B 1.065, Bfull 1.087, A 1.039 (A with the weighted pressure matrix 1.037): all three models
+  inside +-10 %. Against 12 129 Bfull is at +10.3 %. Which definition gate G6 uses is the owner's
+  decision (open on the peer's side as well); the datasheet keeps the 12 129 rows and adds the
+  like-for-like row. An earlier version of this bullet said the force-based basis makes all
+  ratios 1 % higher: that compared a fit with intercept against one through the origin and
+  was wrong.
