@@ -349,3 +349,25 @@ this RUNBOOK belongs to the `kinematic` convention and is reproduced with that k
 - Slope definitions (noted by the artifact work, 2026-11-15): the FeatFloWer slopes here are
   force-based with an intercept, CFDEM's 12 129 is the inlet-outlet pressure difference fitted
   through the origin; CFDEM force-based is 12 009, on which basis all ratios are 1 % higher.
+
+## Model A with the weighted pressure matrix and the dynamic-viscosity default (2026-11-16)
+
+Both changes together, on the integration branch integration/el-pweight-visc (merge of
+feature/el-va-weighted-pressure and feature/el-fluid-viscosity; binary FeatFloWer-int/build-el-b,
+ed573db0, dirty 0; the later merges of this branch add records only). Deck
+`q2p1_param_E2_model_A_weighted.dat` unchanged (no viscosity key: default `dynamic`). 10-step
+probe job 160706, full ramp job 160707, 800 steps, 3 h 01 min, no NaN.
+
+| Run | job | viscosity | pressure matrix | drag slope | total slope | / CFDEM R2 | force reaches bed weight at | plateau max | eps u_z / U_in at U 0.02 | boundary flux at step 800, m3/s |
+|---|---|---|---|---|---|---|---|---|---|---|
+| E2n_ramp0.4_A | 160561 | kinematic | start-up | 5465 | 12 731 | 1.050 | 0.01370 m/s | 1.017 | 0.921 | -8.1e-7 (alternating) |
+| E2p_ramp0.4_A_w2 | 160618 | kinematic | weighted | 5463 | 12 718 | 1.049 | 0.01370 m/s | 1.016 | 0.970 | 5.0e-17 |
+| E2v_ramp0.4_A | 160698 | dynamic | start-up | 5478 | 12 782 | 1.054 | 0.01363 m/s | 1.017 | 0.920 | (alternating) |
+| E2v_ramp0.4_A_w | 160707 | dynamic | weighted | 5476 | 12 768 | 1.053 | 0.01366 m/s | 1.017 | 0.969 | 3.7e-17 |
+
+- The two changes act independently: the viscosity raises the slope by 0.4 % with either matrix,
+  the weighted matrix lowers it by 0.1 % with either viscosity and removes the alternation on the
+  moving bed (residual 4.4e-9 at step 800, audit values of a step 1.93913e-2 / 1.93815e-2 /
+  1.93811e-2 m/s).
+- Model A in its intended configuration (dynamic viscosity, weighted matrix): slope 1.053 of
+  CFDEM R2, onset 0.01366 m/s (-3 %), plateau 1.017, fluid dp 170.4 Pa: inside spec G6.
