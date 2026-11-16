@@ -109,6 +109,28 @@ peer has the case definition; nothing has run there yet).
   MPI call on the master (bdc70e3e) and was released by the first field allocation (08f7d420);
   both stopped every Bfull / A run at step 1 and neither touched the default path.
 
+## Weighted pressure matrix of model A (f06d70d6, 2026-11-15)
+
+Key `SimPar@ELMMPressureOperator = weighted` (design note section 7; Ergun results in the s05
+RUNBOOK). Binary FeatFloWer-pweight/build-el-d (f06d70d6, dirty 0); runs in runs/startup06.
+
+- Default path: the ten certified EL configurations bitwise against ergun_gates2, jobs
+  160600-160609 (runs/coupling_p4p5/pw_gates2; first round bf2fd6b0: 160580-160589 bitwise).
+- Model A at the default key (X_A_startup, job 160610): bitwise against F_A, the certified
+  model A run. Bfull with the key (X_Bfull_weighted, 160612): bitwise against F_Bfull, the key is
+  accepted and changes nothing; the log says so.
+- Model A with the key (X_A_weighted, 160611): tau 7.2214 ms, amplitude -4.165365e-3 m/s
+  (start-up matrix: 7.2214 ms, -4.165366e-3); residual of the continuity iteration at the last
+  step 7.7e-11 -> 6.7e-13 -> 2.2e-14 against 7.7e-11 -> 6.9e-12 -> 4.5e-13; wall time 5:00
+  against 4:54.
+- Negative tests, refused with exit 1: the key without a model (160613); Pres@MGMedLev above the
+  coarsest level (160614). The refusal of the hypre pressure solvers could not be run (this
+  build has no hypre; such a deck stops earlier at solver set-up).
+- DNS twins (build-dns2): e4_l3 job 160616, DKT job 160617 bitwise against the certified heads;
+  first round 160595 / 160596 bitwise.
+- Unit tests: test_el_momentum_model with four policy checks of the key; the other three EL
+  test programs pass.
+
 ## Gates in the datasheet (owner verdict 2026-11-15: PASS)
 
 | Quantity | Expected | Tolerance |

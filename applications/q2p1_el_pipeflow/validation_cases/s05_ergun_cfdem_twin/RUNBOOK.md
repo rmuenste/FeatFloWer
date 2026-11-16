@@ -165,6 +165,10 @@ DNS twins for the branch; pe PR for feature/el-cylinder-wall; home of case 05 in
 
 ## Why CFDEM R2 is 0.838 of the consistent closure, and the like-for-like FF prediction (2026-11-13)
 
+(2026-11-16: 0.838 = 12 129 / 14 472 uses CFDEM's pressure-based slope through the origin; on the
+like-for-like slope 12 307 the ratio is 0.850, see the last section on the dynamic-viscosity
+reruns. The numbers below are left as recorded.)
+
 Tool: `tools/bed_structure_predict.py <xyz> --d D [--eps-core E --H H]` (spheres split into sample
 points, z layers of 1.065 mm = CFDEM dz, core ring r < 12 mm and wall ring; Di Felice chi(Re) at
 U 0.005; per-bin gradient n F(U/eps) [unweighted] or n F / eps [consistent]; layers in series, the
@@ -276,3 +280,127 @@ over U in (0.003, 0.0075), bed weight / A = 166.53 Pa, CFDEM R2 slope 12 129 Pa 
 - G6 verdict: the momentum stage now exists, all three models are inside the three spec
   tolerances. Owner verdict 2026-11-15: PASS (the three model rows of the datasheet; the rows of the
   feedback rung without a model, job 159991, stay RECORDED).
+
+## Model A with the weighted pressure matrix (2026-11-15)
+
+Follow-up of the open point above (the continuity iteration of model A alternates on the moving
+bed). Branch feature/el-va-weighted-pressure, commits bf2fd6b0 (key) and f06d70d6 (review
+fixes); binary FeatFloWer-pweight/build-el-d (f06d70d6, dirty 0). Mechanism, key and reviews:
+`docs/md_docs/el_momentum_models_2026-11-15.md` section 7.
+
+**Probes** (model A, constant-rate ramp from U 0.016 so that the bed moves within 120 steps;
+first-round binary bf2fd6b0; values at step 120):
+
+| Pressure matrix | correctors | job | net boundary flux of eps u after the passes, m3/s | residual L1 at the end of the step | mean eps u_z over the passes, m/s | wall time |
+|---|---|---|---|---|---|---|
+| start-up (divisor eps) | 1 | 160576 | -1.9e-7 / +3.4e-7 / -2.2e-7 | 2.3e-7 | 0.01593 / 0.01658 / 0.01589 | 26:37 |
+| start-up (divisor eps) | 4 | 160577 | +2.8e-7 / -2.1e-7 / +8.5e-8 / -2.6e-8 / +6.9e-9 | 7.0e-9 | settles at 0.01615 | 29:31 |
+| weighted (divisor 1) | 1 | 160578 | 7.8e-15 / 2.4e-17 | 3.5e-9 | 0.016155 / 0.016149 / 0.016149 | 28:47 |
+| weighted (divisor 1) | 2 | 160579 | 7.4e-15 / 1.9e-17 / -1.3e-18 | 3.8e-10 | 0.016154 | (node shared) |
+
+The start-up matrix over-corrects the through-flow with alternating sign (factors about -0.7,
+-0.4, -0.3 per pass): it converges, with four correctors. The weighted matrix needs one. Drag and
+pressure force at step 120 agree to 0.4 % between all four.
+
+**Full ramp**, deck `q2p1_param_E2_model_A_weighted.dat` (= the model deck with
+`SimPar@ELMMPressureOperator = weighted`, one corrector), job 160618, 800 steps, 3 h 02 min,
+no NaN:
+
+| Run | job | drag slope | total slope | / CFDEM R2 | force reaches bed weight at | plateau max | eps u_z / U_in at U 0.02 | boundary flux at step 800, m3/s | residual L1 at step 800 |
+|---|---|---|---|---|---|---|---|---|---|
+| E2n_ramp0.4_A (start-up matrix) | 160561 | 5465 | 12 731 | 1.050 | 0.01370 m/s | 1.017 | 0.921 | -8.1e-7 (alternating) | 9.5e-7 |
+| E2p_ramp0.4_A_w2 (weighted) | 160618 | 5463 | 12 718 | 1.049 | 0.01370 m/s | 1.016 | 0.970 | 5.0e-17 | 4.6e-9 |
+
+- The fixed-bed slope, the onset and the plateau are unchanged (slope -0.1 %); the earlier model A
+  numbers stand.
+- On the moving bed the flux now agrees with models B and Bfull (0.970 each) and the three audit
+  values of a step agree to 3e-5 (1.93901e-2 / 1.93903e-2 / 1.93899e-2 m/s at step 800). The open
+  point is closed for model A with the key; without a model the start-up matrix with more
+  correctors remains the way.
+- Cost: wall time 3 h 02 against 2 h 57 (+3 %); the solver statistics give 0.3 s per step for the
+  matrix rebuild. A first copy of the run (job 160615) ran at 21 s per step on node nx-02
+  against 13.6 s elsewhere and hit its 4 h limit at step 680; the cause is the node (the time is
+  outside the solver statistics, same deck and binary), its numbers up to there agree.
+## Reruns with the dynamic-viscosity default (2026-11-15/16)
+
+`SimPar@ELFluidViscosity` defaults to `dynamic` since 5a882280 (branch feature/el-fluid-viscosity;
+case s07_pipe_viscosity): the fluid's viscous operator carries mu = rho nu = 1.5e-3 Pa s instead
+of nu = 1.5e-4 (rho_f = 10 here). Same decks as the recorded runs, no key added; binary
+FeatFloWer-visc/build-el-g (5a882280, dirty 0). 800 steps each, no NaN. Every earlier number of
+this RUNBOOK belongs to the `kinematic` convention and is reproduced with that key.
+
+| Run (E2v_ramp0.4_...) | job | total slope, Pa s/m | before (kinematic) | change | / CFDEM R2 | force reaches bed weight at | plateau max | fluid dp at U_in 0.01912 |
+|---|---|---|---|---|---|---|---|---|
+| pfNo_formC (drag only) | 160701 | 5577 | 5554 | +0.4 % | 0.460 | not reached (0.677 at U 0.02) | - | 111.1 Pa (110.2) |
+| pfYes_formC (+ pressure force) | 160702 | 8682 (drag 5570) | 8643 | +0.5 % | 0.716 | not reached (0.997 at U 0.02) | - | 105.4 Pa (104.9) |
+| pfYes_fbYes_formC (+ feedback) | 160703 | 12 791 (drag 5478) | 12 686 | +0.8 % | 1.055 | 0.01366 m/s (0.01375) | 1.017 (1.019) | 170.7 Pa (170.5) |
+| B | 160696 | 13 103 | 13 069 | +0.3 % | 1.080 | 0.01469 m/s (0.01449) | 1.014 (1.014) | 170.8 Pa (170.4) |
+| Bfull | 160697 | 13 378 (drag 5436) | 13 301 | +0.6 % | **1.103** | 0.01384 m/s (0.01390) | 1.019 (1.018) | 170.5 Pa (170.2) |
+| A (start-up matrix, 1 corrector) | 160698 | 12 782 (drag 5478) | 12 731 | +0.4 % | 1.054 | 0.01363 m/s (0.01370) | 1.017 (1.017) | 170.5 Pa (170.2) |
+
+- The bed pressure drop is drag-dominated: the ten times larger fluid viscosity raises every
+  slope by 0.3 ... 0.8 % (wall shear and the velocity profile in and above the bed).
+- **Spec G6 with the corrected operator:** against CFDEM's 12 129 (pressure-based, through the
+  origin) B and A are inside the +-10 % slope tolerance and Bfull is at +10.3 %; on the
+  like-for-like basis the owner chose for the gate (12 307, last bullet) all three are inside:
+  +6.5 / +8.7 / +3.9 %. Onset (+-15 %: -3 ... +4 %) and plateau (1 +- 0.03) are met by all three.
+- Particle viscous force (Bfull / A): -1.6e-4 N at the end (was -1.7e-5 N; factor 9.3 for the
+  factor 10 in the coefficient), still 0.2 % of the bed weight (0.100 N).
+- Model A on the moving bed with the start-up pressure matrix still alternates (flux 0.920 U_in
+  at U 0.02 against 0.970 for B and Bfull): unchanged by the viscosity; the weighted pressure
+  matrix (branch feature/el-va-weighted-pressure) is the cure, its rerun with this default is
+  recorded on the integration branch.
+- Slope definitions. The FeatFloWer slopes here are force-based and fitted with an intercept
+  over U in (0.003, 0.0075); CFDEM's 12 129 is the inlet-outlet pressure difference fitted
+  through the origin. The peer refitted its run R2 (ergun_R2_am_if_od_nz52_xy4_ramp0.4) on the
+  FeatFloWer definition (peer message 2026-11-16, its values, not recomputed here):
+
+  | CFDEM R2 fit | through the origin | with intercept |
+  |---|---|---|
+  | force-based (forces.txt, Archimedes removed, / A_dem) | 12 009 | **12 307** (intercept -1.66 Pa) |
+  | pressure-based (pInlet - pOutlet) | 12 129 | 12 344 (intercept -1.20 Pa) |
+
+  Like for like (12 307) the ratios of the table above are: drag only 0.453, + feedback 1.039,
+  B 1.065, Bfull 1.087, A 1.039 (A with the weighted pressure matrix 1.037): all three models
+  inside +-10 %. Against 12 129 Bfull is at +10.3 %. **Owner decision 2026-11-16: gate G6 uses
+  the like-for-like slope 12 307** (datasheet: the like-for-like row is the gate, PASS; the
+  12 129 row of this convention is kept as RECORDED, superseded basis). In the kinematic
+  convention the model slopes 13 069 / 13 301 / 12 731 are 1.062 / 1.081 / 1.034 of 12 307. The
+  Onset and the uniform-closure ratio on the same basis (owner decision 2026-11-16, second part):
+  - onset = U at which the fitted fixed-bed line (slope and intercept) reaches the code's own
+    bed weight per area. CFDEM R2: (169.62 + 1.66) / 12 307 = 0.01392 m/s. FeatFloWer (166.53 Pa):
+    B 0.01270, Bfull 0.01289, A 0.01283 (start-up and weighted matrix alike), i.e. -8.7 / -7.4 /
+    -7.8 % (spec +-15 %). The FeatFloWer bed is 1.9 % lighter and its slope 4-9 % higher. The
+    velocities at which the force actually first equals the bed weight (table above: 0.01469 /
+    0.01384 / 0.01363) are later because the curve bends before the onset; the earlier
+    comparison of those with 0.0141 = 170.85 / 12 129 mixed definitions (and bed weights).
+  - CFDEM R2 over the uniform consistent closure of its bed: 12 307 / 14 472 = 0.850; the 0.838
+    of the section "Why CFDEM R2 is 0.838 ..." is 12 129 / 14 472. The structured-bed prediction
+    there (0.885 with end layers and wall rings) now leaves -4 % instead of -5 % to the cell
+    scatter; the explanation is unchanged. An earlier version of this bullet said the force-based basis makes all
+  ratios 1 % higher: that compared a fit with intercept against one through the origin and
+  was wrong.
+
+## Model A with the weighted pressure matrix and the dynamic-viscosity default (2026-11-16)
+
+Both changes together, on the integration branch integration/el-pweight-visc (merge of
+feature/el-va-weighted-pressure and feature/el-fluid-viscosity; binary FeatFloWer-int/build-el-b,
+ed573db0, dirty 0; the later merges of this branch add records only). Deck
+`q2p1_param_E2_model_A_weighted.dat` unchanged (no viscosity key: default `dynamic`). 10-step
+probe job 160706, full ramp job 160707, 800 steps, 3 h 01 min, no NaN.
+
+| Run | job | viscosity | pressure matrix | drag slope | total slope | / CFDEM R2 | force reaches bed weight at | plateau max | eps u_z / U_in at U 0.02 | boundary flux at step 800, m3/s |
+|---|---|---|---|---|---|---|---|---|---|---|
+| E2n_ramp0.4_A | 160561 | kinematic | start-up | 5465 | 12 731 | 1.050 | 0.01370 m/s | 1.017 | 0.921 | -8.1e-7 (alternating) |
+| E2p_ramp0.4_A_w2 | 160618 | kinematic | weighted | 5463 | 12 718 | 1.049 | 0.01370 m/s | 1.016 | 0.970 | 5.0e-17 |
+| E2v_ramp0.4_A | 160698 | dynamic | start-up | 5478 | 12 782 | 1.054 | 0.01363 m/s | 1.017 | 0.920 | (alternating) |
+| E2v_ramp0.4_A_w | 160707 | dynamic | weighted | 5476 | 12 768 | 1.053 | 0.01366 m/s | 1.017 | 0.969 | 3.7e-17 |
+
+- The two changes act independently: the viscosity raises the slope by 0.4 % with either matrix,
+  the weighted matrix lowers it by 0.1 % with either viscosity and removes the alternation on the
+  moving bed (residual 4.4e-9 at step 800, audit values of a step 1.93913e-2 / 1.93815e-2 /
+  1.93811e-2 m/s).
+- Model A in its intended configuration (dynamic viscosity, weighted matrix): slope 1.037 of
+  the like-for-like CFDEM R2 slope 12 307 (1.053 of 12 129; the table column uses 12 129), onset
+  of the fitted line 0.01283 m/s against CFDEM 0.01392 (-7.8 %; first crossing 0.01366), plateau
+  1.017, fluid dp 170.4 Pa: inside spec G6.

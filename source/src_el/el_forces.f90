@@ -1,6 +1,6 @@
 MODULE EL_FORCES
 
-  USE EL_CONFIG, ONLY: el_drag_model, el_eps_f_min, el_pressure_force, &
+  USE EL_CONFIG, ONLY: el_fluid_visc_dynamic, el_drag_model, el_eps_f_min, el_pressure_force, &
                        el_pressure_feedback, &
                        el_lift_model, el_inertial_lift, &
                        el_inertial_lift_umax, el_prescribed_umax, &
@@ -106,15 +106,18 @@ CONTAINS
 
   ! Coefficient c of the viscous term c lap u in the fluid momentum equation as the solver
   ! assembles it on the Newtonian path (DIFFQ2_NEWT: Properties%Viscosity(1), no density
-  ! factor, against a mass matrix that carries the density). The particle viscous force uses
-  ! the same coefficient so that particle and fluid see one stress. NOTE: with Prop@DynVisc
-  ! the parser stores mu/rho in Properties%Viscosity, so for rho /= 1 this coefficient is
-  ! mu/rho, not mu (the drag closures form mu = rho*nu themselves and are unaffected). The
-  ! convention of the fluid operator is an open owner decision; this function is the single
-  ! place the viscous force follows it.
+  ! factor, against a mass matrix that carries the density). The particle viscous force and
+  ! model A use the same coefficient so that particle and fluid see one stress. The argument
+  ! is the kinematic viscosity of the closures: under ELFluidViscosity = dynamic (default) the
+  ! operator carries mu = rho nu, under 'kinematic' (campaign behaviour) that value itself,
+  ! i.e. mu/rho (EL_CONFIG). This function is the single place the viscous force follows it.
   PURE REAL*8 FUNCTION EL_FLUID_OPERATOR_VISCOSITY(density, viscosity)
     REAL*8, INTENT(IN) :: density, viscosity
-    EL_FLUID_OPERATOR_VISCOSITY = viscosity
+    IF (el_fluid_visc_dynamic) THEN
+      EL_FLUID_OPERATOR_VISCOSITY = density*viscosity
+    ELSE
+      EL_FLUID_OPERATOR_VISCOSITY = viscosity
+    END IF
   END FUNCTION EL_FLUID_OPERATOR_VISCOSITY
 
   SUBROUTINE EL_DRAG_FORCE(state, carrier_velocity, density, viscosity, force)

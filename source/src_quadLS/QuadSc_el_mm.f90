@@ -22,10 +22,11 @@
 ! with the porosity one step older; the difference is O(dt d eps/dt du/dt) and deliberate
 ! (one coefficient field for time derivative and convection).
 !
-! Not rebuilt: the pressure matrix C0 = B^T (rho Ml)^-1 B of start-up (MatrixRenewal C1). It
-! is the preconditioner of the conservative continuity iteration
+! Not rebuilt by default: the pressure matrix C0 = B^T (rho Ml)^-1 B of start-up
+! (MatrixRenewal C1). It is the preconditioner of the conservative continuity iteration
 ! (EL_MOMENTUM_MODEL:EL_MM_RESIDUAL_DIVISOR); the coefficients stored in mg_CMat do not depend
-! on later mass rebuilds.
+! on later mass rebuilds. SimPar@ELMMPressureOperator = weighted replaces it every step by
+! the operator of the model (EL_MM_Pressure_Operator below).
 !
 ! Lifecycle of the mass arrays under a model: mg_MlRhoMat / mg_MlRhoPmat hold the weighted
 ! lumped mass from the first fluid solve on (also for the P1->Q2 pressure output projection
@@ -86,12 +87,95 @@ SUBROUTINE EL_MM_Update_Fluid_Coefficients()
 END SUBROUTINE EL_MM_Update_Fluid_Coefficients
 
 !=========================================================================
+! Pressure matrix of the operator form (model A) under SimPar@ELMMPressureOperator = weighted.
+!
+! With the weighted lumped mass W = lump(eps rho) the velocity correction of model A is
+!     du = dt W^-1 (B - fp) q = dt W^-1 D_eps^T q        (EL_MM_Correct_Velocity_Operator)
+! and the conservative continuity residual changes by D_eps du, D_eps the conservative
+! divergence: the projection operator is D_eps W^-1 D_eps^T, a discrete div((eps/rho) grad).
+! The start-up matrix scaled by the element porosity (divisor eps) misses grad eps . grad q:
+! at the edge of a dense bed the flux correction through the bed comes out too large by up to
+! 1/eps, the residual iteration alternates and needs several correctors (case 05, moving bed).
+!
+! Here the matrix is rebuilt with the existing assembly B^T m^-1 B and the nodal mass
+!     m = U0^2 / W,     U0 = rho Ml (the unweighted lumped mass, mg_MlPMat of Create_MMat),
+! i.e. W divided by the square of the nodal porosity W/U0 (D_eps ~ diag(eps) B^T): a nodal
+! approximation of the operator with the sparsity of C0, symmetric, from data each rank
+! already holds (no new exchange). The residual divisor is then 1 (EL_MM_RESIDUAL_DIVISOR).
+! It stays a preconditioner: the fixed point of the residual iteration does not depend on it.
+!
+! Called after EL_MM_Update_Fluid_Coefficients (mg_MlRhoPmat holds W): builds C on the levels
+! of this rank from m, the parallel matrix on the workers and the coarse solver (the tail of
+! the MatrixRenewal C branch of the solver; B, its parallel part and the slip treatment do
+! not depend on the mass and are not rebuilt), then puts W back. On return mg_MlRhoPmat holds
+! W again and ILEV / MlRhoPmat point to NLMAX as after Create_MRhoMat.
+!
+! Coarse solver: the previous UMFPACK factorisation (types 2, 4) is released here before the
+! new one is made; under MatrixRenewal C1 nobody else does (PARDISO, type 9, releases its own).
+! The master receives the porosity on level NLMIN only, so the pressure multigrid must have
+! its coarse and its master level there, and the hypre solvers keep a matrix copy of their
+! own: EL_MM_Check_Solver_Settings refuses the other settings.
+! Collective (every rank, deck-only guard EL_MM_PRESSURE_REBUILD at the call site). The
+! rebuild is done every step, also while the porosity does not change (fixed bed).
+!=========================================================================
+SUBROUTINE EL_MM_Pressure_Operator()
+
+  USE PP3D_MPI, ONLY: myid, master
+  USE UMFPackSolver, ONLY: myUmfPack_Free
+
+  TYPE(mg_Matrix), ALLOCATABLE :: weighted(:)
+  INTEGER :: jlev, ilev_save, i, n, crs
+  REAL*8 :: rho, u0
+
+  IF (.NOT.ALLOCATED(mg_MlPMat) .OR. .NOT.ALLOCATED(mg_MlRhoPmat)) THEN
+    WRITE(*,*) 'EL_MM_Pressure_Operator: lumped mass arrays not built on rank ', myid
+    STOP 1
+  END IF
+  rho = Properties%Density(1)
+  ilev_save = ILEV
+
+  ALLOCATE(weighted(NLMIN:NLMAX))
+  DO jlev = NLMIN, NLMAX
+    n = SIZE(mg_MlRhoPmat(jlev)%a)
+    IF (SIZE(mg_MlPMat(jlev)%a).NE.n) THEN
+      WRITE(*,*) 'EL_MM_Pressure_Operator: mass arrays of different size on level ', jlev
+      STOP 1
+    END IF
+    ALLOCATE(weighted(jlev)%a(n))
+    weighted(jlev)%a = mg_MlRhoPmat(jlev)%a
+    DO i = 1, n
+      u0 = rho*mg_MlPMat(jlev)%a(i)
+      mg_MlRhoPmat(jlev)%a(i) = u0*u0/weighted(jlev)%a(i)
+    END DO
+  END DO
+
+  crs = LinSc%prm%MGprmIn%CrsSolverType
+  IF (myid.EQ.master .AND. (crs.EQ.2 .OR. crs.EQ.4)) CALL myUmfPack_Free()
+  CALL Create_CMat(QuadSc%knprU, QuadSc%knprV, QuadSc%knprW, LinSc%knprP, &
+                   LinSc%prm%MGprmIn%MinLev, crs)
+  IF (myid.NE.master) CALL Create_ParCMat(QuadSc%knprU, QuadSc%knprV, QuadSc%knprW)
+
+  DO jlev = NLMIN, NLMAX
+    mg_MlRhoPmat(jlev)%a = weighted(jlev)%a
+  END DO
+  DEALLOCATE(weighted)
+
+  ILEV = ilev_save
+  CALL SETLEV(2)
+  MlRhoPmat => mg_MlRhoPmat(NLMAX)%a
+
+END SUBROUTINE EL_MM_Pressure_Operator
+
+!=========================================================================
 ! Solver settings a momentum model relies on, checked once at the start of the first
 ! Euler-Lagrange step, before any pass (EL_MM_Begin_Step; same deck values on every rank,
 ! hence a coordinated stop):
 !   MatrixRenewal  M >= 1 (the mass arrays exist), K = 2 or 3 (convection rebuilt every step
 !                  from the weighted coefficient), C = 1 (the start-up pressure matrix is the
-!                  preconditioner; a per-step rebuild would take the weighted mass),
+!                  preconditioner; a per-step rebuild would take the weighted mass - the
+!                  rebuild of ELMMPressureOperator = weighted is done by the adapter itself
+!                  and needs Pres@MGCrsSolverType 1-4 or 9 and Pres@MGMinLev = MGMedLev =
+!                  coarsest level, see EL_MM_Pressure_Operator),
 !   GAMMA = 0      (the rotational pressure update assumes the unweighted divergence source),
 !   convective form of the convection term (the divergence form lacks the compensating
 !                  -u div(eps u) of the non-conservative weighted inertia),
@@ -112,6 +196,23 @@ SUBROUTINE EL_MM_Check_Solver_Settings()
     IF (tell) WRITE(*,'(A,3(A,I0))') 'ELMomentumModel needs SimPar@MatrixRenewal with M >= 1, K = 2 or 3, C = 1;', &
       ' got M', myMatrixRenewal%M, ' K', myMatrixRenewal%K, ' C', myMatrixRenewal%C
     ok = .FALSE.
+  END IF
+  IF (EL_MM_PRESSURE_REBUILD()) THEN
+    ! the per-step rebuild of the pressure matrix (EL_MM_Pressure_Operator)
+    IF (ALL(LinSc%prm%MGprmIn%CrsSolverType.NE.(/ 1, 2, 3, 4, 9 /))) THEN
+      IF (tell) WRITE(*,'(A,I0)') 'ELMMPressureOperator = weighted needs Pres@MGCrsSolverType '// &
+        '1, 2, 3, 4 or 9 (the hypre solvers keep their own copy of the matrix); got ', &
+        LinSc%prm%MGprmIn%CrsSolverType
+      ok = .FALSE.
+    END IF
+    IF (LinSc%prm%MGprmIn%MedLev.NE.LinSc%prm%MGprmIn%MinLev .OR. &
+        LinSc%prm%MGprmIn%MinLev.NE.NLMIN) THEN
+      IF (tell) WRITE(*,'(A,3(A,I0))') 'ELMMPressureOperator = weighted needs Pres@MGMinLev = '// &
+        'Pres@MGMedLev = coarsest mesh level (the master receives the porosity there only);', &
+        ' got MinLev ', LinSc%prm%MGprmIn%MinLev, ' MedLev ', LinSc%prm%MGprmIn%MedLev, &
+        ' coarsest level ', NLMIN
+      ok = .FALSE.
+    END IF
   END IF
   IF (GAMMA.NE.0.0d0) THEN
     IF (tell) WRITE(*,'(A)') 'ELMomentumModel needs GAMMA = 0.'
@@ -165,10 +266,11 @@ SUBROUTINE EL_MM_Begin_Step(mfile)
     IF (myid.EQ.master) THEN
       CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, dummy_velocity, &
         dummy_velocity, dummy_velocity, dummy_velocity, Properties%Density(1), &
-        Properties%Viscosity(1), Properties%Gravity, tstep, mfile, 0)
+        EL_CLOSURE_VISCOSITY(Properties%Viscosity(1)), Properties%Gravity, tstep, mfile, 0)
     ELSE
       CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, QuadSc%valU, QuadSc%valV, &
-        QuadSc%valW, LinSc%valP(NLMAX)%x, Properties%Density(1), Properties%Viscosity(1), &
+        QuadSc%valW, LinSc%valP(NLMAX)%x, Properties%Density(1), &
+        EL_CLOSURE_VISCOSITY(Properties%Viscosity(1)), &
         Properties%Gravity, tstep, mfile, 0)
     END IF
     primed = .TRUE.
@@ -266,7 +368,8 @@ SUBROUTINE EL_MM_Add_Operator_Terms()
   CALL EL_MM_PHI_OPERATORS(mg_mesh, NLMAX, mg_mesh%level(NLMAX)%dcorvg, &
     el_field_data%epsilon_transport_q2, LinSc%valP(NLMAX)%x, QuadSc%valU, QuadSc%valV, &
     QuadSc%valW, .TRUE., fp, fv)
-  c = EL_FLUID_OPERATOR_VISCOSITY(Properties%Density(1), Properties%Viscosity(1))
+  c = EL_FLUID_OPERATOR_VISCOSITY(Properties%Density(1), &
+                                  EL_CLOSURE_VISCOSITY(Properties%Viscosity(1)))
   DO i = 1, ndof
     QuadSc%defU(i) = QuadSc%defU(i) + TSTEP*(c*fv(1,i) - fp(1,i))
     QuadSc%defV(i) = QuadSc%defV(i) + TSTEP*(c*fv(2,i) - fp(2,i))
