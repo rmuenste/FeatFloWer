@@ -306,6 +306,20 @@ this RUNBOOK belongs to the `kinematic` convention and is reproduced with that k
   at U 0.02 against 0.970 for B and Bfull): unchanged by the viscosity; the weighted pressure
   matrix (branch feature/el-va-weighted-pressure) is the cure, its rerun with this default is
   recorded on the integration branch.
-- Slope definitions (noted by the artifact work, 2026-11-15): the FeatFloWer slopes here are
-  force-based with an intercept, CFDEM's 12 129 is the inlet-outlet pressure difference fitted
-  through the origin; CFDEM force-based is 12 009, on which basis all ratios are 1 % higher.
+- Slope definitions. The FeatFloWer slopes here are force-based and fitted with an intercept
+  over U in (0.003, 0.0075); CFDEM's 12 129 is the inlet-outlet pressure difference fitted
+  through the origin. The peer refitted its run R2 (ergun_R2_am_if_od_nz52_xy4_ramp0.4) on the
+  FeatFloWer definition (peer message 2026-11-16, its values, not recomputed here):
+
+  | CFDEM R2 fit | through the origin | with intercept |
+  |---|---|---|
+  | force-based (forces.txt, Archimedes removed, / A_dem) | 12 009 | **12 307** (intercept -1.66 Pa) |
+  | pressure-based (pInlet - pOutlet) | 12 129 | 12 344 (intercept -1.20 Pa) |
+
+  Like for like (12 307) the ratios of the table above are: drag only 0.453, + feedback 1.039,
+  B 1.065, Bfull 1.087, A 1.039 (A with the weighted pressure matrix 1.037): all three models
+  inside +-10 %. Against 12 129 Bfull is at +10.3 %. Which definition gate G6 uses is the owner's
+  decision (open on the peer's side as well); the datasheet keeps the 12 129 rows and adds the
+  like-for-like row. An earlier version of this bullet said the force-based basis makes all
+  ratios 1 % higher: that compared a fit with intercept against one through the origin and
+  was wrong.
