@@ -276,3 +276,44 @@ over U in (0.003, 0.0075), bed weight / A = 166.53 Pa, CFDEM R2 slope 12 129 Pa 
 - G6 verdict: the momentum stage now exists, all three models are inside the three spec
   tolerances. Owner verdict 2026-11-15: PASS (the three model rows of the datasheet; the rows of the
   feedback rung without a model, job 159991, stay RECORDED).
+
+## Model A with the weighted pressure matrix (2026-11-15)
+
+Follow-up of the open point above (the continuity iteration of model A alternates on the moving
+bed). Branch feature/el-va-weighted-pressure, commits bf2fd6b0 (key) and f06d70d6 (review
+fixes); binary FeatFloWer-pweight/build-el-d (f06d70d6, dirty 0). Mechanism, key and reviews:
+`docs/md_docs/el_momentum_models_2026-11-15.md` section 7.
+
+**Probes** (model A, constant-rate ramp from U 0.016 so that the bed moves within 120 steps;
+first-round binary bf2fd6b0; values at step 120):
+
+| Pressure matrix | correctors | job | net boundary flux of eps u after the passes, m3/s | residual L1 at the end of the step | mean eps u_z over the passes, m/s | wall time |
+|---|---|---|---|---|---|---|
+| start-up (divisor eps) | 1 | 160576 | -1.9e-7 / +3.4e-7 / -2.2e-7 | 2.3e-7 | 0.01593 / 0.01658 / 0.01589 | 26:37 |
+| start-up (divisor eps) | 4 | 160577 | +2.8e-7 / -2.1e-7 / +8.5e-8 / -2.6e-8 / +6.9e-9 | 7.0e-9 | settles at 0.01615 | 29:31 |
+| weighted (divisor 1) | 1 | 160578 | 7.8e-15 / 2.4e-17 | 3.5e-9 | 0.016155 / 0.016149 / 0.016149 | 28:47 |
+| weighted (divisor 1) | 2 | 160579 | 7.4e-15 / 1.9e-17 / -1.3e-18 | 3.8e-10 | 0.016154 | (node shared) |
+
+The start-up matrix over-corrects the through-flow with alternating sign (factors about -0.7,
+-0.4, -0.3 per pass): it converges, with four correctors. The weighted matrix needs one. Drag and
+pressure force at step 120 agree to 0.4 % between all four.
+
+**Full ramp**, deck `q2p1_param_E2_model_A_weighted.dat` (= the model deck with
+`SimPar@ELMMPressureOperator = weighted`, one corrector), job 160618, 800 steps, 3 h 02 min,
+no NaN:
+
+| Run | job | drag slope | total slope | / CFDEM R2 | force reaches bed weight at | plateau max | eps u_z / U_in at U 0.02 | boundary flux at step 800, m3/s | residual L1 at step 800 |
+|---|---|---|---|---|---|---|---|---|---|
+| E2n_ramp0.4_A (start-up matrix) | 160561 | 5465 | 12 731 | 1.050 | 0.01370 m/s | 1.017 | 0.921 | -8.1e-7 (alternating) | 9.5e-7 |
+| E2p_ramp0.4_A_w2 (weighted) | 160618 | 5463 | 12 718 | 1.049 | 0.01370 m/s | 1.016 | 0.970 | 5.0e-17 | 4.6e-9 |
+
+- The fixed-bed slope, the onset and the plateau are unchanged (slope -0.1 %); the earlier model A
+  numbers stand.
+- On the moving bed the flux now agrees with models B and Bfull (0.970 each) and the three audit
+  values of a step agree to 3e-5 (1.93901e-2 / 1.93903e-2 / 1.93899e-2 m/s at step 800). The open
+  point is closed for model A with the key; without a model the start-up matrix with more
+  correctors remains the way.
+- Cost: wall time 3 h 02 against 2 h 57 (+3 %); the solver statistics give 0.3 s per step for the
+  matrix rebuild. A first copy of the run (job 160615) ran at 21 s per step on node nx-02
+  against 13.6 s elsewhere and hit its 4 h limit at step 680; the cause is the node (the time is
+  outside the solver statistics, same deck and binary), its numbers up to there agree.
