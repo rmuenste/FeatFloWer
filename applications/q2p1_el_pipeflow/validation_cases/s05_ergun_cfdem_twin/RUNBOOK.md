@@ -276,3 +276,36 @@ over U in (0.003, 0.0075), bed weight / A = 166.53 Pa, CFDEM R2 slope 12 129 Pa 
 - G6 verdict: the momentum stage now exists, all three models are inside the three spec
   tolerances. Owner verdict 2026-11-15: PASS (the three model rows of the datasheet; the rows of the
   feedback rung without a model, job 159991, stay RECORDED).
+
+## Reruns with the dynamic-viscosity default (2026-11-15/16)
+
+`SimPar@ELFluidViscosity` defaults to `dynamic` since 5a882280 (branch feature/el-fluid-viscosity;
+case s07_pipe_viscosity): the fluid's viscous operator carries mu = rho nu = 1.5e-3 Pa s instead
+of nu = 1.5e-4 (rho_f = 10 here). Same decks as the recorded runs, no key added; binary
+FeatFloWer-visc/build-el-g (5a882280, dirty 0). 800 steps each, no NaN. Every earlier number of
+this RUNBOOK belongs to the `kinematic` convention and is reproduced with that key.
+
+| Run (E2v_ramp0.4_...) | job | total slope, Pa s/m | before (kinematic) | change | / CFDEM R2 | force reaches bed weight at | plateau max | fluid dp at U_in 0.01912 |
+|---|---|---|---|---|---|---|---|---|
+| pfNo_formC (drag only) | 160701 | 5577 | 5554 | +0.4 % | 0.460 | not reached (0.677 at U 0.02) | - | 111.1 Pa (110.2) |
+| pfYes_formC (+ pressure force) | 160702 | 8682 (drag 5570) | 8643 | +0.5 % | 0.716 | not reached (0.997 at U 0.02) | - | 105.4 Pa (104.9) |
+| pfYes_fbYes_formC (+ feedback) | 160703 | 12 791 (drag 5478) | 12 686 | +0.8 % | 1.055 | 0.01366 m/s (0.01375) | 1.017 (1.019) | 170.7 Pa (170.5) |
+| B | 160696 | 13 103 | 13 069 | +0.3 % | 1.080 | 0.01469 m/s (0.01449) | 1.014 (1.014) | 170.8 Pa (170.4) |
+| Bfull | 160697 | 13 378 (drag 5436) | 13 301 | +0.6 % | **1.103** | 0.01384 m/s (0.01390) | 1.019 (1.018) | 170.5 Pa (170.2) |
+| A (start-up matrix, 1 corrector) | 160698 | 12 782 (drag 5478) | 12 731 | +0.4 % | 1.054 | 0.01363 m/s (0.01370) | 1.017 (1.017) | 170.5 Pa (170.2) |
+
+- The bed pressure drop is drag-dominated: the ten times larger fluid viscosity raises every
+  slope by 0.3 ... 0.8 % (wall shear and the velocity profile in and above the bed).
+- **Spec G6 with the corrected operator:** B and A stay inside the +-10 % slope tolerance; Bfull
+  is at +10.3 % and no longer inside it (it was at +9.7 %). Onset (+-15 %: -3 ... +4 %) and
+  plateau (1 +- 0.03) are met by all three. The datasheet rows of the model gates are restated
+  below for this convention; the owner's PASS of 2026-11-15 was given on the kinematic numbers.
+- Particle viscous force (Bfull / A): -1.6e-4 N at the end (was -1.7e-5 N; factor 9.3 for the
+  factor 10 in the coefficient), still 0.2 % of the bed weight (0.100 N).
+- Model A on the moving bed with the start-up pressure matrix still alternates (flux 0.920 U_in
+  at U 0.02 against 0.970 for B and Bfull): unchanged by the viscosity; the weighted pressure
+  matrix (branch feature/el-va-weighted-pressure) is the cure, its rerun with this default is
+  recorded on the integration branch.
+- Slope definitions (noted by the artifact work, 2026-11-15): the FeatFloWer slopes here are
+  force-based with an intercept, CFDEM's 12 129 is the inlet-outlet pressure difference fitted
+  through the origin; CFDEM force-based is 12 009, on which basis all ratios are 1 % higher.
