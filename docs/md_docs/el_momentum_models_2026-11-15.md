@@ -161,10 +161,10 @@ parallel restriction correct. Findings and what was done:
    kinematic viscosity there, so for rho /= 1 the fluid's viscous term is too small by the
    factor rho (measured: developed pipe flow at rho 10 gives 0.10 of the Hagen-Poiseuille
    pressure gradient). `SimPar@ELFluidViscosity = dynamic` puts mu = rho nu into the operator
-   (1.0000 of Hagen-Poiseuille); the default `kinematic` keeps the campaign behaviour and every
-   certified log. `EL_FLUID_OPERATOR_VISCOSITY` is the one place the particle viscous force and
+   (1.0000 of Hagen-Poiseuille) and is the default since 5a882280; `kinematic` reproduces the
+   campaign behaviour and the certified logs of cases with rho /= 1. `EL_FLUID_OPERATOR_VISCOSITY` is the one place the particle viscous force and
    model A follow the convention. Validation case `s07_pipe_viscosity`; all results in this
-   note were obtained with the default.
+   note were obtained with `kinematic`.
 2. Stress form: the Newtonian path uses the component Laplacian; CFDEM's deviatoric form differs
    where div u /= 0. The particle force matches this solver's operator.
 3. Momentum-aware pressure mobility (drag in the projection), outer momentum/pressure iterations.
