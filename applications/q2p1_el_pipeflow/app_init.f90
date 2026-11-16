@@ -1,3 +1,5 @@
+! NOTE: not called by this application (the main program uses the shared init_q2p1_app and
+! then EL_APPLY_FLUID_VISCOSITY); kept as it was.
 subroutine init_q2p1_ext(log_unit)
     
   USE def_FEAT
@@ -62,6 +64,88 @@ subroutine init_q2p1_ext(log_unit)
 end subroutine init_q2p1_ext
 !
 !----------------------------------------------
+!
+!=========================================================================
+! SimPar@ELFluidViscosity = dynamic (EL_CONFIG): put the fluid's viscous operator on the
+! dynamic viscosity. The solver initialisation has parsed the properties and built the
+! diffusion matrix with Properties%Viscosity = nu (the Euler-Lagrange deck convention). Here
+! the conversion is recorded (EL_SET_FLUID_VISCOSITY: nu for the closures, mu = rho*nu), the
+! property and the viscosity field become mu, and the diffusion matrix is rebuilt with the
+! solver's own assembly; later rebuilds (MatrixRenewal D2/D3) read mu from the property.
+! Called once by the main program right after the solver initialisation (init_q2p1_app:
+! properties parsed, operators built, restart read), before the first step, on every rank;
+! nothing happens for 'kinematic'.
+! Supported settings, refused otherwise: Newtonian fluid without viscoelastic stress,
+! Prop@PowerLawExp = 1 (the viscosity field is re-derived from the property every step with
+! that exponent), MatrixRenewal D >= 1 (there is a diffusion matrix) and S = 0 (the stress
+! matrices are assembled at initialisation from nu and are not rebuilt here). The second
+! property entry (Viscosity(2)) is not touched; its consumers are viscoelastic.
+!=========================================================================
+SUBROUTINE EL_APPLY_FLUID_VISCOSITY(mfile)
+
+  USE def_FEAT, ONLY: ILEV, MTERM
+  USE PP3D_MPI, ONLY: myid, showid, master
+  USE var_QuadScalar, ONLY: QuadSc, Properties, Viscosity, bNonNewtonian, bViscoElastic, &
+                            myMatrixRenewal
+  USE Transport_Q2P1, ONLY: Create_DiffMat
+  USE EL_CONFIG, ONLY: el_fluid_visc_dynamic, EL_SET_FLUID_VISCOSITY, &
+                       EL_FLUID_VISCOSITY_CONVERTED
+
+  IMPLICIT NONE
+  INTEGER, INTENT(IN) :: mfile
+  INTEGER :: ilev_save
+  REAL*8 :: visc_kin, dens
+  LOGICAL :: ok, tell
+
+  IF (.NOT.el_fluid_visc_dynamic) RETURN
+  ! deck values and one call order on every rank: a coordinated stop, reported once
+  tell = (myid.EQ.showid .OR. myid.EQ.master)
+  ok = .TRUE.
+  IF (bNonNewtonian .OR. bViscoElastic) THEN
+    IF (tell) WRITE(*,'(A)') 'ELFluidViscosity = dynamic is implemented for the Newtonian fluid path only.'
+    ok = .FALSE.
+  END IF
+  IF (Properties%PowerLawExp.NE.1.0d0) THEN
+    IF (tell) WRITE(*,'(A)') 'ELFluidViscosity = dynamic needs Prop@PowerLawExp = 1.'
+    ok = .FALSE.
+  END IF
+  IF (myMatrixRenewal%D.LT.1 .OR. myMatrixRenewal%S.NE.0) THEN
+    IF (tell) WRITE(*,'(A,2(A,I0))') 'ELFluidViscosity = dynamic needs SimPar@MatrixRenewal with D >= 1 and S = 0;', &
+      ' got D', myMatrixRenewal%D, ' S', myMatrixRenewal%S
+    ok = .FALSE.
+  END IF
+  IF (EL_FLUID_VISCOSITY_CONVERTED()) THEN
+    IF (tell) WRITE(*,'(A)') 'EL_APPLY_FLUID_VISCOSITY called twice.'
+    ok = .FALSE.
+  END IF
+  visc_kin = Properties%Viscosity(1)
+  dens = Properties%Density(1)
+  IF (visc_kin.LE.0.0d0 .OR. dens.LE.0.0d0) THEN
+    IF (tell) WRITE(*,'(A)') 'ELFluidViscosity = dynamic needs a positive viscosity and density.'
+    ok = .FALSE.
+  END IF
+  IF (.NOT.ok) STOP 1
+
+  Properties%Viscosity(1) = EL_SET_FLUID_VISCOSITY(visc_kin, dens)
+  IF (ALLOCATED(Viscosity)) Viscosity = Properties%Viscosity(1)
+
+  ilev_save = ILEV
+  CALL Create_DiffMat(QuadSc)
+  ILEV = ilev_save
+  CALL SETLEV(2)
+
+  IF (myid.EQ.showid) THEN
+    ! Create_DiffMat leaves its progress fragment without a line end on the terminal
+    WRITE(MTERM,'(A)') ''
+    WRITE(MTERM,'(A,ES16.8,A,ES16.8,A)') ' EL fluid viscosity: diffusion operator rebuilt with mu = ', &
+      Properties%Viscosity(1), ' (nu = ', visc_kin, ' for the closures)'
+    WRITE(mfile,'(A,ES16.8,A,ES16.8,A)') ' EL fluid viscosity: diffusion operator rebuilt with mu = ', &
+      Properties%Viscosity(1), ' (nu = ', visc_kin, ' for the closures)'
+  END IF
+
+END SUBROUTINE EL_APPLY_FLUID_VISCOSITY
+!
+! ----------------------------------------------
 !
 SUBROUTINE General_init_ext(MDATA,MFILE)
  USE def_FEAT
@@ -603,6 +687,10 @@ END SUBROUTINE get_global_domain_extents
                         el_meso_filter, el_meso_filter_bins, &
                         el_write_diagnostics, el_momentum_audit_freq, el_particle_log_freq, &
                         el_tavg_window, &
+                        el_inlet_u0, el_inlet_u1, el_inlet_tramp, &
+                        EL_INLET_SUPERFICIAL, &
+                        el_momentum_model, el_mm_pressure_operator, el_fluid_viscosity, &
+                        EL_NOTE_KEY_SET, &
                         EL_VALIDATE_CONFIG, &
                         EL_PRINT_CONFIG
 #endif
@@ -673,6 +761,12 @@ END SUBROUTINE get_global_domain_extents
 
        READ(string(iAt+1:iEq-1),*) cPar
        !     IF (myid.eq.1) WRITE(*,*) TRIM(ADJUSTL(cName))//"#"//TRIM(ADJUSTL(cPar))
+#ifdef BUILD_Q2P1_EL_PIPEFLOW
+       ! registry of the explicitly set SimPar@EL* keys (EL_CONFIG: a momentum model implies
+       ! values for other keys and refuses a contradicting explicit one)
+       cPar = ADJUSTL(cPar)
+       IF (cPar(1:2).EQ.'EL') CALL EL_NOTE_KEY_SET(TRIM(cPar))
+#endif
        SELECT CASE (TRIM(ADJUSTL(cPar)))
 
        CASE ("MeshFolder")
@@ -809,6 +903,12 @@ END SUBROUTINE get_global_domain_extents
          READ(string(iEq+1:),*) el_va_compatibility
        CASE ("ELVAContinuityForm")
          READ(string(iEq+1:),*) el_va_continuity_form
+       CASE ("ELMomentumModel")
+         READ(string(iEq+1:),*) el_momentum_model
+       CASE ("ELMMPressureOperator")
+         READ(string(iEq+1:),*) el_mm_pressure_operator
+       CASE ("ELFluidViscosity")
+         READ(string(iEq+1:),*) el_fluid_viscosity
        CASE ("ELCylinderCenter")
          READ(string(iEq+1:),*) el_cylinder_center
        CASE ("ELCylinderRadius")
@@ -852,6 +952,12 @@ END SUBROUTINE get_global_domain_extents
          END IF
        CASE ("ELTAvgWindow")
          READ(string(iEq+1:),*) el_tavg_window
+       CASE ("ELInletVelocityStart")
+         READ(string(iEq+1:),*) el_inlet_u0
+       CASE ("ELInletVelocityEnd")
+         READ(string(iEq+1:),*) el_inlet_u1
+       CASE ("ELInletRampTime")
+         READ(string(iEq+1:),*) el_inlet_tramp
 #endif
        CASE ("MinTimeAdapt")
          READ(string(iEq+1:),*) DTMIN
@@ -970,6 +1076,25 @@ END SUBROUTINE get_global_domain_extents
      WRITE(*,'(A,I0)') 'ELVAContinuityForm = conservative needs communication scheme 3 or 4, got ', &
        iCommSwitch
      STOP 1
+   END IF
+   ! the superficial inlet sums its nodal porosity with the same routine
+   IF (EL_INLET_SUPERFICIAL() .AND. iCommSwitch.NE.3 .AND. iCommSwitch.NE.4) THEN
+     WRITE(*,'(A,I0)') 'ELInletVelocity* with ELVolumeAveraged = continuity needs communication scheme 3 or 4, got ', &
+       iCommSwitch
+     STOP 1
+   END IF
+   ! Compatibility removal and the boundary type must agree: a closed or periodic domain
+   ! needs the removal (singular pressure problem otherwise), an open one must not have it
+   ! (it would act as a spurious volume source; case 05 E2).
+   IF (TRIM(el_volume_averaged).EQ.'continuity') THEN
+     IF (bNoOutflow .AND. TRIM(el_va_compatibility).EQ.'none') THEN
+       WRITE(*,'(A)') 'ELVACompatibility = none needs an outflow boundary (SimPar@NoOutflow = No).'
+       STOP 1
+     END IF
+     IF (.NOT.bNoOutflow .AND. TRIM(el_va_compatibility).NE.'none') THEN
+       WRITE(*,'(A)') 'ELVolumeAveraged = continuity with an outflow boundary (SimPar@NoOutflow = No) needs ELVACompatibility = none.'
+       STOP 1
+     END IF
    END IF
 #endif
 

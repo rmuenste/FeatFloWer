@@ -41,6 +41,7 @@ PROGRAM TEST_EL_VA_FLUX
   CALL test_shared_face_cancellation(failures)
   CALL test_telescoping_and_identities(failures, .FALSE.)
   CALL test_telescoping_and_identities(failures, .TRUE.)
+  CALL test_telescoping_and_identities(failures, .TRUE., curved=.TRUE.)
   CALL test_constant_eps_linear_velocity(failures)
   CALL test_reconstruction(failures)
   CALL test_layout_check(failures)
@@ -55,10 +56,14 @@ CONTAINS
 
   ! Mesh of n^3 cells on the unit cube; warped moves every interior vertex by a smooth,
   ! deterministic displacement of up to 0.2 h. Q2 dof coordinates from the test helper.
-  SUBROUTINE setup_mesh(n, warped, mesh, coor, ndof)
+  SUBROUTINE setup_mesh(n, warped, mesh, coor, ndof, curved)
 
     INTEGER, INTENT(IN) :: n
     LOGICAL, INTENT(IN) :: warped
+    ! curved: additionally move every interior edge, face and centre node off the mean of
+    ! its vertices by a smooth displacement of up to 0.05 h (curved Q2 cells; each node is
+    ! one global dof, so the mesh stays conforming and the box boundary stays flat)
+    LOGICAL, INTENT(IN), OPTIONAL :: curved
     TYPE(tMultiMesh), INTENT(INOUT) :: mesh
     REAL*8, ALLOCATABLE, INTENT(OUT) :: coor(:,:)
     INTEGER, INTENT(OUT) :: ndof
@@ -81,6 +86,18 @@ CONTAINS
     END IF
     ALLOCATE(coor(3,ndof))
     CALL BUILD_DOF_COORDINATES(mesh, coor)
+    IF (PRESENT(curved)) THEN
+      IF (curved) THEN
+        DO iv = nvt+1, ndof
+          x = coor(:,iv)
+          IF (MINVAL(x).GT.1.0d-12 .AND. MAXVAL(x).LT.1.0d0-1.0d-12) THEN
+            coor(1,iv) = x(1) + 0.05d0*h*SIN(2.3d0*x(2)+1.9d0*x(3)+0.4d0)
+            coor(2,iv) = x(2) + 0.04d0*h*COS(1.6d0*x(1)-2.4d0*x(3))
+            coor(3,iv) = x(3) + 0.05d0*h*SIN(2.9d0*x(1)+1.1d0*x(2)+0.7d0)
+          END IF
+        END DO
+      END IF
+    END IF
 
   END SUBROUTINE setup_mesh
 
@@ -293,9 +310,9 @@ CONTAINS
     REAL*8 :: err, scale, un1, un2
     LOGICAL :: warped
 
-    DO iw = 0, 1
-      warped = (iw.EQ.1)
-      CALL setup_mesh(3, warped, mesh, coor, ndof)
+    DO iw = 0, 2
+      warped = (iw.GE.1)
+      CALL setup_mesh(3, warped, mesh, coor, ndof, curved=(iw.EQ.2))
       ALLOCATE(eps(ndof), u(ndof), v(ndof), w(ndof))
       CALL random_eps(ndof, eps)
       CALL wall_tangent_velocity(coor, u, v, w)
@@ -308,7 +325,8 @@ CONTAINS
       scale = MAX(ABS(m1(1)), ABS(m2(1)), 1.0d-30)
       err = ABS(m1(1) + m2(1))/scale
       CALL EL_TEST_CHECK(ABS(m1(1)).GT.1.0d-6 .AND. err.LT.1.0d-12, &
-        MERGE('warped', 'brick ', warped)//' shared face: fluxes cancel pairwise', nf, rank)
+        TRIM(MERGE('curved', MERGE('warped', 'brick ', warped), iw.EQ.2))// &
+        ' shared face: fluxes cancel pairwise', nf, rank)
       DEALLOCATE(eps, u, v, w)
       CALL EL_TEST_RELEASE_MESH(mesh)
       DEALLOCATE(coor)
@@ -318,10 +336,15 @@ CONTAINS
 
   ! 4. Closed box: sum_e F_1 = 0 (telescoping) and sum_e [xc_m F_1 + F_1+m] + int eps_h u_m = 0
   !    for the three coordinates, with random nodal eps and a wall-tangent velocity.
-  SUBROUTINE test_telescoping_and_identities(nf, warped)
+  SUBROUTINE test_telescoping_and_identities(nf, warped, curved)
 
     INTEGER, INTENT(INOUT) :: nf
     LOGICAL, INTENT(IN) :: warped
+    ! curved Q2 cells: telescoping, moment identities (algebraic) and the box volume (degree
+    ! <= 5 with a flat boundary) all stay exact
+    LOGICAL, INTENT(IN), OPTIONAL :: curved
+    LOGICAL :: is_curved
+    REAL*8 :: tol_ident
 
     TYPE(tMultiMesh) :: mesh
     REAL*8, ALLOCATABLE :: coor(:,:), eps(:), u(:), v(:), w(:)
@@ -330,9 +353,13 @@ CONTAINS
     REAL*8 :: phi, scale, ident(3), iscale(3), xc(3)
     CHARACTER(LEN=8) :: tag
 
+    is_curved = .FALSE.
+    IF (PRESENT(curved)) is_curved = curved
     tag = 'brick'
     IF (warped) tag = 'warped'
-    CALL setup_mesh(3, warped, mesh, coor, ndof)
+    IF (is_curved) tag = 'curved'
+    tol_ident = 1.0d-12
+    CALL setup_mesh(3, warped, mesh, coor, ndof, curved=is_curved)
     ALLOCATE(eps(ndof), u(ndof), v(ndof), w(ndof))
     ALLOCATE(flux(4,nel), eps_u(3,nel), vol_u(3,nel), geom(0:3,nel), div_u(nel))
     CALL random_eps(ndof, eps)
@@ -355,9 +382,11 @@ CONTAINS
     END DO
     CALL EL_TEST_CHECK(scale.GT.1.0d-6 .AND. ABS(phi).LT.1.0d-12*scale, &
       TRIM(tag)//' box: sum of element fluxes telescopes to zero', nf, rank)
-    CALL EL_TEST_CHECK(ALL(ABS(ident).LT.1.0d-12*iscale), &
+    IF (is_curved) WRITE(*,'(A,3ES10.2,A,ES10.2)') '  curved box: identity residuals / scale ', &
+      ABS(ident)/iscale, ', volume error ', ABS(SUM(geom(0,:)) - 1.0d0)
+    CALL EL_TEST_CHECK(ALL(ABS(ident).LT.tol_ident*iscale), &
       TRIM(tag)//' box: coordinate-moment identities', nf, rank)
-    CALL EL_TEST_CHECK(ABS(SUM(geom(0,:)) - 1.0d0).LT.1.0d-12, &
+    CALL EL_TEST_CHECK(ABS(SUM(geom(0,:)) - 1.0d0).LT.tol_ident, &
       TRIM(tag)//' box: quadrature volumes sum to the box', nf, rank)
 
     DEALLOCATE(eps, u, v, w, flux, eps_u, vol_u, geom, div_u)
@@ -478,7 +507,7 @@ CONTAINS
 
     TYPE(tMultiMesh) :: mesh
     REAL*8, ALLOCATABLE :: coor(:,:)
-    INTEGER :: ndof, nbad, k
+    INTEGER :: ndof, nbad, k, ncurved
 
     CALL setup_mesh(2, .TRUE., mesh, coor, ndof)
     nbad = EL_VA_CHECK_DOF_LAYOUT(mesh, 1, coor)
@@ -489,6 +518,20 @@ CONTAINS
     WRITE(*,'(A)') '  (the next layout report is expected)'
     nbad = EL_VA_CHECK_DOF_LAYOUT(mesh, 1, coor)
     CALL EL_TEST_CHECK(nbad.EQ.2, 'layout check: swapped edge pair reported', nf, rank)
+    CALL EL_TEST_RELEASE_MESH(mesh)
+    DEALLOCATE(coor)
+
+    ! curved Q2 cells: accepted and counted; a swapped pair is still reported
+    CALL setup_mesh(2, .TRUE., mesh, coor, ndof, curved=.TRUE.)
+    nbad = EL_VA_CHECK_DOF_LAYOUT(mesh, 1, coor, ncurved)
+    CALL EL_TEST_CHECK(nbad.EQ.0 .AND. ncurved.GT.0, &
+      'layout check: curved mesh passes and is counted as curved', nf, rank)
+    k = mesh%level(1)%kedge(1,3)
+    mesh%level(1)%kedge(1,3) = mesh%level(1)%kedge(2,3)
+    mesh%level(1)%kedge(2,3) = k
+    WRITE(*,'(A)') '  (the next layout report is expected)'
+    nbad = EL_VA_CHECK_DOF_LAYOUT(mesh, 1, coor)
+    CALL EL_TEST_CHECK(nbad.EQ.2, 'layout check: swapped edge pair reported on the curved mesh', nf, rank)
     CALL EL_TEST_RELEASE_MESH(mesh)
     DEALLOCATE(coor)
 

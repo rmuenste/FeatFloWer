@@ -101,6 +101,7 @@ SUBROUTINE EL_VA_Projection_Correctors(mfile, itns)
     IF (myid.ne.0) THEN
       CALL ZTIME(tttt0)
       CALL Velocity_Correction()
+      IF (EL_MM_OPERATOR_FORM()) CALL EL_MM_Correct_Velocity_Operator()
       CALL Pressure_Correction()
       CALL ZTIME(tttt1)
       myStat%tCorrUVWP = myStat%tCorrUVWP + (tttt1-tttt0)

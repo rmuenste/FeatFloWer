@@ -1,0 +1,49 @@
+{
+  "timesteps_": 100,
+  "stepsize_": 0.001,
+  "substeps_": 1,
+  "processesX_": 1,
+  "processesY_": 1,
+  "processesZ_": 27,
+  "seed_": 12345,
+  "verbose_": false,
+  "vtk_": false,
+  "particleDensity_": 2000.0,
+  "fluidViscosity_": 0.0015,
+  "fluidDensity_": 10.0,
+  "gravity_": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "visspacing_": 10000,
+  "pointerspacing_": 10000,
+  "resume_": false,
+  "useCheckpointer_": false,
+  "packingMethod_": "external",
+  "seedMode_": "file",
+  "xyzFilePath_": "particles.xyz",
+  "seedDomain_": "cylinder",
+  "seedCylinderCenter_": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "seedCylinderRadius_": 0.01385,
+  "seedCylinderAxis_": "z",
+  "seedAllowContact_": true,
+  "benchRadius_": 0.0004931480691826842,
+  "periodicX_": false,
+  "periodicY_": false,
+  "periodicZ_": true,
+  "lubricationEnabled_": false,
+  "restitution_": 0.0,
+  "staticFriction_": 0.0,
+  "dynamicFriction_": 0.0,
+  "initialParticleVelocity_": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "config_string": "ergun_e1_frozen_periodic: CFDEM ErgunTestMPI twin, stage E1 - frozen periodic packed bed (d 1 mm, eps ~0.45) in the scaled PIPEZ27 pipe R 13.85 mm, L 55.4 mm; flow driven by ConstantForcing; ELApplyParticleForces=No; set benchRadius_ to radius_pe of particles.xyz.json"
+}

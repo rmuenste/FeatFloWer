@@ -22,6 +22,15 @@ MODULE EL_FIELDS
     REAL*8, ALLOCATABLE :: alpha_p(:)
     REAL*8, ALLOCATABLE :: grad_alpha_p(:,:)   ! cell-averaged kernel gradient of alpha_p (3,nel)
     REAL*8, ALLOCATABLE :: epsilon_f(:)
+    ! Face-centre dofs of the element faces on the physical boundary of the domain (a face
+    ! with one adjacent element over all ranks; subdomain interfaces have two). Set once by
+    ! the fluid adapter (Transport_Q2P1: EL_MM_Prepare_Boundary_Mask) when a momentum model
+    ! with a particle viscous force is selected: the weak kernel average of lap u needs the
+    ! boundary integrals on those faces whatever their boundary condition (EL_VISCOUS). Not
+    ! allocated otherwise. Mesh topology, not a particle field: it is NOT released with the
+    ! other fields (EL_ENSURE_FIELDS releases them on its first call, after the mask is
+    ! built); the adapter rebuilds it when its size no longer matches the dof count.
+    LOGICAL, ALLOCATABLE :: boundary_face_dof(:)
     REAL*8, ALLOCATABLE :: epsilon_f_old(:)
     REAL*8, ALLOCATABLE :: deps_f_dt(:)
     REAL*8, ALLOCATABLE :: force_rhs(:,:)
@@ -32,8 +41,11 @@ MODULE EL_FIELDS
     ! conservative): the Q1 vertex reconstruction of epsilon_f embedded in the Q2 dofs
     ! (EL_VA_FLUX). A reconstruction, not a conserved variable: rebuilt in every transfer
     ! pass after the void-fraction finalisation (cross-rank summed once there), never
-    ! restarted. Allocated by EL_ENSURE_TRANSPORT_EPS only under that form.
+    ! restarted. Allocated by EL_ENSURE_TRANSPORT_EPS only under that form or for the
+    ! superficial inlet (EL_INLET_SUPERFICIAL), which reads its nodal values on the inlet plane.
     REAL*8, ALLOCATABLE :: epsilon_transport_q2(:)
+    ! .TRUE. once the transfer pass has built epsilon_transport_q2 for the superficial inlet
+    LOGICAL :: inlet_eps_ready = .FALSE.
   END TYPE tElFieldStorage
 
   TYPE(tElFieldStorage), SAVE :: el_field_data
@@ -101,6 +113,18 @@ CONTAINS
     el_field_data%epsilon_transport_q2 = 1.0d0
 
   END SUBROUTINE EL_ENSURE_TRANSPORT_EPS
+
+  ! Factor that turns the superficial inlet velocity of the deck into the interstitial
+  ! boundary value at Q2 dof idof: 1/eps_h(idof) once the transfer pass has built the nodal
+  ! porosity for the inlet, 1 before that (initialisation) and whenever the conversion is off.
+  PURE REAL*8 FUNCTION EL_INLET_INTERSTITIAL_FACTOR(idof)
+    INTEGER, INTENT(IN) :: idof
+    EL_INLET_INTERSTITIAL_FACTOR = 1.0d0
+    IF (.NOT.el_field_data%inlet_eps_ready) RETURN
+    IF (.NOT.ALLOCATED(el_field_data%epsilon_transport_q2)) RETURN
+    IF (idof.LT.1 .OR. idof.GT.SIZE(el_field_data%epsilon_transport_q2)) RETURN
+    EL_INLET_INTERSTITIAL_FACTOR = 1.0d0/MAX(el_field_data%epsilon_transport_q2(idof), 1.0d-3)
+  END FUNCTION EL_INLET_INTERSTITIAL_FACTOR
 
   SUBROUTINE EL_BEGIN_FIELD_UPDATE(advance_history)
 
@@ -174,6 +198,7 @@ CONTAINS
     IF (ALLOCATED(el_field_data%drag_B_source)) DEALLOCATE(el_field_data%drag_B_source)
     IF (ALLOCATED(el_field_data%epsilon_transport_q2)) &
       DEALLOCATE(el_field_data%epsilon_transport_q2)
+    el_field_data%inlet_eps_ready = .FALSE.
     el_field_data%nel = 0
     el_field_data%ndof = 0
     el_field_data%history_valid = .FALSE.

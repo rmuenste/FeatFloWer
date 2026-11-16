@@ -334,6 +334,9 @@ SimPar@ELVASourceTimeScheme = BE        # BE (default) | BDF2
 SimPar@ELVASourceCorrectors = 0         # 0 (default) .. 20 source/projection corrector passes
 SimPar@ELVACompatibility   = uniform   # uniform (default) | alpha   (added 2026-10-30, fix A)
 SimPar@ELVAContinuityForm  = advective # advective (default) | conservative   (added 2026-11-05, form C)
+SimPar@ELMomentumModel     = none      # none (default) | Bfull | B | A   (added 2026-11-15; implies the keys of its set)
+SimPar@ELMMPressureOperator = startup  # startup (default) | weighted   (added 2026-11-15; model A: pressure matrix rebuilt from the porosity every step)
+SimPar@ELFluidViscosity    = dynamic   # dynamic (default) | kinematic   (added 2026-11-15; dynamic: fluid viscous operator with mu = rho*nu; kinematic = campaign behaviour, differs for rho_f /= 1)
 ```
 
 - `BDF2`: the rate in g = −(∂ε/∂t + u·∇ε)/ε becomes (1+a) (∂ε/∂t)^{n+1} − a (∂ε/∂t)^n with
@@ -372,6 +375,12 @@ SimPar@ELVAContinuityForm  = advective # advective (default) | conservative   (a
   defaults bitwise vs the certified logs with byte-identical `EL_VA_*` lines, BDF2 keys bitwise vs
   the T8b log, alpha keys bitwise vs the T9a log including `EL_VA_COMPAT`; reviews by Codex
   gpt-6.1-sol high and Fable 5.1 xhigh (`el_va_fixa_port_reviews_2026-10-30.md`).
+- `ELMomentumModel = Bfull | B | A` (2026-11-15, `el_momentum_models_2026-11-15.md`): the CFDEM
+  model types. eps-weighted fluid inertia in all three; Bfull feeds the particle pressure and
+  viscous force back, B divides the drag by eps and has neither force, A carries -eps grad p and
+  div(eps tau) in the fluid operator. A model implies the continuity stage with the conservative
+  form, semi-implicit drag, fluid feedback and its pressure-force keys, and refuses a deck that
+  sets one of them differently. Validation: `validation_cases/s06_startup_inertia`, s05 RUNBOOK.
 - `ELVAContinuityForm = conservative` (form C, 2026-11-05, `el_va_conservative_form_2026-11-05.md`):
   the constraint becomes div(εu) = −∂ε/∂t in the weak form of all four P1 test functions, with
   shared face fluxes of a continuous transport porosity ε_h (the Q1 vertex reconstruction of the

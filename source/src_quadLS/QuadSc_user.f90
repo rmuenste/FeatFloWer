@@ -116,7 +116,7 @@ use var_QuadScalar, only : myFBM, referenceVelocity, GammaDot, RPM, Fluidization
 use fbm, only: fbm_updateFBM, fbm_velBCTest, fbm_velValue
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,myMultiMat
 USE PP3D_MPI, ONLY:myid
-USE EL_CONFIG, ONLY: el_shear_rate
+USE EL_CONFIG, ONLY: el_shear_rate, EL_INLET_VELOCITY, EL_INLET_CONFIGURED
 USE EL_GEOMETRY, ONLY: EL_DOMAIN_Z_CENTER
 implicit none
 
@@ -973,6 +973,19 @@ END IF
 
 IF (iT.EQ.99) THEN
  ValW = -myFBM%ParticleNew(1)%Velocity(3)
+END IF
+
+! Uniform axial inflow ramped in time (EL packed-bed column, SimPar@ELInletVelocityStart /
+! ELInletVelocityEnd / ELInletRampTime; EL_CONFIG). An unconfigured inlet would act as a
+! no-slip floor without any message, so it stops the run.
+IF (iT.EQ.975) THEN
+ IF (.NOT.EL_INLET_CONFIGURED()) THEN
+  WRITE(*,*) 'Fatal: boundary type Inflow975 needs SimPar@ELInletVelocityStart / ELInletVelocityEnd.'
+  STOP 1
+ END IF
+ ValU = 0d0
+ ValV = 0d0
+ ValW = EL_INLET_VELOCITY(t)
 END IF
 
 ! Fluidization inflow profile (z-only) with parabolic ramp in x and y.

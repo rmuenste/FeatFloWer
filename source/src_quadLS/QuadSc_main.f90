@@ -32,7 +32,9 @@ use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS, EL_WRITE_PARTICLE_LOG, 
                           EL_WRITE_SS_RADIUS, EL_FLUID_PAIR_STAGE
 use EL_FIELDS, only: EL_APPLY_FLUID_FEEDBACK_SOURCE, el_field_data
 use EL_VA_CONTINUITY, only: EL_ADD_CONTINUITY_SOURCE, EL_VOLUME_AVERAGED_ACTIVE
-use EL_CONFIG, only: EL_VA_SOURCE_CORRECTORS_ENABLED
+use EL_CONFIG, only: EL_VA_SOURCE_CORRECTORS_ENABLED, EL_CLOSURE_VISCOSITY
+use EL_MOMENTUM_MODEL, only: EL_MM_ACTIVE, EL_MM_WEIGHTED_INERTIA, EL_MM_OPERATOR_FORM, &
+                             EL_MM_PRESSURE_REBUILD
 
 use, intrinsic :: ieee_arithmetic
 
@@ -358,25 +360,32 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
 
   dummy_velocity = 0.0d0
   inl_u = 0
+
+  ! Momentum models: solver-setting check, boundary-face mask and porosity priming before
+  ! the first pass (collective, deck-only guard; never entered for 'none').
+  IF (EL_MM_ACTIVE()) CALL EL_MM_Begin_Step(mfile)
   prescribed_active = TRIM(el_prescribed_field).NE.'none'
 
   IF (ALLOCATED(FictKNPR)) FictKNPR = 0
   IF (myid.NE.master .AND. prescribed_active) CALL EL_IMPOSE_PRESCRIBED_FIELD()
 
-  ! Viscosity convention: Properties%Viscosity is KINEMATIC (param_parser
-  ! stores Prop@Viscosity as-is and converts Prop@DynVisc via /Density);
-  ! the EL closures take the kinematic value and form mu = rho*nu
-  ! internally (el_forces.f90 dynamic_viscosity). Do NOT pre-multiply by
+  ! Viscosity convention: the EL closures take the KINEMATIC viscosity and form
+  ! mu = rho*nu internally (el_forces.f90 dynamic_viscosity). EL decks give nu
+  ! (param_parser stores Prop@Viscosity as-is and converts Prop@DynVisc via /Density). Under
+  ! SimPar@ELFluidViscosity = dynamic (default) the application has stored mu in
+  ! Properties%Viscosity for the fluid operator and EL_CLOSURE_VISCOSITY returns the recorded
+  ! nu; under 'kinematic' the property is nu and is passed on unchanged. Do NOT pre-multiply by
   ! density here -- that double-counts rho for any fluid with rho /= 1
   ! (caught by the ten Cate SI validation case).
   ! Evaluate hydrodynamic particle forces from the current fluid state.
   IF (myid.EQ.master) THEN
     CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, dummy_velocity, &
       dummy_velocity, dummy_velocity, dummy_velocity, Properties%Density(1), &
-      Properties%Viscosity(1), Properties%Gravity, tstep, mfile, -itns)
+      EL_CLOSURE_VISCOSITY(Properties%Viscosity(1)), Properties%Gravity, tstep, mfile, -itns)
   ELSE
     CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, QuadSc%valU, QuadSc%valV, &
-      QuadSc%valW, LinSc%valP(NLMAX)%x, Properties%Density(1), Properties%Viscosity(1), &
+      QuadSc%valW, LinSc%valP(NLMAX)%x, Properties%Density(1), &
+      EL_CLOSURE_VISCOSITY(Properties%Viscosity(1)), &
       Properties%Gravity, tstep, mfile, -itns)
   END IF
 
@@ -399,10 +408,11 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
   IF (myid.EQ.master) THEN
     CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, dummy_velocity, &
       dummy_velocity, dummy_velocity, dummy_velocity, Properties%Density(1), &
-      Properties%Viscosity(1), Properties%Gravity, tstep, mfile, itns)
+      EL_CLOSURE_VISCOSITY(Properties%Viscosity(1)), Properties%Gravity, tstep, mfile, itns)
   ELSE
     CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, QuadSc%valU, QuadSc%valV, &
-      QuadSc%valW, LinSc%valP(NLMAX)%x, Properties%Density(1), Properties%Viscosity(1), &
+      QuadSc%valW, LinSc%valP(NLMAX)%x, Properties%Density(1), &
+      EL_CLOSURE_VISCOSITY(Properties%Viscosity(1)), &
       Properties%Gravity, tstep, mfile, itns)
   END IF
 
@@ -424,6 +434,11 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
       Properties%Density(1)*ConstForce
     IF (el_fluid_gravity) el_ext_force = el_ext_force + &
       Properties%Density(1)*Properties%Gravity
+    ! Momentum models: inertia coefficient eps*rho for the coming solve, from the porosity
+    ! of the pass above (collective, deck-only guard; never entered for 'none'). With
+    ! ELMMPressureOperator = weighted the pressure matrix follows from the new mass.
+    IF (EL_MM_WEIGHTED_INERTIA()) CALL EL_MM_Update_Fluid_Coefficients()
+    IF (EL_MM_PRESSURE_REBUILD()) CALL EL_MM_Pressure_Operator()
     IF (myid.NE.master .AND. el_apply_fluid_feedback .AND. &
         ALLOCATED(el_field_data%fluid_feedback_source)) THEN
       ILEV = NLMAX
@@ -461,7 +476,8 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
   IF (myid.NE.master) THEN
     CALL EL_WRITE_MOMENTUM_DIAGNOSTICS(QuadSc%valU, QuadSc%valV, &
       QuadSc%valW, timens, mfile, itns, mg_mesh, NLMAX, &
-      Properties%Density(1), Properties%Viscosity(1), el_field_data%epsilon_f)
+      Properties%Density(1), EL_CLOSURE_VISCOSITY(Properties%Viscosity(1)), &
+      el_field_data%epsilon_f)
     CALL EL_WRITE_PARTICLE_LOG(timens, itns)
   END IF
 
@@ -642,6 +658,11 @@ IF (myid.ne.master) THEN
  IF (el_apply_fluid_feedback) THEN
    CALL EL_APPLY_FLUID_FEEDBACK_SOURCE(QuadSc%defU, QuadSc%defV, &
      QuadSc%defW, tstep)
+ END IF
+ ! Euler-Lagrange momentum model A: -eps grad p and div(eps tau) as solid-fraction
+ ! corrections of the unweighted terms above (deck-only guard, EL transport only)
+ IF (.NOT.enable_fbm) THEN
+   IF (EL_MM_OPERATOR_FORM()) CALL EL_MM_Add_Operator_Terms()
  END IF
 
  ! Set dirichlet boundary conditions on the defect
@@ -824,6 +845,10 @@ IF (myid.ne.0) THEN
  CALL ZTIME(tttt0)
  !if (myid.eq.1) write(*,*) 'no correction ... '
  CALL Velocity_Correction()
+ ! model A: the correction with the eps-weighted gradient of the increment
+ IF (.NOT.enable_fbm) THEN
+   IF (EL_MM_OPERATOR_FORM()) CALL EL_MM_Correct_Velocity_Operator()
+ END IF
  CALL Pressure_Correction()
  CALL ZTIME(tttt1)
  myStat%tCorrUVWP = myStat%tCorrUVWP + (tttt1-tttt0)
@@ -1008,6 +1033,10 @@ include 'QuadSc_handlers.f90'
 ! 
 !=========================================================================
 include 'QuadSc_el_va.f90'
+!=========================================================================
+!
+!=========================================================================
+include 'QuadSc_el_mm.f90'
 !=========================================================================
 ! 
 !=========================================================================

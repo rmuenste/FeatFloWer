@@ -13,6 +13,7 @@ MODULE EL_DIAGNOSTICS
                        el_momentum_fix, el_meso_filter_bins, &
                        el_shear_rate, el_wall_stress_diag
   USE EL_GEOMETRY, ONLY: el_domain_box, el_domain_box_set
+  USE EL_MOMENTUM_MODEL, ONLY: EL_MM_WEIGHTED_INERTIA
   USE def_FEAT, ONLY: NITNS
 #ifdef HAVE_PE
   USE DEM_QUERY, ONLY: numLocalParticles, getAllParticles, &
@@ -413,6 +414,9 @@ CONTAINS
 
     CALL EL_INTEGRATE_FLUID_MOMENTUM(mesh, ilev, val_u, val_v, val_w, &
                                      epsilon_f, density, local_f, local_feps)
+    ! momentum models: the fluid momentum of the audited substep is the eps-weighted integral
+    ! (the porosity is the same at both ends of the fluid solve)
+    IF (EL_MM_WEIGHTED_INERTIA()) local_f = local_feps
     CALL MPI_Allreduce(local_f, el_fluid_pair_before, 3, &
       MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
 
@@ -438,6 +442,9 @@ CONTAINS
 
     CALL EL_INTEGRATE_FLUID_MOMENTUM(mesh, ilev, val_u, val_v, val_w, &
                                      epsilon_f, density, local_f, local_feps)
+    ! momentum models: the fluid momentum of the audited substep is the eps-weighted integral
+    ! (the porosity is the same at both ends of the fluid solve)
+    IF (EL_MM_WEIGHTED_INERTIA()) local_f = local_feps
     CALL MPI_Allreduce(local_f, el_fluid_pair_mid, 3, &
       MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
     el_fluid_pair_stage_set = .TRUE.
@@ -541,6 +548,9 @@ CONTAINS
 
     CALL EL_INTEGRATE_FLUID_MOMENTUM(mesh, ilev, val_u, val_v, val_w, &
                                      epsilon_f, density, local_f, local_feps)
+    ! momentum models: the fluid momentum of the audited substep is the eps-weighted integral
+    ! (the porosity is the same at both ends of the fluid solve)
+    IF (EL_MM_WEIGHTED_INERTIA()) local_f = local_feps
     CALL MPI_Allreduce(local_f, p_after, 3, MPI_DOUBLE_PRECISION, MPI_SUM, &
       MPI_COMM_SUBS, ierr)
     ! With the momentum fix the mismatch feeds the compensator and must be
@@ -552,6 +562,9 @@ CONTAINS
     ! (dvol carries the FEAT total-volume slot at nel+1 -- slice!).
     nel_vol = mesh%level(ilev)%nel
     local_vol = SUM(mesh%level(ilev)%dvol(1:nel_vol))
+    ! momentum models: the body force acts on eps rho, hence the fluid volume
+    IF (EL_MM_WEIGHTED_INERTIA()) &
+      local_vol = SUM(epsilon_f(1:nel_vol)*mesh%level(ilev)%dvol(1:nel_vol))
     CALL MPI_Allreduce(local_vol, global_vol, 1, MPI_DOUBLE_PRECISION, &
       MPI_SUM, MPI_COMM_SUBS, ierr)
 
