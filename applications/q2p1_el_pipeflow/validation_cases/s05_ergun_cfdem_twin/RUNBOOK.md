@@ -165,6 +165,10 @@ DNS twins for the branch; pe PR for feature/el-cylinder-wall; home of case 05 in
 
 ## Why CFDEM R2 is 0.838 of the consistent closure, and the like-for-like FF prediction (2026-11-13)
 
+(2026-11-16: 0.838 = 12 129 / 14 472 uses CFDEM's pressure-based slope through the origin; on the
+like-for-like slope 12 307 the ratio is 0.850, see the last section on the dynamic-viscosity
+reruns. The numbers below are left as recorded.)
+
 Tool: `tools/bed_structure_predict.py <xyz> --d D [--eps-core E --H H]` (spheres split into sample
 points, z layers of 1.065 mm = CFDEM dz, core ring r < 12 mm and wall ring; Di Felice chi(Re) at
 U 0.005; per-bin gradient n F(U/eps) [unweighted] or n F / eps [consistent]; layers in series, the
@@ -362,8 +366,18 @@ this RUNBOOK belongs to the `kinematic` convention and is reproduced with that k
   the like-for-like slope 12 307** (datasheet: the like-for-like row is the gate, PASS; the
   12 129 row of this convention is kept as RECORDED, superseded basis). In the kinematic
   convention the model slopes 13 069 / 13 301 / 12 731 are 1.062 / 1.081 / 1.034 of 12 307. The
-  onset rows still compare against 0.0141 m/s (CFDEM line through the origin); a like-for-like
-  onset has not been derived, the tolerance there is +-15 %. An earlier version of this bullet said the force-based basis makes all
+  Onset and the uniform-closure ratio on the same basis (owner decision 2026-11-16, second part):
+  - onset = U at which the fitted fixed-bed line (slope and intercept) reaches the code's own
+    bed weight per area. CFDEM R2: (169.62 + 1.66) / 12 307 = 0.01392 m/s. FeatFloWer (166.53 Pa):
+    B 0.01270, Bfull 0.01289, A 0.01283 (start-up and weighted matrix alike), i.e. -8.7 / -7.4 /
+    -7.8 % (spec +-15 %). The FeatFloWer bed is 1.9 % lighter and its slope 4-9 % higher. The
+    velocities at which the force actually first equals the bed weight (table above: 0.01469 /
+    0.01384 / 0.01363) are later because the curve bends before the onset; the earlier
+    comparison of those with 0.0141 = 170.85 / 12 129 mixed definitions (and bed weights).
+  - CFDEM R2 over the uniform consistent closure of its bed: 12 307 / 14 472 = 0.850; the 0.838
+    of the section "Why CFDEM R2 is 0.838 ..." is 12 129 / 14 472. The structured-bed prediction
+    there (0.885 with end layers and wall rings) now leaves -4 % instead of -5 % to the cell
+    scatter; the explanation is unchanged. An earlier version of this bullet said the force-based basis makes all
   ratios 1 % higher: that compared a fit with intercept against one through the origin and
   was wrong.
 
@@ -388,4 +402,5 @@ probe job 160706, full ramp job 160707, 800 steps, 3 h 01 min, no NaN.
   1.93811e-2 m/s).
 - Model A in its intended configuration (dynamic viscosity, weighted matrix): slope 1.037 of
   the like-for-like CFDEM R2 slope 12 307 (1.053 of 12 129; the table column uses 12 129), onset
-  0.01366 m/s (-3 %), plateau 1.017, fluid dp 170.4 Pa: inside spec G6.
+  of the fitted line 0.01283 m/s against CFDEM 0.01392 (-7.8 %; first crossing 0.01366), plateau
+  1.017, fluid dp 170.4 Pa: inside spec G6.
