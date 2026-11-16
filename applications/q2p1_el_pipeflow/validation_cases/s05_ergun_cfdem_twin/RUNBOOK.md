@@ -336,10 +336,10 @@ this RUNBOOK belongs to the `kinematic` convention and is reproduced with that k
 
 - The bed pressure drop is drag-dominated: the ten times larger fluid viscosity raises every
   slope by 0.3 ... 0.8 % (wall shear and the velocity profile in and above the bed).
-- **Spec G6 with the corrected operator:** B and A stay inside the +-10 % slope tolerance; Bfull
-  is at +10.3 % and no longer inside it (it was at +9.7 %). Onset (+-15 %: -3 ... +4 %) and
-  plateau (1 +- 0.03) are met by all three. The datasheet rows of the model gates are restated
-  below for this convention; the owner's PASS of 2026-11-15 was given on the kinematic numbers.
+- **Spec G6 with the corrected operator:** against CFDEM's 12 129 (pressure-based, through the
+  origin) B and A are inside the +-10 % slope tolerance and Bfull is at +10.3 %; on the
+  like-for-like basis the owner chose for the gate (12 307, last bullet) all three are inside:
+  +6.5 / +8.7 / +3.9 %. Onset (+-15 %: -3 ... +4 %) and plateau (1 +- 0.03) are met by all three.
 - Particle viscous force (Bfull / A): -1.6e-4 N at the end (was -1.7e-5 N; factor 9.3 for the
   factor 10 in the coefficient), still 0.2 % of the bed weight (0.100 N).
 - Model A on the moving bed with the start-up pressure matrix still alternates (flux 0.920 U_in
@@ -358,9 +358,12 @@ this RUNBOOK belongs to the `kinematic` convention and is reproduced with that k
 
   Like for like (12 307) the ratios of the table above are: drag only 0.453, + feedback 1.039,
   B 1.065, Bfull 1.087, A 1.039 (A with the weighted pressure matrix 1.037): all three models
-  inside +-10 %. Against 12 129 Bfull is at +10.3 %. Which definition gate G6 uses is the owner's
-  decision (open on the peer's side as well); the datasheet keeps the 12 129 rows and adds the
-  like-for-like row. An earlier version of this bullet said the force-based basis makes all
+  inside +-10 %. Against 12 129 Bfull is at +10.3 %. **Owner decision 2026-11-16: gate G6 uses
+  the like-for-like slope 12 307** (datasheet: the like-for-like row is the gate, PASS; the
+  12 129 row of this convention is kept as RECORDED, superseded basis). In the kinematic
+  convention the model slopes 13 069 / 13 301 / 12 731 are 1.062 / 1.081 / 1.034 of 12 307. The
+  onset rows still compare against 0.0141 m/s (CFDEM line through the origin); a like-for-like
+  onset has not been derived, the tolerance there is +-15 %. An earlier version of this bullet said the force-based basis makes all
   ratios 1 % higher: that compared a fit with intercept against one through the origin and
   was wrong.
 
@@ -383,5 +386,6 @@ probe job 160706, full ramp job 160707, 800 steps, 3 h 01 min, no NaN.
   the weighted matrix lowers it by 0.1 % with either viscosity and removes the alternation on the
   moving bed (residual 4.4e-9 at step 800, audit values of a step 1.93913e-2 / 1.93815e-2 /
   1.93811e-2 m/s).
-- Model A in its intended configuration (dynamic viscosity, weighted matrix): slope 1.053 of
-  CFDEM R2, onset 0.01366 m/s (-3 %), plateau 1.017, fluid dp 170.4 Pa: inside spec G6.
+- Model A in its intended configuration (dynamic viscosity, weighted matrix): slope 1.037 of
+  the like-for-like CFDEM R2 slope 12 307 (1.053 of 12 129; the table column uses 12 129), onset
+  0.01366 m/s (-3 %), plateau 1.017, fluid dp 170.4 Pa: inside spec G6.
