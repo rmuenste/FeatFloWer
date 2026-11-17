@@ -307,6 +307,7 @@ ${CMAKE_SOURCE_DIR}/source/src_el/el_momentum_model.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_va_flux.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_viscous.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_mm_operator.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_image_transfer.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_transfer.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_volume_averaged.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
@@ -341,6 +342,7 @@ ${CMAKE_SOURCE_DIR}/source/src_el/el_momentum_model.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_va_flux.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_viscous.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_mm_operator.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_image_transfer.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_transfer.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_volume_averaged.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
