@@ -25,6 +25,16 @@ PROGRAM TEST_EL_PERIODIC
   !     the boundary-mask check of the transfer pass
   !   8 wide kernel: a kernel wider than half a period (a particle overlapping its own image)
   !     keeps translation invariance and conservation
+  !   9 neighbour test: f(a,b) and f(b,a) agree bit for bit on pairs whose gap equals the
+  !     kernel radius (the ties on which two ranks could disagree), named cases and a scan
+  !  10 wall lift (saffman_mei_wall): a periodic plane is not a wall; the lift does not change
+  !     with the position relative to a periodic plane, and a fully periodic box gives the
+  !     unbounded form
+  !  11 refusals and robustness, at predicate level: invalid period, lattice against domain,
+  !     rank box spanning a period, mask and coordinate sizes, positions far outside the cell
+  !     and positions that are not finite
+  ! The distributed path (graph build, record exchange, owner reduction on several ranks) is
+  ! in test_el_periodic_mpi.f90.
 
   USE MPI
   USE TYPES, ONLY: tMultiMesh
@@ -34,7 +44,12 @@ PROGRAM TEST_EL_PERIODIC
   USE EL_PERIODIC, ONLY: EL_SET_PERIODIC_LATTICE, EL_CLEAR_PERIODIC_LATTICE, &
                          EL_PERIODIC_ACTIVE, EL_PERIODIC_KERNEL_FITS, EL_IMAGE_SHIFTS, &
                          EL_MAX_IMAGES, EL_PERIODIC_SPHERE_REACHES_BOX, &
-                         EL_PERIODIC_BOXES_WITHIN_DELTA, EL_PERIODIC_MARKED_ON_PLANES
+                         EL_PERIODIC_BOXES_WITHIN_DELTA, EL_PERIODIC_MARKED_ON_PLANES, &
+                         EL_PERIODIC_LATTICE_FITS_DOMAIN, EL_PERIODIC_BOX_SPANS_AXIS
+  USE EL_VISCOUS, ONLY: EL_INTEGRATE_PARTICLE_VISCOUS
+  USE EL_CONFIG, ONLY: el_lift_model, EL_KERNEL_SUPPORT_RADIUS
+  USE EL_FORCES, ONLY: EL_LIFT_CLOSURE
+  USE EL_GEOMETRY, ONLY: EL_SET_DOMAIN_BOX, el_domain_set, el_domain_box_set
   USE EL_IMAGE_TRANSFER, ONLY: EL_SAMPLE_RECORD, EL_SAMPLE_RECORD_VISCOUS, EL_DEPOSIT_RECORD
   USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION, EL_INTEGRATE_PARTICLE, &
                            EL_DEPOSIT_PARTICLE
@@ -66,6 +81,7 @@ PROGRAM TEST_EL_PERIODIC
   REAL*8, ALLOCATABLE :: coor(:,:), val_u(:), val_v(:), val_w(:), val_p(:), eps(:)
   INTEGER :: ndof, rank, nproc, ierr, failures
   REAL*8 :: pi, h
+  LOGICAL :: lattice_ok
 
   CALL MPI_Init(ierr)
   CALL MPI_Comm_rank(MPI_COMM_WORLD, rank, ierr)
@@ -91,6 +107,9 @@ PROGRAM TEST_EL_PERIODIC
   CALL test_continuity_across_plane(failures)
   CALL test_viscous_average(failures)
   CALL test_wide_kernel(failures)
+  CALL test_neighbour_symmetry(failures)
+  CALL test_wall_lift(failures)
+  CALL test_refusals_and_robustness(failures)
 
   CALL EL_CLEAR_PERIODIC_LATTICE()
   CALL EL_TEST_REPORT(failures, rank, nproc, 'EL periodic kernel')
@@ -113,7 +132,7 @@ CONTAINS
     LOGICAL :: ok
 
     r = 0.2d0
-    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., .FALSE. /), one3)
+    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., .FALSE. /), one3, lattice_ok)
     CALL EL_TEST_CHECK(EL_PERIODIC_ACTIVE(), 'images: lattice xy is active', nf, rank)
 
     CALL EL_IMAGE_SHIFTS((/ 0.5d0, 0.5d0, 0.5d0 /), r, unit_box, s, m)
@@ -164,7 +183,7 @@ CONTAINS
       nf, rank)
 
     ! corner of a fully periodic cell
-    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., .TRUE. /), one3)
+    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., .TRUE. /), one3, lattice_ok)
     CALL EL_IMAGE_SHIFTS((/ 0.95d0, 0.05d0, 0.97d0 /), r, unit_box, s, m)
     ok = (m.EQ.8) .AND. has_shift(s, m, (/ -1.0d0, 1.0d0, -1.0d0 /)) .AND. &
          has_shift(s, m, (/ 0.0d0, 0.0d0, 0.0d0 /))
@@ -185,7 +204,7 @@ CONTAINS
     CALL EL_TEST_CHECK(m.EQ.27, 'images: kernel radius 0.9 L reaches the cell 27 times', &
       nf, rank)
     ok = EL_PERIODIC_KERNEL_FITS(0.999d0) .AND. .NOT.EL_PERIODIC_KERNEL_FITS(1.0d0)
-    CALL EL_SET_PERIODIC_LATTICE((/ .FALSE., .TRUE., .FALSE. /), (/ 9.0d9, 0.5d0, 9.0d9 /))
+    CALL EL_SET_PERIODIC_LATTICE((/ .FALSE., .TRUE., .FALSE. /), (/ 9.0d9, 0.5d0, 9.0d9 /), lattice_ok)
     ok = ok .AND. EL_PERIODIC_KERNEL_FITS(0.49d0) .AND. .NOT.EL_PERIODIC_KERNEL_FITS(0.5d0)
     CALL EL_TEST_CHECK(ok, 'images: kernel radius must be below every period', nf, rank)
 
@@ -216,18 +235,18 @@ CONTAINS
     a = (/ 0.0d0, 0.3d0, 0.0d0, 0.5d0, 0.0d0, 1.0d0 /)
     b = (/ 0.7d0, 1.0d0, 0.0d0, 0.5d0, 0.0d0, 1.0d0 /)      ! plain gap 0.4 in x
     c = (/ 0.7d0, 1.0d0, 0.5d0, 1.0d0, 0.0d0, 1.0d0 /)      ! diagonal neighbour across x
-    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .FALSE., .FALSE. /), one3)
+    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .FALSE., .FALSE. /), one3, lattice_ok)
     ok = EL_PERIODIC_BOXES_WITHIN_DELTA(a, b, 0.2d0) .AND. EL_PERIODIC_BOXES_WITHIN_DELTA(b, a, 0.2d0)
     ok = ok .AND. EL_PERIODIC_BOXES_WITHIN_DELTA(a, c, 0.0d0)
     ok = ok .AND. EL_PERIODIC_SPHERE_REACHES_BOX((/ 0.95d0, 0.25d0, 0.5d0 /), 0.1d0, a)
     ok = ok .AND. .NOT.EL_PERIODIC_SPHERE_REACHES_BOX((/ 0.85d0, 0.25d0, 0.5d0 /), 0.1d0, a)
     ! the same pair with the lattice on another axis: not coupled
-    CALL EL_SET_PERIODIC_LATTICE((/ .FALSE., .TRUE., .FALSE. /), one3)
+    CALL EL_SET_PERIODIC_LATTICE((/ .FALSE., .TRUE., .FALSE. /), one3, lattice_ok)
     ok = ok .AND. .NOT.EL_PERIODIC_BOXES_WITHIN_DELTA(a, b, 0.2d0)
     ok = ok .AND. EL_PERIODIC_BOXES_WITHIN_DELTA(a, b, 0.4d0)
     ok = ok .AND. .NOT.EL_PERIODIC_SPHERE_REACHES_BOX((/ 0.95d0, 0.25d0, 0.5d0 /), 0.1d0, a)
     ! xy lattice: boxes at opposite corners of the cell are neighbours through both planes
-    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., .FALSE. /), one3)
+    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., .FALSE. /), one3, lattice_ok)
     a = (/ 0.0d0, 0.3d0, 0.0d0, 0.3d0, 0.0d0, 1.0d0 /)
     c = (/ 0.7d0, 1.0d0, 0.7d0, 1.0d0, 0.0d0, 1.0d0 /)
     ok = ok .AND. EL_PERIODIC_BOXES_WITHIN_DELTA(a, c, 0.05d0)
@@ -243,8 +262,11 @@ CONTAINS
     INTEGER, INTENT(INOUT) :: nf
     TYPE(tElParticleRecord) :: p
     REAL*8 :: s0(EL_SAMPLE_SIZE), s1(EL_SAMPLE_SIZE), force(3)
+    REAL*8 :: v0(EL_VIS_SIZE), v1(EL_VIS_SIZE)
     REAL*8, ALLOCATABLE :: a0(:), f0(:,:), b0(:), g0(:,:)
+    LOGICAL, ALLOCATABLE :: wall(:)
     LOGICAL :: ok
+    INTEGER :: i
 
     CALL EL_CLEAR_PERIODIC_LATTICE()
     CALL set_fields((/ 0, 0, 0 /))
@@ -262,11 +284,28 @@ CONTAINS
     CALL EL_BEGIN_FIELD_UPDATE(.TRUE.)
     CALL EL_SAMPLE_RECORD(mesh, 1, val_u, val_v, val_w, val_p, eps, p, unit_box, s1)
     CALL EL_DEPOSIT_RECORD(mesh, 1, p, unit_box, s1(1), force, el_field_data, drag_b=2.5d0)
-    ok = ALL(s0.EQ.s1) .AND. ALL(a0.EQ.el_field_data%alpha_p) .AND. &
-         ALL(g0.EQ.el_field_data%grad_alpha_p) .AND. ALL(f0.EQ.el_field_data%force_rhs) .AND. &
-         ALL(b0.EQ.el_field_data%drag_B_ml)
-    CALL EL_TEST_CHECK(ok, 'default: record routines equal the single-kernel routines bitwise', &
+    ! bit patterns, not floating-point equality (which would take -0 for +0)
+    ok = same_bits(s0, s1) .AND. same_bits(a0, el_field_data%alpha_p) .AND. &
+         same_bits(RESHAPE(g0, (/ SIZE(g0) /)), &
+                   RESHAPE(el_field_data%grad_alpha_p, (/ SIZE(g0) /))) .AND. &
+         same_bits(RESHAPE(f0, (/ SIZE(f0) /)), &
+                   RESHAPE(el_field_data%force_rhs, (/ SIZE(f0) /))) .AND. &
+         same_bits(b0, el_field_data%drag_B_ml)
+    CALL EL_TEST_CHECK(ok, 'default: sample and deposit of a record have the bit patterns of the single-kernel routines', &
       nf, rank)
+
+    ! the viscous record against the single-kernel routine, next to a wall and a box face
+    ALLOCATE(wall(ndof))
+    DO i = 1, ndof
+      wall(i) = (coor(3,i).LT.1.0d-12 .OR. coor(3,i).GT.1.0d0-1.0d-12)
+    END DO
+    p = particle((/ 0.97d0, 0.03d0, 0.6d0*h /), 2.5d0*h/5.0d0)
+    CALL EL_INTEGRATE_PARTICLE_VISCOUS(mesh, 1, coor, val_u, val_v, val_w, wall, p%position, &
+      EL_KERNEL_SUPPORT_RADIUS(p%radius), v0)
+    CALL EL_SAMPLE_RECORD_VISCOUS(mesh, 1, coor, val_u, val_v, val_w, wall, p, unit_box, v1)
+    CALL EL_TEST_CHECK(same_bits(v0, v1) .AND. MAXVAL(ABS(v0)).GT.0.0d0, &
+      'default: viscous record has the bit pattern of the single-kernel routine', nf, rank)
+    DEALLOCATE(wall)
   END SUBROUTINE test_default_path
 
   !----------------------------------------------------------------------
@@ -279,7 +318,7 @@ CONTAINS
     ! reference position in the interior, off every mesh symmetry
     base = (/ 0.47d0, 0.53d0, 0.51d0 /)
 
-    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., .FALSE. /), one3)
+    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., .FALSE. /), one3, lattice_ok)
     ! 3 cells in x: x = 0.97, the kernel crosses the plane x = L
     CALL check_shift(base, (/ 3, 0, 0 /), radius_std, .FALSE., &
       'invariance xy: face x (particle at 0.97)', nf)
@@ -302,7 +341,7 @@ CONTAINS
     CALL check_shift((/ 0.47d0, 0.53d0, 0.07d0 /), (/ 3, 3, 0 /), radius_std, .TRUE., &
       'invariance xy: periodic edge next to a wall (kernel cut by z = 0)', nf)
 
-    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., .TRUE. /), one3)
+    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., .TRUE. /), one3, lattice_ok)
     CALL check_shift(base, (/ 3, 3, 3 /), radius_std, .TRUE., &
       'invariance xyz: corner (8 images)', nf)
     CALL check_shift(base, (/ 3, -3, 3 /), radius_std, .FALSE., &
@@ -359,7 +398,7 @@ CONTAINS
     pos_seam = (/ 0.97d0, 0.03d0, 0.51d0 /)             ! 3 cells in x and y: periodic edge
     CALL set_fields((/ 0, 0, 0 /))
 
-    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., .FALSE. /), one3)
+    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., .FALSE. /), one3, lattice_ok)
     CALL couple(particle(pos_in, radius_std), force, drag_b, c_in)
     CALL couple(particle(pos_seam, radius_std), force, drag_b, c_seam)
     CALL EL_CLEAR_PERIODIC_LATTICE()
@@ -414,7 +453,7 @@ CONTAINS
       IF (pass.EQ.3) THEN
         CALL EL_CLEAR_PERIODIC_LATTICE()
       ELSE
-        CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., .FALSE. /), one3)
+        CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., .FALSE. /), one3, lattice_ok)
       END IF
       DO k = 0, nstep
         x = 0.94d0 + 0.01d0*DBLE(k)
@@ -464,7 +503,7 @@ CONTAINS
     DO i = 1, ndof
       wall(i) = (coor(3,i).LT.1.0d-12 .OR. coor(3,i).GT.1.0d0-1.0d-12)
     END DO
-    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., .FALSE. /), one3)
+    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., .FALSE. /), one3, lattice_ok)
     ! the check of the transfer pass on a boundary mask: the wall mask holds no face on a
     ! periodic plane, a mask of the whole box surface (what a rank holding both planes of an
     ! axis gets from the fluid) does. Face-centre dofs only, as in the mask of the adapter.
@@ -518,7 +557,7 @@ CONTAINS
 
     radius = 0.13d0                                     ! kernel radius 0.65 L
     force = (/ 0.3d0, -1.1d0, 0.7d0 /)
-    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., .TRUE. /), one3)
+    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., .TRUE. /), one3, lattice_ok)
     CALL check_shift((/ 0.47d0, 0.53d0, 0.51d0 /), (/ 3, 2, -1 /), radius, .TRUE., &
       'wide kernel xyz (radius 0.65 L): translation invariance', nf)
     CALL check_shift((/ 0.47d0, 0.53d0, 0.51d0 /), (/ 1, 0, 0 /), radius, .FALSE., &
@@ -536,8 +575,295 @@ CONTAINS
   END SUBROUTINE test_wide_kernel
 
   !----------------------------------------------------------------------
+  ! 9 neighbour test: bitwise symmetry on ties
+  !----------------------------------------------------------------------
+  SUBROUTINE test_neighbour_symmetry(nf)
+    INTEGER, INTENT(INOUT) :: nf
+    REAL*8 :: a(6), b(6), slab(6,8), dh, delta, len(3), lo, w, d(4)
+    INTEGER :: i, j, k, it, c, seed, n_asym, n_old_asym, n_checked
+    LOGICAL :: ok
+
+    ! review case 1: L = 1, a = [0.1,0.2], b = [0.8,0.9] in x, delta = 0.2 (the gap across
+    ! the plane is 0.2 up to rounding; the previous expression gave different verdicts)
+    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .FALSE., .FALSE. /), one3, lattice_ok)
+    a = (/ 0.1d0, 0.2d0, 0.0d0, 1.0d0, 0.0d0, 1.0d0 /)
+    b = (/ 0.8d0, 0.9d0, 0.0d0, 1.0d0, 0.0d0, 1.0d0 /)
+    ok = (EL_PERIODIC_BOXES_WITHIN_DELTA(a, b, 0.2d0) .EQV. EL_PERIODIC_BOXES_WITHIN_DELTA(b, a, 0.2d0))
+    CALL EL_TEST_CHECK(ok .AND. (old_within(a, b, 0.2d0, one3) .NEQV. old_within(b, a, 0.2d0, one3)), &
+      'neighbours: L = 1, [0.1,0.2] and [0.8,0.9], delta 0.2: same verdict both ways (the previous expression disagreed)', &
+      nf, rank)
+
+    ! review case 2: L = 0.02, eight slabs, every pair, delta = 0.005 written two ways
+    len = (/ 0.02d0, 1.0d0, 1.0d0 /)
+    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .FALSE., .FALSE. /), len, lattice_ok)
+    dh = 0.02d0/8.0d0
+    DO k = 1, 8
+      slab(:,k) = (/ DBLE(k-1)*dh, DBLE(k)*dh, 0.0d0, 1.0d0, 0.0d0, 1.0d0 /)
+    END DO
+    n_asym = 0
+    n_old_asym = 0
+    DO it = 1, 2
+      delta = 0.005d0
+      IF (it.EQ.2) delta = 2.0d0*2.5d0*0.001d0
+      DO i = 1, 8
+        DO j = 1, 8
+          IF (EL_PERIODIC_BOXES_WITHIN_DELTA(slab(:,i), slab(:,j), delta) .NEQV. &
+              EL_PERIODIC_BOXES_WITHIN_DELTA(slab(:,j), slab(:,i), delta)) n_asym = n_asym + 1
+          IF (old_within(slab(:,i), slab(:,j), delta, len) .NEQV. &
+              old_within(slab(:,j), slab(:,i), delta, len)) n_old_asym = n_old_asym + 1
+        END DO
+      END DO
+    END DO
+    IF (rank.EQ.0) WRITE(*,'(A,I0,A,I0)') '    eight slabs of L = 0.02, delta = 0.005: asymmetric pairs ', &
+      n_asym, ', with the previous expression ', n_old_asym
+    CALL EL_TEST_CHECK(n_asym.EQ.0, &
+      'neighbours: eight slabs of L = 0.02, tie distance 0.005: every pair symmetric', nf, rank)
+    ! the pair named in the review, [0.005,0.0075] and [0.0175,0.02]: coupled across the plane
+    CALL EL_TEST_CHECK(EL_PERIODIC_BOXES_WITHIN_DELTA(slab(:,3), slab(:,8), 0.0051d0) .AND. &
+      .NOT.EL_PERIODIC_BOXES_WITHIN_DELTA(slab(:,3), slab(:,8), 0.0049d0), &
+      'neighbours: slabs 3 and 8 of L = 0.02 are 0.005 apart across the plane', nf, rank)
+
+    ! scan: pseudo-random box pairs on three lattices; delta is put on the tie (the gap as
+    ! the previous expression computed it in either order, and its two neighbours in the
+    ! floating-point line)
+    n_asym = 0
+    n_old_asym = 0
+    n_checked = 0
+    seed = 12345
+    DO it = 1, 3
+      len = (/ 1.0d0, 0.02d0, 0.3d0 /)
+      len = CSHIFT(len, it-1)
+      CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., it.EQ.3 /), len, lattice_ok)
+      DO k = 1, 4000
+        DO c = 1, 3
+          lo = lcg(seed)*0.9d0*len(c)
+          w = (0.02d0 + 0.08d0*lcg(seed))*len(c)
+          a(2*c-1) = lo
+          a(2*c) = MIN(lo + w, len(c))
+          lo = lcg(seed)*0.9d0*len(c)
+          w = (0.02d0 + 0.08d0*lcg(seed))*len(c)
+          b(2*c-1) = lo
+          b(2*c) = MIN(lo + w, len(c))
+        END DO
+        ! two of three pairs differ along x only, where a tie is a single rounding
+        IF (MOD(k,3).NE.0) THEN
+          b(3:6) = a(3:6)
+        END IF
+        d(1) = old_gap(a, b, len)
+        d(2) = old_gap(b, a, len)
+        d(3) = NEAREST(d(1), 1.0d0)
+        d(4) = NEAREST(d(2), -1.0d0)
+        DO c = 1, 4
+          n_checked = n_checked + 1
+          IF (EL_PERIODIC_BOXES_WITHIN_DELTA(a, b, d(c)) .NEQV. &
+              EL_PERIODIC_BOXES_WITHIN_DELTA(b, a, d(c))) n_asym = n_asym + 1
+          IF (old_within(a, b, d(c), len) .NEQV. old_within(b, a, d(c), len)) &
+            n_old_asym = n_old_asym + 1
+        END DO
+      END DO
+    END DO
+    IF (rank.EQ.0) WRITE(*,'(A,I0,A,I0,A,I0)') '    scan: ', n_checked, &
+      ' ties, asymmetric verdicts ', n_asym, ', with the previous expression ', n_old_asym
+    CALL EL_TEST_CHECK(n_asym.EQ.0, 'neighbours: scan of tie distances, every pair symmetric', &
+      nf, rank)
+    CALL EL_TEST_CHECK(n_old_asym.GT.0, &
+      'neighbours: the scan contains ties on which the previous expression disagreed (discriminates)', &
+      nf, rank)
+    CALL EL_CLEAR_PERIODIC_LATTICE()
+  END SUBROUTINE test_neighbour_symmetry
+
+  ! the neighbour test as it was before the review (box b shifted, then subtracted)
+  REAL*8 FUNCTION old_gap(a, b, len) RESULT(dist)
+    USE EL_PERIODIC, ONLY: EL_PERIODIC_AXES
+    REAL*8, INTENT(IN) :: a(6), b(6), len(3)
+    REAL*8 :: gap(3), sh
+    LOGICAL :: axis(3)
+    INTEGER :: k, m
+    axis = EL_PERIODIC_AXES()
+    DO k = 1, 3
+      gap(k) = MAX(0.0d0, MAX(a(2*k-1)-b(2*k), b(2*k-1)-a(2*k)))
+      IF (.NOT.axis(k)) CYCLE
+      DO m = -1, 1, 2
+        sh = DBLE(m)*len(k)
+        gap(k) = MIN(gap(k), MAX(0.0d0, MAX(a(2*k-1)-(b(2*k)+sh), (b(2*k-1)+sh)-a(2*k))))
+      END DO
+    END DO
+    dist = SQRT(SUM(gap*gap))
+  END FUNCTION old_gap
+
+  LOGICAL FUNCTION old_within(a, b, delta, len)
+    REAL*8, INTENT(IN) :: a(6), b(6), delta, len(3)
+    old_within = old_gap(a, b, len).LE.delta
+  END FUNCTION old_within
+
+  ! deterministic pseudo-random number in [0,1)
+  REAL*8 FUNCTION lcg(seed)
+    INTEGER, INTENT(INOUT) :: seed
+    seed = MOD(1103515245_8*INT(seed,8) + 12345_8, 2147483648_8)
+    lcg = DBLE(seed)/2147483648.0d0
+  END FUNCTION lcg
+
+  !----------------------------------------------------------------------
+  ! 10 wall lift: a periodic plane is not a wall
+  !----------------------------------------------------------------------
+  SUBROUTINE test_wall_lift(nf)
+    INTEGER, INTENT(INOUT) :: nf
+    REAL*8 :: state(8), u(3), grad_u(3,3), lift_a(3), lift_b(3), lift_c(3), lift_off(3)
+    REAL*8 :: lift_free(3), lift_xyz(3)
+    CHARACTER(LEN=32) :: saved_model
+    REAL*8, PARAMETER :: rho = 1.0d0, nu = 0.01d0
+
+    saved_model = el_lift_model
+    CALL EL_SET_DOMAIN_BOX(0.0d0, 1.0d0, 0.0d0, 1.0d0, 0.0d0, 1.0d0)
+    ! slip 1, diameter 0.04: Re = 4, the wall-bounded branch of the closure
+    state = 0.0d0
+    state(7) = 0.02d0
+    state(8) = 2.0d0
+    u = (/ 1.0d0, 0.0d0, 0.0d0 /)
+    grad_u = 0.0d0
+    grad_u(1,3) = 3.0d0
+    grad_u(2,1) = -1.0d0
+
+    el_lift_model = 'saffman_mei_wall'
+    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., .FALSE. /), one3, lattice_ok)
+    state(1:3) = (/ 0.02d0, 0.5d0, 0.3d0 /)          ! 0.02 from the periodic plane x = 0
+    CALL EL_LIFT_CLOSURE(state, u, grad_u, rho, nu, 1.0d0, lift_a)
+    state(1:3) = (/ 0.52d0, 0.5d0, 0.3d0 /)          ! the same, moved by half a period
+    CALL EL_LIFT_CLOSURE(state, u, grad_u, rho, nu, 1.0d0, lift_b)
+    state(1:3) = (/ 0.98d0, 0.97d0, 0.3d0 /)         ! on the other side of the plane, near y = L
+    CALL EL_LIFT_CLOSURE(state, u, grad_u, rho, nu, 1.0d0, lift_c)
+    CALL EL_TEST_CHECK(same_bits(lift_a, lift_b) .AND. same_bits(lift_a, lift_c) .AND. &
+      lift_a(3).NE.0.0d0 .AND. lift_a(1).EQ.0.0d0 .AND. lift_a(2).EQ.0.0d0, &
+      'wall lift xy: the same on either side of a periodic plane, directed along the wall normal z', &
+      nf, rank)
+
+    CALL EL_CLEAR_PERIODIC_LATTICE()
+    state(1:3) = (/ 0.02d0, 0.5d0, 0.3d0 /)
+    CALL EL_LIFT_CLOSURE(state, u, grad_u, rho, nu, 1.0d0, lift_off)
+    CALL EL_TEST_CHECK(lift_off(1).NE.0.0d0 .AND. lift_off(3).EQ.0.0d0, &
+      'wall lift: without the lattice the plane x = 0 acts as the wall (discriminates)', nf, rank)
+
+    ! every face periodic: no wall, the unbounded form
+    el_lift_model = 'saffman_mei'
+    CALL EL_LIFT_CLOSURE(state, u, grad_u, rho, nu, 1.0d0, lift_free)
+    el_lift_model = 'saffman_mei_wall'
+    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., .TRUE. /), one3, lattice_ok)
+    CALL EL_LIFT_CLOSURE(state, u, grad_u, rho, nu, 1.0d0, lift_xyz)
+    CALL EL_TEST_CHECK(same_bits(lift_xyz, lift_free) .AND. MAXVAL(ABS(lift_free)).GT.0.0d0, &
+      'wall lift xyz: no wall left, the unbounded saffman_mei lift', nf, rank)
+
+    CALL EL_CLEAR_PERIODIC_LATTICE()
+    el_lift_model = saved_model
+    el_domain_set = .FALSE.
+    el_domain_box_set = .FALSE.
+  END SUBROUTINE test_wall_lift
+
+  !----------------------------------------------------------------------
+  ! 11 refusals (predicate level) and robustness of the image enumeration
+  !----------------------------------------------------------------------
+  SUBROUTINE test_refusals_and_robustness(nf)
+    INTEGER, INTENT(INOUT) :: nf
+    REAL*8 :: s(3,EL_MAX_IMAGES), box(6), big, nan, inf, zero
+    LOGICAL :: ok, ok2
+    LOGICAL, ALLOCATABLE :: mask(:)
+    INTEGER :: m, bad
+
+    ! a period that is not a positive finite number sets no lattice
+    zero = 0.0d0
+    nan = zero/zero
+    inf = HUGE(1.0d0)
+    inf = inf*2.0d0
+    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .FALSE., .FALSE. /), (/ 0.0d0, 1.0d0, 1.0d0 /), ok)
+    ok2 = .NOT.ok .AND. .NOT.EL_PERIODIC_ACTIVE()
+    CALL EL_SET_PERIODIC_LATTICE((/ .FALSE., .TRUE., .FALSE. /), (/ 1.0d0, -2.0d0, 1.0d0 /), ok)
+    ok2 = ok2 .AND. .NOT.ok .AND. .NOT.EL_PERIODIC_ACTIVE()
+    CALL EL_SET_PERIODIC_LATTICE((/ .FALSE., .FALSE., .TRUE. /), (/ 1.0d0, 1.0d0, nan /), ok)
+    ok2 = ok2 .AND. .NOT.ok .AND. .NOT.EL_PERIODIC_ACTIVE()
+    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .FALSE., .FALSE. /), (/ inf, 1.0d0, 1.0d0 /), ok)
+    ok2 = ok2 .AND. .NOT.ok .AND. .NOT.EL_PERIODIC_ACTIVE()
+    ! the length of an axis that is not periodic is not read
+    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .FALSE., .FALSE. /), (/ 1.0d0, -1.0d0, nan /), ok)
+    ok2 = ok2 .AND. ok .AND. EL_PERIODIC_ACTIVE()
+    CALL EL_TEST_CHECK(ok2, 'refusal: a period that is zero, negative or not finite sets no lattice', &
+      nf, rank)
+
+    ! lattice against the fluid domain (start-up check 913)
+    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., .FALSE. /), one3, lattice_ok)
+    ok = EL_PERIODIC_LATTICE_FITS_DOMAIN(unit_box, bad) .AND. bad.EQ.0
+    ok = ok .AND. EL_PERIODIC_LATTICE_FITS_DOMAIN((/ 2.0d0, 3.0d0, -0.5d0, 0.5d0, 0.0d0, 7.0d0 /), bad)
+    ok = ok .AND. EL_PERIODIC_LATTICE_FITS_DOMAIN((/ 0.0d0, 1.0d0+5.0d-9, 0.0d0, 1.0d0, 0.0d0, 1.0d0 /), bad)
+    ok = ok .AND. .NOT.EL_PERIODIC_LATTICE_FITS_DOMAIN((/ 0.0d0, 1.0d0+5.0d-8, 0.0d0, 1.0d0, 0.0d0, 1.0d0 /), bad)
+    ok = ok .AND. bad.EQ.1
+    ! the batch-settling box with the default period 1 (the deck without PeriodicLength)
+    ok = ok .AND. .NOT.EL_PERIODIC_LATTICE_FITS_DOMAIN((/ 0.0d0, 0.02d0, 0.0d0, 0.02d0, 0.0d0, 0.2d0 /), bad)
+    ok = ok .AND. .NOT.EL_PERIODIC_LATTICE_FITS_DOMAIN((/ 0.0d0, 1.0d0, 0.0d0, 0.5d0, 0.0d0, 1.0d0 /), bad)
+    ok = ok .AND. bad.EQ.2
+    ok = ok .AND. .NOT.EL_PERIODIC_LATTICE_FITS_DOMAIN((/ 0.0d0, nan, 0.0d0, 1.0d0, 0.0d0, 1.0d0 /), bad)
+    CALL EL_TEST_CHECK(ok, 'refusal: the lattice must be the fluid domain (1e-8 periods)', nf, rank)
+
+    ! a rank box that spans a period (halo check 914)
+    ok = EL_PERIODIC_BOX_SPANS_AXIS(unit_box)
+    ok = ok .AND. .NOT.EL_PERIODIC_BOX_SPANS_AXIS((/ 0.0d0, 0.5d0, 0.5d0, 1.0d0, 0.0d0, 1.0d0 /))
+    ok = ok .AND. EL_PERIODIC_BOX_SPANS_AXIS((/ 0.0d0, 0.5d0, 0.0d0, 1.0d0-1.0d-9, 0.0d0, 0.2d0 /))
+    ok = ok .AND. .NOT.EL_PERIODIC_BOX_SPANS_AXIS((/ 0.0d0, 0.5d0, 0.0d0, 1.0d0-1.0d-7, 0.0d0, 1.0d0 /))
+    ok = ok .AND. EL_PERIODIC_BOX_SPANS_AXIS((/ 0.0d0, nan, 0.0d0, 0.5d0, 0.0d0, 1.0d0 /))
+    CALL EL_TEST_CHECK(ok, 'refusal: a rank box that spans a period is recognised (z, not periodic, may)', &
+      nf, rank)
+
+    ! boundary mask longer than the coordinates (check 912)
+    ALLOCATE(mask(ndof+1))
+    mask = .FALSE.
+    ok = EL_PERIODIC_MARKED_ON_PLANES(coor, mask, unit_box).EQ.-1
+    ok = ok .AND. EL_PERIODIC_MARKED_ON_PLANES(coor, mask(1:ndof), unit_box).EQ.0
+    ok = ok .AND. EL_PERIODIC_MARKED_ON_PLANES(coor, mask(1:nvt), unit_box).EQ.0
+    DEALLOCATE(mask)
+    CALL EL_TEST_CHECK(ok, 'refusal: a boundary mask that the coordinates do not cover is reported', &
+      nf, rank)
+
+    ! image enumeration far outside the cell: no integer conversion, never more than 27
+    box = (/ 0.0d0, 0.3d0, 0.0d0, 0.4d0, 0.0d0, 1.0d0 /)
+    CALL EL_IMAGE_SHIFTS((/ 3.0d9 + 0.25d0, 0.2d0, 0.5d0 /), 0.2d0, box, s, m)
+    ok = (m.EQ.1)
+    IF (ok) ok = (s(1,1).EQ.-3.0d9 .AND. s(2,1).EQ.0.0d0)
+    CALL EL_IMAGE_SHIFTS((/ -7.0d12 + 0.95d0, 0.2d0, 0.5d0 /), 0.2d0, box, s, m)
+    ok = ok .AND. (m.EQ.1)
+    IF (ok) ok = (s(1,1).EQ.7.0d12 - 1.0d0)
+    big = 1.0d300
+    CALL EL_TEST_CHECK(ok, 'images: positions 3e9 and 7e12 periods outside the cell', nf, rank)
+    ! beyond 2**52 periods the lattice index is not exact: no image, not three copies of one
+    CALL EL_IMAGE_SHIFTS((/ big, -big, 0.5d0 /), 0.2d0, box, s, m)
+    ok = (m.EQ.0)
+    CALL EL_IMAGE_SHIFTS((/ 0.1d0, HUGE(1.0d0), 0.5d0 /), 0.2d0, box, s, m)
+    ok = ok .AND. (m.EQ.0)
+    CALL EL_TEST_CHECK(ok, 'images: a position beyond 2**52 periods has no image', nf, rank)
+    CALL EL_IMAGE_SHIFTS((/ nan, 0.2d0, 0.5d0 /), 0.2d0, box, s, m)
+    ok = (m.EQ.0)
+    CALL EL_IMAGE_SHIFTS((/ 0.1d0, inf, 0.5d0 /), 0.2d0, box, s, m)
+    ok = ok .AND. (m.EQ.0)
+    CALL EL_IMAGE_SHIFTS((/ 0.1d0, 0.2d0, -inf /), 0.2d0, box, s, m)
+    ok = ok .AND. (m.EQ.0)
+    ok = ok .AND. .NOT.EL_PERIODIC_SPHERE_REACHES_BOX((/ nan, 0.2d0, 0.5d0 /), 0.2d0, box)
+    CALL EL_TEST_CHECK(ok, 'images: a position that is not finite has no image', nf, rank)
+    ! the bound of 27 does not depend on the preconditions: a radius of ten periods
+    CALL EL_SET_PERIODIC_LATTICE((/ .TRUE., .TRUE., .TRUE. /), one3, lattice_ok)
+    CALL EL_IMAGE_SHIFTS((/ 0.5d0, 0.5d0, 0.5d0 /), 10.0d0, unit_box, s, m)
+    CALL EL_TEST_CHECK(m.EQ.EL_MAX_IMAGES, &
+      'images: at most 27 whatever the radius (a radius beyond a period is refused by the halo)', &
+      nf, rank)
+    CALL EL_CLEAR_PERIODIC_LATTICE()
+  END SUBROUTINE test_refusals_and_robustness
+
+  !----------------------------------------------------------------------
   ! Helpers
   !----------------------------------------------------------------------
+  ! the two arrays have the same bit patterns (and the same size)
+  LOGICAL FUNCTION same_bits(a, b)
+    REAL*8, INTENT(IN) :: a(:), b(:)
+    same_bits = .FALSE.
+    IF (SIZE(a).NE.SIZE(b)) RETURN
+    same_bits = ALL(TRANSFER(a, (/ 0_8 /)).EQ.TRANSFER(b, (/ 0_8 /)))
+  END FUNCTION same_bits
+
   FUNCTION particle(position, radius) RESULT(p)
     REAL*8, INTENT(IN) :: position(3), radius
     TYPE(tElParticleRecord) :: p

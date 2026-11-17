@@ -453,6 +453,24 @@ if(BUILD_TESTING)
   target_include_directories(test_el_periodic PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
   target_compile_options(test_el_periodic PRIVATE ${Fortran_FLAGS})
   add_test(NAME el-periodic-serial COMMAND test_el_periodic)
+
+  # The same on a partitioned cell: neighbour graph, record exchange, owner reduction and the
+  # record operations on 4 and 8 ranks against one rank holding the cell
+  # (source/src_el/tests/test_el_periodic_mpi.f90).
+  add_executable(test_el_periodic_mpi
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_el_periodic_mpi.f90)
+  target_link_libraries(test_el_periodic_mpi ff_quadLS_app el_test_helpers)
+  target_include_directories(test_el_periodic_mpi PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_el_periodic_mpi PRIVATE ${Fortran_FLAGS})
+  if(MPIEXEC_EXECUTABLE)
+    foreach(_np 4 8)
+      add_test(NAME el-periodic-mpi-${_np}
+        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${_np}
+                ${MPIEXEC_PREFLAGS} $<TARGET_FILE:test_el_periodic_mpi>
+                ${MPIEXEC_POSTFLAGS})
+      set_tests_properties(el-periodic-mpi-${_np} PROPERTIES PROCESSORS ${_np})
+    endforeach()
+  endif()
 endif()
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
