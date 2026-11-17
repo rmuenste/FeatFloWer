@@ -157,6 +157,27 @@ MODULE EL_CONFIG
   ! The valid values, blank-padded; index = form id of EL_VA_CONTINUITY (0 advective,
   ! 1 conservative).
   CHARACTER(LEN=12), PARAMETER :: el_va_form_names(0:1) = (/ 'advective   ', 'conservative' /)
+  ! SimPar@ELPeriodicKernel = off | wrap
+  !   Periodic image treatment of the particle-mesh coupling (EL_PERIODIC, EL_IMAGE_TRANSFER;
+  !   docs/md_docs/el_periodic_kernel_2026-11-17.md):
+  !   'off'  (default) the kernel of a particle ends at the periodic planes of the fluid
+  !          domain like at a wall: a particle within one kernel radius of a plane deposits and
+  !          samples on its own side only, and its footprint jumps by the period when the
+  !          particle engine wraps it (the campaign behaviour, every certified log bitwise).
+  !   'wrap' on every periodic axis of the fluid (SimPar@Periodic / PeriodicAxis /
+  !          PeriodicLength) a particle acts through its periodic images: deposit, sampling,
+  !          kernel normalisation and the halo exchange see the particle on both sides of a
+  !          plane. Refused without a periodic axis (the application checks it, where the
+  !          periodicity is known) and when the kernel radius reaches a period (EL_HALO).
+  !          The periodicity of the particle engine (periodicX_/Y_/Z_ of its json) is a
+  !          separate input and must describe the same axes.
+  !   The echo line appears only for 'wrap'.
+  CHARACTER(LEN=32) :: el_periodic_kernel = 'off'
+  ! The valid values, blank-padded; index 1 = 'wrap' is the one the resolution tests.
+  CHARACTER(LEN=4), PARAMETER :: el_periodic_kernel_names(0:1) = (/ 'off ', 'wrap' /)
+  ! Resolved by EL_VALIDATE_CONFIG (deck-only, the same on every rank): the deck asks for
+  ! 'wrap'. The application turns it into the lattice of EL_PERIODIC; nothing else reads it.
+  LOGICAL :: el_periodic_wrap = .FALSE.
   ! SimPar@ELMomentumModel = none | Bfull | B | A
   !   Momentum formulation of the fluid-particle set, named after the CFDEM model types
   !   (cfdemSolverPiso; docs/md_docs/el_momentum_models_plan_2026-11-15.md):
@@ -284,6 +305,12 @@ CONTAINS
     CALL EL_LOWERCASE(el_momentum_model)
     CALL EL_LOWERCASE(el_mm_pressure_operator)
     CALL EL_LOWERCASE(el_fluid_viscosity)
+    CALL EL_LOWERCASE(el_periodic_kernel)
+    IF (.NOT.ANY(TRIM(el_periodic_kernel).EQ.el_periodic_kernel_names)) THEN
+      WRITE(*,'(A,A)') 'Invalid ELPeriodicKernel (off|wrap): ', TRIM(el_periodic_kernel)
+      STOP 1
+    END IF
+    el_periodic_wrap = (TRIM(el_periodic_kernel).EQ.TRIM(el_periodic_kernel_names(1)))
     IF (.NOT.ANY(TRIM(el_fluid_viscosity).EQ.el_fluid_visc_names)) THEN
       WRITE(*,'(A,A)') 'Invalid ELFluidViscosity (kinematic|dynamic): ', TRIM(el_fluid_viscosity)
       STOP 1
@@ -560,6 +587,8 @@ CONTAINS
     IF (el_mm_pop_weighted) WRITE(mfile,'(A,A)') 'EL MM pressure operator   = ', &
       TRIM(EL_MM_PRESSURE_OPERATOR_TEXT())
     WRITE(mfile,'(A,A)') 'EL fluid viscosity        = ', TRIM(el_fluid_viscosity)
+    IF (el_periodic_wrap) WRITE(mfile,'(A,A)') 'EL periodic kernel        = ', &
+      TRIM(el_periodic_kernel)
     DO i_implied=1,el_n_implied
       WRITE(mfile,'(A,A)') '  implied by the model    : ', TRIM(el_mm_implied(i_implied))
     END DO
@@ -603,6 +632,8 @@ CONTAINS
       IF (el_mm_pop_weighted) WRITE(mterm,'(A,A)') 'EL MM pressure operator   = ', &
         TRIM(EL_MM_PRESSURE_OPERATOR_TEXT())
       WRITE(mterm,'(A,A)') 'EL fluid viscosity        = ', TRIM(el_fluid_viscosity)
+      IF (el_periodic_wrap) WRITE(mterm,'(A,A)') 'EL periodic kernel        = ', &
+        TRIM(el_periodic_kernel)
       DO i_implied=1,el_n_implied
         WRITE(mterm,'(A,A)') '  implied by the model    : ', TRIM(el_mm_implied(i_implied))
       END DO

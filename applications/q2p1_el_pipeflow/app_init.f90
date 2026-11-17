@@ -690,9 +690,11 @@ END SUBROUTINE get_global_domain_extents
                         el_inlet_u0, el_inlet_u1, el_inlet_tramp, &
                         EL_INLET_SUPERFICIAL, &
                         el_momentum_model, el_mm_pressure_operator, el_fluid_viscosity, &
+                        el_periodic_kernel, el_periodic_wrap, &
                         EL_NOTE_KEY_SET, &
                         EL_VALIDATE_CONFIG, &
                         EL_PRINT_CONFIG
+   USE EL_PERIODIC, ONLY: EL_SET_PERIODIC_LATTICE
 #endif
    USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,iCommSwitch,&
      nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
@@ -909,6 +911,8 @@ END SUBROUTINE get_global_domain_extents
          READ(string(iEq+1:),*) el_mm_pressure_operator
        CASE ("ELFluidViscosity")
          READ(string(iEq+1:),*) el_fluid_viscosity
+       CASE ("ELPeriodicKernel")
+         READ(string(iEq+1:),*) el_periodic_kernel
        CASE ("ELCylinderCenter")
          READ(string(iEq+1:),*) el_cylinder_center
        CASE ("ELCylinderRadius")
@@ -1069,6 +1073,18 @@ END SUBROUTINE get_global_domain_extents
    END IF
 
    CALL EL_VALIDATE_CONFIG()
+   ! SimPar@ELPeriodicKernel = wrap: the particle-mesh coupling wraps on the periodic axes of
+   ! the fluid, which are known here (dPeriodicity(a) is the period of axis a, 1d9 = not
+   ! periodic; PARENTCOMM uses the same < 1d8 test). Without a periodic axis the key is
+   ! refused instead of being ignored: the deck asks for images that cannot exist, most
+   ! likely because the periodicity keys are missing. Deck-only, the same on every rank.
+   IF (el_periodic_wrap) THEN
+     IF (.NOT.ANY(dPeriodicity.LT.1.0d8)) THEN
+       WRITE(*,'(A)') 'ELPeriodicKernel = wrap needs a periodic fluid axis (SimPar@PeriodicAxis / PeriodicLength or SimPar@Periodic).'
+       STOP 1
+     END IF
+     CALL EL_SET_PERIODIC_LATTICE(dPeriodicity.LT.1.0d8, dPeriodicity)
+   END IF
    ! the nodal reconstruction of the conservative continuity form sums across ranks with
    ! E013Sum2, which exists for the communication schemes 3 and 4 only (QuadSc_mpi); checked
    ! here, before the first transfer pass, on every rank
