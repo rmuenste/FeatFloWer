@@ -100,8 +100,15 @@ Refused:
 
 ## Limits and open points
 
-- Whether the fluid solver itself supports a rank that holds both periodic planes of an axis
-  is outside this change; the coupling does (unit test: one rank holding the whole cell).
+- A rank that holds both periodic planes of an axis is covered by the coupling (unit test:
+  one rank holding the whole cell) but cannot occur in the application today: the particle
+  engine refuses a periodic axis with fewer than three processes (`processesX_ >= 3`,
+  "distinct wrap neighbors", checked in its setup). Whether the fluid solver supports such
+  a rank is outside this change.
+- Binaries are compiled with `-march=native`: rounding-level diagnostics (conservation
+  residuals) of a run are bitwise reproducible only with a binary built on the same host
+  type. Default-path gates against certified logs need a build on the host of the
+  certified build.
 - Wall-distance based closures (`ELLiftModel = saffman_mei_wall`) still take the faces of
   the domain box as walls on a periodic axis; unchanged, independent of this key.
 - Cylinder domains: the boundary-mask check is made for box domains only.
