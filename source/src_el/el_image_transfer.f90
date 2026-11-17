@@ -30,7 +30,7 @@
 MODULE EL_IMAGE_TRANSFER
 
   USE TYPES, ONLY: tMultiMesh
-  USE EL_CONFIG, ONLY: el_kernel_width_factor
+  USE EL_CONFIG, ONLY: EL_KERNEL_SUPPORT_RADIUS
   USE EL_HALO, ONLY: tElParticleRecord
   USE EL_FIELDS, ONLY: tElFieldStorage
   USE EL_PERIODIC, ONLY: EL_PERIODIC_ACTIVE, EL_IMAGE_SHIFTS, EL_MAX_IMAGES
@@ -43,12 +43,6 @@ MODULE EL_IMAGE_TRANSFER
 
 CONTAINS
 
-  ! Kernel support radius of a record (the expression of EL_QUADRATURE and EL_HALO).
-  PURE REAL*8 FUNCTION kernel_radius(record)
-    TYPE(tElParticleRecord), INTENT(IN) :: record
-    kernel_radius = 2.0d0*el_kernel_width_factor*record%radius
-  END FUNCTION kernel_radius
-
   ! The images of a record that reach the box: copies of the record at position + shift.
   SUBROUTINE EL_RECORD_IMAGES(record, box, images, n)
 
@@ -60,7 +54,7 @@ CONTAINS
     REAL*8 :: shifts(3,EL_MAX_IMAGES)
     INTEGER :: k
 
-    CALL EL_IMAGE_SHIFTS(record%position, kernel_radius(record), box, shifts, n)
+    CALL EL_IMAGE_SHIFTS(record%position, EL_KERNEL_SUPPORT_RADIUS(record%radius), box, shifts, n)
     DO k = 1, n
       images(k) = record
       images(k)%position = record%position + shifts(:,k)
@@ -102,7 +96,7 @@ CONTAINS
 
   ! Additive pieces of the kernel-averaged Laplacian for one record (layout: EL_VISCOUS).
   ! boundary_face_dof marks the faces that cut the kernel; a periodic plane must not be one
-  ! of them (EL_PARTICLE_MESH_PASS verifies the mask of the fluid adapter once per run).
+  ! of them (EL_PARTICLE_MESH_PASS verifies the mask of the fluid adapter in every pass).
   SUBROUTINE EL_SAMPLE_RECORD_VISCOUS(mesh, ilev, coor, velocity_u, velocity_v, velocity_w, &
                                       boundary_face_dof, record, box, vis)
 
@@ -120,7 +114,7 @@ CONTAINS
 
     IF (.NOT.EL_PERIODIC_ACTIVE()) THEN
       CALL EL_INTEGRATE_PARTICLE_VISCOUS(mesh, ilev, coor, velocity_u, velocity_v, velocity_w, &
-        boundary_face_dof, record%position, 2.0d0*el_kernel_width_factor*record%radius, vis)
+        boundary_face_dof, record%position, EL_KERNEL_SUPPORT_RADIUS(record%radius), vis)
       RETURN
     END IF
 
@@ -128,7 +122,7 @@ CONTAINS
     vis = 0.0d0
     DO k = 1, n
       CALL EL_INTEGRATE_PARTICLE_VISCOUS(mesh, ilev, coor, velocity_u, velocity_v, velocity_w, &
-        boundary_face_dof, images(k)%position, kernel_radius(record), part)
+        boundary_face_dof, images(k)%position, EL_KERNEL_SUPPORT_RADIUS(record%radius), part)
       vis = vis + part
     END DO
 

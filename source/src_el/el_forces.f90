@@ -264,6 +264,11 @@ CONTAINS
       END IF
 
       CALL EL_WALL_DISTANCE_AND_NORMAL(state(1:3), wall_distance, wall_normal)
+      ! no wall (every face of the box is a periodic plane of the coupling): unbounded form
+      IF (wall_distance.GE.HUGE(1.0d0)) THEN
+        lift = mei_factor*saffman_lift
+        RETURN
+      END IF
       l_over_d = MAX(wall_distance/diameter,0.5d0)
       zeng_re = reynolds
       IF (zeng_re.GT.200.0d0) THEN

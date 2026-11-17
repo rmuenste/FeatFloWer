@@ -1,5 +1,7 @@
 MODULE EL_GEOMETRY
 
+  USE EL_PERIODIC, ONLY: EL_PERIODIC_ACTIVE, EL_PERIODIC_AXES
+
   IMPLICIT NONE
 
   REAL*8 :: el_domain_box(6) = 0.0d0
@@ -47,12 +49,21 @@ CONTAINS
 
   END FUNCTION EL_WALL_DISTANCE
 
+  ! Distance to the nearest wall of the domain and the unit normal pointing from that wall
+  ! into the fluid. distance = HUGE and normal = 0 when there is no wall: no domain set, or a
+  ! box whose three axes are all periodic under SimPar@ELPeriodicKernel = wrap.
+  !
+  ! Periodic images (EL_PERIODIC active): the two faces of the box normal to a periodic axis
+  ! are not walls and are left out of the search, so that the result does not depend on where
+  ! the particle sits relative to a periodic plane. Without the lattice all six faces are
+  ! walls, as before.
   SUBROUTINE EL_WALL_DISTANCE_AND_NORMAL(position, distance, normal)
 
     REAL*8, INTENT(IN) :: position(3)
     REAL*8, INTENT(OUT) :: distance, normal(3)
     REAL*8 :: distances(6), radial(3), rnorm
-    INTEGER :: iwall
+    INTEGER :: iwall, a
+    LOGICAL :: periodic(3)
 
     normal = 0.0d0
     IF (.NOT.el_domain_set) THEN
@@ -88,6 +99,16 @@ CONTAINS
       distances = (/position(1)-el_domain_box(1), el_domain_box(2)-position(1), &
                     position(2)-el_domain_box(3), el_domain_box(4)-position(2), &
                     position(3)-el_domain_box(5), el_domain_box(6)-position(3)/)
+      IF (EL_PERIODIC_ACTIVE()) THEN
+        periodic = EL_PERIODIC_AXES()
+        IF (ALL(periodic)) THEN
+          distance = HUGE(1.0d0)
+          RETURN
+        END IF
+        DO a = 1, 3
+          IF (periodic(a)) distances(2*a-1:2*a) = HUGE(1.0d0)
+        END DO
+      END IF
       iwall = MINLOC(distances, DIM=1)
       distance = distances(iwall)
 

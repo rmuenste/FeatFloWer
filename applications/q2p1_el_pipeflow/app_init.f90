@@ -166,6 +166,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE EL_GEOMETRY, ONLY: EL_SET_DOMAIN_BOX, EL_SET_DOMAIN_CYLINDER
  USE EL_CONFIG, ONLY: el_domain_type, el_cylinder_center, &
                       el_cylinder_radius, el_cylinder_axis
+ USE EL_PERIODIC, ONLY: EL_PERIODIC_ACTIVE, EL_PERIODIC_LATTICE_FITS_DOMAIN, &
+                        EL_PERIODIC_LENGTHS
 #endif
 
  IMPLICIT NONE
@@ -208,6 +210,9 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  integer :: MPI_W0, MPI_EX0
  integer :: MPI_Comm_EX0, new_comm
  integer :: error_indicator
+#ifdef BUILD_Q2P1_EL_PIPEFLOW
+ integer :: el_lattice_bad_axis
+#endif
  integer :: numParticles, ierror, ndims, reorder
  integer, dimension(3) :: dim_size
  logical periods(0:2)
@@ -538,6 +543,26 @@ IF (myid.eq.1) write(*,*) 'done!'
    call EL_SET_DOMAIN_BOX(domain_xmin, domain_xmax, domain_ymin, domain_ymax, &
                           domain_zmin, domain_zmax)
  end if
+ ! SimPar@ELPeriodicKernel = wrap: the lattice of the coupling (the periods of the deck,
+ ! myGDATNEW) must be the fluid domain, or an image is not a lattice translate of the mesh
+ ! (SimPar@Periodic = Yes sets the period 1, PeriodicLength defaults to 1). The extents are
+ ! global, so every rank takes the same branch.
+ if (EL_PERIODIC_ACTIVE()) then
+   if (.not.EL_PERIODIC_LATTICE_FITS_DOMAIN((/domain_xmin, domain_xmax, domain_ymin, &
+         domain_ymax, domain_zmin, domain_zmax/), el_lattice_bad_axis)) then
+     if (myid.eq.showid) then
+       write(mterm,'(A,I0,A,3ES14.6,A,3ES14.6)') 'Fatal: ELPeriodicKernel = wrap: the period of axis ', &
+         el_lattice_bad_axis, ' is not the extent of the fluid domain. Periods (0 = not periodic) = ', &
+         EL_PERIODIC_LENGTHS(), ', domain extents = ', domain_xmax-domain_xmin, &
+         domain_ymax-domain_ymin, domain_zmax-domain_zmin
+       write(mfile,'(A,I0,A,3ES14.6,A,3ES14.6)') 'Fatal: ELPeriodicKernel = wrap: the period of axis ', &
+         el_lattice_bad_axis, ' is not the extent of the fluid domain. Periods (0 = not periodic) = ', &
+         EL_PERIODIC_LENGTHS(), ', domain extents = ', domain_xmax-domain_xmin, &
+         domain_ymax-domain_ymin, domain_zmax-domain_zmin
+     end if
+     call MPI_Abort(MPI_COMM_WORLD, 913, error_indicator)
+   end if
+ end if
 #endif
 
 #ifdef HAVE_PE
@@ -713,6 +738,7 @@ END SUBROUTINE get_global_domain_extents
    CHARACTER cPeriodicAxis*8
    LOGICAL bOK,bOutNMAX
    LOGICAL bPeriodicAxisSet
+   LOGICAL el_lattice_ok
    REAL*8 dPeriodicLength
    INTEGER, ALLOCATABLE :: iPos(:)
 
@@ -1083,7 +1109,17 @@ END SUBROUTINE get_global_domain_extents
        WRITE(*,'(A)') 'ELPeriodicKernel = wrap needs a periodic fluid axis (SimPar@PeriodicAxis / PeriodicLength or SimPar@Periodic).'
        STOP 1
      END IF
-     CALL EL_SET_PERIODIC_LATTICE(dPeriodicity.LT.1.0d8, dPeriodicity)
+     CALL EL_SET_PERIODIC_LATTICE(dPeriodicity.LT.1.0d8, dPeriodicity, el_lattice_ok)
+     IF (.NOT.el_lattice_ok) THEN
+       WRITE(*,'(A,3ES14.6)') 'ELPeriodicKernel = wrap needs a positive period on every periodic axis, got ', dPeriodicity
+       STOP 1
+     END IF
+     ! the wall-stress diagnostic integrates the fluid shear on the two z planes of the box
+     ! as walls; with z periodic they are cuts through the lattice cell, not walls
+     IF (el_wall_stress_diag .AND. dPeriodicity(3).LT.1.0d8) THEN
+       WRITE(*,'(A)') 'ELPeriodicKernel = wrap: ELWallStressDiag needs walls on the z planes, but z is a periodic axis.'
+       STOP 1
+     END IF
    END IF
    ! the nodal reconstruction of the conservative continuity form sums across ranks with
    ! E013Sum2, which exists for the communication schemes 3 and 4 only (QuadSc_mpi); checked

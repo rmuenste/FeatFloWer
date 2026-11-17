@@ -167,10 +167,13 @@ MODULE EL_CONFIG
   !   'wrap' on every periodic axis of the fluid (SimPar@Periodic / PeriodicAxis /
   !          PeriodicLength) a particle acts through its periodic images: deposit, sampling,
   !          kernel normalisation and the halo exchange see the particle on both sides of a
-  !          plane. Refused without a periodic axis (the application checks it, where the
-  !          periodicity is known) and when the kernel radius reaches a period (EL_HALO).
+  !          plane; the faces of a periodic axis are no walls for the wall-corrected lift.
+  !          Refused (list in the design note): without a periodic axis, with a period that
+  !          is not the extent of the fluid domain, with ELWallStressDiag and z periodic
+  !          (the application checks these, where the periodicity is known); when the
+  !          kernel radius reaches a period or a subdomain spans one (EL_HALO).
   !          The periodicity of the particle engine (periodicX_/Y_/Z_ of its json) is a
-  !          separate input and must describe the same axes.
+  !          separate input, must describe the same axes and is not cross-checked.
   !   The echo line appears only for 'wrap'.
   CHARACTER(LEN=32) :: el_periodic_kernel = 'off'
   ! The valid values, blank-padded; index 1 = 'wrap' is the one the resolution tests.
@@ -670,6 +673,14 @@ CONTAINS
   ! 1 conservative; the deck is validated against the same table). Deck-only, identical on
   ! every rank; the single lookup behind EL_VA_CONSERVATIVE_FORM and the form dispatch of
   ! EL_VA_CONTINUITY.
+  ! Radius of the kernel support of a particle: the one definition (kernel integration and
+  ! deposit, halo graph and send list, periodic images). Callers must not spell the
+  ! expression out: sender and receiver of a record decide on the same number.
+  PURE REAL*8 FUNCTION EL_KERNEL_SUPPORT_RADIUS(particle_radius)
+    REAL*8, INTENT(IN) :: particle_radius
+    EL_KERNEL_SUPPORT_RADIUS = 2.0d0*el_kernel_width_factor*particle_radius
+  END FUNCTION EL_KERNEL_SUPPORT_RADIUS
+
   ! Inlet velocity of boundary type Inflow975 at time t (end-of-step time of the caller).
   PURE REAL*8 FUNCTION EL_INLET_VELOCITY(t)
     REAL*8, INTENT(IN) :: t

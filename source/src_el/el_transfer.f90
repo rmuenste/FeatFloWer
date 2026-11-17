@@ -33,7 +33,8 @@ MODULE EL_TRANSFER
   USE EL_FIELDS, ONLY: el_field_data, EL_ENSURE_FIELDS, EL_BEGIN_FIELD_UPDATE, &
                        EL_CAPTURE_FLUID_FEEDBACK_SOURCE, EL_ENSURE_TRANSPORT_EPS
   USE EL_HALO, ONLY: tElParticleRecord, EL_REFRESH_COUPLING_HALO, &
-                     EL_REDUCE_TO_OWNERS, EL_BROADCAST_FROM_OWNERS, EL_HALO_LOCAL_BOX
+                     EL_REDUCE_TO_OWNERS, EL_BROADCAST_FROM_OWNERS, EL_HALO_LOCAL_BOX, &
+                     EL_HALO_DOMAIN_BOX
   USE EL_MOMENTUM_MODEL, ONLY: EL_MM_VISCOUS_FORCE
   USE EL_VISCOUS, ONLY: EL_VISCOUS_LAPLACIAN, EL_VIS_SIZE
   USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION
@@ -41,7 +42,6 @@ MODULE EL_TRANSFER
   ! SimPar@ELPeriodicKernel = wrap, its periodic images)
   USE EL_IMAGE_TRANSFER, ONLY: EL_SAMPLE_RECORD, EL_SAMPLE_RECORD_VISCOUS, EL_DEPOSIT_RECORD
   USE EL_PERIODIC, ONLY: EL_PERIODIC_ACTIVE, EL_PERIODIC_MARKED_ON_PLANES
-  USE EL_GEOMETRY, ONLY: el_domain_box, el_domain_box_set
 
   IMPLICIT NONE
 
@@ -77,9 +77,6 @@ MODULE EL_TRANSFER
   ! per run (EL_PARTICLE_MESH_PASS): the EL stage reduces over MPI_COMM_SUBS after rank-local
   ! early returns that an empty worker would take, leaving the others in a collective.
   LOGICAL, SAVE :: partition_verified = .FALSE.
-  ! SimPar@ELPeriodicKernel = wrap with a particle viscous force: the boundary-face mask of
-  ! the viscous average was verified to hold no face on a periodic plane (once per run)
-  LOGICAL, SAVE :: periodic_mask_verified = .FALSE.
 
 CONTAINS
 
@@ -225,7 +222,8 @@ CONTAINS
     n_records = SIZE(records)
     ! box of this rank's elements: selects the periodic images of a record that reach this
     ! rank (EL_IMAGE_TRANSFER); not read when the coupling does not wrap
-    local_box = EL_HALO_LOCAL_BOX()
+    local_box = 0.0d0
+    IF (EL_PERIODIC_ACTIVE()) local_box = EL_HALO_LOCAL_BOX()
     ALLOCATE(local_samples(EL_SAMPLE_SIZE,n_records))
     ALLOCATE(owned_samples(EL_SAMPLE_SIZE,n_owned))
     ALLOCATE(owned_result(5,n_owned), record_result(5,n_records))
@@ -266,21 +264,25 @@ CONTAINS
       END IF
       ! Periodic images: a periodic plane does not cut the kernel, so its faces must not be
       ! in the boundary mask. The mask counts the elements adjacent to a face through the
-      ! parallel sum of the fluid, which identifies a periodic pair of faces when the two
-      ! lie on different ranks; a rank that holds both planes of an axis would keep them
-      ! marked and the viscous average would carry a spurious boundary term there. Checked
-      ! once (box domains; rank-local, a failing rank stops the run).
-      IF (EL_PERIODIC_ACTIVE() .AND. .NOT.periodic_mask_verified) THEN
-        IF (el_domain_box_set) THEN
-          n_marked = EL_PERIODIC_MARKED_ON_PLANES(mesh%level(ilev)%dcorvg, &
-                       el_field_data%boundary_face_dof, el_domain_box)
-          IF (n_marked.GT.0) THEN
-            WRITE(*,'(A,I0,A,I0,A)') 'Fatal: ELPeriodicKernel = wrap with a particle viscous force: rank ', &
-              myid, ' has ', n_marked, ' faces on a periodic plane marked as domain boundary (the periodic planes of an axis must lie on different ranks).'
-            CALL MPI_Abort(MPI_COMM_SUBS, 912, ierr)
-          END IF
+      ! parallel sum of the fluid, which pairs the two faces of a periodic plane pair across
+      ! ranks (a rank holding both is refused by the halo). Verified in every pass on the
+      ! mask as it is now (the fluid adapter may rebuild it), against the planes of the
+      ! lattice on the bounding box of the whole mesh, whatever the wall geometry of the
+      ! closures; a marked face on a periodic plane would add a spurious boundary term to
+      ! the viscous average. Rank-local, a failing rank stops the run.
+      IF (EL_PERIODIC_ACTIVE()) THEN
+        n_marked = EL_PERIODIC_MARKED_ON_PLANES(mesh%level(ilev)%dcorvg, &
+                     el_field_data%boundary_face_dof, EL_HALO_DOMAIN_BOX())
+        IF (n_marked.LT.0) THEN
+          WRITE(*,'(A,I0,A,I0,A,I0)') 'Fatal: ELPeriodicKernel = wrap with a particle viscous force: rank ', &
+            myid, ': the boundary-face mask has ', SIZE(el_field_data%boundary_face_dof), &
+            ' entries, the dof coordinates ', SIZE(mesh%level(ilev)%dcorvg,2)
+          CALL MPI_Abort(MPI_COMM_SUBS, 912, ierr)
+        ELSE IF (n_marked.GT.0) THEN
+          WRITE(*,'(A,I0,A,I0,A)') 'Fatal: ELPeriodicKernel = wrap with a particle viscous force: rank ', &
+            myid, ' has ', n_marked, ' faces on a periodic plane marked as domain boundary.'
+          CALL MPI_Abort(MPI_COMM_SUBS, 912, ierr)
         END IF
-        periodic_mask_verified = .TRUE.
       END IF
       ALLOCATE(local_lap(EL_VIS_SIZE,n_records), owned_lap(EL_VIS_SIZE,n_owned))
       DO i=1,n_records

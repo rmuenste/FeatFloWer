@@ -5,7 +5,7 @@ MODULE EL_QUADRATURE
   USE EL_HALO, ONLY: tElParticleRecord
   USE EL_KERNEL_FUNCTIONS, ONLY: EL_KERNEL_VALUE, EL_KERNEL_DERIVATIVE
   USE EL_FIELDS, ONLY: tElFieldStorage
-  USE EL_CONFIG, ONLY: el_kernel_width_factor
+  USE EL_CONFIG, ONLY: EL_KERNEL_SUPPORT_RADIUS
   USE PP3D_MPI, ONLY: myid, MPI_COMM_SUBS
 
   IMPLICIT NONE
@@ -66,7 +66,7 @@ CONTAINS
     EXTERNAL E013
 
     sample = 0.0d0
-    width = 2.0d0*el_kernel_width_factor*particle%radius
+    width = EL_KERNEL_SUPPORT_RADIUS(particle%radius)
     IF (width.LE.0.0d0) RETURN
 
     bder = .FALSE.
@@ -525,7 +525,7 @@ CONTAINS
     EXTERNAL E013
 
     IF (normalization.LE.0.0d0) RETURN
-    width = 2.0d0*el_kernel_width_factor*particle%radius
+    width = EL_KERNEL_SUPPORT_RADIUS(particle%radius)
     particle_volume = 4.0d0*ACOS(-1.0d0)*particle%radius**3/3.0d0
 
     bder = .FALSE.
