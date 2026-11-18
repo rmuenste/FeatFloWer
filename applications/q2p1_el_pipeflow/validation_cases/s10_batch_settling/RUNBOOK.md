@@ -146,7 +146,13 @@ sediment plateau exists; a 1.0-4.3 s fit includes zero positions and is meaningl
   up by about one point per second.
 - Lateral structure, 40-100 mm, 3.33 mm columns: rms of column-mean v_z 1.3-2.3 mm/s up to 4 s,
   3.0-3.7 mm/s at 5 s (wall-bounded: about 10); one wavelength across the box, located where the
-  bed is densest; column means between about -12 and -5 mm/s up to 4 s, no rising column.
+  bed is densest; column means between about -12 and -5 mm/s up to 4 s, no rising column until
+  then. After about 4.1 s a box-scale cell develops (seed 1): the mean over the fixed band
+  40-100 mm climbs from 1.05 to 1.10 of the reference at 6 s (sub-bands 1.06 at 40-60 mm to 1.17
+  at 90-100 mm) and particles rise in one corner of the 80 mm slab (movie
+  `runs/batch10/movie/batch10_PL15_s1_particles.mp4`). MFiX ends at 4.4 s. Whether this is a
+  property of the model equations or of the poorly converged pressure solve of these runs is open
+  (section 7, item 1).
 - Mean solid fraction between the fronts drifts 0.150 -> 0.153-0.154 by 6 s.
 - The pressure multigrid converges poorly under xy-periodicity. In PL15_s1 63 % of the solves hit
   the 20-cycle cap and the mean defect reduction per solve is 6.5e-3 (wall-bounded A15: 2 cycles,
@@ -209,13 +215,25 @@ number.
 ## 7. Open
 
 1. Mesh refinement, periodic seed 1, 12 x 12 x 120 elements, same 2.5 mm kernel, bed and dt:
-   NOT obtained. The 20-step probe (`PR15_m12_probe`, job 162042, clean otherwise) shows the
-   pressure solve effectively unconverged on that mesh: every solve hits the 20-cycle cap at
-   0.994 per cycle, defect reduction 0.67 per solve, continuity residual after the corrector 1e-7
-   (coarse mesh 1.5e-9 at the same step). The full run (`PR15_m12`, job 162043) was cancelled after
-   31 s because its result could not discriminate anything. More cycles are not a remedy at that
-   rate. The stagnation is being diagnosed (run directories `MG_*`); the refinement run follows
-   once the pressure solver converges on periodic meshes.
+   not obtained with the certified binary. The 20-step probe (`PR15_m12_probe`, job 162042, clean
+   otherwise) shows the pressure solve effectively unconverged on that mesh: every solve hits the
+   20-cycle cap at 0.994 per cycle, defect reduction 0.5-0.7 per solve, continuity residual after
+   the corrector 1e-7 (coarse mesh 1.5e-9 at the same step). The full run (job 162043) was
+   cancelled after 31 s.
+   Cause (diagnosis 2026-11-18, probes `MG_*`, jobs 162050-162073, scratch branch
+   `scratch/mg-periodic-diag` 2e081314 in worktree FeatFloWer-mgdiag): the master's coarse
+   pressure matrix `B^T M^-1 B` is assembled on the unpartitioned coarse mesh without identifying
+   the velocity dofs of opposite periodic planes; those dofs are free one-sided boundary dofs
+   there (like p = 0 on the planes), while the workers' operator is periodic. 1200 of 2160 master
+   rows (the coarse elements on a lateral plane) have a non-zero row sum; none on the wall-bounded
+   mesh. Not specific to this application (single-phase clone `MG_sp` stagnates too). No deck
+   remedy: coarse solver type 2 unchanged, 64 smoothing steps 0.10, 200 cycles 0.015. Prototype
+   repair on the master only (periodic dof pairs identified, existing kernels reused): 2.0 cycles,
+   reduction 1.8e-5 (fine), 6.2e-5 (6 x 6 x 60); wall-bounded control identical solver lines.
+   Proper fix (deck key, default off, gates, review) not written yet.
+   Provisional reruns with the prototype binary (unreviewed, not gated; `MGDIAG_MODE=2`):
+   `PR15_m12_mgw` (fine mesh, to 4.4 s, job 162080) and `PL15_s1_mgw` (6 x 6 x 60 repeat of
+   PL15_s1, 6 s, job 162081); results to be appended.
 2. Particle-resolved arbiter (peer, waLBerla; a FeatFloWer resolved run at D/h 4-6 is under
    consideration by the owner).
 3. phi0 0.10 and 0.20, models B and Bfull: not run.
