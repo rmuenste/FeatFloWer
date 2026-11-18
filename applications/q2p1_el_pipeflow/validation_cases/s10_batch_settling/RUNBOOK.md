@@ -231,9 +231,30 @@ number.
    repair on the master only (periodic dof pairs identified, existing kernels reused): 2.0 cycles,
    reduction 1.8e-5 (fine), 6.2e-5 (6 x 6 x 60); wall-bounded control identical solver lines.
    Proper fix (deck key, default off, gates, review) not written yet.
-   Provisional reruns with the prototype binary (unreviewed, not gated; `MGDIAG_MODE=2`):
-   `PR15_m12_mgw` (fine mesh, to 4.4 s, job 162080) and `PL15_s1_mgw` (6 x 6 x 60 repeat of
-   PL15_s1, 6 s, job 162081); results to be appended.
+   Provisional reruns with the prototype binary (unreviewed, not gated; `MGDIAG_MODE=2`), both
+   COMPLETED, no NaN, 2.00 cycles in every pressure solve, volume conservation 4e-15:
+   - `PL15_s1_mgw` (job 162081, 6 x 6 x 60 repeat of PL15_s1, 6 s): core 1.0471 (1.0-4.3 s),
+     1.0620 (3.0-6.0 s), 1.0692 (4.5-6.0 s), upper front 1.0848: identical to PL15_s1 in the digits
+     shown. Neither the level nor the late climb of the 6 x 6 x 60 result comes from the
+     unconverged pressure solve.
+   - `PR15_m12_mgw` (job 162080, 12 x 12 x 120, to 4.4 s, 6 h 03 min), against PL15_s1:
+
+     | Window | core 6x6x60 | core 12x12x120 | front 6x6x60 | front 12x12x120 |
+     |---|---|---|---|---|
+     | 0.5-1.0 s | 1.035 | 1.034 | 1.047 | 1.067 |
+     | 1.0-2.0 s | 1.039 | 1.033 | 1.067 | 1.026 |
+     | 2.0-3.0 s | 1.047 | 1.036 | 1.086 | 1.037 |
+     | 3.0-4.3 s | 1.054 | 1.039 | 1.078 | 1.061 |
+     | 1.0-4.3 s | 1.047 | 1.036 | 1.085 | 1.046 |
+
+     Lateral structure (40-100 mm, `batch_lateral_map.py`): rms of column-mean v_z 1.5 mm/s at
+     1-3 s, 1.3 at 4 s, 1.0 at 4.3 s, column means -11.9 .. -5.7 mm/s: no growth, no rising
+     column (6 x 6 x 60: 1.3-2.3 up to 4 s). Reading: the early +3.4 % is independent of the mesh
+     at fixed kernel width; the upward drift of the core shrinks from about 2 points to 0.5 point
+     over 1-4.3 s; the upper-front excess halves (1.085 -> 1.046, MFiX 1.033). Against the gates
+     as written: B1 +3.6 % (exceeded by 0.6 point), B2 +4.6 % (met). Provisional until the
+     coarse-matrix repair is a reviewed, gated feature; the run stops at 4.4 s, so it says nothing
+     about the cell seen after 4.1 s on the coarse mesh.
 2. Particle-resolved arbiter (peer, waLBerla; a FeatFloWer resolved run at D/h 4-6 is under
    consideration by the owner).
 3. phi0 0.10 and 0.20, models B and Bfull: not run.
