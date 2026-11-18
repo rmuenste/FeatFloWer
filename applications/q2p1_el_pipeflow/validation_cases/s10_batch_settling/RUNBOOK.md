@@ -162,9 +162,17 @@ sediment plateau exists; a 1.0-4.3 s fit includes zero positions and is meaningl
 Other codes, periodic [P]: MFiX (CYCLIC, GARG_2012, 8 x 8 x 80, same seed-1 bed, reference
 8.336 mm/s): core 1.053 (1.0-4.3 s), 1.052 (3.0-4.3 s), upper front 1.034, column means
 -10.9 .. -7.6 mm/s. CFDEM periodic: core mean oscillates between +2 and -2 times the reference
-(undiagnosed). waLBerla particle-resolved (20 x 20 x 80 mm, 7 237 spheres, 10 cells per diameter,
-2 s): 0.74-0.75 of the reference, core still accelerating, whole-bed bounce; its authors do not
-count it as an arbiter yet.
+(undiagnosed). waLBerla particle-resolved (20 x 20 x 80 mm periodic box, 7 237 spheres):
+10 cells per diameter, 2 s: 0.74-0.75 of the reference, core still accelerating, whole-bed bounce.
+16 cells per diameter with a hydrostatic initial pressure (peer message 2026-11-18, 1 s; bounce
+gone) reproduces the 10-cell run, so the deficit is neither resolution nor the bounce: band
+20-40 mm displacement speed over successive 0.1 s intervals 5.44 ... 7.50 mm/s (0.66 -> 0.91 of
+its reference 8.257), rising about 2 mm/s per second and not levelled off at 1 s; particle v_z
+std 4.7 mm/s at 0.5 s, 7.0 at 1.0 s (this application: flat 8.33-8.36 mm/s from 0.2 s, std
+3.3 mm/s). The peer's reading (inference): a resolved bed released from a random sequential
+arrangement starts slower than the closure and accelerates as microstructure develops; the
+resolved run neither contradicts nor confirms the Euler-Lagrange plateau until it runs for
+several seconds.
 
 ### 4.3 Verdict against the written gates
 
