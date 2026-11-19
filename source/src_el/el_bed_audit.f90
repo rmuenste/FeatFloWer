@@ -7,6 +7,7 @@
 !   EL_BED_AUDIT t= step= p_in_out= p_in p_out area_in_out= area_in area_out
 !                dp_hydro_dyn= dp dp_hydro dp_dyn n= n weight_z_floor_z= weight_z floor_z
 !                z50_95_99_max= z50 z95 z99 zmax eps_bed= eps_bed window= z_lo z_hi
+!                gradz_win= G
 !
 !   p_in, p_out   area-mean pressure on the bottom (z = zmin of the EL domain box) and the top
 !                 (z = zmax) plane. The P1 (discontinuous linear) pressure of each element is
@@ -36,6 +37,11 @@
 !                 radius): 1 - V_solid(window) / (area_in (z_hi - z_lo)); -1 when the window is
 !                 empty. Laterally periodic and walled boxes alike (the slab volume of a sphere
 !                 does not depend on x, y).
+!   gradz_win     -<dp/dz> over the same window: the element-wise constant z gradient of the P1
+!                 pressure weighted with the part of the element volume inside [z_lo, z_hi]
+!                 (overlap of the element z range with the window; exact for elements bounded
+!                 by two z planes, as in the case-11 mesh, a volume-fraction estimate otherwise).
+!                 The pressure gradient of the bed core, the counterpart of eps_bed (gate F2).
 !
 ! The hydrodynamic forces on the particles (drag, pressure force) are in the EL_FORCE_BUDGET
 ! line of the transfer pass of the same step (evaluated with the fluid state before the
@@ -62,7 +68,8 @@ MODULE EL_BED_AUDIT
 
   PUBLIC :: EL_WRITE_BED_AUDIT
   ! helpers, public for the unit test
-  PUBLIC :: EL_SPHERE_SLAB_VOLUME, EL_HISTOGRAM_QUANTILE, EL_PLANE_PRESSURE_LOCAL
+  PUBLIC :: EL_SPHERE_SLAB_VOLUME, EL_HISTOGRAM_QUANTILE, EL_PLANE_PRESSURE_LOCAL, &
+            EL_WINDOW_GRADIENT_LOCAL
 
   INTEGER, PARAMETER :: NBINS = 4000
 
@@ -78,7 +85,7 @@ CONTAINS
 
     REAL*8 :: zmin, zmax, tol, loc(7), glob(7), p_in, p_out, dp, dp_hydro
     REAL*8 :: zq(3), zlo, zhi, eps_bed, dmean, rmean, zmax_loc, zmax_glob, floor_z, imp(3)
-    REAL*8 :: vwin_loc, vwin
+    REAL*8 :: win_loc(3), win(3), gradz_win
     INTEGER :: hist_loc(NBINS), hist(NBINS), nloc, nglob, ierr, i, ib
 #ifdef HAVE_PE
     TYPE(tParticleData), ALLOCATABLE :: particles(:)
@@ -139,6 +146,7 @@ CONTAINS
     eps_bed = -1.0d0
     zlo = zmin
     zhi = zmin
+    gradz_win = 0.0d0
     IF (nglob.GT.0) THEN
       zq(1) = EL_HISTOGRAM_QUANTILE(hist, zmin, zmax, 0.50d0)
       zq(2) = EL_HISTOGRAM_QUANTILE(hist, zmin, zmax, 0.95d0)
@@ -147,17 +155,21 @@ CONTAINS
       dmean = 2.0d0*rmean
       zlo = zmin + 2.0d0*dmean
       zhi = zq(3) + rmean - 2.0d0*dmean
-      vwin_loc = 0.0d0
-#ifdef HAVE_PE
+      ! win: 1 solid volume in the window, 2 fluid-mesh volume in the window, 3 its integral
+      ! of -dp/dz
+      win_loc = 0.0d0
       IF (zhi.GT.zlo) THEN
+#ifdef HAVE_PE
         DO i = 1, nloc
-          vwin_loc = vwin_loc + EL_SPHERE_SLAB_VOLUME(particles(i)%position(3), &
-                                                      particles(i)%radius, zlo, zhi)
+          win_loc(1) = win_loc(1) + EL_SPHERE_SLAB_VOLUME(particles(i)%position(3), &
+                                                          particles(i)%radius, zlo, zhi)
         END DO
-      END IF
 #endif
-      CALL MPI_Allreduce(vwin_loc, vwin, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
-      IF (zhi.GT.zlo .AND. glob(1).GT.0.0d0) eps_bed = 1.0d0 - vwin/(glob(1)*(zhi - zlo))
+        CALL EL_WINDOW_GRADIENT_LOCAL(mesh, ilev, pressure, zlo, zhi, win_loc(2), win_loc(3))
+      END IF
+      CALL MPI_Allreduce(win_loc, win, 3, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
+      IF (zhi.GT.zlo .AND. glob(1).GT.0.0d0) eps_bed = 1.0d0 - win(1)/(glob(1)*(zhi - zlo))
+      IF (win(2).GT.0.0d0) gradz_win = win(3)/win(2)
     END IF
 #ifdef HAVE_PE
     IF (ALLOCATED(particles)) DEALLOCATE(particles)
@@ -173,11 +185,12 @@ CONTAINS
     SUBROUTINE WRITE_LINE(unit)
       INTEGER, INTENT(IN) :: unit
       WRITE(unit,'(A,ES14.6,A,I0,A,2ES16.8,A,2ES14.6,A,3ES16.8,A,I0,A,2ES14.6,A,4ES14.6,' // &
-                 'A,ES14.6,A,2ES14.6)') &
+                 'A,ES14.6,A,2ES14.6,A,ES16.8)') &
         'EL_BED_AUDIT t= ', time, ' step= ', istep, ' p_in_out= ', p_in, p_out, &
         ' area_in_out= ', glob(1), glob(3), ' dp_hydro_dyn= ', dp, dp_hydro, dp - dp_hydro, &
         ' n= ', nglob, ' weight_z_floor_z= ', glob(5), floor_z, &
-        ' z50_95_99_max= ', zq, zmax_glob, ' eps_bed= ', eps_bed, ' window= ', zlo, zhi
+        ' z50_95_99_max= ', zq, zmax_glob, ' eps_bed= ', eps_bed, ' window= ', zlo, zhi, &
+        ' gradz_win= ', gradz_win
     END SUBROUTINE WRITE_LINE
 
   END SUBROUTINE EL_WRITE_BED_AUDIT
@@ -251,6 +264,33 @@ CONTAINS
       END DO
     END DO
   END SUBROUTINE EL_PLANE_PRESSURE_LOCAL
+
+  ! Volume of the elements of this rank inside the slab za < z < zb and its integral of -dp/dz
+  ! (P1 pressure: the gradient is constant per element, entry 4 of its block). The part of an
+  ! element in the slab is taken as the overlap of its vertex z range with the slab times its
+  ! volume: exact for an element bounded by two z planes, an estimate otherwise.
+  SUBROUTINE EL_WINDOW_GRADIENT_LOCAL(mesh, ilev, pressure, za, zb, volume, gradient_integral)
+    TYPE(tMultiMesh), INTENT(IN) :: mesh
+    INTEGER, INTENT(IN) :: ilev
+    REAL*8, INTENT(IN) :: pressure(:), za, zb
+    REAL*8, INTENT(INOUT) :: volume, gradient_integral
+    REAL*8 :: ze0, ze1, overlap, v
+    INTEGER :: iel, i
+
+    DO iel = 1, mesh%level(ilev)%nel
+      ze0 = HUGE(1.0d0)
+      ze1 = -HUGE(1.0d0)
+      DO i = 1, 8
+        ze0 = MIN(ze0, mesh%level(ilev)%dcorvg(3, mesh%level(ilev)%kvert(i,iel)))
+        ze1 = MAX(ze1, mesh%level(ilev)%dcorvg(3, mesh%level(ilev)%kvert(i,iel)))
+      END DO
+      overlap = MIN(ze1, zb) - MAX(ze0, za)
+      IF (overlap.LE.0.0d0 .OR. ze1.LE.ze0) CYCLE
+      v = mesh%level(ilev)%dvol(iel)*overlap/(ze1 - ze0)
+      volume = volume + v
+      gradient_integral = gradient_integral - v*pressure(4*(iel-1)+4)
+    END DO
+  END SUBROUTINE EL_WINDOW_GRADIENT_LOCAL
 
   ! Volume of the part of a sphere (centre height zc, radius r) between the planes za < zb.
   PURE REAL*8 FUNCTION EL_SPHERE_SLAB_VOLUME(zc, r, za, zb)

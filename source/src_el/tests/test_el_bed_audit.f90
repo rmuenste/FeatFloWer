@@ -7,11 +7,14 @@
 !   60-62  histogram quantile
 !   70-73  plane mean of the P1 pressure on the structured unit-cube mesh (affine field: exact;
 !          element-wise discontinuous field: the face-centroid sum)
+!   74-75  window gradient -<dp/dz>: affine field over a window that cuts elements; element-
+!          wise gradients weighted with the cut volumes
 !=========================================================================
 PROGRAM TEST_EL_BED_AUDIT
 
   USE TYPES, ONLY: tMultiMesh
-  USE EL_BED_AUDIT, ONLY: EL_SPHERE_SLAB_VOLUME, EL_HISTOGRAM_QUANTILE, EL_PLANE_PRESSURE_LOCAL
+  USE EL_BED_AUDIT, ONLY: EL_SPHERE_SLAB_VOLUME, EL_HISTOGRAM_QUANTILE, EL_PLANE_PRESSURE_LOCAL, &
+                          EL_WINDOW_GRADIENT_LOCAL
   USE EL_TEST_HELPERS, ONLY: EL_TEST_INIT, BUILD_STRUCTURED_MESH, EL_TEST_RELEASE_MESH
 
   IMPLICIT NONE
@@ -82,6 +85,17 @@ PROGRAM TEST_EL_BED_AUDIT
   pint = 0.0d0
   CALL EL_PLANE_PRESSURE_LOCAL(mesh, 1, p, 0.0d0, 1.0d-9, area, pint)
   IF (ABS(pint/area - expected).GT.1.0d-12) STOP 73
+  ! window [0.3, 0.7] on the 4 x 4 x 4 mesh (layers of 0.25): layers k = 1 [0.25, 0.5] and
+  ! k = 2 [0.5, 0.75] each contribute a volume 0.2 (cut elements); with the z gradient 3 + 10 k
+  ! in layer k the volume mean is (0.2 * 13 + 0.2 * 23)/0.4 = 18, so -<dp/dz> = -18
+  DO iel = 1, mesh%level(1)%nel
+    p(4*(iel-1)+4) = 3.0d0 + 10.0d0*DBLE((iel - 1)/(n*n))
+  END DO
+  area = 0.0d0
+  pint = 0.0d0
+  CALL EL_WINDOW_GRADIENT_LOCAL(mesh, 1, p, 0.3d0, 0.7d0, area, pint)
+  IF (ABS(area - 0.4d0).GT.1.0d-14) STOP 74
+  IF (ABS(pint/area + 18.0d0).GT.1.0d-12) STOP 75
   CALL EL_TEST_RELEASE_MESH(mesh)
 
   WRITE(*,'(A)') 'test_el_bed_audit: all checks passed'
