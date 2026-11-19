@@ -26,6 +26,7 @@ SimPar@ELKernelWidthFactor = 2.5d0
 SimPar@ELEpsFMin = 0.2d0
 SimPar@ELEpsFRelax = 0.0d0
 SimPar@ELDragModel = gidaspow
+SimPar@ELDragImplicitWeights = hrz
 SimPar@ELMomentumModel = A
 SimPar@ELMMPressureOperator = weighted
 SimPar@ELPeriodicKernel = wrap

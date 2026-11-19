@@ -160,3 +160,61 @@ Yes nothing changes (every committed periodic deck sets Yes; gate D_s6 bitwise).
 - `floor_z` reads the pe wall-contact impulse of the bottom z wall; it is zero when the particles rest on
   each other only and is meaningful only with `zWallsEnabled_` in the json.
 - The audit evaluates the window porosity with the mean particle radius (monodisperse here).
+
+## 7. Velocity spikes of the first protocol run and the HRZ weights of the implicit drag
+
+**Symptom [V].** The first bed-R protocol run (orchestrator, `runs/fluid11/R_proto`, job 163872, binary
+87474a41) stopped at step 11 315 (t 2.83 s) with a NaN: the velocity multigrid diverged (rate 14.6, then
+5e51) while the pressure solves stayed at 2 cycles. The logged maximum velocity norm was 0.7-0.8 m/s most
+of the time but had intermittent episodes from step 2618 on (up to 15 m/s at step 3550, 13-20 m/s in the
+last 30 steps). Integral quantities did not follow: dp, superficial flux (EL_VA_FLUXMOM eps u_z / U),
+continuity residual and bed heights were normal through every episode; the velocity nonlinear loop went
+from 1 to 3 iterations during the episodes. A local defect, not a global balance error.
+
+**Location [V].** Diagnostic line `EL_UMAX_AUDIT` (`SimPar@ELVelocityAuditFreq`, module
+EL_VELOCITY_AUDIT, commit d3d23e4b) in a rerun of the first 4 800 steps (`R_diag`, job 163992, the EL
+streams bitwise with R_proto: same trajectory). Every maximum above 1.2 m/s sits at a Q2 vertex dof at
+z = 30.0 or 32.5 mm, i.e. at the bed surface (z99 about 29-30 mm), where the transport porosity is
+0.77-1.0 (a few particles); 95 % of them at a dof whose deposited implicit drag coefficient B_i is
+NEGATIVE (counts in the RUNBOOK). The velocity there grows by 1.5-3.6 % per step, which is
+thstep |B_i| divided by the lumped (eps-weighted) fluid mass of a vertex dof.
+
+**Cause.** The semi-implicit drag adds thstep B_i to the diagonal of the fluid matrix and +B u_f to the
+right-hand side; B_i = sum_p B_p int K_p phi_i / norm_p with the Q2 basis functions phi_i. A Q2 vertex
+function is negative over part of its elements, so a node reached only by those parts of a particle
+kernel gets B_i < 0: anti-damping. In a liquid the lumped fluid mass is orders larger than thstep |B_i|
+and the term is harmless (all earlier cases); in the gas of case 11 (rho_f 1, rho_p/rho_f 860) it is a
+few percent of the mass per step, and a negative B_i of growing size ends in a non-positive diagonal.
+
+Hypotheses of the orchestrator checked with the same data:
+- (a) inlet: the largest inlet value over the 4 800 steps is 0.76 m/s, the smallest inlet transport
+  porosity 0.396; no maximum on the inlet plane (z <= 1 mm: 0 of 4 800 audit lines). Excluded.
+- (b) low porosity: smallest element porosity over the run 0.359 (floor 0.2, no clipping); the spikes
+  sit where eps is 0.77-1.0. Excluded as the cause.
+- (c) advective CFL: before an episode the velocity is 0.7-0.8 m/s and the nonlinear loop converges in
+  one iteration; the growth is exponential at the rate thstep |B_i| / m_i, not a CFL breakdown (the CFL
+  grows only as a consequence). Not the cause.
+- (d) outlet: no maximum near the outlet (z >= 95 mm: 0). Excluded.
+- (e) stiffness of the semi-implicit drag: closest, but the issue is the sign of the nodal coefficient,
+  not its size.
+
+**Remedy (commit 77ffd070).** `SimPar@ELDragImplicitWeights = rowsum | hrz` (default rowsum: every
+existing log bitwise). Under `hrz` the implicit coefficient B and its explicit split partner -B u_f are
+deposited with the diagonal-scaling (Hinton-Rock-Zienkiewicz) weights of each element,
+w_i = int K phi_i^2 * (sum_j int K phi_j) / (sum_j int K phi_j^2) / norm >= 0, which keep the element
+total of the row-sum weights (so sum_i B_i = B_p, and the split -B (u_i - u_f) is exact for a uniform
+field); the drag impulse the particle receives and every other reaction keep the row-sum weights. This is
+the standard remedy for higher-order elements whose row-sum lumping is not positive; it changes only how
+the linearisation correction of the drag is distributed inside an element. Unit test
+(`test_el_transfer`): a small kernel gives a row-sum minimum of -4.5 % of B, the HRZ weights are
+non-negative with the same total, the split partner is deposited with them. The case deck sets
+`SimPar@ELDragImplicitWeights = hrz`.
+
+Verification (job 163999, `runs/fluid11/R_hrz`): the first 1.3 s of the protocol with `hrz` ran without
+a spike: largest velocity norm 1.05 m/s over all 5 200 steps (start-up collapse), one nonlinear
+iteration per step, plateau 0.97 W/A with 2.3 % of the weight on the floor. Default-path gate of the
+binary bitwise (D_s6, G_tier2, E2w5). Not verified: the full protocol (job 164004 running at the time of
+writing), and whether `hrz` changes the fixed-bed gradient of the probes (the row-sum and HRZ weights
+distribute only the implicit correction B (u_i - u_f), which vanishes in a converged steady state with
+u_i = u_f; in a fixed bed u_i differs from the sampled u_f at element scale, so a small change is
+possible) [I].

@@ -178,6 +178,45 @@ Projection of the protocol (7.5 s = 30 000 steps at 2.5e-4 s) [I]:
 Recommendation: bed R as the common bed (5 h per protocol run, room for a closure control run and a step
 check in a day); bed A only after bed R works in every code, as one single-shot run of about 16 h.
 
+## 7a. Velocity spikes of the first protocol run and the remedy (2026-11-19, evening)
+
+First protocol run of bed R (orchestrator: `R_proto`, job 163872, binary 87474a41, deck as committed then):
+NaN at step 11 315 (t 2.83 s, U 0.22 m/s, bed fluidised), the velocity solve diverged. The maximum
+velocity norm had spikes of 2-15 m/s from step 2618 on, while dp, flux and continuity stayed normal [V].
+
+Diagnosis (design note section 7): rerun of the first 4 800 steps with the new line
+`EL_UMAX_AUDIT` every step (`R_diag`, job 163992, binary d3d23e4b; EL_FORCE_BUDGET bitwise with R_proto
+over all 4 801 lines, i.e. the same trajectory). Max 15.45 m/s at step 3549 (the run's 15 at ~3550).
+Of the 1 875 audit lines with |u| > 1.2 m/s, 1 674 (89 %) have the maximum at a dof with a NEGATIVE
+deposited implicit drag coefficient B_i, all at z = 30.0-37.5 mm (bed surface, transport porosity
+0.77-1.0); none on the inlet plane (largest inlet w 0.76 m/s, smallest inlet porosity 0.39), none near
+the outlet, smallest element porosity 0.355 (no clipping). The rest sit at neighbouring freeboard dofs
+(B = 0) of the same episode. Cause: Q2 row-sum weights of the implicit drag go negative at nodes reached
+only by the negative lobes of a basis function; in the gas the anti-damping thstep |B_i| is a few
+percent of the lumped fluid mass of a vertex dof per step [V; growth rate consistent with the logged
+B_i]. Orchestrator hypotheses (a) inlet, (b) low porosity, (d) outlet excluded by the same data; (c) CFL
+is a consequence, not the cause; (e) is the closest (sign, not size, of the semi-implicit coefficient).
+
+Remedy: `SimPar@ELDragImplicitWeights = hrz` (commit 77ffd070; HRZ lumping of the implicit coefficient
+and its split partner, non-negative, same element total; default rowsum bitwise: D_s6, G_tier2, E2w5
+bitwise against the base binary, job 163999). The case deck now sets it.
+
+Verification (`R_hrz`, job 163999, binary 77ffd070, the protocol deck + `hrz`, velocity audit every 10
+steps, 5 200 steps = 1.3 s: 0.30 m/s for 1 s, then 0.28 m/s) [V]: completed, no NaN, no warning. Largest
+velocity norm over ALL 5 200 steps 1.048 m/s (step 388, collapse of the start bed; afterwards 0.8-0.9 m/s,
+the interstitial 0.3/0.38 inside the bed); no audit line above 1.2 m/s, no maximum at a dof with B < 0
+(none exists now), the maxima sit inside the bed. Velocity nonlinear loop 1 iteration in every step,
+largest velocity multigrid rate 2e-13. Smallest element porosity 0.356, inlet w at most 0.76 m/s.
+dp_dyn A/W 0.973 +- 0.068 (0.7-1.0 s) and 0.970 +- 0.067 (1.0-1.3 s) with 2.3-2.4 % of the weight on the
+floor; (drag + pressure force)/W 0.979 / 0.975. Cost 0.56 s per step (2 933 s), as before.
+The trajectory differs from R_proto from step 2 on (different distribution of the implicit drag).
+
+Full protocol resubmitted: `runs/fluid11/R_proto_hrz`, job 164004 (partition long, 10 h limit, binary
+77ffd070, deck = R_proto + `ELDragImplicitWeights = hrz` + `ELVelocityAuditFreq = 10`; expected about
+4.7 h). What to look at: `python3 tools/umax_summary.py R_proto_hrz/run_slurm.log 1.5` (runs/fluid11/tools),
+`grep 'maximum norm of velocity'`, and the evaluation `fl11_post.py R_proto_hrz --steps
+R_proto_hrz/_data/steps.txt`.
+
 ## 8. Results table (to be filled by the protocol runs)
 
 | Run | bed | dt | F1 plateau | fixed-branch slope (Pa s/m) | eps_bed | U_mf fit | U_mf closure at eps_bed | F2 worst | F3 | F4 (/0.182) | F5 |
