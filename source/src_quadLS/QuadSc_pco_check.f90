@@ -6,9 +6,11 @@
 ! the operator, the solver copy or the production statistics of the coarse solve.
 !
 ! PCO_COMPARE_OPERATORS(a, ref): entry-by-entry difference, scaled by the largest modulus of
-!   the row of ref; a row whose ref entries are all zero is compared against the largest
-!   modulus of ref overall (a nonzero value there is a difference, not a skipped row); a
-!   non-finite entry of a counts as an infinite difference.
+!   the row of ref. Both operands are checked first: a non-finite entry in either (NaN or
+!   Inf, ieee_is_finite) is an infinite difference (HUGE) at its slot, before any scale is
+!   formed. A row whose ref entries are all zero is compared directly: every entry of a there
+!   must be zero too, a nonzero one is a difference of 1 (100 % of the row of a), however
+!   small it is in absolute terms.
 ! PCO_RUN_CHECK: given the gathered (ag), the wrapped (aw) and the per-image-mass wrapped (ai)
 !   operators on the master (the coordinator builds them, collectively):
 !   - entry-by-entry gathered - wrapped (with the location, the values and the legacy master
@@ -27,6 +29,7 @@
 !=========================================================================
 MODULE pco_diagnostics
 
+  USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_IS_FINITE
   USE PP3D_MPI, ONLY: myid, master
   USE def_FEAT, ONLY: MTERM, ILEV
   USE var_QuadScalar, ONLY: mg_mesh, mg_lMat, mg_CMat, mg_lPMat, mg_CPMat
@@ -41,25 +44,41 @@ MODULE pco_diagnostics
 CONTAINS
 
   !-----------------------------------------------------------------------
-  ! max_k |a(k) - ref(k)| / scale(row of k), see the module header; kmax: its slot (0: none)
+  ! max_k |a(k) - ref(k)| / scale(row of k), see the module header; kmax: its slot (0: none).
+  ! The layout (row pointers) is that of pco unless ldA is given (unit tests).
   !-----------------------------------------------------------------------
-  REAL*8 FUNCTION PCO_COMPARE_OPERATORS(a, ref, kmax) RESULT(d)
+  REAL*8 FUNCTION PCO_COMPARE_OPERATORS(a, ref, kmax, ldA) RESULT(d)
     REAL*8, INTENT(IN) :: a(:), ref(:)
     INTEGER, INTENT(OUT) :: kmax
-    INTEGER :: row, k
-    REAL*8 :: rmax, gmax, x
+    INTEGER, INTENT(IN), OPTIONAL, TARGET :: ldA(:)
+    INTEGER, POINTER :: lp(:)
+    INTEGER :: row, k, n
+    REAL*8 :: rmax, x
     d = 0d0
     kmax = 0
-    gmax = MAXVAL(ABS(ref))
-    DO row = 1, pco%n
-      rmax = MAXVAL(ABS(ref(pco%ldA(row):pco%ldA(row+1)-1)))
-      IF (rmax.LE.0d0) rmax = gmax
-      IF (rmax.LE.0d0) rmax = 1d0
-      DO k = pco%ldA(row), pco%ldA(row+1)-1
-        IF (a(k).NE.a(k) .OR. ABS(a(k)).GT.HUGE(1d0)) THEN
-          x = HUGE(1d0)
-        ELSE
+    IF (PRESENT(ldA)) THEN
+      lp => ldA
+    ELSE
+      lp => pco%ldA
+    END IF
+    n = SIZE(lp) - 1
+    ! 1 non-finite entries in either operand
+    DO k = 1, lp(n+1)-1
+      IF (.NOT.IEEE_IS_FINITE(a(k)) .OR. .NOT.IEEE_IS_FINITE(ref(k))) THEN
+        d = HUGE(1d0)
+        kmax = k
+        RETURN
+      END IF
+    END DO
+    ! 2 row-scaled differences; rows that are zero in ref must be zero in a
+    DO row = 1, n
+      IF (lp(row+1).LE.lp(row)) CYCLE
+      rmax = MAXVAL(ABS(ref(lp(row):lp(row+1)-1)))
+      DO k = lp(row), lp(row+1)-1
+        IF (rmax.GT.0d0) THEN
           x = ABS(a(k) - ref(k))/rmax
+        ELSE
+          x = MERGE(1d0, 0d0, a(k).NE.0d0)
         END IF
         IF (x.GT.d) THEN
           d = x
@@ -81,7 +100,7 @@ CONTAINS
     LOGICAL, INTENT(IN) :: weighted
     REAL*8, ALLOCATABLE :: v(:), yd(:), yg(:), yw(:), yi(:), sc(:), b(:), cs(:), ca(:)
     INTEGER :: n, nnz, k, row, iv, e, kmax, idum
-    REAL*8 :: dgw, dgi, eg, ew, ei, resid, devi, cnorm, tol_res, tol_dev, cleft, xref, imb
+    REAL*8 :: dgw, dgi, eg, ew, ei, resid, devi, cnorm, tol_res, tol_dev, cleft, xref, imb, vmax
     CHARACTER(len=8) :: vname(3) = (/'mean    ', 'impulse ', 'random  '/)
 
     IF (myid.EQ.master) THEN
@@ -112,8 +131,9 @@ CONTAINS
         CALL matvec(ag, v, yg)
         CALL matvec(aw, v, yw)
         CALL matvec(ai, v, yi)
+        vmax = MAXVAL(ABS(v))
         DO row = 1, n
-          sc(row) = SUM(ABS(ag(pco%ldA(row):pco%ldA(row+1)-1)))*MAXVAL(ABS(v))
+          sc(row) = SUM(ABS(ag(pco%ldA(row):pco%ldA(row+1)-1)))*vmax
         END DO
         eg = 0d0
         ew = 0d0
