@@ -1,0 +1,24 @@
+Runs of case 11 (2026-11-19), directories under /data/warehouse17/rmuenste/runs/fluid11 (versions.txt and
+staged.txt in each). Binaries: copies in runs/fluid11/bin, built in FeatFloWer-fluid11/build-fluid11 on
+longhouse1a (recipe runs/fluid11/tools/build_fl.sh = runs/pcoarse/tools/build_pc.sh with paths changed),
+pe 43e8fb54 (rsync of the FeatFloWer-perkernel submodule tree, as pcoarse).
+
+binary                         md5                               source
+q2p1_el_pipeflow.c76ca927      933a62816934ba0c8697aaa7a6dc2a5a  c76ca927 (base of the branch)
+q2p1_el_pipeflow.7f05a069      2265a4fe988112cc8c07e03e35b882d9  7f05a069 (drag, inlet table, bed audit)
+q2p1_el_pipeflow.ab23bb6e      3d85ac8c68405f501b10a81b5c32f06c  ab23bb6e (+ NoOutflow kept under PeriodicAxis)
+q2p1_el_pipeflow.87474a41      ca5f0e69124a321502a62b40d1d5dc58  87474a41 (+ window gradient in the audit)
+
+job     run                      binary     result
+163801  unit (ctest)             build      drag test STOP 24 (test tolerance), el-transfer-mpi-8 slots: test fixed, 8 tasks
+163802  unit                     build      11/11 (combined inlet/bed test, before the split)
+163806  unit                     7f05a069   12/12
+163820  unit                     87474a41   12/12
+163807  gate/{D_s6,G_tier2,VB40,E2w5}__{base,new}  c76ca927 / 7f05a069  all bitwise
+163808  R_P30_dt25 (attempt 1)   7f05a069   refused at start (periodic box forced closed), see attempt1_7f05a069/
+163809  R_P10_dt25 (attempt 1)   7f05a069   same
+163812  R_P30_dt25               ab23bb6e   400 steps, U 0.30, rsa bed
+163813  R_P10_dt25               ab23bb6e   400 steps, U 0.10, lattice bed
+163817  R_P30L_dt25              ab23bb6e   2000 steps, U 0.30, rsa bed
+163821  A_P10_dt25               87474a41   200 steps, bed A, U 0.10, lattice bed
+163822  gate/{D_s6,G_tier2,E2w5}__final + R_P10w_dt25  87474a41  gate bitwise; R_P10w = R_P10 with the window gradient (force budget bitwise vs R_P10)
