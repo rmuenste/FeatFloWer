@@ -26,6 +26,7 @@ USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   cGateStageList, bGateRefreshIndex, bGateProbeReport, bFbmOwnerTable
 USE var_QuadScalar, ONLY: bApplyFAC3DMeshDeformation
 USE types, ONLY: tParamV, tParamP, tProperties
+USE pressure_coarse_key, ONLY: PCO_KEY_UNSET, PCO_KEY_INVALID, PCO_KEY_PARSE, PCO_KEY_NAME
 
 IMPLICIT NONE
 
@@ -353,6 +354,9 @@ SUBROUTINE GetPresParameters(myParam, cName, mfile)
   ! Pres@MGCrsSolverType left the field at its static-storage value 0, which
   ! matches no branch of mgCoarseGridSolver_P (silent no-op coarse solve).
   myParam%MGprmIn%CrsSolverType = 1
+  ! Absent keys: operator chosen by the coordinator (QuadSc_pco_operator.f90), no check.
+  myParam%PeriodicCoarseOperator = PCO_KEY_UNSET
+  myParam%PeriodicCoarseCheck = 0
 
   DO
     READ (UNIT=myFile, FMT='(A100)', IOSTAT=iEnd) string
@@ -423,6 +427,27 @@ SUBROUTINE GetPresParameters(myParam, cName, mfile)
           CASE ("MGRelaxPrm")
             READ(string(iEq+1:), *) myParam%MGprmIn%RLX
             CALL write_param_real(mfile, cVar, cPar, out_string, myParam%MGprmIn%RLX)
+
+          CASE ("PeriodicCoarseOperator")
+            ! legacy | gathered | wrapped (pressure_coarse_key); every rank reads the same
+            ! file, so an invalid value stops every rank
+            READ(string(iEq+1:), *) param
+            myParam%PeriodicCoarseOperator = PCO_KEY_PARSE(param)
+            IF (myParam%PeriodicCoarseOperator == PCO_KEY_INVALID) THEN
+              IF (myid == showid .OR. myid == master) WRITE(*,'(A,A,A)') &
+                'Pres@PeriodicCoarseOperator must be legacy, gathered or wrapped; got "', &
+                TRIM(ADJUSTL(param)), '"'
+              STOP 1
+            END IF
+            IF (myid == showid) WRITE(mterm, '(A,A)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ", &
+              TRIM(PCO_KEY_NAME(myParam%PeriodicCoarseOperator))
+            IF (myid == showid) WRITE(mfile, '(A,A)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ", &
+              TRIM(PCO_KEY_NAME(myParam%PeriodicCoarseOperator))
+
+          CASE ("PeriodicCoarseCheck")
+            READ(string(iEq+1:), *) myParam%PeriodicCoarseCheck
+            IF (myParam%PeriodicCoarseCheck < 0) myParam%PeriodicCoarseCheck = 0
+            CALL write_param_int(mfile, cVar, cPar, out_string, myParam%PeriodicCoarseCheck)
 
         END SELECT
 

@@ -102,6 +102,7 @@ set(src_util
   ${CMAKE_SOURCE_DIR}/source/src_util/FolderManagement.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/MPI_DumpOutputProfiles.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/ReadExtrud3DParameters.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/pressure_coarse_key.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/types.f90
   ${CMAKE_SOURCE_DIR}/source/src_el/el_config.f90
   ${CMAKE_SOURCE_DIR}/source/src_el/el_fields.f90
