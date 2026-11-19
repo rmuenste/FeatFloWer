@@ -109,12 +109,14 @@ END SUBROUTINE EL_MM_Update_Fluid_Coefficients
 ! of this rank, the parallel matrix on the workers and the coarse operator of the master - the tail
 ! of the MatrixRenewal C branch of the solver; B, its parallel part and the slip treatment do
 ! not depend on the mass and are not rebuilt), then puts W back. On return mg_MlRhoPmat holds
-! W again and ILEV / MlRhoPmat point to NLMAX as after Create_MRhoMat. The raw masses U and W
-! of the coarse level are handed over as well: a periodic wrapped coarse operator sums them
-! over each periodic class before it transforms (U^2/W of the class sums, as the workers do).
+! W again and ILEV / MlRhoPmat point to NLMAX as after Create_MRhoMat. The weighted mass W of
+! the coarse level and rho are handed over as well: a periodic wrapped coarse operator sums
+! U = rho Ml and W over each periodic class before it transforms (U^2/W of the class sums, as
+! the workers do); it forms U itself, on the master, only when it needs it.
 !
-! Coarse solver: the renewal releases the previous factorisation itself (legacy UMFPACK types
-! 2, 4; the periodic coarse operator refreshes its own; PARDISO, type 9, releases its own).
+! Coarse solver: the previous UMFPACK factorisation (types 2, 4) is released here before the
+! new one is made; under MatrixRenewal C1 nobody else does (PARDISO, type 9, releases its own;
+! the periodic coarse operator refreshes its own factors, the release is then a no-op).
 ! The master receives the porosity on level NLMIN only, so the pressure multigrid must have
 ! its coarse and its master level there, and the hypre solvers keep a matrix copy of their
 ! own: EL_MM_Check_Solver_Settings refuses the other settings.
@@ -124,10 +126,10 @@ END SUBROUTINE EL_MM_Update_Fluid_Coefficients
 SUBROUTINE EL_MM_Pressure_Operator()
 
   USE PP3D_MPI, ONLY: myid, master
+  USE UMFPackSolver, ONLY: myUmfPack_Free
 
   TYPE(mg_Matrix), ALLOCATABLE :: weighted(:)
-  REAL*8, ALLOCATABLE :: u_coarse(:)
-  INTEGER :: jlev, ilev_save, i, n, lc
+  INTEGER :: jlev, ilev_save, i, n, crs
   REAL*8 :: rho, u0
 
   IF (.NOT.ALLOCATED(mg_MlPMat) .OR. .NOT.ALLOCATED(mg_MlRhoPmat)) THEN
@@ -152,11 +154,9 @@ SUBROUTINE EL_MM_Pressure_Operator()
     END DO
   END DO
 
-  lc = LinSc%prm%MGprmIn%MinLev
-  ALLOCATE(u_coarse(SIZE(mg_MlPMat(lc)%a)))
-  u_coarse = rho*mg_MlPMat(lc)%a
-  CALL Renew_Pressure_Operator(u_coarse, weighted(lc)%a)
-  DEALLOCATE(u_coarse)
+  crs = LinSc%prm%MGprmIn%CrsSolverType
+  IF (myid.EQ.master .AND. (crs.EQ.2 .OR. crs.EQ.4)) CALL myUmfPack_Free()
+  CALL Renew_Pressure_Operator(weighted(LinSc%prm%MGprmIn%MinLev)%a, rho)
 
   DO jlev = NLMIN, NLMAX
     mg_MlRhoPmat(jlev)%a = weighted(jlev)%a

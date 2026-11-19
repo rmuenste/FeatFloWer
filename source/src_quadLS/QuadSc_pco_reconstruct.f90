@@ -15,7 +15,10 @@
 !
 ! The classes are installed by the coordinator (PCO_SET_VERTEX_CLASSES); the shared type-3/4
 ! tail of the master coarse solve (crs_P0_Correction in QuadSc_mg.f90) calls PCO_P0_TO_VERTEX
-! when a periodic operator is active and INTPVB otherwise.
+! when a periodic operator is active and INTPVB otherwise. The vertex values and the
+! denominators live in arrays of this module, sized nvt (the multigrid scratch vectors of the
+! legacy tail are sized for the pressure vector, 4 nel, which a strip of elements with more
+! vertices than 4 nel would overrun); pco_vertex_values holds the result.
 !=========================================================================
 MODULE pco_p0_reconstruct
 
@@ -25,6 +28,9 @@ MODULE pco_p0_reconstruct
   ! vertex classes with more than one member (CSR, ascending members)
   INTEGER, SAVE :: nvcls = 0
   INTEGER, ALLOCATABLE, SAVE :: vptr(:), vmem(:)
+  ! result (vertex values) and denominators, nvt each
+  REAL*8, ALLOCATABLE, SAVE, TARGET, PUBLIC :: pco_vertex_values(:)
+  REAL*8, ALLOCATABLE, SAVE :: vden(:)
 
   PUBLIC :: PCO_SET_VERTEX_CLASSES, PCO_P0_TO_VERTEX
 
@@ -56,14 +62,19 @@ CONTAINS
   END SUBROUTINE PCO_SET_VERTEX_CLASSES
 
   !-----------------------------------------------------------------------
-  ! INTPVB with periodic vertex classes: dpl(v) = vertex value, daux work (nvt).
+  ! INTPVB with periodic vertex classes: pco_vertex_values(v), v = 1..nvt.
   !-----------------------------------------------------------------------
-  SUBROUTINE PCO_P0_TO_VERTEX(dp, dpl, daux, dvol, kvert, nel, nvt)
+  SUBROUTINE PCO_P0_TO_VERTEX(dp, dvol, kvert, nel, nvt)
     INTEGER, INTENT(IN) :: nel, nvt, kvert(8,*)
     REAL*8, INTENT(IN) :: dp(*), dvol(*)
-    REAL*8, INTENT(OUT) :: dpl(*), daux(*)
     INTEGER :: iel, j, iv, k, m
     REAL*8 :: w, num, den
+
+    IF (ALLOCATED(pco_vertex_values)) THEN
+      IF (SIZE(pco_vertex_values).LT.nvt) DEALLOCATE(pco_vertex_values, vden)
+    END IF
+    IF (.NOT.ALLOCATED(pco_vertex_values)) ALLOCATE(pco_vertex_values(nvt), vden(nvt))
+    ASSOCIATE(dpl => pco_vertex_values, daux => vden)
 
     dpl(1:nvt) = 0d0
     daux(1:nvt) = 0d0
@@ -91,6 +102,7 @@ CONTAINS
     DO iv = 1, nvt
       dpl(iv) = dpl(iv)/daux(iv)
     END DO
+    END ASSOCIATE
   END SUBROUTINE PCO_P0_TO_VERTEX
 
 END MODULE pco_p0_reconstruct

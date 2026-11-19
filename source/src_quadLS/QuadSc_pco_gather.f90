@@ -27,12 +27,17 @@
 !   uncovered  layout slots no worker fills (structural zeros; reported, not refused)
 ! Values (PCO_GATHER_VALUES, every renewal, collective): the workers send their C and CP value
 ! arrays as they are; the master sums them into its slots (duplicates add, which is what the
-! worker product does). No index traffic after the plan.
+! worker product does).
+! Immutability (PCO_GATHER_UNCHANGED, every renewal, collective): the plan is valid only for the
+! pattern it was built for. Every worker recomputes the global (row, column) of its C and CP
+! entries (one pressure exchange for the ghost numbers) and compares them with the ones of the
+! plan; a changed pattern, ghost numbering or ownership is reported on every rank (the
+! coordinator stops: a changed coarse pattern needs a new layout, classes and gauge).
 !=========================================================================
 MODULE pco_gather
 
   USE PP3D_MPI, ONLY: myid, master, numnodes, subnodes, coarse, MPI_COMM_WORLD, MPI_INTEGER, &
-                      MPI_DOUBLE_PRECISION, MPI_SUM, MPI_LOR, MPI_LOGICAL
+                      MPI_DOUBLE_PRECISION, MPI_LAND, MPI_LOGICAL
   USE var_QuadScalar, ONLY: mg_mesh, mg_lMat, mg_lPMat, mg_CMat, mg_CPMat
   USE def_FEAT, ONLY: ILEV
   USE pco_periodic_topology, ONLY: PCO_GHOST_BUFFER_SIZE
@@ -44,13 +49,15 @@ MODULE pco_gather
     LOGICAL :: built = .FALSE.
     INTEGER :: lev = 0
     INTEGER :: nC = 0, nCP = 0                 ! value counts of this worker at plan time
+    INTEGER, ALLOCATABLE :: nelm(:)            ! master elements per level 1..lev
+    INTEGER, ALLOCATABLE :: irow(:), icol(:)   ! worker: global row/column of every entry
     INTEGER, ALLOCATABLE :: counts(:), displs(:)
     INTEGER, ALLOCATABLE :: slot(:)            ! master: received value -> raw slot
     REAL*8,  ALLOCATABLE :: buf(:)
     INTEGER :: nmissing = 0, nownership = 0, nunowned = 0, nuncovered = 0
   END TYPE tPcoGatherPlan
 
-  PUBLIC :: PCO_GATHER_BUILD, PCO_GATHER_VALUES, PCO_GATHER_STALE, PCO_GATHER_FREE
+  PUBLIC :: PCO_GATHER_BUILD, PCO_GATHER_VALUES, PCO_GATHER_UNCHANGED, PCO_GATHER_FREE
   PUBLIC :: PCO_MASTER_ELEMENT_IDS
 
 CONTAINS
@@ -92,54 +99,25 @@ CONTAINS
     TYPE(tPcoGatherPlan), INTENT(INOUT) :: plan
     INTEGER, INTENT(IN) :: lev
     INTEGER, INTENT(IN) :: ldA(:), colA(:)
-    INTEGER, ALLOCATABLE :: nelm(:), gid(:), irow(:), icol(:), grow(:), gcol(:), owner(:)
+    INTEGER, ALLOCATABLE :: irow(:), icol(:), grow(:), gcol(:), owner(:)
     LOGICAL, ALLOCATABLE :: covered(:)
-    REAL*8, ALLOCATABLE :: x(:), xp(:)
-    INTEGER :: l, nel, r, k, n, ierr, pid, ntot, ilev_save, nrow, slot, cnt(4)
+    INTEGER :: l, k, n, ierr, pid, ntot, nrow, slot, cnt(4)
 
     CALL PCO_GATHER_FREE(plan)
     plan%lev = lev
-    ALLOCATE(nelm(lev))
+    ALLOCATE(plan%nelm(lev))
     IF (myid.EQ.master) THEN
       DO l = 1, lev
-        nelm(l) = mg_mesh%level(l)%nel
+        plan%nelm(l) = mg_mesh%level(l)%nel
       END DO
     END IF
-    CALL MPI_Bcast(nelm, lev, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-
-    ilev_save = ILEV
+    CALL MPI_Bcast(plan%nelm, lev, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+    CALL worker_entry_ids(lev, plan%nelm, irow, icol, plan%nC, plan%nCP)
+    n = plan%nC + plan%nCP
     IF (myid.NE.master) THEN
-      nel = mg_mesh%level(lev)%nel
-      ALLOCATE(gid(nel), x(4*nel), xp(PCO_GHOST_BUFFER_SIZE(lev)))
-      CALL PCO_MASTER_ELEMENT_IDS(lev, nelm, gid)
-      DO r = 1, 4*nel
-        x(r) = DBLE(4*(gid((r-1)/4+1)-1) + MOD(r-1,4) + 1)
-      END DO
-      xp = 0d0
-      plan%nC = mg_lMat(lev)%LdA(4*nel+1) - 1
-      plan%nCP = mg_lPMat(lev)%LdA(4*nel+1) - 1
-      n = plan%nC + plan%nCP
-      ALLOCATE(irow(MAX(n,1)), icol(MAX(n,1)))
-    ELSE
-      ALLOCATE(x(4), xp(4), irow(1), icol(1))
-      plan%nC = 0
-      plan%nCP = 0
-      n = 0
-    END IF
-    ILEV = lev
-    CALL GetParPressure(x, xp)
-    ILEV = ilev_save
-    IF (myid.NE.master) THEN
-      DO r = 1, 4*nel
-        DO k = mg_lMat(lev)%LdA(r), mg_lMat(lev)%LdA(r+1)-1
-          irow(k) = NINT(x(r))
-          icol(k) = NINT(x(mg_lMat(lev)%ColA(k)))
-        END DO
-        DO k = mg_lPMat(lev)%LdA(r), mg_lPMat(lev)%LdA(r+1)-1
-          irow(plan%nC+k) = NINT(x(r))
-          icol(plan%nC+k) = NINT(xp(mg_lPMat(lev)%ColA(k)))
-        END DO
-      END DO
+      ALLOCATE(plan%irow(MAX(n,1)), plan%icol(MAX(n,1)))
+      plan%irow = irow
+      plan%icol = icol
     END IF
 
     ALLOCATE(plan%counts(0:numnodes-1), plan%displs(0:numnodes-1))
@@ -199,8 +177,7 @@ CONTAINS
     plan%nunowned = cnt(3)
     plan%nuncovered = cnt(4)
     plan%built = .TRUE.
-    DEALLOCATE(nelm, x, xp, irow, icol, grow, gcol)
-    IF (ALLOCATED(gid)) DEALLOCATE(gid)
+    DEALLOCATE(irow, icol, grow, gcol)
 
   END SUBROUTINE PCO_GATHER_BUILD
 
@@ -217,21 +194,73 @@ CONTAINS
   END FUNCTION find_slot
 
   !-----------------------------------------------------------------------
-  ! .TRUE. on every rank when the C/CP pattern size of some worker differs from the plan
-  ! (a rebuilt structure); the plan must then be built again. Collective.
+  ! Global (row, column) of every C and CP entry of this worker on level lev, in storage
+  ! order (C entries first); collective (the pressure exchange of the ghost numbers). On the
+  ! master: empty, nC = nCP = 0.
   !-----------------------------------------------------------------------
-  LOGICAL FUNCTION PCO_GATHER_STALE(plan) RESULT(stale)
-    TYPE(tPcoGatherPlan), INTENT(IN) :: plan
-    LOGICAL :: mine
-    INTEGER :: nel, ierr
-    mine = .NOT.plan%built
-    IF (myid.NE.master .AND. plan%built) THEN
-      nel = mg_mesh%level(plan%lev)%nel
-      mine = (mg_lMat(plan%lev)%LdA(4*nel+1)-1.NE.plan%nC) .OR. &
-             (mg_lPMat(plan%lev)%LdA(4*nel+1)-1.NE.plan%nCP)
+  SUBROUTINE worker_entry_ids(lev, nelm, irow, icol, nC, nCP)
+    INTEGER, INTENT(IN) :: lev, nelm(:)
+    INTEGER, ALLOCATABLE, INTENT(OUT) :: irow(:), icol(:)
+    INTEGER, INTENT(OUT) :: nC, nCP
+    INTEGER, ALLOCATABLE :: gid(:)
+    REAL*8, ALLOCATABLE :: x(:), xp(:)
+    INTEGER :: nel, r, k, ilev_save
+
+    ilev_save = ILEV
+    IF (myid.NE.master) THEN
+      nel = mg_mesh%level(lev)%nel
+      ALLOCATE(gid(nel), x(4*nel), xp(PCO_GHOST_BUFFER_SIZE(lev)))
+      CALL PCO_MASTER_ELEMENT_IDS(lev, nelm, gid)
+      DO r = 1, 4*nel
+        x(r) = DBLE(4*(gid((r-1)/4+1)-1) + MOD(r-1,4) + 1)
+      END DO
+      xp = 0d0
+      nC = mg_lMat(lev)%LdA(4*nel+1) - 1
+      nCP = mg_lPMat(lev)%LdA(4*nel+1) - 1
+      ALLOCATE(irow(MAX(nC+nCP,1)), icol(MAX(nC+nCP,1)))
+    ELSE
+      ALLOCATE(x(4), xp(4), irow(1), icol(1))
+      nC = 0
+      nCP = 0
     END IF
-    CALL MPI_Allreduce(mine, stale, 1, MPI_LOGICAL, MPI_LOR, MPI_COMM_WORLD, ierr)
-  END FUNCTION PCO_GATHER_STALE
+    ILEV = lev
+    CALL GetParPressure(x, xp)
+    ILEV = ilev_save
+    IF (myid.NE.master) THEN
+      DO r = 1, 4*nel
+        DO k = mg_lMat(lev)%LdA(r), mg_lMat(lev)%LdA(r+1)-1
+          irow(k) = NINT(x(r))
+          icol(k) = NINT(x(mg_lMat(lev)%ColA(k)))
+        END DO
+        DO k = mg_lPMat(lev)%LdA(r), mg_lPMat(lev)%LdA(r+1)-1
+          irow(nC+k) = NINT(x(r))
+          icol(nC+k) = NINT(xp(mg_lPMat(lev)%ColA(k)))
+        END DO
+      END DO
+      DEALLOCATE(gid)
+    END IF
+    DEALLOCATE(x, xp)
+  END SUBROUTINE worker_entry_ids
+
+  !-----------------------------------------------------------------------
+  ! .TRUE. on every rank when every worker still has the pattern, the ghost numbering and the
+  ! ownership the plan was built for (see the module header). Collective.
+  !-----------------------------------------------------------------------
+  LOGICAL FUNCTION PCO_GATHER_UNCHANGED(plan) RESULT(same)
+    TYPE(tPcoGatherPlan), INTENT(IN) :: plan
+    INTEGER, ALLOCATABLE :: irow(:), icol(:)
+    INTEGER :: nC, nCP, ierr
+    LOGICAL :: mine
+    CALL worker_entry_ids(plan%lev, plan%nelm, irow, icol, nC, nCP)
+    mine = plan%built
+    IF (myid.NE.master .AND. mine) THEN
+      mine = (nC.EQ.plan%nC .AND. nCP.EQ.plan%nCP)
+      IF (mine .AND. nC+nCP.GT.0) mine = ALL(irow(1:nC+nCP).EQ.plan%irow(1:nC+nCP)) .AND. &
+                                         ALL(icol(1:nC+nCP).EQ.plan%icol(1:nC+nCP))
+    END IF
+    DEALLOCATE(irow, icol)
+    CALL MPI_Allreduce(mine, same, 1, MPI_LOGICAL, MPI_LAND, MPI_COMM_WORLD, ierr)
+  END FUNCTION PCO_GATHER_UNCHANGED
 
   !-----------------------------------------------------------------------
   ! Collect the current values of C and CP (level plan%lev) into raw (master: zeroed and
@@ -266,6 +295,9 @@ CONTAINS
     IF (ALLOCATED(plan%displs)) DEALLOCATE(plan%displs)
     IF (ALLOCATED(plan%slot)) DEALLOCATE(plan%slot)
     IF (ALLOCATED(plan%buf)) DEALLOCATE(plan%buf)
+    IF (ALLOCATED(plan%nelm)) DEALLOCATE(plan%nelm)
+    IF (ALLOCATED(plan%irow)) DEALLOCATE(plan%irow)
+    IF (ALLOCATED(plan%icol)) DEALLOCATE(plan%icol)
     plan%built = .FALSE.
   END SUBROUTINE PCO_GATHER_FREE
 

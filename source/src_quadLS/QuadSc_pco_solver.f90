@@ -1,6 +1,6 @@
 !=========================================================================
-! QuadSc_pco_solver.f90 - storage, gauge and factorisation of the periodic coarse pressure
-! operator on the master
+! QuadSc_pco_solver.f90 - storage, gauge and solves of the periodic coarse pressure operator
+! on the master
 !
 ! Part of the periodic coarse pressure operator (overview: QuadSc_pco_operator.f90). Owns
 ! the master-side system of a non-legacy mode; the coordinator writes the raw values, the
@@ -8,33 +8,45 @@
 !
 ! Numbering and layout (the conventions of the legacy master matrix, Get_CMatStruct iP=1):
 !   unknown 4(e-1)+m is mode m of the P1 pressure of master element e of the coarse level
-!   (m = 1 the element mean, 2..4 the slopes); the row block of e lists the own block first,
-!   then the blocks of the neighbour elements in ascending order (element graph through
-!   vertex classes, pco_periodic_topology); row 4(e-1)+m starts with its diagonal, then the
-!   other modes of e ascending, then 4 entries per neighbour. Hence the P0 (mode 1) system
-!   is read with stride 4, as the legacy type-3/4 extraction does.
+!   (m = 1 the element mean, 2..4 the coefficients of the physical linear basis x-x0, y-y0,
+!   z-z0); the row block of e lists the own block first, then the blocks of the neighbour
+!   elements in ascending order (element graph through vertex classes,
+!   pco_periodic_topology); row 4(e-1)+m starts with its diagonal, then the other modes of e
+!   ascending, then 4 entries per neighbour. Hence the mean-mode system is read with stride 4,
+!   as the legacy type-3/4 extraction does.
 !
 ! raw  : the operator as the workers apply it (gathered) or its master-side equivalent
 !        (wrapped); ungauged and never modified by a solve. It is the operator of the type-3/4
 !        smoothing (PCO_RAW_SOR) and of the checks.
-! gauge: on every connected component of the element graph whose operator annihilates the
-!        constant pressure (C e = 0, e = 1 on the mean modes: a closed fluid domain) one
-!        reference unknown, the mean mode of the lowest element of the component, is set to
-!        zero in the SOLVER COPY only: its row and column are cleared except the diagonal and
-!        its right-hand side entry is zeroed (symmetric elimination of a zero value). The
-!        decision is taken from the operator at every refresh (closure measure below 1e-8),
-!        not from SimPar@NoOutflow; a disagreement with NoOutflow is reported by the
-!        coordinator. A right-hand side whose component sums do not vanish (incompatible with
-!        the closed component) is reported, not changed: the gauge cannot repair a net
-!        continuity imbalance.
-! solver copy: full (types 1, 2) or mean modes only (types 3, 4), same diagonal-first layout,
-!        pattern fixed (explicit zeros kept), values refreshed from raw. Types 2/4: UMFPACK in
-!        explicit column storage of this matrix (tUmfCSC: it solves A x = b, not A^T x = b);
-!        the symbolic analysis is done once per pattern, the numeric factorisation at every
-!        refresh. Types 1/3: BiCGStab of the master with the SSOR preconditioner of the legacy
-!        path, on the gauged copy.
+! gauge: decided ONCE per layout, at the first refresh, from the operator itself:
+!        - components: elements e, f are coupled when some entry of their 4x4 block exceeds
+!          COUPLING_TOL times the larger diagonal of the two (effective couplings; two regions
+!          that touch only through constrained dofs have an all-zero structural block and are
+!          two components);
+!        - closed component: closure measure max_i |(C e)_i| / sum_j |C_ij| e_j over its rows
+!          below PCO_CLOSURE_TOL = 1e-8, e = 1 on its mean modes (measured: closed 1.5e-15 to
+!          1.2e-14, open 0.9 on the gated cases; the tolerance lies six orders from both);
+!        - one reference per closed component, the mean mode of its lowest element, set to
+!          zero in the SOLVER COPY only: row and column cleared except the diagonal, the
+!          right-hand-side entry zeroed (symmetric elimination of a zero value).
+!        Later refreshes keep the decision (no flipping between pinned and unpinned) and check
+!        it: a closed component whose measure rises above DRIFT_CLOSED or an open one that
+!        falls below DRIFT_OPEN is reported (pco%drift). The left null vector of a closed
+!        component is checked at the decision (|e^T A| / e^T |A|); the right-hand-side
+!        compatibility measure below assumes it is e (symmetric operator).
+!        A right-hand side whose sum over a closed component does not vanish is reported
+!        (component, absolute net value, relative imbalance), not changed.
+! solver copy: full (types 1, 2) or mean modes only (types 3, 4), pattern fixed (explicit zeros
+!        kept), values refreshed from raw. Types 2/4: UMFPACK in explicit column storage of this
+!        matrix (tUmfCSC: it solves A x = b, not A^T x = b); symbolic analysis once per pattern,
+!        numeric factorisation at every refresh. Types 1/3: BiCGStab of this module with an
+!        SSOR preconditioner that scans every off-diagonal entry with a lower/upper predicate
+!        (the legacy PARID117_MASTER stops at the first upper column of a row, which in this
+!        diagonal-first layout skips lower neighbours); a zero right-hand side returns the zero
+!        correction, convergence is tested before every division, a breakdown is reported.
 ! Status: factorisation failures are returned to the coordinator (collective stop there); a
 ! failing solve inside the multigrid runs on the master only and aborts with a message.
+! Diagnostics (PCO_SOLVE_CHECK, PCO_PROBE_IMBALANCE) never touch the production statistics.
 !=========================================================================
 MODULE pco_coarse_solver
 
@@ -55,12 +67,15 @@ MODULE pco_coarse_solver
     INTEGER, ALLOCATABLE :: eptr(:), enbr(:)
     INTEGER, ALLOCATABLE :: ldA(:), colA(:)
     REAL*8,  ALLOCATABLE :: a(:)
-    ! components of the element graph and the gauge
+    ! gauge (decided once per layout)
+    LOGICAL :: gauge_decided = .FALSE.
     INTEGER :: ncomp = 0, nclosed = 0
     INTEGER, ALLOCATABLE :: comp_of(:), comp_ref(:)
     LOGICAL, ALLOCATABLE :: comp_closed(:)
     REAL*8  :: closure_open = 0d0        ! smallest closure measure of the open components
     REAL*8  :: closure_closed = 0d0      ! largest closure measure of the closed components
+    REAL*8  :: left_closed = 0d0         ! largest |e^T A| / e^T |A| of the closed components
+    LOGICAL :: drift = .FALSE.           ! a later refresh contradicts the gauge decision
     ! solver copy
     LOGICAL :: reduced = .FALSE.
     INTEGER :: ns = 0
@@ -71,35 +86,35 @@ MODULE pco_coarse_solver
     TYPE(tUmfCSC) :: lu
     LOGICAL :: analysed = .FALSE.
     REAL*8,  ALLOCATABLE :: rhs(:), sol(:), w(:,:)
-    ! statistics
-    INTEGER :: nsolve = 0, nincompat = 0
-    REAL*8  :: max_incompat = 0d0
+    ! production statistics (diagnostic solves do not count)
+    INTEGER :: nsolve = 0, nincompat = 0, nbreakdown = 0
+    REAL*8  :: max_incompat = 0d0        ! largest relative imbalance |sum b| / sum |b|
+    REAL*8  :: max_incompat_net = 0d0    ! the net sum at that solve
+    INTEGER :: max_incompat_comp = 0     ! and its component
   END TYPE tPcoSystem
 
   TYPE(tPcoSystem), PUBLIC, SAVE, TARGET :: pco
 
-  REAL*8, PARAMETER, PUBLIC :: PCO_CLOSURE_TOL = 1d-8   ! closed component: |C e| / |C| e below
+  REAL*8, PARAMETER, PUBLIC :: PCO_CLOSURE_TOL = 1d-8
+  REAL*8, PARAMETER :: DRIFT_CLOSED = 1d-6, DRIFT_OPEN = 1d-10
+  REAL*8, PARAMETER :: COUPLING_TOL = 1d-10
   ! reported right-hand-side imbalance |sum b| / sum |b| over a closed component. The coarse
   ! right-hand side of a converging cycle is a small defect whose sum is rounding of the
-  ! divergence cancellation: relative imbalances up to ~1e-3 occur in compatible runs
-  ! (single-phase probe); a real imbalance (a source that does not integrate to zero) is O(1).
-  ! The largest value is kept (pco%max_incompat, printed on the PCO_TIMING lines).
-  REAL*8, PARAMETER :: INCOMPAT_TOL = 1d-2
-  REAL*8, SAVE :: pco_rlx = 1d0                         ! relaxation of the type-1/3 preconditioner
+  ! divergence cancellation: relative imbalances up to ~2e-2 occur in compatible single-phase
+  ! runs at initial defects of 1e-14; a real imbalance (a source that does not integrate to
+  ! zero) is O(1). Reported above INCOMPAT_TOL with the absolute net value; the largest value
+  ! is kept for the PCO_TIMING lines.
+  REAL*8, PARAMETER :: INCOMPAT_TOL = 1d-1
 
-  PUBLIC :: PCO_ACTIVE, PCO_REDUCED, PCO_INSTALL_LAYOUT, PCO_REFRESH_SOLVER, PCO_SOLVE_FULL
-  PUBLIC :: PCO_SOLVE_P0, PCO_RAW_SOR, PCO_RAW_MATVEC, PCO_BLOCK_SLOT, PCO_NEIGHBOUR_POS
-  PUBLIC :: PCO_RELEASE, PCO_SOLVE_CHECK
+  PUBLIC :: PCO_ACTIVE, PCO_INSTALL_LAYOUT, PCO_CHANGE_SOLVER_TYPE, PCO_REFRESH_SOLVER
+  PUBLIC :: PCO_SOLVE_FULL, PCO_SOLVE_P0, PCO_RAW_SOR, PCO_RAW_MATVEC, PCO_BLOCK_SLOT
+  PUBLIC :: PCO_NEIGHBOUR_POS, PCO_RELEASE, PCO_SOLVE_CHECK, PCO_PROBE_IMBALANCE
 
 CONTAINS
 
   LOGICAL FUNCTION PCO_ACTIVE()
     PCO_ACTIVE = pco%active
   END FUNCTION PCO_ACTIVE
-
-  LOGICAL FUNCTION PCO_REDUCED()
-    PCO_REDUCED = pco%reduced
-  END FUNCTION PCO_REDUCED
 
   !-----------------------------------------------------------------------
   ! Position (1-based) of element f among the neighbours of e, 0 if f is not one.
@@ -145,25 +160,23 @@ CONTAINS
   END FUNCTION PCO_BLOCK_SLOT
 
   !-----------------------------------------------------------------------
-  ! Install the layout of level lev from the element graph (eptr/enbr, moved in), the
-  ! components and the solver copy pattern for coarse solver type crs (1-4). Master only.
+  ! Install the layout of level lev from the element graph (eptr/enbr, moved in) and the
+  ! solver copy pattern for coarse solver type crs (1-4). The gauge is decided at the first
+  ! refresh. Master only.
   !-----------------------------------------------------------------------
   SUBROUTINE PCO_INSTALL_LAYOUT(lev, nel, eptr, enbr, crs, mode)
     INTEGER, INTENT(IN) :: lev, nel, crs, mode
     INTEGER, ALLOCATABLE, INTENT(INOUT) :: eptr(:), enbr(:)
-    INTEGER :: e, mp, mq, j, row, k, nnb, ic, f, head, tail
-    INTEGER, ALLOCATABLE :: queue(:)
+    INTEGER :: e, mp, mq, j, row, k, nnb, f
 
     CALL PCO_RELEASE()
     pco%lev = lev
     pco%nel = nel
     pco%n = 4*nel
-    pco%solver_type = crs
     pco%mode = mode
     CALL MOVE_ALLOC(eptr, pco%eptr)
     CALL MOVE_ALLOC(enbr, pco%enbr)
 
-    ! raw layout
     ALLOCATE(pco%ldA(pco%n+1))
     pco%ldA(1) = 1
     DO e = 1, nel
@@ -194,40 +207,23 @@ CONTAINS
         END DO
       END DO
     END DO
+    ALLOCATE(pco%comp_of(nel))
+    pco%gauge_decided = .FALSE.
+    pco%drift = .FALSE.
+    CALL install_copy(crs)
 
-    ! connected components of the element graph; reference = lowest element
-    ALLOCATE(pco%comp_of(nel), queue(nel))
-    pco%comp_of = 0
-    pco%ncomp = 0
-    DO e = 1, nel
-      IF (pco%comp_of(e).NE.0) CYCLE
-      pco%ncomp = pco%ncomp + 1
-      pco%comp_of(e) = pco%ncomp
-      head = 1
-      tail = 1
-      queue(1) = e
-      DO WHILE (head.LE.tail)
-        ic = queue(head)
-        head = head + 1
-        DO j = pco%eptr(ic), pco%eptr(ic+1)-1
-          f = pco%enbr(j)
-          IF (pco%comp_of(f).EQ.0) THEN
-            pco%comp_of(f) = pco%ncomp
-            tail = tail + 1
-            queue(tail) = f
-          END IF
-        END DO
-      END DO
-    END DO
-    DEALLOCATE(queue)
-    ALLOCATE(pco%comp_ref(pco%ncomp), pco%comp_closed(pco%ncomp))
-    pco%comp_ref = 0
-    DO e = nel, 1, -1
-      pco%comp_ref(pco%comp_of(e)) = e
-    END DO
-    pco%comp_closed = .FALSE.
+  END SUBROUTINE PCO_INSTALL_LAYOUT
 
-    ! solver copy pattern
+  ! solver copy pattern of type crs (full or mean modes)
+  SUBROUTINE install_copy(crs)
+    INTEGER, INTENT(IN) :: crs
+    INTEGER :: e, j, k, nel
+
+    CALL UmfCSC_Release(pco%lu)
+    IF (ALLOCATED(pco%sldA)) DEALLOCATE(pco%sldA, pco%scolA, pco%sfrom, pco%sa, pco%scomp, pco%sref, &
+                                        pco%rhs, pco%sol, pco%w)
+    nel = pco%nel
+    pco%solver_type = crs
     pco%reduced = (crs.EQ.3 .OR. crs.EQ.4)
     IF (pco%reduced) THEN
       pco%ns = nel
@@ -247,8 +243,6 @@ CONTAINS
           pco%sfrom(k) = PCO_BLOCK_SLOT(e, 1, j - pco%eptr(e) + 1, 1)
         END DO
       END DO
-      ALLOCATE(pco%scomp(nel))
-      pco%scomp = pco%comp_of
     ELSE
       pco%ns = pco%n
       ALLOCATE(pco%sldA(pco%n+1), pco%scolA(SIZE(pco%colA)), pco%sfrom(SIZE(pco%colA)))
@@ -257,73 +251,225 @@ CONTAINS
       DO k = 1, SIZE(pco%colA)
         pco%sfrom(k) = k
       END DO
-      ALLOCATE(pco%scomp(pco%n))
-      DO e = 1, nel
+    END IF
+    ALLOCATE(pco%sa(SIZE(pco%scolA)), pco%scomp(pco%ns), pco%sref(pco%ns), pco%rhs(pco%ns), &
+             pco%sol(pco%ns), pco%w(pco%ns,6))
+    pco%sref = .FALSE.
+    pco%scomp = 0
+    IF (pco%gauge_decided) CALL map_gauge_to_copy()
+    pco%analysed = .FALSE.
+    IF (crs.EQ.2 .OR. crs.EQ.4) CALL UmfCSC_SetStructure(pco%lu, pco%ns, pco%sldA, pco%scolA)
+  END SUBROUTINE install_copy
+
+  ! components and references of the gauge decision onto the unknowns of the copy
+  SUBROUTINE map_gauge_to_copy()
+    INTEGER :: e, c
+    pco%sref = .FALSE.
+    IF (pco%reduced) THEN
+      pco%scomp = pco%comp_of
+    ELSE
+      DO e = 1, pco%nel
         pco%scomp(4*(e-1)+1:4*e) = pco%comp_of(e)
       END DO
     END IF
-    ALLOCATE(pco%sa(SIZE(pco%scolA)), pco%sref(pco%ns), pco%rhs(pco%ns), pco%sol(pco%ns))
-    ALLOCATE(pco%w(pco%ns,5))
-    pco%sref = .FALSE.
-    pco%analysed = .FALSE.
-    IF (crs.EQ.2 .OR. crs.EQ.4) CALL UmfCSC_SetStructure(pco%lu, pco%ns, pco%sldA, pco%scolA)
-
-  END SUBROUTINE PCO_INSTALL_LAYOUT
+    DO c = 1, pco%ncomp
+      IF (.NOT.pco%comp_closed(c)) CYCLE
+      e = pco%comp_ref(c)
+      pco%sref(MERGE(e, 4*(e-1)+1, pco%reduced)) = .TRUE.
+    END DO
+  END SUBROUTINE map_gauge_to_copy
 
   !-----------------------------------------------------------------------
-  ! After the raw values changed: closure of each component, gauge, solver copy values,
-  ! numeric factorisation (types 2, 4). status 0 = ok; msg says what failed. Master only.
+  ! A new coarse solver type 1-4 on the installed layout (runtime parameter reload): new copy
+  ! pattern, same gauge decision, refreshed values and factors. Master only.
   !-----------------------------------------------------------------------
-  SUBROUTINE PCO_REFRESH_SOLVER(status, msg)
+  SUBROUTINE PCO_CHANGE_SOLVER_TYPE(crs, status, msg)
+    INTEGER, INTENT(IN) :: crs
     INTEGER, INTENT(OUT) :: status
     CHARACTER(len=*), INTENT(OUT) :: msg
-    INTEGER :: e, c, k, row, g, ist
-    REAL*8, ALLOCATABLE :: worst(:)
-    REAL*8 :: r, s
+    CALL install_copy(crs)
+    CALL PCO_REFRESH_SOLVER(status, msg)
+  END SUBROUTINE PCO_CHANGE_SOLVER_TYPE
 
-    status = 0
-    msg = ' '
-    ! closure measure per component: max over the rows of |sum of the mean-mode columns| /
-    ! sum of their moduli (C e with e = 1 on the mean modes)
-    ALLOCATE(worst(pco%ncomp))
-    worst = 0d0
+  !-----------------------------------------------------------------------
+  ! Closure measure per component (max over its rows of |sum of the mean-mode columns| /
+  ! sum of their moduli) and the left measure (same over the columns of its mean rows).
+  !-----------------------------------------------------------------------
+  SUBROUTINE closure_measures(right, left)
+    REAL*8, INTENT(OUT) :: right(:), left(:)
+    REAL*8, ALLOCATABLE :: cs(:), ca(:)
+    INTEGER :: row, k, c
+    REAL*8 :: r, s
+    right = 0d0
+    left = 0d0
+    ALLOCATE(cs(pco%n), ca(pco%n))
+    cs = 0d0
+    ca = 0d0
     DO row = 1, pco%n
       r = 0d0
       s = 0d0
       DO k = pco%ldA(row), pco%ldA(row+1)-1
-        IF (MOD(pco%colA(k)-1,4).NE.0) CYCLE
-        r = r + pco%a(k)
-        s = s + ABS(pco%a(k))
+        IF (MOD(pco%colA(k)-1,4).EQ.0) THEN
+          r = r + pco%a(k)
+          s = s + ABS(pco%a(k))
+        END IF
+        IF (MOD(row-1,4).EQ.0) THEN
+          cs(pco%colA(k)) = cs(pco%colA(k)) + pco%a(k)
+          ca(pco%colA(k)) = ca(pco%colA(k)) + ABS(pco%a(k))
+        END IF
       END DO
       c = pco%comp_of((row-1)/4+1)
-      IF (s.GT.0d0) worst(c) = MAX(worst(c), ABS(r)/s)
+      IF (s.GT.0d0) right(c) = MAX(right(c), ABS(r)/s)
     END DO
-    pco%comp_closed = (worst.LE.PCO_CLOSURE_TOL)
+    DO k = 1, pco%n
+      c = pco%comp_of((k-1)/4+1)
+      IF (ca(k).GT.0d0) left(c) = MAX(left(c), ABS(cs(k))/ca(k))
+    END DO
+    DEALLOCATE(cs, ca)
+  END SUBROUTINE closure_measures
+
+  !-----------------------------------------------------------------------
+  ! Gauge decision (see the module header): effective components by union-find over the
+  ! element blocks, closure, references.
+  !-----------------------------------------------------------------------
+  SUBROUTINE decide_gauge()
+    INTEGER, ALLOCATABLE :: parent(:), root2c(:)
+    REAL*8, ALLOCATABLE :: dmax(:), right(:), left(:)
+    INTEGER :: e, f, j, mp, mq, c, nel, pos
+    REAL*8 :: bmax
+
+    nel = pco%nel
+    ALLOCATE(parent(nel), root2c(nel), dmax(nel))
+    DO e = 1, nel
+      parent(e) = e
+      dmax(e) = 0d0
+      DO mp = 1, 4
+        dmax(e) = MAX(dmax(e), ABS(pco%a(PCO_BLOCK_SLOT(e, mp, 0, mp))))
+      END DO
+    END DO
+    DO e = 1, nel
+      DO j = pco%eptr(e), pco%eptr(e+1)-1
+        f = pco%enbr(j)
+        pos = j - pco%eptr(e) + 1
+        bmax = 0d0
+        DO mp = 1, 4
+          DO mq = 1, 4
+            bmax = MAX(bmax, ABS(pco%a(PCO_BLOCK_SLOT(e, mp, pos, mq))))
+          END DO
+        END DO
+        IF (bmax.GT.COUPLING_TOL*MAX(dmax(e), dmax(f))) CALL union(e, f)
+      END DO
+    END DO
+    root2c = 0
+    pco%ncomp = 0
+    DO e = 1, nel
+      f = find(e)
+      IF (root2c(f).EQ.0) THEN
+        pco%ncomp = pco%ncomp + 1
+        root2c(f) = pco%ncomp
+      END IF
+      pco%comp_of(e) = root2c(f)
+    END DO
+    IF (ALLOCATED(pco%comp_ref)) DEALLOCATE(pco%comp_ref, pco%comp_closed)
+    ALLOCATE(pco%comp_ref(pco%ncomp), pco%comp_closed(pco%ncomp), right(pco%ncomp), left(pco%ncomp))
+    pco%comp_ref = 0
+    DO e = nel, 1, -1
+      pco%comp_ref(pco%comp_of(e)) = e
+    END DO
+    CALL closure_measures(right, left)
+    pco%comp_closed = (right.LE.PCO_CLOSURE_TOL)
     pco%nclosed = COUNT(pco%comp_closed)
     pco%closure_closed = 0d0
     pco%closure_open = HUGE(1d0)
+    pco%left_closed = 0d0
     DO c = 1, pco%ncomp
       IF (pco%comp_closed(c)) THEN
-        pco%closure_closed = MAX(pco%closure_closed, worst(c))
+        pco%closure_closed = MAX(pco%closure_closed, right(c))
+        pco%left_closed = MAX(pco%left_closed, left(c))
       ELSE
-        pco%closure_open = MIN(pco%closure_open, worst(c))
+        pco%closure_open = MIN(pco%closure_open, right(c))
       END IF
     END DO
-    DEALLOCATE(worst)
+    pco%gauge_decided = .TRUE.
+    CALL map_gauge_to_copy()
+    DEALLOCATE(parent, root2c, dmax, right, left)
 
-    ! solver copy with the gauge
+  CONTAINS
+
+    INTEGER FUNCTION find(i) RESULT(r)
+      INTEGER, INTENT(IN) :: i
+      INTEGER :: k, t
+      r = i
+      DO WHILE (parent(r).NE.r)
+        r = parent(r)
+      END DO
+      k = i
+      DO WHILE (parent(k).NE.r)
+        t = parent(k)
+        parent(k) = r
+        k = t
+      END DO
+    END FUNCTION find
+
+    SUBROUTINE union(i, k)
+      INTEGER, INTENT(IN) :: i, k
+      INTEGER :: ri, rk
+      ri = find(i)
+      rk = find(k)
+      IF (ri.LT.rk) THEN
+        parent(rk) = ri
+      ELSE IF (rk.LT.ri) THEN
+        parent(ri) = rk
+      END IF
+    END SUBROUTINE union
+
+  END SUBROUTINE decide_gauge
+
+  ! the decision of decide_gauge against the current values (reported once per drift)
+  SUBROUTINE check_gauge()
+    REAL*8, ALLOCATABLE :: right(:), left(:)
+    INTEGER :: c
+    LOGICAL :: bad
+    ALLOCATE(right(pco%ncomp), left(pco%ncomp))
+    CALL closure_measures(right, left)
+    bad = .FALSE.
+    DO c = 1, pco%ncomp
+      IF (pco%comp_closed(c) .AND. right(c).GT.DRIFT_CLOSED) bad = .TRUE.
+      IF (.NOT.pco%comp_closed(c) .AND. right(c).LT.DRIFT_OPEN) bad = .TRUE.
+    END DO
+    IF (bad .AND. .NOT.pco%drift) WRITE(MTERM,'(A)') 'PCO gauge drift: the closure of a '// &
+      'component no longer matches the decision of the first refresh (kept; see pco%drift)'
+    pco%drift = pco%drift .OR. bad
+    DEALLOCATE(right, left)
+  END SUBROUTINE check_gauge
+
+  !-----------------------------------------------------------------------
+  ! After the raw values changed: gauge decision (first refresh) or its check, solver copy
+  ! values, numeric factorisation (types 2, 4). status 0 = ok; msg says what failed. Master.
+  !-----------------------------------------------------------------------
+  SUBROUTINE PCO_REFRESH_SOLVER(status, msg)
+    INTEGER, INTENT(OUT) :: status
+    CHARACTER(len=*), INTENT(OUT) :: msg
+    INTEGER :: k, row, ist
+
+    status = 0
+    msg = ' '
+    IF (ANY(pco%a.NE.pco%a) .OR. ANY(ABS(pco%a).GT.HUGE(1d0))) THEN
+      status = 3
+      msg = 'non-finite entry in the coarse pressure operator'
+      RETURN
+    END IF
+    IF (.NOT.pco%gauge_decided) THEN
+      CALL decide_gauge()
+    ELSE
+      CALL check_gauge()
+    END IF
+
     DO k = 1, SIZE(pco%sa)
       pco%sa(k) = pco%a(pco%sfrom(k))
     END DO
-    pco%sref = .FALSE.
-    DO c = 1, pco%ncomp
-      IF (.NOT.pco%comp_closed(c)) CYCLE
-      e = pco%comp_ref(c)
-      g = MERGE(e, 4*(e-1)+1, pco%reduced)
-      pco%sref(g) = .TRUE.
-    END DO
     DO row = 1, pco%ns
-      DO k = pco%sldA(row)+1, pco%sldA(row+1)-1     ! off-diagonal entries
+      DO k = pco%sldA(row)+1, pco%sldA(row+1)-1
         IF (pco%sref(row) .OR. pco%sref(pco%scolA(k))) pco%sa(k) = 0d0
       END DO
     END DO
@@ -352,59 +498,77 @@ CONTAINS
   END SUBROUTINE PCO_REFRESH_SOLVER
 
   !-----------------------------------------------------------------------
-  ! Right-hand side of the solver copy: copy, compatibility measure per closed component
-  ! (|sum| / sum of moduli over its mean modes; reported above INCOMPAT_TOL), zero references.
+  ! Right-hand side of the solver copy: copy (stride 1 or 4), imbalance per closed component,
+  ! zero references. diagnostic: no counters, no output; imb returns the largest relative
+  ! imbalance |sum b| / sum |b|.
   !-----------------------------------------------------------------------
-  SUBROUTINE prepare_rhs(b, stride)
+  SUBROUTINE prepare_rhs(b, stride, diagnostic, imb)
     REAL*8, INTENT(IN) :: b(*)
     INTEGER, INTENT(IN) :: stride
+    LOGICAL, INTENT(IN) :: diagnostic
+    REAL*8, INTENT(OUT) :: imb
     REAL*8, ALLOCATABLE :: sm(:), sa(:)
-    INTEGER :: i, c
-    REAL*8 :: worst
+    INTEGER :: i, c, cw
+    REAL*8 :: rel
 
     DO i = 1, pco%ns
       pco%rhs(i) = b(stride*(i-1)+1)
     END DO
-    IF (pco%nclosed.GT.0) THEN
-      ALLOCATE(sm(pco%ncomp), sa(pco%ncomp))
-      sm = 0d0
-      sa = 0d0
-      DO i = 1, pco%ns
-        IF (.NOT.pco%reduced .AND. MOD(i-1,4).NE.0) CYCLE
-        c = pco%scomp(i)
-        sm(c) = sm(c) + pco%rhs(i)
-        sa(c) = sa(c) + ABS(pco%rhs(i))
-      END DO
-      worst = 0d0
-      DO c = 1, pco%ncomp
-        IF (pco%comp_closed(c) .AND. sa(c).GT.0d0) worst = MAX(worst, ABS(sm(c))/sa(c))
-      END DO
-      DEALLOCATE(sm, sa)
-      pco%max_incompat = MAX(pco%max_incompat, worst)
-      IF (worst.GT.INCOMPAT_TOL) THEN
+    imb = 0d0
+    IF (pco%nclosed.EQ.0) RETURN
+    ALLOCATE(sm(pco%ncomp), sa(pco%ncomp))
+    sm = 0d0
+    sa = 0d0
+    DO i = 1, pco%ns
+      IF (.NOT.pco%reduced .AND. MOD(i-1,4).NE.0) CYCLE
+      c = pco%scomp(i)
+      sm(c) = sm(c) + pco%rhs(i)
+      sa(c) = sa(c) + ABS(pco%rhs(i))
+    END DO
+    cw = 0
+    DO c = 1, pco%ncomp
+      IF (.NOT.pco%comp_closed(c) .OR. sa(c).LE.0d0) CYCLE
+      rel = ABS(sm(c))/sa(c)
+      IF (rel.GT.imb) THEN
+        imb = rel
+        cw = c
+      END IF
+    END DO
+    IF (.NOT.diagnostic .AND. cw.GT.0) THEN
+      IF (imb.GT.pco%max_incompat) THEN
+        pco%max_incompat = imb
+        pco%max_incompat_net = sm(cw)
+        pco%max_incompat_comp = cw
+      END IF
+      IF (imb.GT.INCOMPAT_TOL) THEN
         pco%nincompat = pco%nincompat + 1
         IF (pco%nincompat.LE.5 .OR. MOD(pco%nincompat,1000).EQ.0) &
-          WRITE(MTERM,'(A,ES12.4,A,I0,A,I0)') 'PCO_COARSE_RHS incompatible with a closed component: '// &
-          'imbalance ', worst, ' solve ', pco%nsolve, ' occurrence ', pco%nincompat
+          WRITE(MTERM,'(A,I0,A,ES12.4,A,ES12.4,A,ES12.4,A,I0,A,I0)') 'PCO_COARSE_RHS component ', cw, &
+          ' net ', sm(cw), ' sum of moduli ', sa(cw), ' relative ', imb, ' solve ', pco%nsolve, &
+          ' occurrence ', pco%nincompat
       END IF
-      DO i = 1, pco%ns
-        IF (pco%sref(i)) pco%rhs(i) = 0d0
-      END DO
     END IF
+    DEALLOCATE(sm, sa)
+    DO i = 1, pco%ns
+      IF (pco%sref(i)) pco%rhs(i) = 0d0
+    END DO
   END SUBROUTINE prepare_rhs
 
   !-----------------------------------------------------------------------
-  ! Types 1, 2: x (4 nel) = coarse solution of C x = b. iter: iterations used (type 1: in =
-  ! maximum, out = used). Master only.
+  ! Types 1, 2: x (4 nel) = coarse solution of C x = b. nx: length of x at the caller (checked).
+  ! iter: in = maximum iterations (type 1), out = used. Master only.
   !-----------------------------------------------------------------------
-  SUBROUTINE PCO_SOLVE_FULL(x, b, iter, dcrit, rlx)
+  SUBROUTINE PCO_SOLVE_FULL(x, b, nx, iter, dcrit, rlx)
     REAL*8, INTENT(INOUT) :: x(*)
     REAL*8, INTENT(IN) :: b(*)
+    INTEGER, INTENT(IN) :: nx
     INTEGER, INTENT(INOUT) :: iter
     REAL*8, INTENT(IN) :: dcrit, rlx
+    REAL*8 :: imb
+    CALL check_dims(nx, .FALSE.)
     pco%nsolve = pco%nsolve + 1
-    CALL prepare_rhs(b, 1)
-    CALL solve_copy(iter, dcrit, rlx)
+    CALL prepare_rhs(b, 1, .FALSE., imb)
+    CALL solve_copy(iter, dcrit, rlx, .FALSE.)
     x(1:pco%ns) = pco%sol
   END SUBROUTINE PCO_SOLVE_FULL
 
@@ -416,19 +580,33 @@ CONTAINS
     REAL*8, INTENT(OUT) :: p0(:)
     INTEGER, INTENT(INOUT) :: iter
     REAL*8, INTENT(IN) :: dcrit, rlx
+    REAL*8 :: imb
+    CALL check_dims(SIZE(p0), .TRUE.)
     pco%nsolve = pco%nsolve + 1
-    CALL prepare_rhs(b, 4)
-    CALL solve_copy(iter, dcrit, rlx)
+    CALL prepare_rhs(b, 4, .FALSE., imb)
+    CALL solve_copy(iter, dcrit, rlx, .FALSE.)
     p0(1:pco%ns) = pco%sol
   END SUBROUTINE PCO_SOLVE_P0
 
-  SUBROUTINE solve_copy(iter, dcrit, rlx)
+  ! the caller's solver kind and length against the installed copy (a structural reload that
+  ! bypassed the coordinator would index past the arrays)
+  SUBROUTINE check_dims(n, reduced)
+    INTEGER, INTENT(IN) :: n
+    LOGICAL, INTENT(IN) :: reduced
+    INTEGER :: ierr
+    IF (n.EQ.pco%ns .AND. (reduced.EQV.pco%reduced)) RETURN
+    WRITE(*,'(A,I0,A,L1,A,I0,A,I0)') 'PCO: coarse solve called with length ', n, ' reduced ', reduced, &
+      ' but the installed copy is of solver type ', pco%solver_type, ' and length ', pco%ns
+    FLUSH(6)
+    CALL MPI_Abort(MPI_COMM_WORLD, 1, ierr)
+  END SUBROUTINE check_dims
+
+  SUBROUTINE solve_copy(iter, dcrit, rlx, diagnostic)
     INTEGER, INTENT(INOUT) :: iter
     REAL*8, INTENT(IN) :: dcrit, rlx
+    LOGICAL, INTENT(IN) :: diagnostic
     INTEGER :: ist, ierr
-    EXTERNAL E012_BiCGStabSolverMaster
     pco%sol = 0d0
-    pco_rlx = rlx
     IF (pco%solver_type.EQ.2 .OR. pco%solver_type.EQ.4) THEN
       CALL UmfCSC_Solve(pco%lu, pco%sol, pco%rhs, ist)
       IF (ist.LT.0 .OR. ist.EQ.1) THEN
@@ -439,37 +617,134 @@ CONTAINS
       END IF
       iter = 1
     ELSE
-      ! the first iteration multiplies the direction vectors by zero: they must be finite
-      pco%w = 0d0
-      CALL E012_BiCGStabSolverMaster(pco%sol, pco%rhs, pco%ns, iter, copy_dax, copy_prec, .TRUE., &
-        pco%w(:,1), pco%w(:,2), pco%w(:,3), pco%w(:,4), pco%w(:,5), dcrit)
-      IF (ANY(pco%sol.NE.pco%sol)) THEN
-        WRITE(*,'(A,I0,A,I0)') 'PCO: BiCGStab breakdown (NaN) in the coarse pressure solve on the master, type ', &
-          pco%solver_type, ', solve ', pco%nsolve
+      CALL bicgstab(pco%sol, pco%rhs, pco%ns, iter, dcrit, rlx, ist)
+      IF (ist.NE.0) THEN
+        IF (.NOT.diagnostic) pco%nbreakdown = pco%nbreakdown + 1
+        WRITE(*,'(A,I0,A,I0,A,I0)') 'PCO: BiCGStab breakdown in the coarse pressure solve on the master, type ', &
+          pco%solver_type, ', status ', ist, ', solve ', pco%nsolve
         FLUSH(6)
         CALL MPI_Abort(MPI_COMM_WORLD, 1, ierr)
       END IF
     END IF
   END SUBROUTINE solve_copy
 
-  ! matrix-vector product and preconditioner of the gauged copy (BiCGStab callbacks)
-  SUBROUTINE copy_dax(dx, da, neq, a1, a2)
-    REAL*8 :: dx(*), da(*), a1, a2
-    INTEGER :: neq, i, k
-    DO i = 1, neq
-      da(i) = a2*da(i)
+  !-----------------------------------------------------------------------
+  ! Left-preconditioned BiCGStab on the gauged copy (the iteration of the legacy master
+  ! BiCGStab, E012_BiCGStabSolverMaster, with the guards of the module header).
+  ! x: in/out (zero start), b: rhs, iter: in = maximum, out = used; crit: relative reduction
+  ! of the preconditioned residual; status 0 converged or at the maximum, 1 rho breakdown,
+  ! 2 (r0, v) breakdown, 3 non-finite.
+  !-----------------------------------------------------------------------
+  SUBROUTINE bicgstab(x, b, n, iter, crit, rlx, status)
+    INTEGER, INTENT(IN) :: n
+    REAL*8, INTENT(INOUT) :: x(n)
+    REAL*8, INTENT(IN) :: b(n), crit, rlx
+    INTEGER, INTENT(INOUT) :: iter
+    INTEGER, INTENT(OUT) :: status
+    REAL*8 :: rho0, rho1, alpha, omega, beta, def0, def, denom, tt
+    INTEGER :: it, maxit
+
+    ASSOCIATE(r => pco%w(:,1), r0 => pco%w(:,2), p => pco%w(:,3), v => pco%w(:,4), &
+              s => pco%w(:,5), t => pco%w(:,6))
+    status = 0
+    maxit = iter
+    CALL copy_matvec(x, r)
+    r = b - r
+    CALL ssor(r, rlx)
+    def0 = NORM2(r)
+    iter = 0
+    IF (def0.EQ.0d0) RETURN                     ! zero right-hand side: zero correction
+    r0 = r
+    p = 0d0
+    v = 0d0
+    rho0 = 1d0
+    alpha = 1d0
+    omega = 1d0
+    DO it = 1, maxit
+      iter = it
+      rho1 = DOT_PRODUCT(r0, r)
+      IF (rho1.EQ.0d0) THEN
+        status = 1
+        EXIT
+      END IF
+      beta = (rho1/rho0)*(alpha/omega)
+      p = r + beta*(p - omega*v)
+      CALL copy_matvec(p, v)
+      CALL ssor(v, rlx)
+      denom = DOT_PRODUCT(r0, v)
+      IF (denom.EQ.0d0) THEN
+        status = 2
+        EXIT
+      END IF
+      alpha = rho1/denom
+      s = r - alpha*v
+      IF (NORM2(s).LE.crit*def0) THEN            ! converged at the half step
+        x = x + alpha*p
+        EXIT
+      END IF
+      CALL copy_matvec(s, t)
+      CALL ssor(t, rlx)
+      tt = DOT_PRODUCT(t, t)
+      IF (tt.EQ.0d0) THEN
+        x = x + alpha*p
+        status = 2
+        EXIT
+      END IF
+      omega = DOT_PRODUCT(t, s)/tt
+      x = x + alpha*p + omega*s
+      r = s - omega*t
+      def = NORM2(r)
+      IF (def.NE.def) THEN
+        status = 3
+        EXIT
+      END IF
+      IF (def.LE.crit*def0) EXIT
+      IF (omega.EQ.0d0) THEN
+        status = 1
+        EXIT
+      END IF
+      rho0 = rho1
+    END DO
+    END ASSOCIATE
+  END SUBROUTINE bicgstab
+
+  ! y = gauged copy * x
+  SUBROUTINE copy_matvec(x, y)
+    REAL*8, INTENT(IN) :: x(:)
+    REAL*8, INTENT(OUT) :: y(:)
+    INTEGER :: i, k
+    DO i = 1, pco%ns
+      y(i) = 0d0
       DO k = pco%sldA(i), pco%sldA(i+1)-1
-        da(i) = da(i) + a1*pco%sa(k)*dx(pco%scolA(k))
+        y(i) = y(i) + pco%sa(k)*x(pco%scolA(k))
       END DO
     END DO
-  END SUBROUTINE copy_dax
+  END SUBROUTINE copy_matvec
 
-  SUBROUTINE copy_prec(dx, neq)
-    REAL*8 :: dx(*)
-    INTEGER :: neq
-    EXTERNAL PARID117_MASTER
-    CALL PARID117_MASTER(pco%sa, pco%scolA, pco%sldA, dx, neq, pco_rlx)
-  END SUBROUTINE copy_prec
+  ! SSOR sweep pair of PARID117 on the copy, every off-diagonal entry scanned (lower: column
+  ! below the row, upper: above), so the diagonal-first layout loses no lower neighbour
+  SUBROUTINE ssor(x, omega)
+    REAL*8, INTENT(INOUT) :: x(:)
+    REAL*8, INTENT(IN) :: omega
+    INTEGER :: i, k, j
+    REAL*8 :: aux
+    DO i = 1, pco%ns
+      aux = 0d0
+      DO k = pco%sldA(i)+1, pco%sldA(i+1)-1
+        j = pco%scolA(k)
+        IF (j.LT.i) aux = aux + pco%sa(k)*x(j)
+      END DO
+      x(i) = (x(i) - aux*omega)/pco%sa(pco%sldA(i))
+    END DO
+    DO i = pco%ns-1, 1, -1
+      aux = 0d0
+      DO k = pco%sldA(i)+1, pco%sldA(i+1)-1
+        j = pco%scolA(k)
+        IF (j.GT.i) aux = aux + pco%sa(k)*x(j)
+      END DO
+      x(i) = x(i) - aux*omega/pco%sa(pco%sldA(i))
+    END DO
+  END SUBROUTINE ssor
 
   !-----------------------------------------------------------------------
   ! SOR sweeps with the raw (ungauged) operator: the smoothing of the type-3/4 coarse
@@ -503,21 +778,18 @@ CONTAINS
   END SUBROUTINE PCO_RAW_MATVEC
 
   !-----------------------------------------------------------------------
-  ! Check of the solver copy (start-up check of the coordinator): for a compatible right-hand
-  ! side b = raw * v the solve must give a solution whose UNGAUGED residual |b - raw x| / |b|
-  ! is at rounding level (types 2, 4, direct) or at the iteration tolerance 1e-11 (types 1, 3,
-  ! BiCGStab; a tighter tolerance runs the legacy BiCGStab into breakdown) (types 1, 2: full
-  ! system; types 3, 4: mean-mode system), and the
-  ! solution differs from v by a constant per closed component only (returned as the largest
-  ! deviation of x - v from its component mean, relative to |v|).
+  ! Diagnostic check of the solver copy (no production statistics): for a compatible right-
+  ! hand side b = raw * v the UNGAUGED residual |b - raw x| / |b| (types 2, 4: rounding level;
+  ! types 1, 3: the iteration tolerance 1e-11 amplified by the conditioning), the deviation of
+  ! x - v from a constant per closed component, relative to |v|, the value of the reference
+  ! unknowns relative to |x|.
   !-----------------------------------------------------------------------
-  SUBROUTINE PCO_SOLVE_CHECK(v, resid, devi, incompat_seen)
+  SUBROUTINE PCO_SOLVE_CHECK(v, resid, devi, xref)
     REAL*8, INTENT(IN) :: v(:)
-    REAL*8, INTENT(OUT) :: resid, devi
-    LOGICAL, INTENT(OUT) :: incompat_seen
+    REAL*8, INTENT(OUT) :: resid, devi, xref
     REAL*8, ALLOCATABLE :: b(:), x(:), y(:), cm(:), cn(:), vs(:)
-    INTEGER :: i, c, it, nin
-    REAL*8 :: dummy
+    INTEGER :: i, c, it
+    REAL*8 :: d, imb
 
     ALLOCATE(b(pco%ns), x(pco%ns), y(pco%ns), vs(pco%ns))
     IF (pco%reduced) THEN
@@ -528,12 +800,10 @@ CONTAINS
       vs = v(1:pco%ns)
     END IF
     CALL copy_raw_matvec(vs, b)
-    nin = pco%nincompat
     it = 2000
-    CALL prepare_rhs(b, 1)
-    CALL solve_copy(it, 1d-11, 1d0)
+    CALL prepare_rhs(b, 1, .TRUE., imb)
+    CALL solve_copy(it, 1d-11, 1d0, .TRUE.)
     x = pco%sol
-    incompat_seen = (pco%nincompat.GT.nin)
     CALL copy_raw_matvec(x, y)
     resid = NORM2(b - y)/MAX(NORM2(b), 1d-300)
     ALLOCATE(cm(pco%ncomp), cn(pco%ncomp))
@@ -548,13 +818,24 @@ CONTAINS
     cm = cm/MAX(cn, 1d0)
     devi = 0d0
     DO i = 1, pco%ns
-      dummy = x(i) - vs(i)
-      IF (pco%reduced .OR. MOD(i-1,4).EQ.0) dummy = dummy - cm(pco%scomp(i))
-      devi = MAX(devi, ABS(dummy))
+      d = x(i) - vs(i)
+      IF ((pco%reduced .OR. MOD(i-1,4).EQ.0) .AND. pco%comp_closed(pco%scomp(i))) d = d - cm(pco%scomp(i))
+      devi = MAX(devi, ABS(d))
     END DO
     devi = devi/MAX(MAXVAL(ABS(vs)), 1d-300)
+    xref = 0d0
+    IF (ANY(pco%sref)) xref = MAXVAL(ABS(x), MASK=pco%sref)/MAX(MAXVAL(ABS(x)), 1d-300)
     DEALLOCATE(b, x, y, cm, cn, vs)
   END SUBROUTINE PCO_SOLVE_CHECK
+
+  !-----------------------------------------------------------------------
+  ! Diagnostic: largest relative imbalance of b (full length 4 nel) over the closed
+  ! components, as the production solve would measure it (no solve, no statistics).
+  !-----------------------------------------------------------------------
+  REAL*8 FUNCTION PCO_PROBE_IMBALANCE(b) RESULT(imb)
+    REAL*8, INTENT(IN) :: b(:)
+    CALL prepare_rhs(b, MERGE(4, 1, pco%reduced), .TRUE., imb)
+  END FUNCTION PCO_PROBE_IMBALANCE
 
   ! raw operator restricted to the solver unknowns (mean modes for the reduced system)
   SUBROUTINE copy_raw_matvec(x, y)
@@ -590,6 +871,7 @@ CONTAINS
     IF (ALLOCATED(pco%w)) DEALLOCATE(pco%w)
     pco%active = .FALSE.
     pco%analysed = .FALSE.
+    pco%gauge_decided = .FALSE.
   END SUBROUTINE PCO_RELEASE
 
 END MODULE pco_coarse_solver

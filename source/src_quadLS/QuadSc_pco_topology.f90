@@ -8,13 +8,12 @@
 !    A finite period alone does not say so (q2p1_dns_drag sets unit periods on every box).
 !    The evidence used is the coupling the workers actually apply: every ghost column of the
 !    parallel pressure matrix CP couples an owned element with an element of another rank.
-!    Each worker exchanges its element centroids (and sizes) through the pressure exchange
-!    (GetParPressure) and classifies every coupled pair by the centroid offset d:
-!      s_a = NINT(d_a / P_a) on each axis a with a finite period P_a (dPeriodicity),
-!      s_a /= 0  -> the pair is coupled across a periodic plane of axis a (shifted link),
-!      |d - s P| must stay below two element sizes (coupled elements are neighbours),
-!    otherwise the coupling is inconsistent with the declared periods. An axis is active
-!    when the global number of shifted links on it is positive.
+!    Each worker exchanges the vertex coordinates of its elements through the pressure
+!    exchange (GetParPressure); a coupled pair is shifted on axis a when the two elements
+!    share a vertex only after a shift s P with s_a /= 0 (not unshifted), and inconsistent
+!    when they share no vertex in any image. An axis is active when the global number of
+!    shifted links on it is positive; the master then has to find the images of that axis
+!    in its classes (checked by the coordinator).
 !
 ! 2. Which dofs of the unpartitioned coarse mesh are periodic images of each other?
 !    (PCO_BUILD_CLASSES, master only)
@@ -39,8 +38,8 @@
 !=========================================================================
 MODULE pco_periodic_topology
 
-  USE PP3D_MPI, ONLY: myid, master, subnodes, MPI_COMM_WORLD, MPI_INTEGER, MPI_SUM, MPI_MAX, &
-                      MPI_DOUBLE_PRECISION, dPeriodicity, DEpsPrec, MGE013
+  USE PP3D_MPI, ONLY: myid, master, MPI_COMM_WORLD, MPI_INTEGER, MPI_SUM, MPI_LOGICAL, MPI_LAND, &
+                      dPeriodicity, DEpsPrec, MGE013
   USE var_QuadScalar, ONLY: mg_mesh, mg_lPMat
   USE def_FEAT, ONLY: ILEV
 
@@ -55,17 +54,18 @@ MODULE pco_periodic_topology
     ! refusal counters of the construction
     INTEGER :: nambiguous = 0, nincomplete = 0, nmixed = 0
     INTEGER :: first_bad = 0                 ! a dof of the first refused class (0: none)
+    LOGICAL :: axis_found(3) = .FALSE.       ! some class spans the periodic axis a
   END TYPE tPcoClasses
 
   TYPE, PUBLIC :: tPcoLinkCensus
     INTEGER :: nshift(3) = 0                 ! coupled element pairs across a plane of axis a
-    INTEGER :: nbad = 0                      ! couplings inconsistent with the periods
+    INTEGER :: nbad = 0                      ! couplings without a shared vertex in any image
     LOGICAL :: axis_active(3) = .FALSE.
-    REAL*8  :: worst = 0d0                   ! largest |d - sP| / element size
+    LOGICAL :: possible = .TRUE.             ! every worker has the pressure structure of lev
   END TYPE tPcoLinkCensus
 
   PUBLIC :: PCO_LINK_CENSUS, PCO_BUILD_CLASSES, PCO_CLASS_MASK_CONFLICTS, PCO_ELEMENT_GRAPH
-  PUBLIC :: PCO_GHOST_BUFFER_SIZE, PCO_MASKS_DIFFER
+  PUBLIC :: PCO_GHOST_BUFFER_SIZE, PCO_MASKS_DIFFER, PCO_MASTER_HAS_DOF_COORDINATES, PCO_PAIR_SHIFT
 
   ! coordinate hash for the partner search
   TYPE tPointHash
@@ -101,33 +101,67 @@ CONTAINS
 
   !-----------------------------------------------------------------------
   ! Census of the shifted worker links on level lev. Collective (every rank; the master
-  ! contributes nothing). Element size = twice the largest vertex distance from the centroid.
+  ! contributes nothing). The workers exchange the 24 vertex coordinates of their elements
+  ! (six pressure exchanges of four values each) and classify every element pair coupled by
+  ! a ghost column of CP: the pair is coupled without a shift when the two elements share a
+  ! vertex (distance below DEpsPrec, the tolerance of the worker links in PARENTCOMM),
+  ! across the periodic planes of the axes with s_a /= 0 when they share a vertex after the
+  ! shift s P (s in {-1,0,1}^3 on the axes with a finite period, the unshifted test first),
+  ! and inconsistently (nbad) when neither holds. Adjacent cells of any width share a vertex
+  ! unshifted, so a walled mesh never counts a shifted link.
+  ! census%possible is .FALSE. on every rank when some worker has no pressure structure on
+  ! level lev (then nothing is counted).
   !-----------------------------------------------------------------------
   SUBROUTINE PCO_LINK_CENSUS(lev, census)
     INTEGER, INTENT(IN) :: lev
     TYPE(tPcoLinkCensus), INTENT(OUT) :: census
-    REAL*8, ALLOCATABLE :: p(:), pp(:)
-    INTEGER :: nel, iel, k, ia, ic, base, a, s, ierr, ilev_save
+    REAL*8, ALLOCATABLE :: p(:), pp(:), vx(:,:), gx(:,:)
+    INTEGER :: nel, iel, k, ia, ic, a, ierr, ilev_save, nbuf, chunk, g, shift(3), kind
     INTEGER :: nloc(4), nglob(4)
-    REAL*8 :: c(3), d(3), r(3), h, wloc, wglob
+    LOGICAL :: can, can_all
+    INTEGER, PARAMETER :: NV = 24
+
+    can = .TRUE.
+    IF (myid.NE.master) THEN
+      can = ALLOCATED(mg_lPMat) .AND. ALLOCATED(mg_mesh%level)
+      IF (can) can = (lev.GE.LBOUND(mg_lPMat,1) .AND. lev.LE.UBOUND(mg_lPMat,1) .AND. &
+                      lev.LE.SIZE(mg_mesh%level))
+      IF (can) can = ALLOCATED(mg_lPMat(lev)%LdA)
+    END IF
+    CALL MPI_Allreduce(can, can_all, 1, MPI_LOGICAL, MPI_LAND, MPI_COMM_WORLD, ierr)
+    census%possible = can_all
+    IF (.NOT.can_all) RETURN
 
     nloc = 0
-    wloc = 0d0
     ilev_save = ILEV
     IF (myid.NE.master) THEN
       nel = mg_mesh%level(lev)%nel
-      ALLOCATE(p(4*nel), pp(PCO_GHOST_BUFFER_SIZE(lev)))
-      pp = 0d0
+      nbuf = PCO_GHOST_BUFFER_SIZE(lev)
+      ALLOCATE(p(4*nel), pp(nbuf), vx(NV,nel), gx(NV,(nbuf+3)/4))
       DO iel = 1, nel
-        CALL element_centroid_size(lev, iel, c, h)
-        p(4*(iel-1)+1:4*(iel-1)+3) = c
-        p(4*(iel-1)+4) = h
+        DO k = 1, 8
+          vx(3*(k-1)+1:3*k, iel) = mg_mesh%level(lev)%dcorvg(:, mg_mesh%level(lev)%kvert(k,iel))
+        END DO
       END DO
+      gx = 0d0
     ELSE
       ALLOCATE(p(4), pp(4))
     END IF
     ILEV = lev
-    CALL GetParPressure(p, pp)
+    DO chunk = 1, NV/4
+      IF (myid.NE.master) THEN
+        DO iel = 1, nel
+          p(4*(iel-1)+1:4*iel) = vx(4*(chunk-1)+1:4*chunk, iel)
+        END DO
+        pp = 0d0
+      END IF
+      CALL GetParPressure(p, pp)
+      IF (myid.NE.master) THEN
+        DO g = 1, SIZE(gx,2)
+          gx(4*(chunk-1)+1:4*chunk, g) = pp(4*(g-1)+1:4*g)
+        END DO
+      END IF
+    END DO
     ILEV = ilev_save
 
     IF (myid.NE.master) THEN
@@ -136,46 +170,93 @@ CONTAINS
         DO ia = mg_lPMat(lev)%LdA(ic), mg_lPMat(lev)%LdA(ic+1)-1
           k = mg_lPMat(lev)%ColA(ia)
           IF (MOD(k-1,4).NE.0) CYCLE            ! one entry per coupled ghost element
-          base = k
-          d = pp(base:base+2) - p(ic:ic+2)
-          h = MAX(p(ic+3), pp(base+3))
-          DO a = 1, 3
-            s = 0
-            IF (dPeriodicity(a).LT.1d8) s = NINT(d(a)/dPeriodicity(a))
-            r(a) = d(a) - DBLE(s)*MERGE(dPeriodicity(a), 0d0, s.NE.0)
-            IF (s.NE.0) nloc(a) = nloc(a) + 1
-          END DO
-          IF (NORM2(r).GT.2d0*h) nloc(4) = nloc(4) + 1
-          IF (h.GT.0d0) wloc = MAX(wloc, NORM2(r)/h)
+          g = (k-1)/4 + 1
+          CALL PCO_PAIR_SHIFT(vx(:,iel), gx(:,g), dPeriodicity, DEpsPrec, shift, kind)
+          IF (kind.EQ.1) THEN
+            DO a = 1, 3
+              IF (shift(a).NE.0) nloc(a) = nloc(a) + 1
+            END DO
+          ELSE IF (kind.LT.0) THEN
+            nloc(4) = nloc(4) + 1
+          END IF
         END DO
       END DO
+      DEALLOCATE(vx, gx)
     END IF
     DEALLOCATE(p, pp)
 
     CALL MPI_Allreduce(nloc, nglob, 4, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
-    CALL MPI_Allreduce(wloc, wglob, 1, MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_WORLD, ierr)
     census%nshift = nglob(1:3)
     census%nbad = nglob(4)
-    census%worst = wglob
     census%axis_active = (census%nshift.GT.0)
+
 
   END SUBROUTINE PCO_LINK_CENSUS
 
-  SUBROUTINE element_centroid_size(lev, iel, c, h)
-    INTEGER, INTENT(IN) :: lev, iel
-    REAL*8, INTENT(OUT) :: c(3), h
-    INTEGER :: j
-    c = 0d0
-    DO j = 1, 8
-      c = c + mg_mesh%level(lev)%dcorvg(:, mg_mesh%level(lev)%kvert(j,iel))
+  !-----------------------------------------------------------------------
+  ! Classification of a coupled element pair from the 8 vertex coordinates of each (ve, vf:
+  ! x1,y1,z1, x2, ...): kind 0 when they share a vertex unshifted, 1 when they share one only
+  ! after the shift shift*period (shift in {-1,0,1}^3, nonzero only on axes with a finite
+  ! period, the first such shift found), -1 when they share none in any image. tol: the
+  ! coincidence tolerance (DEpsPrec in the census).
+  !-----------------------------------------------------------------------
+  SUBROUTINE PCO_PAIR_SHIFT(ve, vf, period, tol, shift, kind)
+    REAL*8, INTENT(IN) :: ve(24), vf(24), period(3), tol
+    INTEGER, INTENT(OUT) :: shift(3), kind
+    INTEGER :: sx, sy, sz
+    kind = 0
+    shift = 0
+    IF (share((/0, 0, 0/))) RETURN
+    DO sx = -1, 1
+    DO sy = -1, 1
+    DO sz = -1, 1
+      shift = (/sx, sy, sz/)
+      IF (ALL(shift.EQ.0)) CYCLE
+      IF (ANY(shift.NE.0 .AND. period.GE.1d8)) CYCLE
+      IF (share(shift)) THEN
+        kind = 1
+        RETURN
+      END IF
     END DO
-    c = 0.125d0*c
-    h = 0d0
-    DO j = 1, 8
-      h = MAX(h, NORM2(mg_mesh%level(lev)%dcorvg(:, mg_mesh%level(lev)%kvert(j,iel)) - c))
     END DO
-    h = 2d0*h
-  END SUBROUTINE element_centroid_size
+    END DO
+    shift = 0
+    kind = -1
+  CONTAINS
+    LOGICAL FUNCTION share(s)
+      INTEGER, INTENT(IN) :: s(3)
+      INTEGER :: i, j
+      REAL*8 :: q(3)
+      share = .FALSE.
+      DO i = 1, 8
+        q = ve(3*(i-1)+1:3*i) + DBLE(s)*MERGE(period, 0d0, s.NE.0)
+        DO j = 1, 8
+          IF (NORM2(q - vf(3*(j-1)+1:3*j)).LT.tol) THEN
+            share = .TRUE.
+            RETURN
+          END IF
+        END DO
+      END DO
+    END FUNCTION share
+  END SUBROUTINE PCO_PAIR_SHIFT
+
+  !-----------------------------------------------------------------------
+  ! The master holds the coordinates of the Q2 dofs of level lev (the vertices of level
+  ! lev+1, shared storage of the finest master level) - not every application refines the
+  ! master mesh beyond its MedLev (General_init of the LES driver does not).
+  !-----------------------------------------------------------------------
+  LOGICAL FUNCTION PCO_MASTER_HAS_DOF_COORDINATES(lev) RESULT(ok)
+    INTEGER, INTENT(IN) :: lev
+    INTEGER :: ndof
+    ok = ALLOCATED(mg_mesh%level)
+    IF (ok) ok = (lev.GE.1 .AND. SIZE(mg_mesh%level).GE.lev+1)
+    IF (ok) ok = ASSOCIATED(mg_mesh%level(lev+1)%dcorvg)
+    IF (ok) THEN
+      ndof = mg_mesh%level(lev)%nvt + mg_mesh%level(lev)%net + mg_mesh%level(lev)%nat + &
+             mg_mesh%level(lev)%nel
+      ok = (SIZE(mg_mesh%level(lev+1)%dcorvg,2).GE.ndof .AND. ndof.GT.0)
+    END IF
+  END FUNCTION PCO_MASTER_HAS_DOF_COORDINATES
 
   !-----------------------------------------------------------------------
   ! Periodic classes of the Q2 dofs of level lev on the master (see module header).
@@ -271,6 +352,7 @@ CONTAINS
     ! completeness and type consistency
     cls%nmulti = 0
     cls%maxsize = 1
+    cls%axis_found = .FALSE.
     DO k = 1, cls%ncls
       sz_k = cls%ptr(k+1) - cls%ptr(k)
       IF (sz_k.EQ.1) CYCLE
@@ -281,7 +363,10 @@ CONTAINS
         IF (.NOT.axis_active(a)) CYCLE
         span(a) = MAXVAL(x(a, cls%mem(cls%ptr(k):cls%ptr(k+1)-1))) - &
                   MINVAL(x(a, cls%mem(cls%ptr(k):cls%ptr(k+1)-1)))
-        IF (span(a).GT.0.5d0*period(a)) m = m + 1
+        IF (span(a).GT.0.5d0*period(a)) THEN
+          m = m + 1
+          cls%axis_found(a) = .TRUE.
+        END IF
       END DO
       IF (sz_k.NE.2**m .OR. ANY(npartner(cls%mem(cls%ptr(k):cls%ptr(k+1)-1)).NE.2**m-1)) THEN
         cls%nincomplete = cls%nincomplete + 1

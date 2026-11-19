@@ -155,6 +155,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
    cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh,nInitUmbrellaSteps,&
    bConstForce, ConstForce
  USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
+ USE pco_coarse_operator, ONLY : PCO_REGISTER_APPLICATION
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
      ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
      DeterminePointParametrization_STRCT,ParametrizeBndryPoints_STRCT
@@ -237,6 +238,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  !=======================================================================
  !
  CALL INIT_MPI()                                 ! PARALLEL
+ ! periodic coarse pressure operator: this application is in its validated default scope
+ CALL PCO_REGISTER_APPLICATION('q2p1_el_pipeflow')
  CSimPar = "SimPar"
  CALL  myGDATNEW (CSimPar,0)
 

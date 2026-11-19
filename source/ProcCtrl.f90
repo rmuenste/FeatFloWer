@@ -40,6 +40,7 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
 !   Supports: Dump_Out, Dump_In, GMV_Out, Reload_Velo, Reload_Pres,
 !             Reload_SimPar, Reload_Prop
 !-------------------------------------------------------------------------------
+ USE pco_coarse_operator, ONLY : PCO_PRESSURE_PARAMETERS_RELOADED
  USE PP3D_MPI, ONLY : myid,master,showid,ShareValueK_myMPI,&
                       Barrier_myMPI,ShareValueC_myMPI
  USE Transport_Q2P1, ONLY : myDataFile,QuadSc,LinSc,Properties
@@ -191,6 +192,8 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
                               LinSc%prm%MGprmIn%CrsSolverType,&
                               LinSc%prm%MGprmIn%MinLev,&
                               LinSc%prm%MGprmIn%MedLev,MFILE)
+     ! a periodic coarse operator rebuilds its solver copy or keeps the old structure
+     CALL PCO_PRESSURE_PARAMETERS_RELOADED()
     END IF
 
 ! -------------------------------------------------------------------------------

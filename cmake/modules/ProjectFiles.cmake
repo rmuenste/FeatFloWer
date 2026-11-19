@@ -327,6 +327,7 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_solver.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_gather.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_wrap.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_reconstruct.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_check.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver_hypre.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver_coarse.f90
@@ -367,6 +368,7 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_solver.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_gather.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_wrap.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_reconstruct.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_check.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver_hypre.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver_coarse.f90

@@ -5,7 +5,7 @@ USE PP3D_MPI, ONLY:E011DMat,myid,showID,MPI_COMM_WORLD,& !E011Sum,
 USE var_QuadScalar
 USE UMFPackSolver, ONLY : myUmfPack_Solve,myUmfPack_Free
 USE pco_coarse_solver, ONLY : PCO_ACTIVE,PCO_SOLVE_FULL,PCO_SOLVE_P0,PCO_RAW_SOR
-USE pco_p0_reconstruct, ONLY : PCO_P0_TO_VERTEX
+USE pco_p0_reconstruct, ONLY : PCO_P0_TO_VERTEX,pco_vertex_values
 #ifdef MKL_PARDISO_AVAIL
 USE PardisoSolver, ONLY : myPardiso_Solve,myPardiso_Free
 #endif
@@ -2081,7 +2081,8 @@ CHARACTER(LEN=16) :: ff_label
     ! periodic coarse operator (QuadSc_pco_operator.f90): gathered or wrapped, gauged copy
     CoarseIter = myMG%nIterCoarse
     IF (MyMG%CrsSolverType.EQ.1.OR.MyMG%CrsSolverType.EQ.2) THEN
-     CALL PCO_SOLVE_FULL(myMG%X(mgLev)%x,myMG%B(mgLev)%x,CoarseIter,myMG%DefImprCoarse,myMG%RLX)
+     CALL PCO_SOLVE_FULL(myMG%X(mgLev)%x,myMG%B(mgLev)%x,SIZE(myMG%X(mgLev)%x),CoarseIter,&
+                         myMG%DefImprCoarse,myMG%RLX)
     ELSE
      ALLOCATE(p0sol(mg_mesh%level(mgLev)%nel))
      CALL PCO_SOLVE_P0(myMG%B(mgLev)%x,p0sol,CoarseIter,myMG%DefImprCoarse,myMG%RLX)
@@ -2585,25 +2586,31 @@ EXTERNAL E011
 
  p0 = 3d0*p0
  IF (PCO_ACTIVE()) THEN
-  CALL PCO_P0_TO_VERTEX(p0,myCG%d1,myCG%d2,&
+  ! periodic averaging into its own nvt-sized arrays (pco_vertex_values)
+  CALL PCO_P0_TO_VERTEX(p0,&
        mg_mesh%level(mgLev)%dvol,&
        mg_mesh%level(mgLev)%kvert,&
        mg_mesh%level(mgLev)%nel,&
        mg_mesh%level(mgLev)%nvt)
+  CALL IntQ1toP1(myMG%X(mgLev)%x,pco_vertex_values,&
+                 mg_mesh%level(mgLev)%kvert,&
+                 mg_mesh%level(mgLev)%karea,&
+                 mg_mesh%level(mgLev)%kedge,&
+                 mg_mesh%level(mgLev)%dcorvg,&
+                 E011)
  ELSE
   CALL INTPVB(p0,myCG%d1,myCG%d2,&
        mg_mesh%level(mgLev)%dvol,&
        mg_mesh%level(mgLev)%kvert,&
        mg_mesh%level(mgLev)%nel,&
        mg_mesh%level(mgLev)%nvt)
+  CALL IntQ1toP1(myMG%X(mgLev)%x,myCG%d1,&
+                 mg_mesh%level(mgLev)%kvert,&
+                 mg_mesh%level(mgLev)%karea,&
+                 mg_mesh%level(mgLev)%kedge,&
+                 mg_mesh%level(mgLev)%dcorvg,&
+                 E011)
  END IF
-
- CALL IntQ1toP1(myMG%X(mgLev)%x,myCG%d1,&
-                mg_mesh%level(mgLev)%kvert,&
-                mg_mesh%level(mgLev)%karea,&
-                mg_mesh%level(mgLev)%kedge,&
-                mg_mesh%level(mgLev)%dcorvg,&
-                E011)
 
  IF (PCO_ACTIVE()) THEN
   CALL ZTIME(time0)
