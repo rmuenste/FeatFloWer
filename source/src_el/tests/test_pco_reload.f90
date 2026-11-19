@@ -11,11 +11,16 @@ PROGRAM TEST_PCO_RELOAD
   !   3 CrsRelaxPrm differing in the last bit on one rank: previous values everywhere
   !   4 CycleType 'W' on one rank, 'V' elsewhere: previous values everywhere
   !   5 a NaN in a real setting on every rank: not agreed, previous values
+  !   6 +0 on one rank, -0 elsewhere in a real setting: not agreed (bit patterns compared)
+  !   7 the startup keys of the periodic coarse operator (PCO_KEYS_AGREE, resolve_mode):
+  !     Pres@PeriodicCoarseCheck 1 on rank 0 and 2 elsewhere (a stale deck copy) is detected
+  !     on EVERY rank, so the caller stops every rank before the first check (no rank enters
+  !     the diagnostic collective of renewal 3 alone); equal keys pass
 
   USE MPI
   USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_VALUE, IEEE_QUIET_NAN
   USE types, ONLY: tParamP
-  USE pressure_param_agreement, ONLY: PRESSURE_PARAMETERS_AGREE
+  USE pressure_param_agreement, ONLY: PRESSURE_PARAMETERS_AGREE, PCO_KEYS_AGREE
   USE EL_TEST_HELPERS, ONLY: EL_TEST_INIT, EL_TEST_CHECK, EL_TEST_REPORT
 
   IMPLICIT NONE
@@ -68,6 +73,20 @@ PROGRAM TEST_PCO_RELOAD
   CALL PRESSURE_PARAMETERS_AGREE(new, old, agreed)
   CALL EL_TEST_CHECK(.NOT.agreed .AND. same(new, old), '5 NaN in a setting: not agreed, previous values', &
     nf, rank)
+
+  ! 6
+  new = ref
+  new%MGprmIn%DefImprCoarse = 0d0
+  IF (rank.EQ.last) new%MGprmIn%DefImprCoarse = -0d0
+  CALL PRESSURE_PARAMETERS_AGREE(new, old, agreed)
+  CALL EL_TEST_CHECK(.NOT.agreed .AND. same(new, old), '6 +0 and -0 on different ranks: not agreed', nf, rank)
+
+  ! 7
+  CALL EL_TEST_CHECK(.NOT.PCO_KEYS_AGREE(2, MERGE(1, 2, rank.EQ.0)), &
+    '7 check interval 1 on rank 0, 2 elsewhere: detected on every rank', nf, rank)
+  CALL EL_TEST_CHECK(.NOT.PCO_KEYS_AGREE(MERGE(0, 2, rank.EQ.last), 0), &
+    '7 operator key absent on one rank, gathered elsewhere: detected', nf, rank)
+  CALL EL_TEST_CHECK(PCO_KEYS_AGREE(2, 1), '7 equal keys pass', nf, rank)
 
   CALL EL_TEST_REPORT(nf, rank, nproc, 'pco reload agreement')
   CALL MPI_Finalize(ierr)

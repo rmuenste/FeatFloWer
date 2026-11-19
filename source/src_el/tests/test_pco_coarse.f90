@@ -67,6 +67,17 @@ PROGRAM TEST_PCO_COARSE
   !  19 coordinate tolerance per coordinate (as the E013 links): an image offset by 0.8
   !     DEpsPrec in two coordinates is coincident for the pair check and the master classes;
   !     1.2 DEpsPrec in one coordinate is not
+  !  20 the numerical limit of the gauge decision: a ring with an outlet of relative strength
+  !     d (structural flux d, matrix measure about d) for d = 2^-10, 2^-20, 2^-30, 2^-40,
+  !     2^-50 and 0: open / undecided / undecided / undecided / closed / closed; for the closed
+  !     ones the direct solve of the UNGAUGED system fails (d = 0) or loses the mean under a
+  !     perturbation of the right-hand side at the backward-error level eps |A| |x| of a stable
+  !     solve (d = 2^-50); with the exact right-hand side of the manufactured case the mean is
+  !     still recovered (printed: the data, not the operator, carry the information there)
+  !  21 the P0 types follow the CURRENT matrix measure: a ring renewed on the same layout from
+  !     2.5 to 2 + 1e-3 at the outlet is no longer admissible for type 4 (admission check and
+  !     refresh)
+  !  22 the worker-product comparison fails on a non-finite product or scale
 
   USE MPI
   USE TYPES, ONLY: tMultiMesh, TMatrix
@@ -80,7 +91,8 @@ PROGRAM TEST_PCO_COARSE
   USE pco_coarse_solver, ONLY: pco, PCO_INSTALL_LAYOUT, PCO_REFRESH_SOLVER, PCO_SOLVE_CHECK, &
                                PCO_BLOCK_SLOT, PCO_NEIGHBOUR_POS, PCO_SOLVE_FULL, PCO_SOLVE_P0, &
                                PCO_RELEASE, PCO_CHANGE_SOLVER_TYPE, PCO_RAW_SOR, PCO_RAW_MATVEC, &
-                               PCO_SET_STRUCTURAL_FLUX, PCO_GAUGE_UNDECIDED, PCO_P0_WEAK_OPEN
+                               PCO_SET_STRUCTURAL_FLUX, PCO_GAUGE_UNDECIDED, PCO_P0_WEAK_OPEN, &
+                               PCO_P0_ADMISSIBLE, PCO_FLUX_CLOSED, PCO_CLOSURE_TOL
   USE pco_diagnostics, ONLY: PCO_COMPARE_OPERATORS, PCO_COMPARE_PRODUCTS
   USE PP3D_MPI, ONLY: COUNT_PERIODIC_LINK, DEpsPrec
   USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_VALUE, IEEE_QUIET_NAN, IEEE_POSITIVE_INF
@@ -117,6 +129,8 @@ PROGRAM TEST_PCO_COARSE
   CALL test_structural_gauge()
   CALL test_compare_products()
   CALL test_componentwise_tolerance()
+  CALL test_numerical_limit()
+  CALL test_current_measure()
 
   CALL EL_TEST_REPORT(nf, rank, nproc, 'pco coarse')
   CALL MPI_Finalize(ierr)
@@ -994,6 +1008,12 @@ CONTAINS
     yd(2) = 1d-30
     CALL EL_TEST_CHECK(PCO_COMPARE_PRODUCTS(yd, y, sc).GE.1d0, &
       'zero gathered row, nonzero worker result: fails (was skipped)', nf, rank)
+    yd = y
+    yd(3) = IEEE_VALUE(1d0, IEEE_QUIET_NAN)
+    CALL EL_TEST_CHECK(PCO_COMPARE_PRODUCTS(yd, y, sc).GE.HUGE(1d0), '22 NaN worker product: fails', nf, rank)
+    yd = y
+    sc(1) = IEEE_VALUE(1d0, IEEE_POSITIVE_INF)
+    CALL EL_TEST_CHECK(PCO_COMPARE_PRODUCTS(yd, y, sc).GE.HUGE(1d0), '22 infinite scale: fails', nf, rank)
   END SUBROUTINE test_compare_products
 
   !---------------------------------------------------------------------
@@ -1025,6 +1045,95 @@ CONTAINS
     CALL EL_TEST_CHECK(cls%nincomplete.GE.1, 'master classes: 1.2 tol in one coordinate is not coincident', &
       nf, rank)
   END SUBROUTINE test_componentwise_tolerance
+
+  !---------------------------------------------------------------------
+  SUBROUTINE test_numerical_limit()
+    INTEGER :: k, st, it, ist
+    CHARACTER(len=256) :: msg
+    CHARACTER(len=12) :: dec
+    REAL*8 :: d, xt(24), b(24), x(24), merr, perr, bp(24), anorm
+    REAL*8 :: fl(6)
+    INTEGER :: i
+    INTEGER :: ex(6) = (/10, 20, 30, 40, 50, 0/)
+    TYPE(tUmfCSC) :: lu
+    WRITE(*,'(A,2ES10.2)') '20 numerical limit of the gauge decision; closed bounds structure, matrix:', &
+      PCO_FLUX_CLOSED, PCO_CLOSURE_TOL
+    xt = 0d0
+    xt(1:24:4) = 1d0
+    DO k = 1, 6
+      d = 0d0
+      IF (ex(k).GT.0) d = 2d0**(-ex(k))
+      CALL ring_operator(6, 2, .FALSE.)
+      pco%a(PCO_BLOCK_SLOT(1, 1, 0, 1)) = 2d0 + 4d0*d          ! outlet of relative strength d
+      fl = 0d0
+      fl(1) = d
+      CALL PCO_SET_STRUCTURAL_FLUX(fl)
+      CALL PCO_REFRESH_SOLVER(st, msg)
+      IF (st.EQ.PCO_GAUGE_UNDECIDED) THEN
+        dec = 'undecided'
+      ELSE IF (pco%nclosed.EQ.1) THEN
+        dec = 'closed'
+      ELSE
+        dec = 'open'
+      END IF
+      ! the ungauged system, solved directly: b = A xt (mean 1 on every element)
+      CALL PCO_RAW_MATVEC(xt, b)
+      CALL UmfCSC_SetStructure(lu, 24, pco%ldA, pco%colA)
+      CALL UmfCSC_SetValues(lu, pco%a)
+      CALL UmfCSC_Analyse(lu, ist)
+      CALL UmfCSC_Factorize(lu, ist)
+      merr = -1d0
+      perr = -1d0
+      IF (ist.EQ.0) THEN
+        CALL UmfCSC_Solve(lu, x, b, ist)
+        merr = ABS(SUM(x(1:24:4))/6d0 - 1d0)
+        ! the same with the right-hand side perturbed at the backward-error level of a stable
+        ! solve, eps |A| |x| (normwise): the accuracy any computed coarse solution can claim
+        anorm = 0d0
+        DO i = 1, 24
+          anorm = MAX(anorm, SUM(ABS(pco%a(pco%ldA(i):pco%ldA(i+1)-1))))
+        END DO
+        DO i = 1, 24
+          bp(i) = b(i) + EPSILON(1d0)*anorm*MAXVAL(ABS(xt))*MERGE(1d0, -1d0, MOD(i*7,3).EQ.0)
+        END DO
+        CALL UmfCSC_Solve(lu, x, bp, ist)
+        perr = ABS(SUM(x(1:24:4))/6d0 - 1d0)
+      END IF
+      CALL UmfCSC_Release(lu)
+      WRITE(*,'(A,I3,A,ES9.2,A,A10,A,I2,A,ES10.2,A,ES10.2)') '    d = 2^-', ex(k), ' (', d, ') decision ', dec, &
+        '   ungauged direct solve: status', ist, ', mean error exact rhs', merr, ', rhs perturbed by eps|A||x|', perr
+      SELECT CASE (ex(k))
+      CASE (10)
+        CALL EL_TEST_CHECK(TRIM(dec).EQ.'open' .AND. merr.GE.0d0 .AND. merr.LT.1d-10, &
+          'd = 2^-10: open, the ungauged system determines the mean', nf, rank)
+      CASE (20, 30, 40)
+        CALL EL_TEST_CHECK(TRIM(dec).EQ.'undecided' .AND. .NOT.ANY(pco%sref), &
+          'd between the closed bound and 1e-6: undecided, nothing pinned', nf, rank)
+      CASE DEFAULT
+        CALL EL_TEST_CHECK(TRIM(dec).EQ.'closed' .AND. (ist.NE.0 .OR. perr.GT.1d-2), &
+          'd <= closed bound: closed; the ungauged mean is lost at the backward-error level', nf, rank)
+      END SELECT
+    END DO
+    CALL PCO_RELEASE()
+  END SUBROUTINE test_numerical_limit
+
+  !---------------------------------------------------------------------
+  SUBROUTINE test_current_measure()
+    INTEGER :: st
+    CHARACTER(len=256) :: msg
+    WRITE(*,'(A)') '21 the P0 admission follows the current matrix measure'
+    CALL ring_operator(6, 2, .TRUE.)                        ! outlet 2.5: measure 0.11
+    CALL PCO_REFRESH_SOLVER(st, msg)
+    CALL EL_TEST_CHECK(st.EQ.0 .AND. PCO_P0_ADMISSIBLE(4), 'outlet 2.5: type 4 admissible', nf, rank)
+    pco%a(PCO_BLOCK_SLOT(1, 1, 0, 1)) = 2d0 + 1d-3           ! same layout, weaker outlet
+    CALL PCO_REFRESH_SOLVER(st, msg)
+    WRITE(*,'(A,ES10.2)') '    current open measure', pco%closure_open
+    CALL EL_TEST_CHECK(st.EQ.0 .AND. .NOT.PCO_P0_ADMISSIBLE(4) .AND. pco%closure_open.LT.1d-3, &
+      'outlet 2 + 1e-3 on the same layout: type 4 no longer admissible (current measure)', nf, rank)
+    CALL PCO_CHANGE_SOLVER_TYPE(4, st, msg)
+    CALL EL_TEST_CHECK(st.EQ.PCO_P0_WEAK_OPEN, 'a type-4 copy on it is refused at the refresh', nf, rank)
+    CALL PCO_RELEASE()
+  END SUBROUTINE test_current_measure
 
   ! unit-height hexahedron [x0,x1] x [0,1] x [0,1], vertex coordinates x1,y1,z1, x2, ...
   SUBROUTINE cell(x0, x1, v)
