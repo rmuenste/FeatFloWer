@@ -47,7 +47,8 @@ MODULE pco_periodic_topology
   USE PP3D_MPI, ONLY: myid, master, MPI_COMM_WORLD, MPI_INTEGER, MPI_SUM, MPI_LOGICAL, MPI_LAND, &
                       dPeriodicity, DEpsPrec, MGE013
   USE var_QuadScalar, ONLY: mg_mesh, mg_lPMat, mg_qlMat, mg_qlPMat, mg_BXMat, mg_BYMat, mg_BZMat, &
-                            mg_BXPMat, mg_BYPMat, mg_BZPMat, QuadSc, mg_Matrix
+                            mg_BXPMat, mg_BYPMat, mg_BZPMat, QuadSc, mg_Matrix, myBoundary, &
+                            BoundaryNormal
   USE def_FEAT, ONLY: ILEV
 
   IMPLICIT NONE
@@ -209,9 +210,10 @@ CONTAINS
   ! element e of level lev and component d:
   !    ratio_d(e) = max over the FREE dofs i of e of |g_d(i)|  /  max over all dofs i of e of
   !                 sum_j |B_d(i,j)|   (j over the mean-mode columns, own and ghost)
-  ! (free: knpr_d(i) /= 1, the masks of Get_CMat; slip enters through the projected B of
-  ! SetSlipOnBandBT). The denominator is the size of the B entries of component d around the
-  ! element, so the ratio is rounding where every free dof closes - also at dofs whose single
+  ! (free: knpr_d(i) /= 1, the masks of Get_CMat; at a slip dof the gradient of own and ghost
+  ! elements together is projected with the dof normal, the effective projection of
+  ! SetSlipOnBandBT in C and CP). The denominator is the size of the B entries of component d
+  ! around the element, so the ratio is rounding where every free dof closes - also at dofs whose single
   ! entries vanish analytically (element and face bubbles: |g| is rounding of a tiny number,
   ! measured against the element scale, not against itself) - and of order one at a free
   ! boundary dof, independent of the cell aspect ratio (numerator and denominator are of the
@@ -225,8 +227,8 @@ CONTAINS
     REAL*8, ALLOCATABLE :: gnum(:,:), gden(:,:)
     INTEGER :: nvt, net, nat, nel, ndof, i, iel, k, d
     INTEGER :: dofs(27)
-    REAL*8 :: num, den
-    LOGICAL :: ghosts
+    REAL*8 :: num, den, g(3)
+    LOGICAL :: ghosts, slip
     r = 0d0
     IF (myid.EQ.master) RETURN
     nvt = mg_mesh%level(lev)%nvt
@@ -236,11 +238,23 @@ CONTAINS
     ndof = nvt + net + nat + nel
     ghosts = ALLOCATED(mg_qlPMat)
     IF (ghosts) ghosts = ALLOCATED(mg_qlPMat(lev)%LdA)
+    slip = ALLOCATED(myBoundary%bSlip) .AND. ALLOCATED(BoundaryNormal)
+    IF (slip) slip = (SIZE(myBoundary%bSlip).GE.ndof .AND. SIZE(BoundaryNormal,2).GE.ndof)
     ALLOCATE(gnum(3,ndof), gden(3,ndof))
     DO i = 1, ndof
-      CALL dof_row(mg_BXMat(lev)%a, mg_BXPMat, QuadSc%knprU(lev)%x(i), gnum(1,i), gden(1,i))
-      CALL dof_row(mg_BYMat(lev)%a, mg_BYPMat, QuadSc%knprV(lev)%x(i), gnum(2,i), gden(2,i))
-      CALL dof_row(mg_BZMat(lev)%a, mg_BZPMat, QuadSc%knprW(lev)%x(i), gnum(3,i), gden(3,i))
+      CALL dof_row(mg_BXMat(lev)%a, mg_BXPMat, g(1), gden(1,i))
+      CALL dof_row(mg_BYMat(lev)%a, mg_BYPMat, g(2), gden(2,i))
+      CALL dof_row(mg_BZMat(lev)%a, mg_BZPMat, g(3), gden(3,i))
+      ! the effective slip projection of the assembly (SetSlipOnBandBT projects the local B and
+      ! B^T at a slip dof; the ghost B of CP enters through the projected B^T): applied to
+      ! the combined gradient, own and ghost elements together
+      IF (slip) THEN
+        IF (myBoundary%bSlip(i)) g = g - DOT_PRODUCT(g, BoundaryNormal(:,i))*BoundaryNormal(:,i)
+      END IF
+      gnum(:,i) = ABS(g)
+      IF (QuadSc%knprU(lev)%x(i).EQ.1) gnum(1,i) = 0d0
+      IF (QuadSc%knprV(lev)%x(i).EQ.1) gnum(2,i) = 0d0
+      IF (QuadSc%knprW(lev)%x(i).EQ.1) gnum(3,i) = 0d0
     END DO
     DO iel = 1, nel
       dofs(1:8) = mg_mesh%level(lev)%kvert(:, iel)
@@ -259,11 +273,10 @@ CONTAINS
     END DO
     DEALLOCATE(gnum, gden)
   CONTAINS
-    ! |g_d(i)| (0 for a constrained component) and sum_j |B_d(i,j)| of dof i
-    SUBROUTINE dof_row(bl, bp, mask, gn, gd)
+    ! g_d(i) (signed) and sum_j |B_d(i,j)| of dof i
+    SUBROUTINE dof_row(bl, bp, gn, gd)
       REAL*8, INTENT(IN) :: bl(:)
       TYPE(mg_Matrix), INTENT(IN) :: bp(:)
-      INTEGER, INTENT(IN) :: mask
       REAL*8, INTENT(OUT) :: gn, gd
       INTEGER :: l0, l1, g0, g1
       l0 = mg_qlMat(lev)%LdA(i)
@@ -276,12 +289,11 @@ CONTAINS
       ELSE
         CALL PCO_DOF_FLUX(bl(l0:l1), mg_qlMat(lev)%ColA(l0:l1), gn, gd)
       END IF
-      IF (mask.EQ.1) gn = 0d0
     END SUBROUTINE dof_row
   END SUBROUTINE PCO_FREE_FLUX
 
-  ! |sum| and sum|.| over the mean-mode columns (4(e-1)+1) of one B row: local part (bl, cl)
-  ! and optionally the ghost part (bg, cg)
+  ! sum (signed) and sum|.| over the mean-mode columns (4(e-1)+1) of one B row: local part
+  ! (bl, cl) and optionally the ghost part (bg, cg)
   SUBROUTINE PCO_DOF_FLUX(bl, cl, gn, gd, bg, cg)
     REAL*8, INTENT(IN) :: bl(:)
     INTEGER, INTENT(IN) :: cl(:)
@@ -304,7 +316,7 @@ CONTAINS
         gd = gd + ABS(bg(k))
       END DO
     END IF
-    gn = ABS(sm)
+    gn = sm
   END SUBROUTINE PCO_DOF_FLUX
 
   !-----------------------------------------------------------------------

@@ -29,12 +29,16 @@
 !          |sum| / sum|.| of the mean-mode entries of each B row with a free velocity
 !          component; rounding level where the dof support closes, order one at a free
 !          boundary, whatever the cell aspect ratio), handed over by PCO_SET_STRUCTURAL_FLUX.
-!          s_c <= FLUX_CLOSED (1e-10): closed; s_c >= FLUX_OPEN (1e-6): open; in between the
-!          decision is undecidable;
+!          s_c <= PCO_FLUX_CLOSED (256 eps = 2^-44 = 5.7e-14): closed; s_c >= PCO_FLUX_OPEN
+!          (1e-6): open; in between the decision is undecidable. The closed bound sits just
+!          above the measured rounding population of closed components (1.1e-15 to 1.4e-14,
+!          i.e. 5 to 63 eps over every gate; factor 4 to the largest): a physical flux below
+!          it cannot be told from the rounding of the assembled entries;
 !        - matrix (consistency): right(c) = max over EVERY row i of |(C e_c)_i| / sum_j |C_ij|
 !          (all columns: the normwise scale). A closed component must have right(c) <=
-!          PCO_CLOSURE_TOL (1e-8); an open one right(c) > MATRIX_ROUNDING (1e-13), otherwise the
-!          constant is numerically in the kernel of an operator that is structurally regular.
+!          PCO_CLOSURE_TOL (512 eps = 2^-43 = 1.1e-13; measured closed 1.3e-15 to 2.0e-14,
+!          factor 5.7); an open one right(c) > PCO_CLOSURE_TOL, otherwise the constant is
+!          numerically in the kernel of an operator that is structurally regular.
 !          A weak outlet (cells stretched across it) gives an open component with a small
 !          right(c) (2.5e-10 in the unit test): it stays open, no reference;
 !        - undecidable or inconsistent: status PCO_GAUGE_UNDECIDED, nothing is pinned (the
@@ -45,9 +49,15 @@
 !          diagonal of a reference row (a closed component whose mean row vanishes) is
 !          replaced on the copy by the largest diagonal modulus of the copy, so the reference
 !          equation reads d x = 0 and not 0 x = 0.
-!        Later refreshes keep the decision (no flipping between pinned and unpinned) and check
-!        the matrix measure: a closed component above DRIFT_CLOSED or an open one below
-!        MATRIX_ROUNDING is reported (pco%drift). The left measure e_c^T C (column sums of
+!        Numerical limit: a component whose physical boundary flux is below the closed bound
+!        (relative to the B entries around the element) is treated as closed and pinned. At
+!        that level the ungauged system is singular to working precision (unit test 21: the
+!        direct solve of the ungauged ring at outlet strength 2^-50 loses the mean entirely);
+!        between the bound and 1e-6 nothing is pinned (fallback / refusal).
+!        Later refreshes keep the decision (no flipping between pinned and unpinned), check the
+!        matrix measure (a closed component above PCO_CLOSURE_TOL or an open one at or below it
+!        is reported, pco%drift) and keep the CURRENT smallest measure of the open components
+!        (pco%closure_open) for the admission of the P0 types. The left measure e_c^T C (column sums of
 !        moduli as scale) is computed at the decision and reported; the right-hand-side
 !        compatibility measure below assumes the left null vector e (symmetric operator).
 !        A right-hand side whose sum over a closed component does not vanish is reported
@@ -116,17 +126,22 @@ MODULE pco_coarse_solver
 
   TYPE(tPcoSystem), PUBLIC, SAVE, TARGET :: pco
 
-  REAL*8, PARAMETER, PUBLIC :: PCO_CLOSURE_TOL = 1d-8
-  REAL*8, PARAMETER, PUBLIC :: PCO_FLUX_CLOSED = 1d-10, PCO_FLUX_OPEN = 1d-6
-  REAL*8, PARAMETER :: MATRIX_ROUNDING = 1d-13, DRIFT_CLOSED = 1d-6
+  ! closed bounds: multiples of the unit roundoff just above the measured rounding population
+  REAL*8, PARAMETER, PUBLIC :: PCO_FLUX_CLOSED = 256d0*EPSILON(1d0)   ! 2^-44
+  REAL*8, PARAMETER, PUBLIC :: PCO_CLOSURE_TOL = 512d0*EPSILON(1d0)   ! 2^-43
+  REAL*8, PARAMETER, PUBLIC :: PCO_FLUX_OPEN = 1d-6
   INTEGER, PARAMETER, PUBLIC :: PCO_GAUGE_UNDECIDED = 5
   ! types 3/4 (P0 coarse system, correction over-relaxed by 3 in crs_P0_Correction) diverge
   ! with a weakly open component (an outlet across cells stretched in z): measured on a 12 x 12
   ! x 120 box with a z outlet - matrix measure of the open component 0.90 (unstretched): 2
   ! cycles per solve; 1.2e-2 (stretch 10) and 1.2e-3 (stretch 30): divergence with types 3
   ! and 4, while type 2 converges and legacy stagnates. Below PCO_WEAK_OPEN the P0 types are
-  ! refused (status PCO_P0_WEAK_OPEN): fallback to legacy (key absent), refusal (explicit),
-  ! the previous type kept (runtime reload).
+  ! refused (status PCO_P0_WEAK_OPEN), checked with the CURRENT measure at every refresh and
+  ! before a type reload (PCO_P0_ADMISSIBLE): at the first renewal fallback to legacy (key
+  ! absent) or refusal (explicit key); later (a weight change crossing it) a collective stop
+  ! with the same message (both keys); at a reload the previous type is kept, its factors
+  ! untouched. The cutoff is empirical: working at 0.90, failing at 1.2e-2; the interval
+  ! between is not measured (the ring at 0.11 in the unit test checks the refresh only).
   REAL*8, PARAMETER, PUBLIC :: PCO_WEAK_OPEN = 1d-1
   INTEGER, PARAMETER, PUBLIC :: PCO_P0_WEAK_OPEN = 6
   ! reported right-hand-side imbalance |sum b| / sum |b| over a closed component. The coarse
@@ -140,7 +155,7 @@ MODULE pco_coarse_solver
   PUBLIC :: PCO_ACTIVE, PCO_INSTALL_LAYOUT, PCO_CHANGE_SOLVER_TYPE, PCO_REFRESH_SOLVER
   PUBLIC :: PCO_SOLVE_FULL, PCO_SOLVE_P0, PCO_RAW_SOR, PCO_RAW_MATVEC, PCO_BLOCK_SLOT
   PUBLIC :: PCO_NEIGHBOUR_POS, PCO_RELEASE, PCO_SOLVE_CHECK, PCO_PROBE_IMBALANCE
-  PUBLIC :: PCO_SET_STRUCTURAL_FLUX
+  PUBLIC :: PCO_SET_STRUCTURAL_FLUX, PCO_P0_ADMISSIBLE
 
 CONTAINS
 
@@ -465,7 +480,7 @@ CONTAINS
         END IF
       ELSE IF (sflux(c).GE.PCO_FLUX_OPEN) THEN
         pco%comp_closed(c) = .FALSE.
-        IF (right(c).LE.MATRIX_ROUNDING .AND. cbad.EQ.0) THEN
+        IF (right(c).LE.PCO_CLOSURE_TOL .AND. cbad.EQ.0) THEN
           cbad = c
           why = 'open-matrix'
         END IF
@@ -562,14 +577,29 @@ CONTAINS
     CALL closure_measures(right, nleak)
     bad = (nleak.GT.0)
     DO c = 1, pco%ncomp
-      IF (pco%comp_closed(c) .AND. right(c).GT.DRIFT_CLOSED) bad = .TRUE.
-      IF (.NOT.pco%comp_closed(c) .AND. right(c).LE.MATRIX_ROUNDING) bad = .TRUE.
+      IF (pco%comp_closed(c) .AND. right(c).GT.PCO_CLOSURE_TOL) bad = .TRUE.
+      IF (.NOT.pco%comp_closed(c) .AND. right(c).LE.PCO_CLOSURE_TOL) bad = .TRUE.
     END DO
+    ! the current smallest measure of the open components (admission of the P0 types)
+    IF (pco%nclosed.LT.pco%ncomp) &
+      pco%closure_open = MINVAL(right, MASK=.NOT.pco%comp_closed(1:pco%ncomp))
     IF (bad .AND. .NOT.pco%drift) WRITE(MTERM,'(A)') 'PCO gauge drift: the closure of a '// &
       'component no longer matches the decision of the first refresh (kept; see pco%drift)'
     pco%drift = pco%drift .OR. bad
     DEALLOCATE(right)
   END SUBROUTINE check_gauge
+
+  !-----------------------------------------------------------------------
+  ! May solver type crs run on the current operator? Types 3/4 (P0 system) not with an open
+  ! component whose current matrix measure is below PCO_WEAK_OPEN (see there). Master.
+  !-----------------------------------------------------------------------
+  LOGICAL FUNCTION PCO_P0_ADMISSIBLE(crs) RESULT(ok)
+    INTEGER, INTENT(IN) :: crs
+    ok = .TRUE.
+    IF (crs.NE.3 .AND. crs.NE.4) RETURN
+    IF (.NOT.pco%gauge_decided) RETURN
+    IF (pco%nclosed.LT.pco%ncomp .AND. pco%closure_open.LT.PCO_WEAK_OPEN) ok = .FALSE.
+  END FUNCTION PCO_P0_ADMISSIBLE
 
   !-----------------------------------------------------------------------
   ! After the raw values changed: gauge decision (first refresh) or its check, solver copy
@@ -594,8 +624,7 @@ CONTAINS
     ELSE
       CALL check_gauge()
     END IF
-    IF ((pco%solver_type.EQ.3 .OR. pco%solver_type.EQ.4) .AND. pco%nclosed.LT.pco%ncomp .AND. &
-        pco%closure_open.LT.PCO_WEAK_OPEN) THEN
+    IF (.NOT.PCO_P0_ADMISSIBLE(pco%solver_type)) THEN
       status = PCO_P0_WEAK_OPEN
       WRITE(msg,'(A,I0,A,ES9.2,A,ES8.1,A)') 'coarse solver type ', pco%solver_type, &
         ' (P0 system) with a weakly open component (matrix measure ', pco%closure_open, ' below ', &
