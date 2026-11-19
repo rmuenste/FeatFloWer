@@ -22,6 +22,19 @@ PROGRAM TEST_PCO_COARSE
   !     with an ungauged residual at rounding level and a reference value of zero, the
   !     solution equal to the exact one up to the kernel; an incompatible right-hand side is
   !     reported; the same ring with an outflow (open) gets no reference and is solved exactly
+  !   6 constraint masks: all 64 pairs of three-component Dirichlet masks
+  !   7 gauge components from effective couplings: two closed rings that share only all-zero
+  !     structural blocks are two components with a reference each and an imbalance of
+  !     opposite sign in the two is reported; an open and a closed ring sharing a zero block:
+  !     one reference (in the closed one), factorisation and solve succeed
+  !   8 BiCGStab (types 1, 3): a zero right-hand side returns zero; exact convergence at the
+  !     half step (diagonal operator, exact preconditioner) returns the solution, no 0/0
+  !   9 vertex averaging on a 1 x 1 x n strip (more vertices, 4(n+1), than pressure unknowns,
+  !     4 n): own nvt-sized workspace, exact values
+  !  10 runtime change of the coarse solver type 2 -> 4 -> 1 on the installed layout
+  !  11 census classification of a coupled pair: adjacent cells of width 0.6 period share a
+  !     vertex unshifted (no periodic link), a pair across the plane needs the shift, a pair
+  !     without a shared vertex is inconsistent
 
   USE MPI
   USE TYPES, ONLY: tMultiMesh, TMatrix
@@ -30,11 +43,11 @@ PROGRAM TEST_PCO_COARSE
                            UmfCSC_Factorize, UmfCSC_Solve, UmfCSC_Release, &
                            myUmfPack_Factorize, myUmfPack_Solve, myUmfPack_Free
   USE pco_periodic_topology, ONLY: tPcoClasses, PCO_BUILD_CLASSES, PCO_CLASS_MASK_CONFLICTS, &
-                                   PCO_ELEMENT_GRAPH
-  USE pco_p0_reconstruct, ONLY: PCO_SET_VERTEX_CLASSES, PCO_P0_TO_VERTEX
+                                   PCO_ELEMENT_GRAPH, PCO_MASKS_DIFFER, PCO_PAIR_SHIFT
+  USE pco_p0_reconstruct, ONLY: PCO_SET_VERTEX_CLASSES, PCO_P0_TO_VERTEX, pco_vertex_values
   USE pco_coarse_solver, ONLY: pco, PCO_INSTALL_LAYOUT, PCO_REFRESH_SOLVER, PCO_SOLVE_CHECK, &
                                PCO_BLOCK_SLOT, PCO_NEIGHBOUR_POS, PCO_SOLVE_FULL, PCO_SOLVE_P0, &
-                               PCO_RELEASE
+                               PCO_RELEASE, PCO_CHANGE_SOLVER_TYPE
   USE mg_QuadScalar, ONLY: INTPVB
   USE EL_TEST_HELPERS, ONLY: EL_TEST_INIT, EL_TEST_CHECK, EL_TEST_REPORT, BUILD_STRUCTURED_MESH, &
                              BUILD_DOF_COORDINATES
@@ -54,6 +67,12 @@ PROGRAM TEST_PCO_COARSE
   CALL test_classes()
   CALL test_reconstruction()
   CALL test_gauge_solver()
+  CALL test_masks()
+  CALL test_components()
+  CALL test_bicgstab_edges()
+  CALL test_strip_reconstruction()
+  CALL test_solver_type_change()
+  CALL test_pair_shift()
 
   CALL EL_TEST_REPORT(nf, rank, nproc, 'pco coarse')
   CALL MPI_Finalize(ierr)
@@ -236,7 +255,7 @@ CONTAINS
     TYPE(tPcoClasses) :: cls
     INTEGER, PARAMETER :: n = 3
     INTEGER :: nel, nvt, e, j, k, m, v
-    REAL*8, ALLOCATABLE :: dp(:), dpl(:), dax(:), dl0(:), da0(:), num(:), den(:)
+    REAL*8, ALLOCATABLE :: dp(:), dpl(:), dl0(:), da0(:), num(:), den(:)
     REAL*8 :: c(3), pi, worst_img, worst_val, worst_int, legacy_gap, nn, dd
     REAL*8 :: per(3) = (/1d0, 1d0, 1d0/)
     LOGICAL :: on_image
@@ -246,7 +265,7 @@ CONTAINS
     nel = mg_mesh%level(1)%nel
     nvt = mg_mesh%level(1)%nvt
     pi = 4d0*ATAN(1d0)
-    ALLOCATE(dp(nel), dpl(nvt), dax(nvt), dl0(nvt), da0(nvt), num(nvt), den(nvt))
+    ALLOCATE(dp(nel), dpl(nvt), dl0(nvt), da0(nvt), num(nvt), den(nvt))
     DO e = 1, nel
       c = 0d0
       DO j = 1, 8
@@ -258,7 +277,8 @@ CONTAINS
     END DO
     CALL PCO_BUILD_CLASSES(1, (/.TRUE., .TRUE., .FALSE./), per, cls)
     CALL PCO_SET_VERTEX_CLASSES(cls%nvt, cls%ncls, cls%ptr, cls%mem)
-    CALL PCO_P0_TO_VERTEX(dp, dpl, dax, mg_mesh%level(1)%dvol, mg_mesh%level(1)%kvert, nel, nvt)
+    CALL PCO_P0_TO_VERTEX(dp, mg_mesh%level(1)%dvol, mg_mesh%level(1)%kvert, nel, nvt)
+    dpl = pco_vertex_values(1:nvt)
     CALL INTPVB(dp, dl0, da0, mg_mesh%level(1)%dvol, mg_mesh%level(1)%kvert, nel, nvt)
     ! independent numerators / denominators
     num = 0d0
@@ -298,7 +318,7 @@ CONTAINS
     CALL EL_TEST_CHECK(worst_val.LT.1d-14, 'the value is sum(num)/sum(den) over the class', nf, rank)
     CALL EL_TEST_CHECK(worst_int.LT.1d-14, 'vertices without images: INTPVB to rounding', nf, rank)
     CALL EL_TEST_CHECK(legacy_gap.GT.1d-3, 'INTPVB gives different values to the images (defect shown)', nf, rank)
-    DEALLOCATE(dp, dpl, dax, dl0, da0, num, den)
+    DEALLOCATE(dp, dpl, dl0, da0, num, den)
   END SUBROUTINE test_reconstruction
 
   !---------------------------------------------------------------------
@@ -344,8 +364,7 @@ CONTAINS
     INTEGER :: crs, st, i, it
     CHARACTER(len=256) :: msg
     CHARACTER(len=64) :: lab
-    REAL*8 :: v(4*nel), resid, devi, b(4*nel), x(4*nel), p0(nel), tol
-    LOGICAL :: incompat
+    REAL*8 :: v(4*nel), resid, devi, b(4*nel), x(4*nel), p0(nel), tol, xref
 
     WRITE(*,'(A)') '5 gauge and solver (ring of elements)'
     DO i = 1, 4*nel
@@ -357,13 +376,14 @@ CONTAINS
       CALL PCO_REFRESH_SOLVER(st, msg)
       CALL EL_TEST_CHECK(st.EQ.0 .AND. pco%ncomp.EQ.1 .AND. pco%nclosed.EQ.1 .AND. &
         pco%closure_closed.LT.1d-14, TRIM(lab)//': closed ring detected (C e = 0), factorised', nf, rank)
-      CALL PCO_SOLVE_CHECK(v, resid, devi, incompat)
-      WRITE(*,'(A,2ES11.3)') '    residual, deviation from v + kernel:', resid, devi
+      i = pco%nsolve
+      CALL PCO_SOLVE_CHECK(v, resid, devi, xref)
+      WRITE(*,'(A,3ES11.3)') '    residual, deviation from v + kernel, reference:', resid, devi, xref
       tol = MERGE(1d-12, 1d-9, crs.EQ.2 .OR. crs.EQ.4)
-      CALL EL_TEST_CHECK(resid.LT.tol .AND. devi.LT.100d0*tol .AND. .NOT.incompat, &
+      CALL EL_TEST_CHECK(resid.LT.tol .AND. devi.LT.100d0*tol, &
         TRIM(lab)//': compatible rhs, ungauged residual and solution up to the kernel', nf, rank)
-      CALL EL_TEST_CHECK(ABS(pco%sol(1)).LE.tol*MAXVAL(ABS(pco%sol)), &
-        TRIM(lab)//': reference mean value zero', nf, rank)
+      CALL EL_TEST_CHECK(xref.LE.tol, TRIM(lab)//': reference mean value zero', nf, rank)
+      CALL EL_TEST_CHECK(pco%nsolve.EQ.i, TRIM(lab)//': the check does not count as a production solve', nf, rank)
       ! incompatible: a constant on the means is not in the range
       b = 0d0
       DO i = 1, nel
@@ -372,9 +392,9 @@ CONTAINS
       it = 500
       i = pco%nincompat
       IF (crs.LE.2) THEN
-        CALL PCO_SOLVE_FULL(x, b, it, 1d-14, 1d0)
+        CALL PCO_SOLVE_FULL(x, b, 4*nel, it, 1d-12, 1d0)
       ELSE
-        CALL PCO_SOLVE_P0(b, p0, it, 1d-14, 1d0)
+        CALL PCO_SOLVE_P0(b, p0, it, 1d-12, 1d0)
       END IF
       CALL EL_TEST_CHECK(pco%nincompat.EQ.i+1, TRIM(lab)//': incompatible rhs reported', nf, rank)
       ! open ring: no reference, exact solve
@@ -382,11 +402,263 @@ CONTAINS
       CALL PCO_REFRESH_SOLVER(st, msg)
       CALL EL_TEST_CHECK(st.EQ.0 .AND. pco%nclosed.EQ.0 .AND. .NOT.ANY(pco%sref), &
         TRIM(lab)//': open ring, no reference', nf, rank)
-      CALL PCO_SOLVE_CHECK(v, resid, devi, incompat)
+      CALL PCO_SOLVE_CHECK(v, resid, devi, xref)
       WRITE(*,'(A,2ES11.3)') '    open: residual, deviation:', resid, devi
       CALL EL_TEST_CHECK(resid.LT.tol .AND. devi.LT.100d0*tol, TRIM(lab)//': open ring solved exactly', nf, rank)
     END DO
     CALL PCO_RELEASE()
   END SUBROUTINE test_gauge_solver
+
+  !---------------------------------------------------------------------
+  SUBROUTINE test_masks()
+    INTEGER :: i, j, a(3), b(3), nbad
+    TYPE(tPcoClasses) :: cls
+    INTEGER, ALLOCATABLE :: ku(:), kv(:), kw(:)
+    REAL*8 :: per(3) = (/1d0, 1d0, 1d0/)
+    WRITE(*,'(A)') '6 constraint masks'
+    nbad = 0
+    DO i = 0, 7
+      DO j = 0, 7
+        a = (/MOD(i,2), MOD(i/2,2), MOD(i/4,2)/)
+        b = (/MOD(j,2), MOD(j/2,2), MOD(j/4,2)/)
+        IF (PCO_MASKS_DIFFER(a(1), a(2), a(3), b(1), b(2), b(3)) .NEQV. ANY(a.NE.b)) nbad = nbad + 1
+      END DO
+    END DO
+    CALL EL_TEST_CHECK(nbad.EQ.0, 'all 64 mask pairs: differ exactly when a component differs', nf, rank)
+    CALL make_mesh(3, .FALSE., .FALSE.)
+    CALL PCO_BUILD_CLASSES(1, (/.TRUE., .FALSE., .FALSE./), per, cls)
+    ALLOCATE(ku(cls%ndof), kv(cls%ndof), kw(cls%ndof))
+    ku = 1
+    kv = 1
+    kw = 0
+    CALL EL_TEST_CHECK(PCO_CLASS_MASK_CONFLICTS(cls, ku, kv, kw).EQ.0, &
+      'masks (1,1,0) on every image: no conflict', nf, rank)
+    ku(1) = 0
+    kv(1) = 0
+    CALL EL_TEST_CHECK(PCO_CLASS_MASK_CONFLICTS(cls, ku, kv, kw).EQ.1, &
+      'masks (0,0,0) against (1,1,0) on one class: one conflict', nf, rank)
+    DEALLOCATE(ku, kv, kw)
+  END SUBROUTINE test_masks
+
+  !---------------------------------------------------------------------
+  ! two rings A = 1..3, B = 4..6 (ring couplings -1 on every mode), every element structurally
+  ! neighbour of every other (blocks between A and B stay zero); open_a: outflow on element 1
+  SUBROUTINE two_rings(crs, open_a)
+    INTEGER, INTENT(IN) :: crs
+    LOGICAL, INTENT(IN) :: open_a
+    INTEGER, ALLOCATABLE :: eptr(:), enbr(:)
+    INTEGER :: e, f, k, mp, g0
+    ALLOCATE(eptr(7), enbr(30))
+    k = 0
+    DO e = 1, 6
+      eptr(e) = k + 1
+      DO f = 1, 6
+        IF (f.EQ.e) CYCLE
+        k = k + 1
+        enbr(k) = f
+      END DO
+    END DO
+    eptr(7) = k + 1
+    CALL PCO_INSTALL_LAYOUT(1, 6, eptr, enbr, crs, 2)
+    pco%a = 0d0
+    DO e = 1, 6
+      g0 = 3*((e-1)/3)
+      DO mp = 1, 4
+        pco%a(PCO_BLOCK_SLOT(e, mp, 0, mp)) = MERGE(2d0, 4d0, mp.EQ.1)
+      END DO
+      DO f = g0+1, g0+3
+        IF (f.EQ.e) CYCLE
+        DO mp = 1, 4
+          pco%a(PCO_BLOCK_SLOT(e, mp, PCO_NEIGHBOUR_POS(e, f), mp)) = -1d0
+        END DO
+      END DO
+    END DO
+    IF (open_a) pco%a(PCO_BLOCK_SLOT(1, 1, 0, 1)) = 3d0
+  END SUBROUTINE two_rings
+
+  SUBROUTINE test_components()
+    INTEGER :: crs, st, it, n0
+    CHARACTER(len=256) :: msg
+    CHARACTER(len=32) :: lab
+    REAL*8 :: v(24), b(24), x(24), p0(6), resid, devi, xref
+    INTEGER :: i
+    WRITE(*,'(A)') '7 gauge components from effective couplings'
+    DO i = 1, 24
+      v(i) = COS(0.7d0*DBLE(i))
+    END DO
+    DO crs = 2, 4, 2
+      WRITE(lab,'(A,I0)') 'type ', crs
+      CALL two_rings(crs, .FALSE.)
+      CALL PCO_REFRESH_SOLVER(st, msg)
+      CALL EL_TEST_CHECK(st.EQ.0 .AND. pco%ncomp.EQ.2 .AND. pco%nclosed.EQ.2 .AND. &
+        COUNT(pco%sref).EQ.2, TRIM(lab)//': two closed rings with a zero structural block: two references', nf, rank)
+      CALL PCO_SOLVE_CHECK(v, resid, devi, xref)
+      CALL EL_TEST_CHECK(resid.LT.1d-12 .AND. devi.LT.1d-10, TRIM(lab)//': compatible rhs solved', nf, rank)
+      b = 0d0
+      DO i = 1, 3
+        b(4*(i-1)+1) = 1d0
+        b(4*(i+2)+1) = -1d0
+      END DO
+      n0 = pco%nincompat
+      it = 100
+      IF (crs.EQ.2) THEN
+        CALL PCO_SOLVE_FULL(x, b, 24, it, 1d-12, 1d0)
+      ELSE
+        CALL PCO_SOLVE_P0(b, p0, it, 1d-12, 1d0)
+      END IF
+      CALL EL_TEST_CHECK(pco%nincompat.EQ.n0+1, TRIM(lab)//': opposite imbalances of the two rings reported', nf, rank)
+      CALL two_rings(crs, .TRUE.)
+      CALL PCO_REFRESH_SOLVER(st, msg)
+      CALL EL_TEST_CHECK(st.EQ.0 .AND. pco%ncomp.EQ.2 .AND. pco%nclosed.EQ.1 .AND. COUNT(pco%sref).EQ.1 &
+        .AND. pco%comp_closed(pco%comp_of(4)), TRIM(lab)//': open and closed ring: one reference, in the closed one', &
+        nf, rank)
+      CALL PCO_SOLVE_CHECK(v, resid, devi, xref)
+      CALL EL_TEST_CHECK(resid.LT.1d-12 .AND. devi.LT.1d-10, TRIM(lab)//': open/closed pair solved', nf, rank)
+    END DO
+    CALL PCO_RELEASE()
+  END SUBROUTINE test_components
+
+  !---------------------------------------------------------------------
+  ! isolated elements with diagonal blocks (open, no gauge): the SSOR preconditioner is exact
+  SUBROUTINE diagonal_operator(crs)
+    INTEGER, INTENT(IN) :: crs
+    INTEGER, ALLOCATABLE :: eptr(:), enbr(:)
+    INTEGER :: e, mp
+    ALLOCATE(eptr(5), enbr(1))
+    eptr = 1
+    CALL PCO_INSTALL_LAYOUT(1, 4, eptr, enbr, crs, 2)
+    pco%a = 0d0
+    DO e = 1, 4
+      DO mp = 1, 4
+        pco%a(PCO_BLOCK_SLOT(e, mp, 0, mp)) = DBLE(e + mp)
+      END DO
+    END DO
+  END SUBROUTINE diagonal_operator
+
+  SUBROUTINE test_bicgstab_edges()
+    INTEGER :: crs, st, it, i
+    CHARACTER(len=256) :: msg
+    CHARACTER(len=32) :: lab
+    REAL*8 :: b(16), x(16), p0(4), ex(16)
+    WRITE(*,'(A)') '8 BiCGStab edge cases'
+    DO crs = 1, 3, 2
+      WRITE(lab,'(A,I0)') 'type ', crs
+      CALL diagonal_operator(crs)
+      CALL PCO_REFRESH_SOLVER(st, msg)
+      b = 0d0
+      it = 50
+      IF (crs.EQ.1) THEN
+        x = 1d0
+        CALL PCO_SOLVE_FULL(x, b, 16, it, 1d-12, 1d0)
+        CALL EL_TEST_CHECK(ALL(x.EQ.0d0) .AND. it.EQ.0, TRIM(lab)//': zero rhs -> zero, no iteration', nf, rank)
+      ELSE
+        p0 = 1d0
+        CALL PCO_SOLVE_P0(b, p0, it, 1d-12, 1d0)
+        CALL EL_TEST_CHECK(ALL(p0.EQ.0d0) .AND. it.EQ.0, TRIM(lab)//': zero rhs -> zero, no iteration', nf, rank)
+      END IF
+      DO i = 1, 16
+        b(i) = DBLE(i)
+        ex(i) = b(i)/DBLE((i-1)/4 + 1 + MOD(i-1,4) + 1)
+      END DO
+      it = 50
+      IF (crs.EQ.1) THEN
+        CALL PCO_SOLVE_FULL(x, b, 16, it, 1d-12, 1d0)
+        CALL EL_TEST_CHECK(MAXVAL(ABS(x-ex)).LT.1d-14 .AND. it.EQ.1, &
+          TRIM(lab)//': exact convergence at the half step, no 0/0', nf, rank)
+      ELSE
+        CALL PCO_SOLVE_P0(b, p0, it, 1d-12, 1d0)
+        CALL EL_TEST_CHECK(MAXVAL(ABS(p0-ex(1:16:4))).LT.1d-14 .AND. it.EQ.1, &
+          TRIM(lab)//': exact convergence at the half step, no 0/0', nf, rank)
+      END IF
+    END DO
+    CALL PCO_RELEASE()
+  END SUBROUTINE test_bicgstab_edges
+
+  !---------------------------------------------------------------------
+  SUBROUTINE test_strip_reconstruction()
+    INTEGER, PARAMETER :: n = 5
+    INTEGER :: kvert(8,n), e, k, nvt
+    REAL*8 :: dvol(n), dp(n)
+    INTEGER :: ptr(2), mem(1)
+    WRITE(*,'(A)') '9 vertex averaging on a 1 x 1 x n strip'
+    nvt = 4*(n+1)
+    DO e = 1, n
+      DO k = 1, 4
+        kvert(k, e) = 4*(e-1) + k
+        kvert(k+4, e) = 4*e + k
+      END DO
+      dvol(e) = 1d0
+      dp(e) = 2.5d0
+    END DO
+    ptr = (/1, 2/)
+    mem = 1
+    CALL PCO_SET_VERTEX_CLASSES(nvt, 1, ptr, mem)
+    CALL PCO_P0_TO_VERTEX(dp, dvol, kvert, n, nvt)
+    CALL EL_TEST_CHECK(SIZE(pco_vertex_values).GE.nvt .AND. nvt.GT.4*n .AND. &
+      MAXVAL(ABS(pco_vertex_values(1:nvt)-2.5d0)).LT.1d-15, &
+      'strip: nvt = 4(n+1) > 4 n values in the own workspace, constant field reproduced', nf, rank)
+  END SUBROUTINE test_strip_reconstruction
+
+  !---------------------------------------------------------------------
+  SUBROUTINE test_solver_type_change()
+    INTEGER :: st
+    CHARACTER(len=256) :: msg
+    REAL*8 :: v(24), resid, devi, xref
+    INTEGER :: i
+    WRITE(*,'(A)') '10 runtime change of the coarse solver type'
+    DO i = 1, 24
+      v(i) = SIN(0.3d0*DBLE(i))
+    END DO
+    CALL ring_operator(6, 2, .FALSE.)
+    CALL PCO_REFRESH_SOLVER(st, msg)
+    CALL PCO_CHANGE_SOLVER_TYPE(4, st, msg)
+    CALL EL_TEST_CHECK(st.EQ.0 .AND. pco%ns.EQ.6 .AND. pco%solver_type.EQ.4 .AND. COUNT(pco%sref).EQ.1, &
+      '2 -> 4: mean-mode copy installed with the gauge', nf, rank)
+    CALL PCO_SOLVE_CHECK(v, resid, devi, xref)
+    CALL EL_TEST_CHECK(resid.LT.1d-12, '2 -> 4: solve', nf, rank)
+    CALL PCO_CHANGE_SOLVER_TYPE(1, st, msg)
+    CALL EL_TEST_CHECK(st.EQ.0 .AND. pco%ns.EQ.24 .AND. pco%solver_type.EQ.1, '4 -> 1: full copy installed', nf, rank)
+    CALL PCO_SOLVE_CHECK(v, resid, devi, xref)
+    CALL EL_TEST_CHECK(resid.LT.1d-9, '4 -> 1: solve', nf, rank)
+    CALL PCO_RELEASE()
+  END SUBROUTINE test_solver_type_change
+
+  !---------------------------------------------------------------------
+  SUBROUTINE test_pair_shift()
+    REAL*8 :: va(24), vb(24), vc(24), vd(24), per(3)
+    INTEGER :: shift(3), kind
+    WRITE(*,'(A)') '11 census classification of coupled pairs'
+    per = (/1d0, 1d9, 1d9/)
+    CALL cell(0d0, 0.6d0, va)
+    CALL cell(0.6d0, 1.2d0, vb)
+    CALL PCO_PAIR_SHIFT(va, vb, per, 1d-5, shift, kind)
+    CALL EL_TEST_CHECK(kind.EQ.0, 'adjacent cells of width 0.6 period: unshifted (no periodic link)', nf, rank)
+    CALL cell(0.4d0, 1.0d0, vc)
+    CALL PCO_PAIR_SHIFT(va, vc, per, 1d-5, shift, kind)
+    CALL EL_TEST_CHECK(kind.EQ.1 .AND. ALL(shift.EQ.(/1, 0, 0/)), 'pair across the plane x = 0: shift (1,0,0)', &
+      nf, rank)
+    CALL cell(2.0d0, 2.5d0, vd)
+    CALL PCO_PAIR_SHIFT(va, vd, per, 1d-5, shift, kind)
+    CALL EL_TEST_CHECK(kind.EQ.-1, 'pair without a shared vertex in any image: inconsistent', nf, rank)
+    per = (/1d9, 1d9, 1d9/)
+    CALL PCO_PAIR_SHIFT(va, vc, per, 1d-5, shift, kind)
+    CALL EL_TEST_CHECK(kind.EQ.-1, 'no finite period: no shift is tried', nf, rank)
+  END SUBROUTINE test_pair_shift
+
+  ! unit-height hexahedron [x0,x1] x [0,1] x [0,1], vertex coordinates x1,y1,z1, x2, ...
+  SUBROUTINE cell(x0, x1, v)
+    REAL*8, INTENT(IN) :: x0, x1
+    REAL*8, INTENT(OUT) :: v(24)
+    INTEGER :: i
+    REAL*8 :: c(3,8)
+    c(:,1) = (/x0, 0d0, 0d0/)
+    c(:,2) = (/x1, 0d0, 0d0/)
+    c(:,3) = (/x1, 1d0, 0d0/)
+    c(:,4) = (/x0, 1d0, 0d0/)
+    DO i = 1, 4
+      c(:,i+4) = c(:,i) + (/0d0, 0d0, 1d0/)
+    END DO
+    v = RESHAPE(c, (/24/))
+  END SUBROUTINE cell
 
 END PROGRAM TEST_PCO_COARSE
