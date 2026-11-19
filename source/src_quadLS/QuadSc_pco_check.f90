@@ -94,12 +94,18 @@ CONTAINS
   !-----------------------------------------------------------------------
   ! max over the rows of |yd - y| / sc (sc: the row scale sum_j |A_ij| max|v| of the gathered
   ! operator). A row with sc = 0 (a zero row of the gathered operator) is not skipped: there
-  ! the products must agree exactly, a difference counts 1 (as the entry comparison does).
+  ! the products must agree exactly, a difference counts 1 (as the entry comparison does). A
+  ! non-finite value in either product or in the scale gives HUGE.
   !-----------------------------------------------------------------------
   REAL*8 FUNCTION PCO_COMPARE_PRODUCTS(yd, y, sc) RESULT(e)
     REAL*8, INTENT(IN) :: yd(:), y(:), sc(:)
     INTEGER :: row
     e = 0d0
+    ! a non-finite product or scale fails at once (NaN comparisons would be false)
+    IF (.NOT.(ALL(IEEE_IS_FINITE(yd)) .AND. ALL(IEEE_IS_FINITE(y)) .AND. ALL(IEEE_IS_FINITE(sc)))) THEN
+      e = HUGE(1d0)
+      RETURN
+    END IF
     DO row = 1, SIZE(sc)
       IF (sc(row).GT.0d0) THEN
         e = MAX(e, ABS(yd(row)-y(row))/sc(row))
@@ -171,6 +177,10 @@ CONTAINS
       ! PCO_SOLVE_CHECK, the solution error amplified by the conditioning
       tol_res = MERGE(1d-10, 1d-8, crs.EQ.2 .OR. crs.EQ.4)
       tol_dev = MERGE(1d-8, 1d-3, crs.EQ.2 .OR. crs.EQ.4)
+      ! a weakly open component amplifies the solution error with the conditioning, about the
+      ! inverse of its matrix measure (an inclined Symmetry001 plane at 2^-12: 1.2e-5)
+      IF (pco%nclosed.LT.pco%ncomp .AND. pco%closure_open.GT.0d0) &
+        tol_dev = MAX(tol_dev, 1d-12/pco%closure_open)
       ALLOCATE(cs(n), ca(n))
       cs = 0d0
       ca = 0d0
