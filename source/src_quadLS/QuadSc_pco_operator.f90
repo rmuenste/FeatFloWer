@@ -100,8 +100,9 @@ MODULE pco_coarse_operator
                       PCO_MASS_EL_WEIGHTED, PCO_MASS_EL_PER_IMAGE
   USE pco_coarse_solver, ONLY: pco, PCO_INSTALL_LAYOUT, PCO_REFRESH_SOLVER, PCO_RELEASE, &
                                PCO_CHANGE_SOLVER_TYPE, PCO_SET_STRUCTURAL_FLUX, PCO_GAUGE_UNDECIDED, &
-                               PCO_P0_WEAK_OPEN
-  USE pco_p0_reconstruct, ONLY: PCO_SET_VERTEX_CLASSES
+                               PCO_P0_WEAK_OPEN, PCO_P0_ADMISSIBLE
+  USE pco_p0_reconstruct, ONLY: PCO_SET_VERTEX_CLASSES, PCO_CLEAR_VERTEX_CLASSES
+  USE pressure_param_agreement, ONLY: PCO_KEYS_AGREE
   USE pco_diagnostics, ONLY: PCO_COMPARE_OPERATORS, PCO_RUN_CHECK
 
   IMPLICIT NONE
@@ -207,6 +208,10 @@ CONTAINS
     EXTERNAL MPI_WTIME
 
     st%resolved = .TRUE.
+    ! the keys of this operator decide collectives (mode, check schedule): equal on every rank
+    IF (.NOT.PCO_KEYS_AGREE(LinSc%prm%PeriodicCoarseOperator, LinSc%prm%PeriodicCoarseCheck)) &
+      CALL stop_all('PCO STOP: the ranks read different Pres@PeriodicCoarseOperator / '// &
+                    'Pres@PeriodicCoarseCheck (a stale copy of the deck?); every rank stops')
     st%requested = LinSc%prm%PeriodicCoarseOperator
     st%check = LinSc%prm%PeriodicCoarseCheck
     st%minlev = LinSc%prm%MGprmIn%MinLev
@@ -434,12 +439,25 @@ CONTAINS
     IF (st%requested.EQ.PCO_KEY_UNSET) THEN
       CALL say('PCO periodic coarse operator: fallback to legacy - '//TRIM(reason))
       st%mode = PCO_KEY_LEGACY
-      IF (myid.EQ.master) CALL PCO_RELEASE()
-      CALL PCO_GATHER_FREE(st%plan)
+      CALL release_periodic_state()
     ELSE
       CALL stop_all('PCO REFUSED: Pres@PeriodicCoarseOperator = '//TRIM(PCO_KEY_NAME(target))//': '//TRIM(reason))
     END IF
   END SUBROUTINE fail
+
+  ! fallback: nothing of the periodic operator survives (solver storage, plan, classes, wrap
+  ! structure, vertex classes of the type-3/4 averaging)
+  SUBROUTINE release_periodic_state()
+    TYPE(tPcoClasses) :: no_classes
+    TYPE(tPcoWrap) :: no_wrap
+    IF (myid.EQ.master) THEN
+      CALL PCO_RELEASE()
+      CALL PCO_CLEAR_VERTEX_CLASSES()
+    END IF
+    CALL PCO_GATHER_FREE(st%plan)
+    st%cls = no_classes
+    st%wrap = no_wrap
+  END SUBROUTINE release_periodic_state
 
   ! every rank reaches this with the same decision: report (master and protocol rank), stop
   SUBROUTINE stop_all(text)
@@ -711,30 +729,27 @@ CONTAINS
   ! on every rank.
   !=======================================================================
   SUBROUTINE PCO_PRESSURE_PARAMETERS_RELOADED()
-    INTEGER :: status, ierr, crs_new
+    INTEGER :: status, ierr, crs_new, iok
     CHARACTER(len=256) :: msg
     IF (.NOT.st%resolved) RETURN
     IF (st%mode.EQ.PCO_KEY_LEGACY) RETURN
     crs_new = LinSc%prm%MGprmIn%CrsSolverType
     IF (crs_new.EQ.st%crs) RETURN
+    ! a P0 type on a weakly open operator is refused before the working factors are touched
+    iok = 1
+    IF (myid.EQ.master) iok = MERGE(1, 0, PCO_P0_ADMISSIBLE(crs_new))
+    CALL MPI_Bcast(iok, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+    IF (iok.EQ.0) THEN
+      LinSc%prm%MGprmIn%CrsSolverType = st%crs
+      WRITE(msg,'(A,I0,A)') 'PCO: the reloaded coarse solver type ', crs_new, ' (P0 system) is not taken: '// &
+        'a weakly open component (its over-relaxed P0 correction diverges there); previous type kept'
+      CALL say(msg)
+      RETURN
+    END IF
     status = 0
     msg = ' '
     IF (myid.EQ.master) CALL PCO_CHANGE_SOLVER_TYPE(crs_new, status, msg)
     CALL MPI_Bcast(status, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-    IF (status.EQ.PCO_P0_WEAK_OPEN) THEN
-      ! not suitable for this operator: back to the previous type, logged
-      CALL MPI_Bcast(msg, LEN(msg), MPI_CHARACTER, 0, MPI_COMM_WORLD, ierr)
-      status = 0
-      IF (myid.EQ.master) CALL PCO_CHANGE_SOLVER_TYPE(st%crs, status, msg)
-      CALL MPI_Bcast(status, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-      IF (status.NE.0) THEN
-        CALL MPI_Bcast(msg, LEN(msg), MPI_CHARACTER, 0, MPI_COMM_WORLD, ierr)
-        CALL stop_all('PCO STOP (reload of the coarse solver type): '//TRIM(msg))
-      END IF
-      LinSc%prm%MGprmIn%CrsSolverType = st%crs
-      CALL say('PCO: the reloaded coarse solver type is not taken - '//TRIM(msg)//'; previous type kept')
-      RETURN
-    END IF
     IF (status.NE.0) THEN
       CALL MPI_Bcast(msg, LEN(msg), MPI_CHARACTER, 0, MPI_COMM_WORLD, ierr)
       CALL stop_all('PCO STOP (reload of the coarse solver type): '//TRIM(msg))

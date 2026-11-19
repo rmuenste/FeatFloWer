@@ -32,9 +32,18 @@ MODULE pco_p0_reconstruct
   REAL*8, ALLOCATABLE, SAVE, TARGET, PUBLIC :: pco_vertex_values(:)
   REAL*8, ALLOCATABLE, SAVE :: vden(:)
 
-  PUBLIC :: PCO_SET_VERTEX_CLASSES, PCO_P0_TO_VERTEX
+  PUBLIC :: PCO_SET_VERTEX_CLASSES, PCO_P0_TO_VERTEX, PCO_CLEAR_VERTEX_CLASSES
 
 CONTAINS
+
+  ! release everything this module holds (fallback to legacy)
+  SUBROUTINE PCO_CLEAR_VERTEX_CLASSES()
+    nvcls = 0
+    IF (ALLOCATED(vptr)) DEALLOCATE(vptr)
+    IF (ALLOCATED(vmem)) DEALLOCATE(vmem)
+    IF (ALLOCATED(pco_vertex_values)) DEALLOCATE(pco_vertex_values)
+    IF (ALLOCATED(vden)) DEALLOCATE(vden)
+  END SUBROUTINE PCO_CLEAR_VERTEX_CLASSES
 
   ! classes over the dofs (cls_of/ptr/mem of pco_periodic_topology); only the vertex classes
   ! (members <= nvt) with more than one member are kept

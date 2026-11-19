@@ -9,14 +9,16 @@
 ! of the pressure parameters that the parse produces (GetPresParameters: the multigrid input
 ! and the two keys of the periodic coarse operator; tMGParamOut holds results) over all ranks:
 ! integers and characters (as character codes) by an allreduce of minimum and maximum, reals by
-! the same on their values (equal only when bitwise equal; a NaN makes them unequal). Equal on
+! the same on their bit patterns (equal only when bitwise equal, +0 and -0 differ; a NaN is
+! rejected). Equal on
 ! every rank: the parsed values stay, nothing else happens (a consistent reload behaves as
 ! before). Otherwise every rank restores the previous values (prm_old) and agreed = .FALSE.;
 ! the caller logs it. Collective over MPI_COMM_WORLD; called only for a reload.
 !=========================================================================
 MODULE pressure_param_agreement
 
-  USE PP3D_MPI, ONLY: MPI_COMM_WORLD, MPI_INTEGER, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_MAX
+  USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_IS_NAN
+  USE PP3D_MPI, ONLY: MPI_COMM_WORLD, MPI_INTEGER, MPI_INTEGER8, MPI_MIN, MPI_MAX
   USE types, ONLY: tParamP
 
   IMPLICIT NONE
@@ -24,7 +26,7 @@ MODULE pressure_param_agreement
 
   INTEGER, PARAMETER :: NI = 10, NR = 5
 
-  PUBLIC :: PRESSURE_PARAMETERS_AGREE, PRESSURE_PARAMETERS_PACK
+  PUBLIC :: PRESSURE_PARAMETERS_AGREE, PRESSURE_PARAMETERS_PACK, PCO_KEYS_AGREE
 
 CONTAINS
 
@@ -57,19 +59,18 @@ CONTAINS
     TYPE(tParamP), INTENT(INOUT) :: prm
     TYPE(tParamP), INTENT(IN) :: prm_old
     LOGICAL, INTENT(OUT) :: agreed
-    INTEGER :: iv(NI), imin(NI), imax(NI), ierr, k
-    REAL*8 :: rv(NR), rmin(NR), rmax(NR)
+    INTEGER :: iv(NI), imin(NI), imax(NI), ierr
+    REAL*8 :: rv(NR)
+    INTEGER(8) :: bv(NR), bmin(NR), bmax(NR)
     CALL PRESSURE_PARAMETERS_PACK(prm, iv, rv)
+    ! reals as bit patterns: equal only when bitwise equal (+0 and -0 differ); a NaN is
+    ! rejected explicitly on the rank that holds it
+    bv = TRANSFER(rv, bv)
     CALL MPI_Allreduce(iv, imin, NI, MPI_INTEGER, MPI_MIN, MPI_COMM_WORLD, ierr)
     CALL MPI_Allreduce(iv, imax, NI, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, ierr)
-    CALL MPI_Allreduce(rv, rmin, NR, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_WORLD, ierr)
-    CALL MPI_Allreduce(rv, rmax, NR, MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_WORLD, ierr)
-    agreed = ALL(imin.EQ.imax)
-    DO k = 1, NR
-      ! equal on every rank: min = max = own value (a NaN anywhere fails this on its rank,
-      ! and the rank-local results are combined below)
-      IF (.NOT.(rmin(k).EQ.rmax(k) .AND. rv(k).EQ.rmin(k))) agreed = .FALSE.
-    END DO
+    CALL MPI_Allreduce(bv, bmin, NR, MPI_INTEGER8, MPI_MIN, MPI_COMM_WORLD, ierr)
+    CALL MPI_Allreduce(bv, bmax, NR, MPI_INTEGER8, MPI_MAX, MPI_COMM_WORLD, ierr)
+    agreed = ALL(imin.EQ.imax) .AND. ALL(bmin.EQ.bmax) .AND. .NOT.ANY(IEEE_IS_NAN(rv))
     CALL agree_logical(agreed)
     IF (.NOT.agreed) THEN
       prm%MGprmIn = prm_old%MGprmIn
@@ -77,6 +78,18 @@ CONTAINS
       prm%PeriodicCoarseCheck = prm_old%PeriodicCoarseCheck
     END IF
   END SUBROUTINE PRESSURE_PARAMETERS_AGREE
+
+  ! the two keys of the periodic coarse operator (Pres@PeriodicCoarseOperator,
+  ! Pres@PeriodicCoarseCheck) equal on every rank? Collective; the caller stops every rank on
+  ! .FALSE. (they decide the mode and the schedule of collective checks).
+  LOGICAL FUNCTION PCO_KEYS_AGREE(op, chk) RESULT(ok)
+    INTEGER, INTENT(IN) :: op, chk
+    INTEGER :: v(2), vmin(2), vmax(2), ierr
+    v = (/op, chk/)
+    CALL MPI_Allreduce(v, vmin, 2, MPI_INTEGER, MPI_MIN, MPI_COMM_WORLD, ierr)
+    CALL MPI_Allreduce(v, vmax, 2, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, ierr)
+    ok = ALL(vmin.EQ.vmax)
+  END FUNCTION PCO_KEYS_AGREE
 
   ! logical AND over all ranks (as integers: no logical reduction type assumptions)
   SUBROUTINE agree_logical(flag)
