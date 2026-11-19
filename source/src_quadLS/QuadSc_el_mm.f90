@@ -106,7 +106,7 @@ END SUBROUTINE EL_MM_Update_Fluid_Coefficients
 !
 ! Called after EL_MM_Update_Fluid_Coefficients (mg_MlRhoPmat holds W): renews the pressure
 ! operator from m through the one renewal entry point (Renew_Pressure_Operator: C on the levels
-! of this rank, the parallel matrix on the workers and the master's coarse operator - the tail
+! of this rank, the parallel matrix on the workers and the coarse operator of the master - the tail
 ! of the MatrixRenewal C branch of the solver; B, its parallel part and the slip treatment do
 ! not depend on the mass and are not rebuilt), then puts W back. On return mg_MlRhoPmat holds
 ! W again and ILEV / MlRhoPmat point to NLMAX as after Create_MRhoMat. The raw masses U and W

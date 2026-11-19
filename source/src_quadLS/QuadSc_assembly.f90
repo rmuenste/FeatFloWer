@@ -629,7 +629,7 @@ END SUBROUTINE Create_BMat
 !-------------------------------------------------------------------------------
 
 ! Local pressure Schur matrix C = B^T (MlRhoP)^-1 B on every level of this rank (the master:
-! its unpartitioned coarse levels). The master's coarse solver is set up by the caller, the
+! its unpartitioned coarse levels). The coarse solver of the master is set up by the caller, the
 ! pressure operator renewal (Renew_Pressure_Operator, QuadSc_pco_operator.f90).
 SUBROUTINE Create_CMat(knprU,knprV,knprW) !(C)
 TYPE(mg_kVector) :: knprU(*),knprV(*),knprW(*)

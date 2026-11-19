@@ -3,15 +3,15 @@ MODULE UMFPackSolver
 ! Two interfaces to UMFPACK (umf4* wrapper, extern/libraries/umfpack4/modsrc):
 !
 ! 1. myUmfPack_Factorize / _Solve / _Free (legacy, one global factorisation). The arrays are
-!    the solver's row-compressed matrix, handed to UMFPACK as column-compressed: UMFPACK
+!    the row-compressed matrix of the solver, handed to UMFPACK as column-compressed: UMFPACK
 !    therefore factorises and solves with the TRANSPOSE of the stored matrix (equal for the
 !    symmetric matrices it is used for; kept as it is, the certified runs depend on it). No
 !    status is checked. _Free releases only a factorisation that exists (legacy_factors_live),
 !    so callers that free before rebuilding cannot hit a handle another user owns.
 !
 ! 2. tUmfCSC (explicit orientation, used by the periodic coarse operator, QuadSc_pco_solver):
-!    the caller's CSR matrix A is converted once into the compressed-COLUMN storage of A
-!    (UMFPACK's own convention), so umfpack solves A x = b (sys = UMFPACK_A = 0) and not the
+!    the CSR matrix A of the caller is converted once into the compressed-COLUMN storage of A
+!    (the own convention of UMFPACK), so umfpack solves A x = b (sys = UMFPACK_A = 0) and not the
 !    transpose. The structure and the symbolic analysis are kept while the pattern is fixed;
 !    refreshing the values redoes only the numeric factorisation. Every UMFPACK call returns
 !    its status (Info(UMFPACK_STATUS+1)): 0 ok, 1 singular (warning), < 0 error; the caller
@@ -183,7 +183,7 @@ IMPLICIT NONE
  END DO
 END SUBROUTINE UmfCSC_SetValues
 !
-! Symbolic analysis of the current structure (and values). status as UMFPACK's.
+! Symbolic analysis of the current structure (and values). status as returned by UMFPACK.
 SUBROUTINE UmfCSC_Analyse(F,status)
 IMPLICIT NONE
  TYPE(tUmfCSC), INTENT(INOUT) :: F

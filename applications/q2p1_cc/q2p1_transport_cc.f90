@@ -991,7 +991,7 @@ IF (iType.EQ.myMatrixRenewal%C) THEN
   CALL Fill_QuadLinParMat()
  END IF
 
- ! C, its parallel part and the master's coarse operator (QuadSc_pco_operator.f90)
+ ! C, its parallel part and the coarse operator of the master (QuadSc_pco_operator.f90)
  CALL Renew_Pressure_Operator()
  bHit = .TRUE.
 END IF
