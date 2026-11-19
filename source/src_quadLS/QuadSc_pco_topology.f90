@@ -322,11 +322,13 @@ CONTAINS
   ! dofs are the same; a class with different flags on the master is a periodic pair with
   ! different physical conditions on its two sides.
   !-----------------------------------------------------------------------
-  INTEGER FUNCTION PCO_CLASS_MASK_CONFLICTS(cls, ku, kv, kw) RESULT(nconf)
+  INTEGER FUNCTION PCO_CLASS_MASK_CONFLICTS(cls, ku, kv, kw, first) RESULT(nconf)
     TYPE(tPcoClasses), INTENT(IN) :: cls
     INTEGER, INTENT(IN) :: ku(:), kv(:), kw(:)
+    INTEGER, INTENT(OUT), OPTIONAL :: first      ! a dof of the first conflicting class
     INTEGER :: k, j, r
     nconf = 0
+    IF (PRESENT(first)) first = 0
     DO k = 1, cls%ncls
       IF (cls%ptr(k+1)-cls%ptr(k).EQ.1) CYCLE
       r = cls%mem(cls%ptr(k))
@@ -335,6 +337,9 @@ CONTAINS
             (kv(cls%mem(j)).EQ.1).NEQV.(kv(r).EQ.1) .OR. &
             (kw(cls%mem(j)).EQ.1).NEQV.(kw(r).EQ.1)) THEN
           nconf = nconf + 1
+          IF (PRESENT(first)) THEN
+            IF (first.EQ.0) first = r
+          END IF
           EXIT
         END IF
       END DO

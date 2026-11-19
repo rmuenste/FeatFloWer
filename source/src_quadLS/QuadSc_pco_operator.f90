@@ -33,6 +33,9 @@
 !     wrap   structure inside the layout (wrapped mode, or the check)
 !   A failure refuses the run on every rank (reason, level, counts) when the value was given
 !   in the deck, and falls back to legacy with a logged reason when the key is absent.
+!   Wrapped is in addition compared with the gathered operator at the first renewal and
+!   refused when they differ (validate_wrapped: the master geometry is not the worker
+!   geometry on curved boundaries).
 !
 ! Every renewal of a periodic mode: values (gathered: collected from the workers; wrapped:
 ! assembled on the master from B, B^T and the class masses), then the solver refresh on the
@@ -49,7 +52,8 @@
 ! against the master product of the gathered and of the wrapped matrix, every row, scaled by
 ! sum_j |A_ij| max|v|; under the weighted EL mass also the per-image transformed variant (to show
 ! the check discriminates); the closure measure; a compatible solve with the ungauged
-! residual. Output: PCO_CHECK lines on the terminal of the master.
+! residual, the reference value and the left null vector (e^T A = 0 on closed components).
+! Output: PCO_CHECK lines on the terminal of the master.
 !
 ! Output: PCO lines (mode, reason, census, classes, gauge) on the protocol and terminal
 ! (showid); PCO_TIMING lines at renewals 1, 2 and every 20th (master).
@@ -133,7 +137,8 @@ CONTAINS
   ! Mode decision and validation (first renewal, collective).
   !=======================================================================
   SUBROUTINE resolve_mode()
-    INTEGER :: target, ierr, info(8), lev, nel, nconf
+    INTEGER :: target, ierr, info(8), lev, nel, nconf, ifirst
+    REAL*8 :: xbad(3)
     LOGICAL :: bad_local, bad_any
     INTEGER, ALLOCATABLE :: eptr(:), enbr(:), idum(:)
     CHARACTER(len=256) :: reason
@@ -209,11 +214,13 @@ CONTAINS
 
     ! master: classes, constraint flags, layout
     info = 0
+    xbad = 0d0
+    ifirst = 0
     IF (myid.EQ.master) THEN
       nel = mg_mesh%level(lev)%nel
       CALL PCO_BUILD_CLASSES(lev, st%census%axis_active, dPeriodicity, st%cls)
       nconf = PCO_CLASS_MASK_CONFLICTS(st%cls, QuadSc%knprU(lev)%x, QuadSc%knprV(lev)%x, &
-                                       QuadSc%knprW(lev)%x)
+                                       QuadSc%knprW(lev)%x, ifirst)
       info(1) = st%cls%nambiguous
       info(2) = st%cls%nincomplete
       info(3) = st%cls%nmixed
@@ -221,6 +228,8 @@ CONTAINS
       info(5) = st%cls%nmulti
       info(6) = st%cls%maxsize
       info(7) = st%cls%first_bad
+      IF (info(7).EQ.0) info(7) = ifirst
+      IF (info(7).GT.0) xbad = mg_mesh%level(lev+1)%dcorvg(:, info(7))
       IF (ALL(info(1:4).EQ.0)) THEN
         CALL PCO_ELEMENT_GRAPH(lev, st%cls, eptr, enbr)
         CALL PCO_INSTALL_LAYOUT(lev, nel, eptr, enbr, st%crs, target)
@@ -228,11 +237,12 @@ CONTAINS
       END IF
     END IF
     CALL MPI_Bcast(info, 8, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+    CALL MPI_Bcast(xbad, 3, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, ierr)
     IF (ANY(info(1:4).NE.0)) THEN
-      WRITE(reason,'(A,I0,A,4(I0,A),I0)') 'periodic classes on level ', lev, ': ambiguous ', info(1), &
+      WRITE(reason,'(A,I0,A,4(I0,A),I0,A,3ES11.3,A)') 'periodic classes on level ', lev, ': ambiguous ', info(1), &
         ', incomplete ', info(2), ', mixed ', info(3), ', constraint conflicts ', info(4), &
-        ' (first dof ', info(7)
-      reason = TRIM(reason)//'; missing or ambiguous partner, or unequal conditions on a periodic pair)'
+        ' (first: dof ', info(7), ' at', xbad, ')'
+      reason = TRIM(reason)//': a missing or ambiguous partner, or unequal conditions on the two faces of a periodic pair'
       CALL fail(target, reason)
       RETURN
     END IF
@@ -349,6 +359,7 @@ CONTAINS
 
     t0 = MPI_WTIME()
     CALL refresh_raw(st%mode, u_coarse, w_coarse)
+    IF (st%mode.EQ.PCO_KEY_WRAPPED .AND. st%nrenew.EQ.1) CALL validate_wrapped()
     t1 = MPI_WTIME()
     status = 0
     msg = ' '
@@ -370,11 +381,56 @@ CONTAINS
       st%t_check = st%t_check + (MPI_WTIME() - t0)
     END IF
     IF (myid.EQ.master .AND. (st%nrenew.LE.2 .OR. MOD(st%nrenew,20).EQ.0)) &
-      WRITE(MTERM,'(A,I0,A,A,4(A,ES10.3))') 'PCO_TIMING renewal ', st%nrenew, ' mode ', &
+      WRITE(MTERM,'(A,I0,A,A,4(A,ES10.3),A,I0,A,ES10.3)') 'PCO_TIMING renewal ', st%nrenew, ' mode ', &
         TRIM(PCO_KEY_NAME(st%mode)), ' setup_s ', st%t_setup, ' values_s ', st%t_values, &
-        ' refresh_s ', st%t_refresh, ' check_s ', st%t_check
+        ' refresh_s ', st%t_refresh, ' check_s ', st%t_check, ' coarse solves ', pco%nsolve, &
+        ' largest rhs imbalance ', pco%max_incompat
 
   END SUBROUTINE renew_periodic
+
+  !-----------------------------------------------------------------------
+  ! The wrapped operator is the master assembly of what the workers apply. It is exact only
+  ! where the master has the coefficients and the geometry of the workers: on a curved
+  ! boundary the master does not project the coordinates of its finest level (the Q2 dofs of
+  ! the coarse level, app_init: ParametrizeBndr of level MedLev+1 on the workers only), so its
+  ! B and lumped mass differ there (s05 pipe: up to 18 % of an entry). At the first renewal
+  ! the wrapped values are therefore compared with the gathered operator entry by entry
+  ! (scaled by the largest modulus of the row); a difference above WRAP_TOL refuses the run.
+  ! Collective.
+  !-----------------------------------------------------------------------
+  SUBROUTINE validate_wrapped()
+    REAL*8, PARAMETER :: WRAP_TOL = 1d-10
+    REAL*8, ALLOCATABLE :: ag(:)
+    REAL*8 :: d, rmax
+    INTEGER :: row, k, ierr
+    IF (myid.EQ.master) THEN
+      ALLOCATE(ag(SIZE(pco%a)))
+    ELSE
+      ALLOCATE(ag(1))
+    END IF
+    CALL refresh_raw(PCO_KEY_GATHERED, a_out=ag)
+    d = 0d0
+    IF (myid.EQ.master) THEN
+      DO row = 1, pco%n
+        rmax = MAXVAL(ABS(ag(pco%ldA(row):pco%ldA(row+1)-1)))
+        IF (rmax.LE.0d0) CYCLE
+        DO k = pco%ldA(row), pco%ldA(row+1)-1
+          d = MAX(d, ABS(ag(k)-pco%a(k))/rmax)
+        END DO
+      END DO
+      WRITE(MTERM,'(A,ES10.3,A,ES8.1,A)') 'PCO wrapped operator vs gathered at the first renewal: ', d, &
+        ' (limit ', WRAP_TOL, ', entry difference / largest modulus of the row)'
+    END IF
+    DEALLOCATE(ag)
+    CALL MPI_Bcast(d, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, ierr)
+    IF (d.GT.WRAP_TOL) THEN
+      IF (myid.EQ.master .OR. myid.EQ.showid) WRITE(*,'(A,ES10.3,A)') 'PCO REFUSED: Pres@PeriodicCoarseOperator'// &
+        ' = wrapped: the master assembly differs from the operator of the workers by ', d, &
+        ' (curved boundary? the master does not project its finest-level coordinates); use gathered'
+      FLUSH(6)
+      STOP 1
+    END IF
+  END SUBROUTINE validate_wrapped
 
   ! raw values of the active (or another, for the check) operator into pco%a / a
   SUBROUTINE refresh_raw(mode, u_coarse, w_coarse, a_out, mass_variant)
@@ -441,7 +497,9 @@ CONTAINS
     REAL*8, INTENT(IN), OPTIONAL :: u_coarse(:), w_coarse(:)
     REAL*8, ALLOCATABLE :: ag(:), aw(:), ai(:), v(:), yd(:), yg(:), yw(:), yi(:), sc(:)
     INTEGER :: lev, n, nnz, k, row, iv, e
-    REAL*8 :: dgw, dgi, rmax, eg, ew, ei, resid, devi, cnorm, tol_res
+    REAL*8 :: dgw, dgi, rmax, eg, ew, ei, resid, devi, cnorm, tol_res, tol_dev, cleft, xref
+    INTEGER :: kmax, rowk
+    REAL*8, ALLOCATABLE :: cs(:), ca(:)
     LOGICAL :: weighted, incompat
     CHARACTER(len=8) :: vname(3) = (/'mean    ', 'impulse ', 'random  '/)
 
@@ -466,17 +524,28 @@ CONTAINS
       ! entry-by-entry, scaled by the largest modulus of the row (gathered)
       dgw = 0d0
       dgi = 0d0
+      kmax = 0
+      rowk = 0
       DO row = 1, n
         rmax = MAXVAL(ABS(ag(pco%ldA(row):pco%ldA(row+1)-1)))
         IF (rmax.LE.0d0) CYCLE
         DO k = pco%ldA(row), pco%ldA(row+1)-1
-          dgw = MAX(dgw, ABS(ag(k)-aw(k))/rmax)
+          IF (ABS(ag(k)-aw(k))/rmax.GT.dgw) THEN
+            dgw = ABS(ag(k)-aw(k))/rmax
+            kmax = k
+            rowk = row
+          END IF
           dgi = MAX(dgi, ABS(ag(k)-ai(k))/rmax)
         END DO
       END DO
       WRITE(MTERM,'(A,I0,A,I0,A,I0,A,ES10.3,A,ES10.3,A,A)') 'PCO_CHECK renewal ', st%nrenew, ' level ', lev, &
         ' entries ', nnz, ' |gathered-wrapped|/rowmax ', dgw, ' per-image-mass variant ', dgi, &
         ' ', MERGE('PASS', 'FAIL', dgw.LE.1d-12)
+      ! where: row and column unknown (element, mode), element centroids, both values
+      IF (kmax.GT.0) WRITE(MTERM,'(A,I0,A,2(I0,A,I0,A,3ES11.3,A),3(A,ES12.4))') 'PCO_CHECK renewal ', st%nrenew, &
+        ' largest difference at ', (rowk-1)/4+1, ' mode ', MOD(rowk-1,4)+1, ' (', centroid((rowk-1)/4+1), ')', &
+        (pco%colA(kmax)-1)/4+1, ' mode ', MOD(pco%colA(kmax)-1,4)+1, ' (', centroid((pco%colA(kmax)-1)/4+1), ')', &
+        ' gathered ', ag(kmax), ' wrapped ', aw(kmax), ' legacy master C ', legacy_entry(rowk, pco%colA(kmax))
     END IF
 
     DO iv = 1, 3
@@ -515,12 +584,34 @@ CONTAINS
     IF (myid.EQ.master) THEN
       ! direct solvers: rounding level; BiCGStab (types 1, 3): its tolerance in PCO_SOLVE_CHECK
       tol_res = MERGE(1d-10, 1d-8, st%crs.EQ.2 .OR. st%crs.EQ.4)
+      ! solution error = conditioning x residual: direct solvers rounding level, BiCGStab only
+      ! to the iteration tolerance amplified by the condition number of the coarse matrix
+      tol_dev = MERGE(1d-8, 1d-3, st%crs.EQ.2 .OR. st%crs.EQ.4)
+      ! left null vector of a closed component: e^T A = 0 (column sums of the mean rows),
+      ! the compatibility condition the gauge relies on
+      ALLOCATE(cs(n), ca(n))
+      cs = 0d0
+      ca = 0d0
+      DO row = 1, n, 4
+        DO k = pco%ldA(row), pco%ldA(row+1)-1
+          cs(pco%colA(k)) = cs(pco%colA(k)) + ag(k)
+          ca(pco%colA(k)) = ca(pco%colA(k)) + ABS(ag(k))
+        END DO
+      END DO
+      cleft = 0d0
+      DO k = 1, n
+        IF (pco%comp_closed(pco%comp_of((k-1)/4+1)) .AND. ca(k).GT.0d0) cleft = MAX(cleft, ABS(cs(k))/ca(k))
+      END DO
+      DEALLOCATE(cs, ca)
       CALL test_vector(3, v)
       CALL PCO_SOLVE_CHECK(v, resid, devi, incompat)
-      WRITE(MTERM,'(A,I0,A,I0,A,ES10.3,A,ES10.3,A,L1,A,A)') 'PCO_CHECK renewal ', st%nrenew, ' solver type ', &
-        st%crs, ' compatible rhs: ungauged residual ', resid, ' solution - v off the kernel ', devi, &
+      xref = 0d0
+      IF (ANY(pco%sref)) xref = MAXVAL(ABS(pco%sol), MASK=pco%sref)/MAX(MAXVAL(ABS(pco%sol)), 1d-300)
+      WRITE(MTERM,'(A,I0,A,I0,4(A,ES10.3),A,L1,A,A)') 'PCO_CHECK renewal ', st%nrenew, ' solver type ', &
+        st%crs, ' left |e^T A|/(e^T |A|) ', cleft, ' compatible rhs: ungauged residual ', resid, &
+        ' solution - v off the kernel ', devi, ' reference value ', xref, &
         ' incompatibility reported ', incompat, ' ', MERGE('PASS', 'FAIL', resid.LE.tol_res .AND. &
-        devi.LE.100d0*tol_res .AND. .NOT.incompat)
+        devi.LE.tol_dev .AND. .NOT.incompat .AND. cleft.LE.1d-12 .AND. xref.LE.tol_res)
       IF (pco%nclosed.GT.0) THEN
         ! v = mean modes of the elements of the first closed component, b = raw v + that constant:
         ! the constant is not in the range of a closed operator, the solve must report it
@@ -536,6 +627,26 @@ CONTAINS
     DEALLOCATE(ag, aw, ai, v, yd, yg, yw, yi, sc)
 
   CONTAINS
+
+    ! value of the own (legacy, non-periodic) matrix of the master at (r, c), 0 if not in its pattern
+    REAL*8 FUNCTION legacy_entry(r, c) RESULT(val)
+      INTEGER, INTENT(IN) :: r, c
+      INTEGER :: kk
+      val = 0d0
+      DO kk = mg_lMat(lev)%LdA(r), mg_lMat(lev)%LdA(r+1)-1
+        IF (mg_lMat(lev)%ColA(kk).EQ.c) val = mg_CMat(lev)%a(kk)
+      END DO
+    END FUNCTION legacy_entry
+
+    FUNCTION centroid(e0) RESULT(c)
+      INTEGER, INTENT(IN) :: e0
+      REAL*8 :: c(3)
+      INTEGER :: j
+      c = 0d0
+      DO j = 1, 8
+        c = c + 0.125d0*mg_mesh%level(lev)%dcorvg(:, mg_mesh%level(lev)%kvert(j,e0))
+      END DO
+    END FUNCTION centroid
 
     SUBROUTINE matvec(a, x, y)
       REAL*8, INTENT(IN) :: a(:), x(:)

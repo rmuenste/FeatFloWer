@@ -79,7 +79,12 @@ MODULE pco_coarse_solver
   TYPE(tPcoSystem), PUBLIC, SAVE, TARGET :: pco
 
   REAL*8, PARAMETER, PUBLIC :: PCO_CLOSURE_TOL = 1d-8   ! closed component: |C e| / |C| e below
-  REAL*8, PARAMETER :: INCOMPAT_TOL = 1d-6              ! reported right-hand-side imbalance
+  ! reported right-hand-side imbalance |sum b| / sum |b| over a closed component. The coarse
+  ! right-hand side of a converging cycle is a small defect whose sum is rounding of the
+  ! divergence cancellation: relative imbalances up to ~1e-3 occur in compatible runs
+  ! (single-phase probe); a real imbalance (a source that does not integrate to zero) is O(1).
+  ! The largest value is kept (pco%max_incompat, printed on the PCO_TIMING lines).
+  REAL*8, PARAMETER :: INCOMPAT_TOL = 1d-2
   REAL*8, SAVE :: pco_rlx = 1d0                         ! relaxation of the type-1/3 preconditioner
 
   PUBLIC :: PCO_ACTIVE, PCO_REDUCED, PCO_INSTALL_LAYOUT, PCO_REFRESH_SOLVER, PCO_SOLVE_FULL
