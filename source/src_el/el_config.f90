@@ -4,6 +4,30 @@ MODULE EL_CONFIG
 
   CHARACTER(LEN=32) :: el_kernel = 'deen_poly'
   CHARACTER(LEN=32) :: el_drag_model = 'difelice'
+  ! ---- The drag closure table (SimPar@ELDragModel): the one place that names the closures --
+  ! Index = closure id. EL_FORCES:EL_DRAG_CLOSURE dispatches on the id (one function per closure
+  ! family, docs/md_docs/el_min_fluidization_prep_2026-11-19.md section 1), EL_VALIDATE_CONFIG
+  ! accepts exactly these names, and EL_RESOLVE_MOMENTUM_MODEL reads the porosity column. A
+  ! further closure is one entry here, one function and one CASE line in EL_DRAG_CLOSURE.
+  !   difelice          Di Felice, campaign voidage eps^(-chi) (no eps^2 on the squared slip)
+  !   difelice_std      Di Felice, standard form eps^(2-chi) (Kafui 2002, CFDEM DiFeliceDrag)
+  !   stokes            single sphere 3 pi mu d (no porosity)
+  !   schiller_naumann  single sphere with the Schiller-Naumann correction (no porosity)
+  !   gidaspow          Ergun for eps <= 0.8, Wen-Yu above (CFDEM GidaspowDrag, MFiX GIDASPOW)
+  !   wenyu             Wen-Yu at every porosity
+  !   ergun             Ergun at every porosity (no dilute limit: vanishes for eps -> 1 at Re 0)
+  ! Every closure returns the model-A per-particle coefficient V_p beta / (1 - eps) (EL_FORCES);
+  ! momentum model B divides it by eps (EL_MOMENTUM_MODEL:EL_MM_DRAG_SCALE).
+  INTEGER, PARAMETER :: EL_DRAG_DIFELICE = 0, EL_DRAG_DIFELICE_STD = 1, EL_DRAG_STOKES = 2, &
+                        EL_DRAG_SCHILLER_NAUMANN = 3, EL_DRAG_GIDASPOW = 4, &
+                        EL_DRAG_WENYU = 5, EL_DRAG_ERGUN = 6
+  CHARACTER(LEN=16), PARAMETER :: el_drag_names(0:6) = (/ 'difelice        ', &
+    'difelice_std    ', 'stokes          ', 'schiller_naumann', 'gidaspow        ', &
+    'wenyu           ', 'ergun           ' /)
+  ! the closure is a drag law in the standard porosity convention that the momentum models
+  ! assume (refused under a model otherwise); the single-sphere laws carry no porosity at all
+  LOGICAL, PARAMETER :: el_drag_standard_form(0:6) = (/ .FALSE., .TRUE., .TRUE., .TRUE., &
+    .TRUE., .TRUE., .TRUE. /)
   CHARACTER(LEN=32) :: el_drag_coupling = 'explicit'
   CHARACTER(LEN=32) :: el_lift_model = 'none'
   CHARACTER(LEN=32) :: el_inertial_lift = 'none'
@@ -341,13 +365,10 @@ CONTAINS
       STOP 1
     END SELECT
 
-    SELECT CASE (TRIM(el_drag_model))
-    CASE ('difelice', 'difelice_std', 'stokes', 'schiller_naumann')
-      CONTINUE
-    CASE DEFAULT
+    IF (EL_DRAG_LOOKUP(el_drag_model).LT.0) THEN
       WRITE(*,'(A,A)') 'Invalid ELDragModel: ', TRIM(el_drag_model)
       STOP 1
-    END SELECT
+    END IF
 
     SELECT CASE (TRIM(el_drag_coupling))
     CASE ('explicit')
@@ -771,9 +792,12 @@ CONTAINS
     END IF
 
     ! settings a model cannot be combined with; every conflict is reported before the stop
-    IF (TRIM(el_drag_model).EQ.'difelice') CALL EL_MM_CONFLICT( &
-      'needs a drag law in the standard porosity convention; ELDragModel = difelice '// &
-      '(campaign form without eps^2) is refused, use difelice_std.')
+    ! (an unknown drag name is refused by the drag validation after this resolution)
+    IF (EL_DRAG_LOOKUP(el_drag_model).GE.0) THEN
+      IF (.NOT.el_drag_standard_form(EL_DRAG_LOOKUP(el_drag_model))) CALL EL_MM_CONFLICT( &
+        'needs a drag law in the standard porosity convention; ELDragModel = '// &
+        TRIM(el_drag_model)//' (campaign form without eps^2) is refused, use difelice_std.')
+    END IF
     IF (el_meso_filter) CALL EL_MM_CONFLICT('is not supported with ELMesoFilter = Yes.')
     IF (el_momentum_fix) CALL EL_MM_CONFLICT('is not supported with ELMomentumFix = Yes '// &
       '(the compensator acts on the unweighted fluid momentum).')
@@ -901,6 +925,21 @@ CONTAINS
       IF (TRIM(name).EQ.TRIM(el_mm_names(i))) EL_MM_LOOKUP = i
     END DO
   END FUNCTION EL_MM_LOOKUP
+
+  ! Id of a (lower-case) drag closure name in the drag table, -1 if it is not a closure name.
+  ! Called per particle by EL_DRAG_CLOSURE (no validation needed before: the unit tests set
+  ! el_drag_model directly).
+  PURE INTEGER FUNCTION EL_DRAG_LOOKUP(name)
+    CHARACTER(LEN=*), INTENT(IN) :: name
+    INTEGER :: i
+    EL_DRAG_LOOKUP = -1
+    DO i=LBOUND(el_drag_names,1),UBOUND(el_drag_names,1)
+      IF (TRIM(name).EQ.TRIM(el_drag_names(i))) THEN
+        EL_DRAG_LOOKUP = i
+        RETURN
+      END IF
+    END DO
+  END FUNCTION EL_DRAG_LOOKUP
 
   ! Record that the parameter file set the SimPar@EL* key `name` (called by the parser for
   ! every such key, before EL_VALIDATE_CONFIG).

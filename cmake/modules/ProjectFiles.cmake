@@ -413,6 +413,15 @@ if(BUILD_TESTING)
   target_compile_options(test_el_kernel_forces PRIVATE ${Fortran_FLAGS})
   add_test(NAME el-kernel-forces-restart COMMAND test_el_kernel_forces)
 
+  # Porosity drag closures of the drag table (gidaspow, wenyu, ergun; case 11): values against
+  # hand-computed numbers, zero-slip limit, the switch at eps 0.8, fixed-bed identity, U_mf.
+  add_executable(test_el_drag_closures
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_el_drag_closures.f90)
+  target_link_libraries(test_el_drag_closures ff_quadLS_app)
+  target_include_directories(test_el_drag_closures PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_el_drag_closures PRIVATE ${Fortran_FLAGS})
+  add_test(NAME el-drag-closures-serial COMMAND test_el_drag_closures)
+
   # Particle-mesh transfer conservation/interpolation suite. Runs the
   # assertable transfer math against a synthetic structured Q2/P1 mesh on
   # 1/2/8 ranks (see source/src_el/tests/test_el_transfer.f90 header for the
