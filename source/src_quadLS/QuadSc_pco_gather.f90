@@ -244,15 +244,18 @@ CONTAINS
 
   !-----------------------------------------------------------------------
   ! .TRUE. on every rank when every worker still has the pattern, the ghost numbering and the
-  ! ownership the plan was built for (see the module header). Collective.
+  ! ownership the plan was built for (see the module header) and local_ok (a further local
+  ! condition of the caller, folded into the same allreduce) holds on every rank. Collective.
   !-----------------------------------------------------------------------
-  LOGICAL FUNCTION PCO_GATHER_UNCHANGED(plan) RESULT(same)
+  LOGICAL FUNCTION PCO_GATHER_UNCHANGED(plan, local_ok) RESULT(same)
     TYPE(tPcoGatherPlan), INTENT(IN) :: plan
+    LOGICAL, INTENT(IN), OPTIONAL :: local_ok
     INTEGER, ALLOCATABLE :: irow(:), icol(:)
     INTEGER :: nC, nCP, ierr
     LOGICAL :: mine
     CALL worker_entry_ids(plan%lev, plan%nelm, irow, icol, nC, nCP)
     mine = plan%built
+    IF (PRESENT(local_ok)) mine = mine .AND. local_ok
     IF (myid.NE.master .AND. mine) THEN
       mine = (nC.EQ.plan%nC .AND. nCP.EQ.plan%nCP)
       IF (mine .AND. nC+nCP.GT.0) mine = ALL(irow(1:nC+nCP).EQ.plan%irow(1:nC+nCP)) .AND. &

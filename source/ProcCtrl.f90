@@ -40,7 +40,7 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
 !   Supports: Dump_Out, Dump_In, GMV_Out, Reload_Velo, Reload_Pres,
 !             Reload_SimPar, Reload_Prop
 !-------------------------------------------------------------------------------
- USE pco_coarse_operator, ONLY : PCO_PRESSURE_PARAMETERS_RELOADED
+ USE pco_coarse_operator, ONLY : PCO_PRESSURE_PARAMETERS_RELOADED, PCO_PRESSURE_RELOAD_ADMIT
  USE PP3D_MPI, ONLY : myid,master,showid,ShareValueK_myMPI,&
                       Barrier_myMPI,ShareValueC_myMPI
  USE Transport_Q2P1, ONLY : myDataFile,QuadSc,LinSc,Properties
@@ -187,12 +187,15 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
     CALL ReloadParameterFile(MFILE, MTERM, cvalue, "Pressure", bExist)
     IF (bExist) THEN
      CALL GetPresParameters(LinSc%prm, LinSc%cName, MFILE)
+     ! a periodic coarse operator agrees on the reloaded values and undoes what it cannot take
+     ! (before the generic validation, which would abort on it)
+     CALL PCO_PRESSURE_RELOAD_ADMIT()
      ! A runtime reload must not be able to smuggle in an unsupported type.
      CALL ValidateSolverTypes(QuadSc%prm%MGprmIn%CrsSolverType,&
                               LinSc%prm%MGprmIn%CrsSolverType,&
                               LinSc%prm%MGprmIn%MinLev,&
                               LinSc%prm%MGprmIn%MedLev,MFILE)
-     ! a periodic coarse operator rebuilds its solver copy or keeps the old structure
+     ! a periodic coarse operator rebuilds its solver copy for a new type 1-4
      CALL PCO_PRESSURE_PARAMETERS_RELOADED()
     END IF
 
@@ -241,14 +244,19 @@ SUBROUTINE ReloadParameterFile(MFILE, MTERM, filename, param_type, bExist)
 !   MTERM      - Terminal unit for output logging
 !   filename   - Name of parameter file to reload
 !   param_type - Descriptive name of parameter type (e.g., "Velocity")
-!   bExist     - Returns .TRUE. if file exists and reload should proceed
+!   bExist     - Returns .TRUE. if file exists and reload should proceed; the same on
+!                every rank (the file must be visible to all of them, agreed by an
+!                allreduce), so the reload branches and their collectives are entered by
+!                all ranks or by none. Collective: every rank calls this for the command.
 !-------------------------------------------------------------------------------
- USE PP3D_MPI, ONLY : myid, showid
+ USE PP3D_MPI, ONLY : myid, showid, MPI_COMM_WORLD, MPI_LOGICAL, MPI_LAND
  USE Transport_Q2P1, ONLY : myDataFile
  IMPLICIT NONE
  INTEGER, INTENT(IN) :: MFILE, MTERM
  CHARACTER(len=*), INTENT(IN) :: filename, param_type
  LOGICAL, INTENT(OUT) :: bExist
+ LOGICAL :: bHere
+ INTEGER :: ierr
 
  ! Log reload action to terminal and file
  IF (myid == showid) THEN
@@ -256,13 +264,14 @@ SUBROUTINE ReloadParameterFile(MFILE, MTERM, filename, param_type, bExist)
    WRITE(MFILE,'(A,A,A,A)') "Reloading ", TRIM(param_type), " parameters from file: ", TRIM(ADJUSTL(filename))
  END IF
 
- ! Check if parameter file exists
- INQUIRE(FILE=TRIM(ADJUSTL(filename)), EXIST=bExist)
+ ! Check if parameter file exists (on every rank)
+ INQUIRE(FILE=TRIM(ADJUSTL(filename)), EXIST=bHere)
+ CALL MPI_Allreduce(bHere, bExist, 1, MPI_LOGICAL, MPI_LAND, MPI_COMM_WORLD, ierr)
  IF (bExist) THEN
    myDataFile = TRIM(ADJUSTL(filename))
  ELSE
    IF (myid == showid) THEN
-     WRITE(MTERM,'(A,A)') "WARNING: File does not exist: ", TRIM(ADJUSTL(filename))
+     WRITE(MTERM,'(A,A)') "WARNING: File does not exist (on every rank): ", TRIM(ADJUSTL(filename))
    END IF
  END IF
 

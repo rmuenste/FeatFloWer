@@ -9,18 +9,24 @@
 ! pressure multigrid stagnates on periodic meshes (case s10, xy-periodic boxes).
 !
 ! Entry point. Renew_Pressure_Operator is the one assembly of the pressure Schur operator,
-! used by the ordinary matrix renewal (OperatorRegenaration, C branch), by the weighted EL
-! operator (EL_MM_Pressure_Operator, every step) and by q2p1_cc:
-!     Create_CMat (every rank)  ->  Create_ParCMat (workers)  ->  coarse operator of the master
+! used by the ordinary matrix renewal (OperatorRegenaration, C branch) and by the weighted EL
+! operator (EL_MM_Pressure_Operator, every step):
+!     [pattern check] -> Create_CMat (every rank) -> Create_ParCMat (workers) -> coarse operator
+! q2p1_cc does not use it: its coarse solve is the coupled saddle-point system with its own
+! parameters (CCuvwp), so it keeps its legacy assembly and set-up (unsupported here).
 !
 ! Decision (first renewal, collective; resolve_mode), in this order:
-!   1 no finite period (dPeriodicity >= 1d8 on every axis): legacy; nothing below is entered.
+!   1 no finite period (dPeriodicity >= 1d8 on every axis): legacy; nothing below is entered
+!     and, with the key absent, nothing is logged (the logs of walled runs stay as they were;
+!     an explicit gathered/wrapped gets one line).
 !   2 key = legacy: legacy, logged.
-!   3 periodicity: census of the shifted worker links (pco_periodic_topology: element pairs of
-!     CP that share a vertex only through a periodic shift). No shifted link, or no pressure
-!     structure on the coarse level: periodicity is not established -> legacy, logged, for
-!     every key (a walled run stays bitwise whatever the deck says; q2p1_dns_drag declares
-!     unit periods on every box). Couplings without a shared vertex in any image: failure.
+!   3 periodicity: census (pco_periodic_topology). An axis is active when the communication
+!     set-up accepted velocity dof links through its period on the coarse level (the E013
+!     links, counted where they are made, QuadSc_mpi.f90: the provenance of every periodic
+!     coupling the workers apply). No such link, or no pressure structure on the coarse
+!     level: periodicity is not established -> legacy, logged, for every key (a walled run
+!     stays bitwise whatever the deck says; q2p1_dns_drag declares unit periods on every
+!     box). Coupled element pairs without a shared vertex in any image: failure.
 !   4 default scope (key absent): gathered only inside default_scope (one table below: the
 !     configurations covered by gates); outside it legacy with the reason logged. An explicit
 !     key is honoured after validation.
@@ -32,9 +38,11 @@
 !   A failure in 4-5 refuses the run on every rank (reason, counts, first dof and its
 !   coordinates) when the key was given, and falls back to legacy (logged) when it is absent.
 !
-! Every renewal of a periodic mode (renew_periodic, collective): the pattern of the workers
-! must be the one of the plan (PCO_GATHER_UNCHANGED) and the coarse level free of pressure
-! Dirichlet elements, otherwise every rank stops (a changed pattern needs a restart); values
+! Every renewal of a periodic mode (collective): BEFORE the assembly the pattern of the workers
+! must be the one of the plan (PCO_GATHER_UNCHANGED: ghost numbering, ownership, row/column
+! ids) and every C / CP value array must have the extent of its pattern (assembly would
+! otherwise write through a new pattern into old buffers); after it the coarse level must be
+! free of pressure Dirichlet elements; otherwise every rank stops (restart); values
 ! (gathered: collected; wrapped: assembled on the master and compared with the gathered values,
 ! refused above 1e-10 or on a non-finite entry - the master geometry is not the worker geometry
 ! on curved boundaries); solver refresh on the master (gauge decided at the first refresh,
@@ -43,15 +51,19 @@
 ! previous legacy factorisation stays at its call sites (EL adapter for types 2/4, MG_Solver
 ! for MatrixRenewal C >= 2).
 !
-! Collective operations per periodic renewal: Create_ParCMat (as always), PCO_GATHER_UNCHANGED
-! (one pressure exchange + one allreduce), the knprP allreduce, the value gather (gathered
-! mode and the wrapped comparison: one MPI_Gatherv), the status broadcast and, when the
-! check is due, the check (one gather, three distribute/exchange/collect cycles).
+! Collective operations per periodic renewal: the pattern check (one pressure exchange, one
+! allreduce), Create_ParCMat (as always), the knprP allreduce, the value gather (gathered
+! mode and the wrapped comparison: one MPI_Gatherv), in wrapped mode the broadcast of the
+! comparison result, the status broadcast (and the message on failure) and, when the check
+! is due, the check (one gather, three distribute/exchange/collect cycles).
 !
-! Runtime reload (PCO_PRESSURE_PARAMETERS_RELOADED, from ProcessControl Reload_Pres, every
-! rank): the key and the check value are read once and kept; under a periodic operator a new
-! coarse solver type 1-4 rebuilds the solver copy (same layout and gauge), any other change of
-! the coarse solver type or the master levels is not taken (old values restored, logged).
+! Runtime reload (ProcessControl Reload_Pres; every rank, the file availability agreed
+! collectively there): PCO_PRESSURE_RELOAD_ADMIT before the generic validation - the key and
+! the check value are read once and kept; the ranks agree on the proposed (solver type,
+! MinLev, MedLev) (allreduce; disagreement: old values everywhere); under a periodic operator
+! a change of the master levels or a type outside 1-4 is not taken (old values restored,
+! logged), so the generic validator never sees it; then PCO_PRESSURE_PARAMETERS_RELOADED -
+! a new type 1-4 rebuilds the solver copy (same layout and gauge).
 !
 ! Output: PCO lines (mode, reason, census, classes, gauge) on the protocol and terminal
 ! (showid); PCO_TIMING lines at renewals 1, 2 and every 20th (master); PCO_CHECK lines of
@@ -65,10 +77,10 @@
 MODULE pco_coarse_operator
 
   USE PP3D_MPI, ONLY: myid, master, showid, MPI_COMM_WORLD, MPI_INTEGER, MPI_LOGICAL, MPI_LOR, &
-                      MPI_DOUBLE_PRECISION, MPI_CHARACTER, dPeriodicity
+                      MPI_DOUBLE_PRECISION, MPI_CHARACTER, MPI_MIN, MPI_MAX, dPeriodicity
   USE def_FEAT, ONLY: MTERM, MFILE1
   USE var_QuadScalar, ONLY: LinSc, QuadSc, mg_mesh, mg_MlRhoPmat, mg_MlPMat, bNoOutflow, &
-                            bMasterTurnedOn
+                            bMasterTurnedOn, mg_CMat, mg_CPMat, mg_lMat, mg_lPMat
   USE QuadSc_assembly, ONLY: Create_CMat
   USE def_QuadScalar, ONLY: Create_ParCMat
   USE QuadSc_solver_coarse, ONLY: Setup_UMFPACK_CoarseSolver
@@ -106,7 +118,8 @@ MODULE pco_coarse_operator
 
   REAL*8, PARAMETER :: WRAP_TOL = 1d-10
 
-  PUBLIC :: Renew_Pressure_Operator, PCO_REGISTER_APPLICATION, PCO_PRESSURE_PARAMETERS_RELOADED
+  PUBLIC :: Renew_Pressure_Operator, PCO_REGISTER_APPLICATION, PCO_PRESSURE_PARAMETERS_RELOADED, &
+            PCO_PRESSURE_RELOAD_ADMIT
 
 CONTAINS
 
@@ -155,14 +168,18 @@ CONTAINS
   SUBROUTINE Renew_Pressure_Operator(w_coarse, rho)
     REAL*8, INTENT(IN), OPTIONAL :: w_coarse(:), rho
 
+    ! a periodic plan protects its buffers: pattern and extents before anything is written
+    IF (st%resolved .AND. st%mode.NE.PCO_KEY_LEGACY) CALL check_pattern_before_assembly()
+
     CALL Create_CMat(QuadSc%knprU, QuadSc%knprV, QuadSc%knprW)
     IF (myid.NE.master) CALL Create_ParCMat(QuadSc%knprU, QuadSc%knprV, QuadSc%knprW)
 
     IF (.NOT.st%resolved) CALL resolve_mode()
 
     IF (st%mode.EQ.PCO_KEY_LEGACY) THEN
-      CALL Setup_UMFPACK_CoarseSolver(LinSc%knprP, LinSc%prm%MGprmIn%CrsSolverType, &
-                                      LinSc%prm%MGprmIn%MinLev, bNoOutflow)
+      ! as inside the legacy Create_CMat: no set-up when the master does not assemble
+      IF (bMasterTurnedOn) CALL Setup_UMFPACK_CoarseSolver(LinSc%knprP, LinSc%prm%MGprmIn%CrsSolverType, &
+                                                           LinSc%prm%MGprmIn%MinLev, bNoOutflow)
       RETURN
     END IF
 
@@ -376,6 +393,33 @@ CONTAINS
     CALL MPI_Allreduce(bad_local, bad_any, 1, MPI_LOGICAL, MPI_LOR, MPI_COMM_WORLD, ierr)
   END FUNCTION knprp_on_level
 
+  !-----------------------------------------------------------------------
+  ! Before the assembly of a renewal under a periodic plan (collective): the worker pattern,
+  ! ghost numbering and ownership are those of the plan, and every allocated C / CP value
+  ! array has the extent of its pattern (Create_CMat / Create_ParCMat keep an existing
+  ! allocation). Otherwise every rank stops before a value is written.
+  !-----------------------------------------------------------------------
+  SUBROUTINE check_pattern_before_assembly()
+    LOGICAL :: ext_ok
+    INTEGER :: l
+    ext_ok = .TRUE.
+    IF (ALLOCATED(mg_CMat)) THEN
+      DO l = LBOUND(mg_CMat,1), UBOUND(mg_CMat,1)
+        IF (.NOT.ALLOCATED(mg_CMat(l)%a)) CYCLE
+        IF (SIZE(mg_CMat(l)%a).NE.mg_lMat(l)%na) ext_ok = .FALSE.
+      END DO
+    END IF
+    IF (myid.NE.master .AND. ALLOCATED(mg_CPMat)) THEN
+      DO l = LBOUND(mg_CPMat,1), UBOUND(mg_CPMat,1)
+        IF (.NOT.ALLOCATED(mg_CPMat(l)%a)) CYCLE
+        IF (SIZE(mg_CPMat(l)%a).NE.mg_lPMat(l)%na) ext_ok = .FALSE.
+      END DO
+    END IF
+    IF (.NOT.PCO_GATHER_UNCHANGED(st%plan, ext_ok)) CALL stop_all('PCO STOP: the pressure pattern, '// &
+      'ghost numbering, ownership or matrix extents of the workers changed since the first renewal; '// &
+      'not supported with a periodic coarse operator (restart)')
+  END SUBROUTINE check_pattern_before_assembly
+
   ! validation failed: refusal (explicit key) or logged fallback to legacy (key absent)
   SUBROUTINE fail(target, reason)
     INTEGER, INTENT(IN) :: target
@@ -422,9 +466,7 @@ CONTAINS
     st%nrenew = st%nrenew + 1
     do_check = (st%check.GT.0) .AND. (st%nrenew.LE.2 .OR. MOD(st%nrenew, MAX(st%check,1)).EQ.0)
 
-    ! the plan, the layout, the classes and the gauge belong to one pattern
-    IF (.NOT.PCO_GATHER_UNCHANGED(st%plan)) CALL stop_all('PCO STOP: the coarse pressure pattern, '// &
-      'ghost numbering or ownership of the workers changed since the first renewal; not supported (restart)')
+    ! the pattern was checked before the assembly (check_pattern_before_assembly)
     IF (knprp_on_level(st%lev)) CALL stop_all('PCO STOP: pressure Dirichlet elements (knprP) '// &
       'appeared on the coarse level; not supported with a periodic coarse operator')
 
@@ -597,12 +639,14 @@ CONTAINS
   END SUBROUTINE run_check
 
   !=======================================================================
-  ! After a runtime reload of the pressure parameters (ProcessControl, every rank).
+  ! Runtime reload of the pressure parameters, step 1 (ProcessControl Reload_Pres, every rank,
+  ! after the parse and BEFORE the generic validation; collective once the operator is
+  ! resolved): the key and the check value are kept; the ranks agree on the proposed
+  ! (solver type, MinLev, MedLev); under a periodic operator a change that is not taken is
+  ! undone here, so the generic validator sees the previous values.
   !=======================================================================
-  SUBROUTINE PCO_PRESSURE_PARAMETERS_RELOADED()
-    INTEGER :: status, ierr
-    CHARACTER(len=256) :: msg
-    INTEGER :: crs_new
+  SUBROUTINE PCO_PRESSURE_RELOAD_ADMIT()
+    INTEGER :: t(3), tmin(3), tmax(3), ierr
     IF (.NOT.st%resolved) RETURN
     IF (LinSc%prm%PeriodicCoarseOperator.NE.st%requested .OR. LinSc%prm%PeriodicCoarseCheck.NE.st%check) THEN
       LinSc%prm%PeriodicCoarseOperator = st%requested
@@ -610,16 +654,37 @@ CONTAINS
       CALL say('PCO: Pres@PeriodicCoarseOperator / PeriodicCoarseCheck are read once; the reloaded values are not taken')
     END IF
     IF (st%mode.EQ.PCO_KEY_LEGACY) RETURN
-    crs_new = LinSc%prm%MGprmIn%CrsSolverType
-    IF (LinSc%prm%MGprmIn%MinLev.NE.st%minlev .OR. LinSc%prm%MGprmIn%MedLev.NE.st%medlev .OR. &
-        crs_new.LT.1 .OR. crs_new.GT.4) THEN
-      LinSc%prm%MGprmIn%MinLev = st%minlev
-      LinSc%prm%MGprmIn%MedLev = st%medlev
-      LinSc%prm%MGprmIn%CrsSolverType = st%crs
-      CALL say('PCO: a reloaded coarse level or a coarse solver type outside 1-4 is not taken under the '// &
-               'periodic coarse operator (restart for that); previous values kept')
-      RETURN
+    t = (/LinSc%prm%MGprmIn%CrsSolverType, LinSc%prm%MGprmIn%MinLev, LinSc%prm%MGprmIn%MedLev/)
+    CALL MPI_Allreduce(t, tmin, 3, MPI_INTEGER, MPI_MIN, MPI_COMM_WORLD, ierr)
+    CALL MPI_Allreduce(t, tmax, 3, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, ierr)
+    IF (ANY(tmin.NE.tmax)) THEN
+      CALL keep_previous('PCO: the ranks read different reloaded coarse parameters; previous values kept')
+    ELSE IF (t(2).NE.st%minlev .OR. t(3).NE.st%medlev .OR. t(1).LT.1 .OR. t(1).GT.4) THEN
+      CALL keep_previous('PCO: a reloaded coarse level or a coarse solver type outside 1-4 is not taken '// &
+                         'under the periodic coarse operator (restart for that); previous values kept')
     END IF
+  END SUBROUTINE PCO_PRESSURE_RELOAD_ADMIT
+
+  SUBROUTINE keep_previous(text)
+    CHARACTER(len=*), INTENT(IN) :: text
+    LinSc%prm%MGprmIn%MinLev = st%minlev
+    LinSc%prm%MGprmIn%MedLev = st%medlev
+    LinSc%prm%MGprmIn%CrsSolverType = st%crs
+    CALL say(text)
+  END SUBROUTINE keep_previous
+
+  !=======================================================================
+  ! Runtime reload, step 2 (after PCO_PRESSURE_RELOAD_ADMIT and the generic validation, every
+  ! rank): a new coarse solver type 1-4 under a periodic operator rebuilds the solver copy
+  ! (same layout and gauge). The values are the agreed ones of step 1, the branch is the same
+  ! on every rank.
+  !=======================================================================
+  SUBROUTINE PCO_PRESSURE_PARAMETERS_RELOADED()
+    INTEGER :: status, ierr, crs_new
+    CHARACTER(len=256) :: msg
+    IF (.NOT.st%resolved) RETURN
+    IF (st%mode.EQ.PCO_KEY_LEGACY) RETURN
+    crs_new = LinSc%prm%MGprmIn%CrsSolverType
     IF (crs_new.EQ.st%crs) RETURN
     status = 0
     msg = ' '
