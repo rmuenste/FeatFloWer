@@ -17,18 +17,25 @@
 !
 ! raw  : the operator as the workers apply it (gathered) or its master-side equivalent
 !        (wrapped); ungauged and never modified by a solve. It is the operator of the type-3/4
-!        smoothing (PCO_RAW_SOR) and of the checks.
+!        smoothing (PCO_RAW_SOR: the SOR sweep of crs_E012_SOR_Smoother; a row with a zero
+!        diagonal is left unchanged instead of divided by zero) and of the checks.
 ! gauge: decided ONCE per layout, at the first refresh, from the operator itself:
-!        - components: elements e, f are coupled when some entry of their 4x4 block exceeds
-!          COUPLING_TOL times the larger diagonal of the two (effective couplings; two regions
-!          that touch only through constrained dofs have an all-zero structural block and are
-!          two components);
-!        - closed component: closure measure max_i |(C e)_i| / sum_j |C_ij| e_j over its rows
-!          below PCO_CLOSURE_TOL = 1e-8, e = 1 on its mean modes (measured: closed 1.5e-15 to
-!          1.2e-14, open 0.9 on the gated cases; the tolerance lies six orders from both);
+!        - components: elements e, f are coupled when some entry of their 4x4 block is
+!          nonzero (every nonzero connection counts, however weak: a weak but real coupling
+!          must not split one pressure constant into two; two regions that touch only through
+!          constrained dofs have an all-zero structural block and are two components);
+!        - closed component c: its indicator e_c (1 on the mean modes of its elements) is
+!          checked on its own, on EVERY row (inside and outside c): closure measure
+!          max_i |(C e_c)_i| / sum_j |C_ij| over the mean columns j of row i, below
+!          PCO_CLOSURE_TOL = 1e-8 (measured: closed 1.5e-15 to 2.0e-14, open 0.9 on the gated
+!          cases; the tolerance lies six orders from both); the left measure e_c^T C is formed
+!          the same way over every column;
 !        - one reference per closed component, the mean mode of its lowest element, set to
 !          zero in the SOLVER COPY only: row and column cleared except the diagonal, the
-!          right-hand-side entry zeroed (symmetric elimination of a zero value).
+!          right-hand-side entry zeroed (symmetric elimination of a zero value); a zero
+!          diagonal of a reference row (a closed component whose mean row vanishes) is
+!          replaced on the copy by the largest diagonal modulus of the copy, so the reference
+!          equation reads d x = 0 and not 0 x = 0.
 !        Later refreshes keep the decision (no flipping between pinned and unpinned) and check
 !        it: a closed component whose measure rises above DRIFT_CLOSED or an open one that
 !        falls below DRIFT_OPEN is reported (pco%drift). The left null vector of a closed
@@ -40,7 +47,8 @@
 !        kept), values refreshed from raw. Types 2/4: UMFPACK in explicit column storage of this
 !        matrix (tUmfCSC: it solves A x = b, not A^T x = b); symbolic analysis once per pattern,
 !        numeric factorisation at every refresh. Types 1/3: BiCGStab of this module with an
-!        SSOR preconditioner that scans every off-diagonal entry with a lower/upper predicate
+!        SSOR preconditioner (every diagonal of the copy must be nonzero, checked at the
+!        refresh) that scans every off-diagonal entry with a lower/upper predicate
 !        (the legacy PARID117_MASTER stops at the first upper column of a row, which in this
 !        diagonal-first layout skips lower neighbours); a zero right-hand side returns the zero
 !        correction, convergence is tested before every division, a breakdown is reported.
@@ -50,6 +58,7 @@
 !=========================================================================
 MODULE pco_coarse_solver
 
+  USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_IS_FINITE
   USE PP3D_MPI, ONLY: myid, master, MPI_COMM_WORLD
   USE def_FEAT, ONLY: MTERM
   USE UMFPackSolver, ONLY: tUmfCSC, UmfCSC_SetStructure, UmfCSC_SetValues, UmfCSC_Analyse, &
@@ -97,7 +106,6 @@ MODULE pco_coarse_solver
 
   REAL*8, PARAMETER, PUBLIC :: PCO_CLOSURE_TOL = 1d-8
   REAL*8, PARAMETER :: DRIFT_CLOSED = 1d-6, DRIFT_OPEN = 1d-10
-  REAL*8, PARAMETER :: COUPLING_TOL = 1d-10
   ! reported right-hand-side imbalance |sum b| / sum |b| over a closed component. The coarse
   ! right-hand side of a converging cycle is a small defect whose sum is rounding of the
   ! divergence cancellation: relative imbalances up to ~2e-2 occur in compatible single-phase
@@ -292,60 +300,83 @@ CONTAINS
   END SUBROUTINE PCO_CHANGE_SOLVER_TYPE
 
   !-----------------------------------------------------------------------
-  ! Closure measure per component (max over its rows of |sum of the mean-mode columns| /
-  ! sum of their moduli) and the left measure (same over the columns of its mean rows).
+  ! Per component c, its indicator e_c (1 on the mean modes of its elements) on its own:
+  ! right(c) = max over EVERY row i of |(A e_c)_i| / sum over the mean columns j of |A_ij|,
+  ! left(c)  = max over EVERY column j of |(e_c^T A)_j| / sum over the mean rows i of |A_ij|.
+  ! The rows and columns outside c count as well, so a coupling of c to the rest of the
+  ! system shows up in its measures (with components from nonzero connectivity it is zero).
   !-----------------------------------------------------------------------
   SUBROUTINE closure_measures(right, left)
     REAL*8, INTENT(OUT) :: right(:), left(:)
-    REAL*8, ALLOCATABLE :: cs(:), ca(:)
-    INTEGER :: row, k, c
-    REAL*8 :: r, s
+    REAL*8, ALLOCATABLE :: cs(:,:), ca(:), rs(:)
+    INTEGER, ALLOCATABLE :: seen(:), touched(:)
+    INTEGER :: row, k, c, nt, i
+    REAL*8 :: s
     right = 0d0
     left = 0d0
-    ALLOCATE(cs(pco%n), ca(pco%n))
-    cs = 0d0
+    ! left: column sums of the mean rows per component, kept sparse per column
+    ALLOCATE(rs(pco%ncomp), seen(pco%ncomp), touched(pco%ncomp), ca(pco%n))
+    seen = 0
     ca = 0d0
     DO row = 1, pco%n
-      r = 0d0
+      ! right: row i against every e_c (only the components present in the row)
+      nt = 0
       s = 0d0
       DO k = pco%ldA(row), pco%ldA(row+1)-1
-        IF (MOD(pco%colA(k)-1,4).EQ.0) THEN
-          r = r + pco%a(k)
-          s = s + ABS(pco%a(k))
+        IF (MOD(pco%colA(k)-1,4).NE.0) CYCLE
+        c = pco%comp_of((pco%colA(k)-1)/4+1)
+        IF (seen(c).NE.row) THEN
+          seen(c) = row
+          rs(c) = 0d0
+          nt = nt + 1
+          touched(nt) = c
         END IF
-        IF (MOD(row-1,4).EQ.0) THEN
-          cs(pco%colA(k)) = cs(pco%colA(k)) + pco%a(k)
-          ca(pco%colA(k)) = ca(pco%colA(k)) + ABS(pco%a(k))
-        END IF
+        rs(c) = rs(c) + pco%a(k)
+        s = s + ABS(pco%a(k))
       END DO
-      c = pco%comp_of((row-1)/4+1)
-      IF (s.GT.0d0) right(c) = MAX(right(c), ABS(r)/s)
+      IF (s.GT.0d0) THEN
+        DO i = 1, nt
+          c = touched(i)
+          right(c) = MAX(right(c), ABS(rs(c))/s)
+        END DO
+      END IF
+      IF (MOD(row-1,4).EQ.0) THEN
+        DO k = pco%ldA(row), pco%ldA(row+1)-1
+          ca(pco%colA(k)) = ca(pco%colA(k)) + ABS(pco%a(k))
+        END DO
+      END IF
     END DO
-    DO k = 1, pco%n
-      c = pco%comp_of((k-1)/4+1)
-      IF (ca(k).GT.0d0) left(c) = MAX(left(c), ABS(cs(k))/ca(k))
+    ! left, per component: e_c^T A over every column
+    ALLOCATE(cs(pco%n, 1))
+    DO c = 1, pco%ncomp
+      cs = 0d0
+      DO row = 1, pco%n, 4
+        IF (pco%comp_of((row-1)/4+1).NE.c) CYCLE
+        DO k = pco%ldA(row), pco%ldA(row+1)-1
+          cs(pco%colA(k),1) = cs(pco%colA(k),1) + pco%a(k)
+        END DO
+      END DO
+      DO k = 1, pco%n
+        IF (ca(k).GT.0d0) left(c) = MAX(left(c), ABS(cs(k,1))/ca(k))
+      END DO
     END DO
-    DEALLOCATE(cs, ca)
+    DEALLOCATE(rs, seen, touched, ca, cs)
   END SUBROUTINE closure_measures
 
   !-----------------------------------------------------------------------
-  ! Gauge decision (see the module header): effective components by union-find over the
-  ! element blocks, closure, references.
+  ! Gauge decision (see the module header): components by union-find over the nonzero
+  ! element blocks, closure per component indicator, references.
   !-----------------------------------------------------------------------
   SUBROUTINE decide_gauge()
     INTEGER, ALLOCATABLE :: parent(:), root2c(:)
-    REAL*8, ALLOCATABLE :: dmax(:), right(:), left(:)
+    REAL*8, ALLOCATABLE :: right(:), left(:)
     INTEGER :: e, f, j, mp, mq, c, nel, pos
     REAL*8 :: bmax
 
     nel = pco%nel
-    ALLOCATE(parent(nel), root2c(nel), dmax(nel))
+    ALLOCATE(parent(nel), root2c(nel))
     DO e = 1, nel
       parent(e) = e
-      dmax(e) = 0d0
-      DO mp = 1, 4
-        dmax(e) = MAX(dmax(e), ABS(pco%a(PCO_BLOCK_SLOT(e, mp, 0, mp))))
-      END DO
     END DO
     DO e = 1, nel
       DO j = pco%eptr(e), pco%eptr(e+1)-1
@@ -357,7 +388,7 @@ CONTAINS
             bmax = MAX(bmax, ABS(pco%a(PCO_BLOCK_SLOT(e, mp, pos, mq))))
           END DO
         END DO
-        IF (bmax.GT.COUPLING_TOL*MAX(dmax(e), dmax(f))) CALL union(e, f)
+        IF (bmax.GT.0d0) CALL union(e, f)
       END DO
     END DO
     root2c = 0
@@ -392,7 +423,7 @@ CONTAINS
     END DO
     pco%gauge_decided = .TRUE.
     CALL map_gauge_to_copy()
-    DEALLOCATE(parent, root2c, dmax, right, left)
+    DEALLOCATE(parent, root2c, right, left)
 
   CONTAINS
 
@@ -451,10 +482,11 @@ CONTAINS
     INTEGER, INTENT(OUT) :: status
     CHARACTER(len=*), INTENT(OUT) :: msg
     INTEGER :: k, row, ist
+    REAL*8 :: dref
 
     status = 0
     msg = ' '
-    IF (ANY(pco%a.NE.pco%a) .OR. ANY(ABS(pco%a).GT.HUGE(1d0))) THEN
+    IF (.NOT.ALL(IEEE_IS_FINITE(pco%a))) THEN
       status = 3
       msg = 'non-finite entry in the coarse pressure operator'
       RETURN
@@ -473,6 +505,28 @@ CONTAINS
         IF (pco%sref(row) .OR. pco%sref(pco%scolA(k))) pco%sa(k) = 0d0
       END DO
     END DO
+    ! a reference equation must not read 0 x = 0 (closed component with a vanishing mean row)
+    IF (ANY(pco%sref)) THEN
+      dref = 0d0
+      DO row = 1, pco%ns
+        dref = MAX(dref, ABS(pco%sa(pco%sldA(row))))
+      END DO
+      IF (dref.LE.0d0) dref = 1d0
+      DO row = 1, pco%ns
+        IF (pco%sref(row) .AND. pco%sa(pco%sldA(row)).EQ.0d0) pco%sa(pco%sldA(row)) = dref
+      END DO
+    END IF
+    ! the SSOR preconditioner of types 1/3 divides by every diagonal
+    IF (pco%solver_type.EQ.1 .OR. pco%solver_type.EQ.3) THEN
+      DO row = 1, pco%ns
+        IF (pco%sa(pco%sldA(row)).EQ.0d0) THEN
+          status = 4
+          WRITE(msg,'(A,I0,A,I0,A)') 'zero diagonal in row ', row, ' of the coarse pressure copy (solver type ', &
+            pco%solver_type, '): the SSOR preconditioner is undefined; use a direct coarse solver (type 2 or 4)'
+          RETURN
+        END IF
+      END DO
+    END IF
 
     IF (pco%solver_type.EQ.2 .OR. pco%solver_type.EQ.4) THEN
       CALL UmfCSC_SetValues(pco%lu, pco%sa)
@@ -748,19 +802,27 @@ CONTAINS
 
   !-----------------------------------------------------------------------
   ! SOR sweeps with the raw (ungauged) operator: the smoothing of the type-3/4 coarse
-  ! correction, the arithmetic of crs_E012_SOR on the legacy matrix.
+  ! correction, the sweep of crs_E012_SOR_Smoother on the legacy matrix (2 nsweep forward
+  ! sweeps, diagonal first in every row). A row with a zero diagonal (an identically zero row
+  ! of a closed component, see the gauge) keeps its value.
   !-----------------------------------------------------------------------
   SUBROUTINE PCO_RAW_SOR(x, b, nsweep, omega)
     REAL*8, INTENT(INOUT) :: x(*)
     REAL*8, INTENT(IN) :: b(*)
     INTEGER, INTENT(IN) :: nsweep
     REAL*8, INTENT(IN) :: omega
-    INTEGER :: i
-    REAL*8 :: om
-    EXTERNAL crs_E012_SOR_Smoother
-    om = omega
+    INTEGER :: i, ieq, k
+    REAL*8 :: aux, d
     DO i = 1, 2*nsweep
-      CALL crs_E012_SOR_Smoother(b, pco%a, pco%colA, pco%ldA, x, pco%n, om)
+      DO ieq = 1, pco%n
+        d = pco%a(pco%ldA(ieq))
+        IF (d.EQ.0d0) CYCLE
+        aux = b(ieq)
+        DO k = pco%ldA(ieq)+1, pco%ldA(ieq+1)-1
+          aux = aux - pco%a(k)*x(pco%colA(k))
+        END DO
+        x(ieq) = omega*(aux/d - x(ieq)) + x(ieq)
+      END DO
     END DO
   END SUBROUTINE PCO_RAW_SOR
 
