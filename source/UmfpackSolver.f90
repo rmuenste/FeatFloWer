@@ -8,7 +8,8 @@ MODULE UMFPackSolver
 !    symmetric matrices it is used for; kept as it is, the certified runs depend on it). No
 !    status is checked. Each handle is tracked on its own (legacy_symbolic_live,
 !    legacy_numeric_live: the wrapper returns -1 for a failed step); numeric factorisation is
-!    skipped after a failed symbolic analysis, and _Free releases only handles that exist.
+!    skipped after a failed symbolic analysis, _Free releases only handles that exist, and
+!    _Solve stops (MPI_Abort) instead of handing the wrapper a handle of -1.
 !
 ! 2. tUmfCSC (explicit orientation, used by the periodic coarse operator, QuadSc_pco_solver):
 !    the CSR matrix A of the caller is converted once into the compressed-COLUMN storage of A
@@ -45,12 +46,26 @@ CONTAINS
 
 SUBROUTINE myUmfPack_Solve(x,b,Ax,Mat,ItRef)
 USE var_QuadScalar
+USE PP3D_MPI, ONLY: MPI_COMM_WORLD
 IMPLICIT NONE
 
  ! INPUT
  REAL*8 x(*),b(*),Ax(*)
  TYPE(TMatrix) Mat
  INTEGER ItRef
+ LOGICAL bInit
+ INTEGER ierr
+
+ ! No live factorisation (failed or missing set-up): the wrapper would index its handle
+ ! table with -1. Stop under control instead (a successful set-up is unaffected).
+ IF (.NOT.legacy_numeric_live) THEN
+  WRITE(*,'(A)') 'myUmfPack_Solve: no valid UMFPACK factorisation (the symbolic or numeric '// &
+                 'factorisation failed or was released); stopping'
+  FLUSH(6)
+  CALL MPI_Initialized(bInit, ierr)
+  IF (bInit) CALL MPI_Abort(MPI_COMM_WORLD, 1, ierr)
+  STOP 1
+ END IF
 
  n  = Mat%nu
  nz = Mat%na
