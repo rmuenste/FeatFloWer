@@ -105,6 +105,7 @@ set(src_util
   ${CMAKE_SOURCE_DIR}/source/src_util/pressure_coarse_key.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/pressure_param_agreement.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/types.f90
+  ${CMAKE_SOURCE_DIR}/source/src_el/el_inlet_table.f90
   ${CMAKE_SOURCE_DIR}/source/src_el/el_config.f90
   ${CMAKE_SOURCE_DIR}/source/src_el/el_fields.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/prov_dump_config.f90
@@ -421,6 +422,15 @@ if(BUILD_TESTING)
   target_include_directories(test_el_drag_closures PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
   target_compile_options(test_el_drag_closures PRIVATE ${Fortran_FLAGS})
   add_test(NAME el-drag-closures-serial COMMAND test_el_drag_closures)
+
+  # Inlet velocity table of boundary type Inflow975 (SimPar@ELInletVelocityTable): reading,
+  # refusals, piecewise-linear interpolation, the ramp path unchanged without a table.
+  add_executable(test_el_inlet_table
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_el_inlet_table.f90)
+  target_link_libraries(test_el_inlet_table ff_quadLS_app)
+  target_include_directories(test_el_inlet_table PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_el_inlet_table PRIVATE ${Fortran_FLAGS})
+  add_test(NAME el-inlet-table-serial COMMAND test_el_inlet_table)
 
   # Particle-mesh transfer conservation/interpolation suite. Runs the
   # assertable transfer math against a synthetic structured Q2/P1 mesh on

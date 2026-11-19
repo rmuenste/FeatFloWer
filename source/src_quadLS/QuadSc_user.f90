@@ -976,11 +976,12 @@ IF (iT.EQ.99) THEN
 END IF
 
 ! Uniform axial inflow ramped in time (EL packed-bed column, SimPar@ELInletVelocityStart /
-! ELInletVelocityEnd / ELInletRampTime; EL_CONFIG). An unconfigured inlet would act as a
+! ELInletVelocityEnd / ELInletRampTime, or the table SimPar@ELInletVelocityTable; EL_CONFIG,
+! EL_INLET_TABLE). An unconfigured inlet would act as a
 ! no-slip floor without any message, so it stops the run.
 IF (iT.EQ.975) THEN
  IF (.NOT.EL_INLET_CONFIGURED()) THEN
-  WRITE(*,*) 'Fatal: boundary type Inflow975 needs SimPar@ELInletVelocityStart / ELInletVelocityEnd.'
+  WRITE(*,*) 'Fatal: boundary type Inflow975 needs SimPar@ELInletVelocityStart / ELInletVelocityEnd or ELInletVelocityTable.'
   STOP 1
  END IF
  ValU = 0d0

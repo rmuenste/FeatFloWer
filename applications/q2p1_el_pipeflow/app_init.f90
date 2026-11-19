@@ -716,6 +716,7 @@ END SUBROUTINE get_global_domain_extents
                         el_write_diagnostics, el_momentum_audit_freq, el_particle_log_freq, &
                         el_tavg_window, &
                         el_inlet_u0, el_inlet_u1, el_inlet_tramp, &
+                        el_inlet_table_file, &
                         EL_INLET_SUPERFICIAL, &
                         el_momentum_model, el_mm_pressure_operator, el_fluid_viscosity, &
                         el_periodic_kernel, el_periodic_wrap, &
@@ -723,6 +724,7 @@ END SUBROUTINE get_global_domain_extents
                         EL_VALIDATE_CONFIG, &
                         EL_PRINT_CONFIG
    USE EL_PERIODIC, ONLY: EL_SET_PERIODIC_LATTICE
+   USE EL_INLET_TABLE, ONLY: EL_INLET_TABLE_PATH
 #endif
    USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,iCommSwitch,&
      nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
@@ -991,6 +993,9 @@ END SUBROUTINE get_global_domain_extents
          READ(string(iEq+1:),*) el_inlet_u1
        CASE ("ELInletRampTime")
          READ(string(iEq+1:),*) el_inlet_tramp
+       CASE ("ELInletVelocityTable")
+         ! a path: not list-directed (a '/' would end the read); quotes optional
+         el_inlet_table_file = EL_INLET_TABLE_PATH(string(iEq+1:))
 #endif
        CASE ("MinTimeAdapt")
          READ(string(iEq+1:),*) DTMIN

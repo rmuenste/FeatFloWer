@@ -1,5 +1,7 @@
 MODULE EL_CONFIG
 
+  USE EL_INLET_TABLE, ONLY: tElInletTable, EL_INLET_TABLE_READ, EL_INLET_TABLE_VALUE
+
   IMPLICIT NONE
 
   CHARACTER(LEN=32) :: el_kernel = 'deen_poly'
@@ -300,6 +302,13 @@ MODULE EL_CONFIG
   REAL*8 :: el_inlet_u0 = 0.0d0
   REAL*8 :: el_inlet_u1 = 0.0d0
   REAL*8 :: el_inlet_tramp = 1.0d0
+  ! SimPar@ELInletVelocityTable = "<file>": piecewise-linear U(t) instead of the ramp (rows
+  ! "t U", superficial velocity; format and refusals in EL_INLET_TABLE). Mutually exclusive
+  ! with the three ramp keys (a deck that sets both is refused). Loaded by EL_VALIDATE_CONFIG
+  ! on every rank from the same file; echoed by EL_PRINT_CONFIG. Unset (default): the ramp,
+  ! bitwise as before.
+  CHARACTER(LEN=256) :: el_inlet_table_file = ' '
+  TYPE(tElInletTable) :: el_inlet_table
   ! Mesoscale lane-mode filter for periodic settling boxes: each step,
   ! subtract from u_z its zero-mean x-binned and y-binned plane averages
   ! (the gravest "lane" modes of the two-way-coupled concentration
@@ -562,6 +571,7 @@ CONTAINS
       WRITE(*,*) 'ELInletRampTime must be positive.'
       STOP 1
     END IF
+    CALL EL_LOAD_INLET_TABLE()
 
     IF (el_tavg_window.LE.0.0d0 .OR. el_tavg_window.GT.1.0d0) THEN
       WRITE(*,*) 'ELTAvgWindow must be in (0,1].'
@@ -618,6 +628,7 @@ CONTAINS
     END DO
     WRITE(mfile,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
     WRITE(mfile,'(A,3ES14.6)') 'EL inlet u0 / u1 / ramp   = ', el_inlet_u0, el_inlet_u1, el_inlet_tramp
+    CALL EL_PRINT_INLET_TABLE(mfile)
 
     IF (mterm.NE.mfile) THEN
       WRITE(mterm,'(A,A)') 'EL kernel                 = ', TRIM(el_kernel)
@@ -663,6 +674,7 @@ CONTAINS
       END DO
       WRITE(mterm,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
       WRITE(mterm,'(A,3ES14.6)') 'EL inlet u0 / u1 / ramp   = ', el_inlet_u0, el_inlet_u1, el_inlet_tramp
+      CALL EL_PRINT_INLET_TABLE(mterm)
     END IF
 
   END SUBROUTINE EL_PRINT_CONFIG
@@ -702,17 +714,57 @@ CONTAINS
     EL_KERNEL_SUPPORT_RADIUS = 2.0d0*el_kernel_width_factor*particle_radius
   END FUNCTION EL_KERNEL_SUPPORT_RADIUS
 
-  ! Inlet velocity of boundary type Inflow975 at time t (end-of-step time of the caller).
+  ! Inlet velocity of boundary type Inflow975 at time t (end-of-step time of the caller): the
+  ! table when the deck names one, else the linear ramp (arithmetic unchanged).
   PURE REAL*8 FUNCTION EL_INLET_VELOCITY(t)
     REAL*8, INTENT(IN) :: t
-    EL_INLET_VELOCITY = el_inlet_u0 + (el_inlet_u1 - el_inlet_u0)* &
-                        MIN(1.0d0, MAX(0.0d0, t)/el_inlet_tramp)
+    IF (el_inlet_table%n.GT.0) THEN
+      EL_INLET_VELOCITY = EL_INLET_TABLE_VALUE(el_inlet_table, t)
+    ELSE
+      EL_INLET_VELOCITY = el_inlet_u0 + (el_inlet_u1 - el_inlet_u0)* &
+                          MIN(1.0d0, MAX(0.0d0, t)/el_inlet_tramp)
+    END IF
   END FUNCTION EL_INLET_VELOCITY
 
-  ! True when the deck configures the Inflow975 inlet (either velocity nonzero).
+  ! True when the deck configures the Inflow975 inlet (either ramp velocity nonzero, or a
+  ! table). Deck-only, the same on every rank.
   PURE LOGICAL FUNCTION EL_INLET_CONFIGURED()
-    EL_INLET_CONFIGURED = (el_inlet_u0.NE.0.0d0 .OR. el_inlet_u1.NE.0.0d0)
+    EL_INLET_CONFIGURED = (el_inlet_u0.NE.0.0d0 .OR. el_inlet_u1.NE.0.0d0) .OR. &
+                          (LEN_TRIM(el_inlet_table_file).GT.0)
   END FUNCTION EL_INLET_CONFIGURED
+
+  ! SimPar@ELInletVelocityTable: refuse it together with a ramp key, then read and check the
+  ! file (EL_INLET_TABLE_READ). Every rank reads the same file and stops with the same message
+  ! on a missing, malformed, non-finite or unsorted table. Nothing happens without the key.
+  SUBROUTINE EL_LOAD_INLET_TABLE()
+    INTEGER :: ierr
+    CHARACTER(LEN=320) :: message
+
+    IF (LEN_TRIM(el_inlet_table_file).EQ.0) RETURN
+    IF (EL_KEY_SET('ELInletVelocityStart') .OR. EL_KEY_SET('ELInletVelocityEnd') .OR. &
+        EL_KEY_SET('ELInletRampTime')) THEN
+      WRITE(*,'(A)') 'ELInletVelocityTable cannot be combined with ELInletVelocityStart / '// &
+        'ELInletVelocityEnd / ELInletRampTime (one inlet definition only).'
+      STOP 1
+    END IF
+    CALL EL_INLET_TABLE_READ(el_inlet_table_file, el_inlet_table, ierr, message)
+    IF (ierr.NE.0) THEN
+      WRITE(*,'(A)') TRIM(message)
+      STOP 1
+    END IF
+  END SUBROUTINE EL_LOAD_INLET_TABLE
+
+  ! Echo of the inlet table (nothing without one): file, row count, every row.
+  SUBROUTINE EL_PRINT_INLET_TABLE(unit)
+    INTEGER, INTENT(IN) :: unit
+    INTEGER :: i
+    IF (el_inlet_table%n.LE.0) RETURN
+    WRITE(unit,'(A,A,A,I0,A)') 'EL inlet velocity table   = ', TRIM(el_inlet_table_file), &
+      ' (', el_inlet_table%n, ' rows t / U; linear, constant beyond the ends)'
+    DO i=1,el_inlet_table%n
+      WRITE(unit,'(A,2ES16.8)') '  EL_INLET_TABLE ', el_inlet_table%t(i), el_inlet_table%u(i)
+    END DO
+  END SUBROUTINE EL_PRINT_INLET_TABLE
 
   ! True when the inlet value has to be converted from superficial to interstitial velocity
   ! (deck-only: the same on every rank; decides the nodal-porosity collective of the transfer
