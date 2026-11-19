@@ -297,6 +297,10 @@ END TYPE tParamV
 TYPE tParamP
  TYPE(tMGParamIn) :: MGprmIn
  TYPE(tMGParamOut):: MGprmOut
+ ! Pres@PeriodicCoarseOperator (values: pressure_coarse_key; 0 = key absent) and
+ ! Pres@PeriodicCoarseCheck (0 = off, n > 0: operator check at renewals 1, 2 and every n-th)
+ INTEGER :: PeriodicCoarseOperator = 0
+ INTEGER :: PeriodicCoarseCheck = 0
 END TYPE tParamP
 
 

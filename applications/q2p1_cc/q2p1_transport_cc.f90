@@ -11,6 +11,7 @@ USE param_parser, ONLY : GetPhysiclaParameters,write_param_real,write_param_int
 ! USE LinScalar, ONLY: AddSurfaceTension
 use def_cc
 use def_QuadScalar
+use QuadSc_solver_coarse, ONLY: Setup_UMFPACK_CoarseSolver
 use var_QuadScalar_newton, ONLY:zeitstep
 IMPLICIT NONE
 
@@ -990,7 +991,14 @@ IF (iType.EQ.myMatrixRenewal%C) THEN
   CALL Fill_QuadLinParMat()
  END IF
 
- CALL Create_CMat(QuadSc%knprU,QuadSc%knprV,QuadSc%knprW,LinSc%knprP,LinSc%prm%MGprmIn%MinLev,LinSc%prm%MGprmIn%CrsSolverType)
+ ! The coarse solve of q2p1_cc is the coupled saddle-point system (its own parameters,
+ ! CCuvwp), not the master Schur matrix, so the pressure operator renewal of the solver
+ ! (Renew_Pressure_Operator, periodic coarse operator) does not apply here: the legacy
+ ! assembly and set-up, in the order of the former Create_CMat (set-up only when the master
+ ! assembles). A periodic coarse operator for q2p1_cc is not supported.
+ CALL Create_CMat(QuadSc%knprU,QuadSc%knprV,QuadSc%knprW)
+ IF (bMasterTurnedOn) CALL Setup_UMFPACK_CoarseSolver(LinSc%knprP,LinSc%prm%MGprmIn%CrsSolverType,&
+                                                      LinSc%prm%MGprmIn%MinLev,bNoOutflow)
  IF (myid.ne.master) THEN
   CALL Create_ParCMat(QuadSc%knprU,QuadSc%knprV,QuadSc%knprW)
  END IF

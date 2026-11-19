@@ -102,6 +102,8 @@ set(src_util
   ${CMAKE_SOURCE_DIR}/source/src_util/FolderManagement.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/MPI_DumpOutputProfiles.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/ReadExtrud3DParameters.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/pressure_coarse_key.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/pressure_param_agreement.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/types.f90
   ${CMAKE_SOURCE_DIR}/source/src_el/el_config.f90
   ${CMAKE_SOURCE_DIR}/source/src_el/el_fields.f90
@@ -321,12 +323,19 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_main.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_var.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_user.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/viscosity_model.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_topology.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_solver.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_gather.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_wrap.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_reconstruct.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_check.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver_hypre.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver_coarse.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_struct.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_assembly.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_operator.f90
 ${CMAKE_SOURCE_DIR}/source/initialization/app_initialization.f90
 )
 
@@ -355,12 +364,19 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_comm.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_main.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_user.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/viscosity_model.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_topology.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_solver.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_gather.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_wrap.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_reconstruct.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_check.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver_hypre.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver_coarse.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_struct.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_assembly.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_operator.f90
 ${CMAKE_SOURCE_DIR}/source/initialization/app_initialization.f90
 ${CMAKE_SOURCE_DIR}/source/Init.f90
 ${CMAKE_SOURCE_DIR}/source/Umbrella.f90
@@ -453,6 +469,33 @@ if(BUILD_TESTING)
   target_include_directories(test_el_periodic PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
   target_compile_options(test_el_periodic PRIVATE ${Fortran_FLAGS})
   add_test(NAME el-periodic-serial COMMAND test_el_periodic)
+
+  # Periodic coarse pressure operator (QuadSc_pco_*.f90), the parts without MPI topology:
+  # UMFPACK orientation, periodic classes, element graph, type-3/4 vertex averaging, gauge and
+  # solver types 1-4. The topology-dependent parts (link census, gathered operator, identity
+  # against the worker product) are checked in the application (Pres@PeriodicCoarseCheck).
+  add_executable(test_pco_coarse
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_pco_coarse.f90)
+  target_link_libraries(test_pco_coarse ff_quadLS_app el_test_helpers)
+  target_include_directories(test_pco_coarse PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_pco_coarse PRIVATE ${Fortran_FLAGS})
+  add_test(NAME pco-coarse-serial COMMAND test_pco_coarse)
+
+  # Collective agreement on reloaded pressure parameters (src_util/pressure_param_agreement.f90)
+  # on 3 ranks: equal values stay; a value changed on one rank (test hook: the parsed tuple is
+  # perturbed on that rank) restores the previous values on every rank.
+  add_executable(test_pco_reload
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_pco_reload.f90)
+  target_link_libraries(test_pco_reload ff_quadLS_app el_test_helpers)
+  target_include_directories(test_pco_reload PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_pco_reload PRIVATE ${Fortran_FLAGS})
+  if(MPIEXEC_EXECUTABLE)
+    add_test(NAME pco-reload-mpi-3
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 3
+              ${MPIEXEC_PREFLAGS} $<TARGET_FILE:test_pco_reload>
+              ${MPIEXEC_POSTFLAGS})
+    set_tests_properties(pco-reload-mpi-3 PROPERTIES PROCESSORS 3)
+  endif()
 
   # The same on a partitioned cell: neighbour graph, record exchange, owner reduction and the
   # record operations on 4 and 8 ranks against one rank holding the cell

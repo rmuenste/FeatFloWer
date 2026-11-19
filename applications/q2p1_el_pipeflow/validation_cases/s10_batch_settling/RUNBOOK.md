@@ -260,11 +260,21 @@ number.
      column (6 x 6 x 60: 1.3-2.3 up to 4 s). Reading: the early +3.4 % is independent of the mesh
      at fixed kernel width; the upward drift of the core shrinks from about 2 points to 0.5 point
      over 1-4.3 s; the upper-front excess halves (1.085 -> 1.046, MFiX 1.033). Against the gates
-     as written: B1 +3.6 % (exceeded by 0.6 point), B2 +4.6 % (met). Provisional until the
-     coarse-matrix repair is a reviewed, gated feature; the run stops at 4.4 s, so it says nothing
+     as written: B1 +3.6 % (exceeded by 0.6 point), B2 +4.6 % (met). Provisional: the
+     coarse-matrix repair is now a reviewed, gated feature (`Pres@PeriodicCoarseOperator`,
+     `docs/md_docs/pressure_periodic_coarse_operator_2026-11-19.md`; the same 12 x 12 x 120 bed
+     converges in 2.00 cycles per solve with it), but these two runs used the diagnostic
+     prototype and have not been repeated with the reviewed binary; the run stops at 4.4 s, so it says nothing
      about the cell seen after 4.1 s on the coarse mesh.
-2. Particle-resolved arbiter (peer, waLBerla; a FeatFloWer resolved run at D/h 4-6 is under
-   consideration by the owner).
+2. Reference: closed by the owner on 2026-11-19 as not decidable (relayed by the peer session,
+   its RUNBOOK "Case 10: owner decision on the reference"). The peer's waLBerla
+   particle-resolved runs are not used as a reference (too unstable so far), no further
+   resolved runs are planned, and the relative agreement of MFiX and FeatFloWer on the
+   laterally periodic bed (suspension speed 1.053 against 1.047 / 1.054, upper front 1.034
+   against 1.085 / 1.084, 1.0-4.3 s, each against its own drag reference) is regarded as the
+   best result of the case. The gates B1 / B2 stay recorded as exceeded as written; no pass is
+   claimed.
 3. phi0 0.10 and 0.20, models B and Bfull: not run.
-4. Pressure multigrid under xy-periodicity; pe-side getter for the periodic lattice cross-check
+4. Pressure multigrid under xy-periodicity: fixed (see 1); the repeat of the periodic runs
+   with the reviewed binary is open. pe-side getter for the periodic lattice cross-check
    (see the design note); default of `ELPeriodicKernel`.

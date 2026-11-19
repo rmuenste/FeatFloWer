@@ -28,6 +28,11 @@ MODULE PP3D_MPI
     TYPE(TE013ST), DIMENSION(:), ALLOCATABLE :: SP
     REAL*8 , DIMENSION(:)  , ALLOCATABLE     :: UE,UE11,UE22,UE33
     REAL*8 , DIMENSION(:)  , ALLOCATABLE     :: CRSVect
+    ! accepted velocity dof links (ST) of this rank that matched through the period of axis
+    ! a (not coincident on a): the provenance of the periodic couplings of this level, read
+    ! by the periodic coarse pressure operator (QuadSc_pco_topology.f90); no effect on the
+    ! exchanges themselves
+    INTEGER :: nPerLink(3) = 0
   END TYPE
 
   TYPE(TMGE013), DIMENSION(:), ALLOCATABLE :: MGE013
@@ -111,6 +116,18 @@ MODULE PP3D_MPI
   REAL*8 :: dZPeriodicLength,dPeriodicity(3)=[1d9,1d9,1d9]
   ! -------------- Subroutines -------------------
 CONTAINS
+  ! ----------------------------------------------
+  ! A dof link accepted by the E013 set-up (remote coordinate p1, local p2; the per-axis test
+  ! "coincident or one period apart"): count the axes on which it matched through the
+  ! period, i.e. not coincident within DEpsPrec.
+  SUBROUTINE COUNT_PERIODIC_LINK(p1, p2, n)
+    REAL*8, INTENT(IN) :: p1(3), p2(3)
+    INTEGER, INTENT(INOUT) :: n(3)
+    INTEGER :: a
+    DO a = 1, 3
+      IF (ABS(p1(a)-p2(a)).GE.DEpsPrec) n(a) = n(a) + 1
+    END DO
+  END SUBROUTINE COUNT_PERIODIC_LINK
   ! ----------------------------------------------
   SUBROUTINE INIT_MPI !ok
     implicit none
