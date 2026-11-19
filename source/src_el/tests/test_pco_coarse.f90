@@ -65,6 +65,8 @@ PROGRAM TEST_PCO_COARSE
   !  19 coordinate tolerance per coordinate (as the E013 links): an image offset by 0.8
   !     DEpsPrec in two coordinates is coincident for the pair check and the master classes;
   !     1.2 DEpsPrec in one coordinate is not
+  !  20 P0 over-relaxation of types 3/4: an open component keeps its mean (only the deviation
+  !     is multiplied by 3), a closed one is multiplied by 3 as in the legacy branch
 
   USE MPI
   USE TYPES, ONLY: tMultiMesh, TMatrix
@@ -78,7 +80,7 @@ PROGRAM TEST_PCO_COARSE
   USE pco_coarse_solver, ONLY: pco, PCO_INSTALL_LAYOUT, PCO_REFRESH_SOLVER, PCO_SOLVE_CHECK, &
                                PCO_BLOCK_SLOT, PCO_NEIGHBOUR_POS, PCO_SOLVE_FULL, PCO_SOLVE_P0, &
                                PCO_RELEASE, PCO_CHANGE_SOLVER_TYPE, PCO_RAW_SOR, PCO_RAW_MATVEC, &
-                               PCO_SET_STRUCTURAL_FLUX, PCO_GAUGE_UNDECIDED
+                               PCO_SET_STRUCTURAL_FLUX, PCO_GAUGE_UNDECIDED, PCO_P0_OVERRELAX
   USE pco_diagnostics, ONLY: PCO_COMPARE_OPERATORS, PCO_COMPARE_PRODUCTS
   USE PP3D_MPI, ONLY: COUNT_PERIODIC_LINK, DEpsPrec
   USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_VALUE, IEEE_QUIET_NAN, IEEE_POSITIVE_INF
@@ -115,6 +117,7 @@ PROGRAM TEST_PCO_COARSE
   CALL test_structural_gauge()
   CALL test_compare_products()
   CALL test_componentwise_tolerance()
+  CALL test_p0_overrelax()
 
   CALL EL_TEST_REPORT(nf, rank, nproc, 'pco coarse')
   CALL MPI_Finalize(ierr)
@@ -1018,6 +1021,21 @@ CONTAINS
     CALL EL_TEST_CHECK(cls%nincomplete.GE.1, 'master classes: 1.2 tol in one coordinate is not coincident', &
       nf, rank)
   END SUBROUTINE test_componentwise_tolerance
+
+  !---------------------------------------------------------------------
+  SUBROUTINE test_p0_overrelax()
+    INTEGER :: st
+    CHARACTER(len=256) :: msg
+    REAL*8 :: p0(6)
+    WRITE(*,'(A)') '20 P0 over-relaxation'
+    CALL two_rings(4, .TRUE.)                  ! ring A (1-3) open, ring B (4-6) closed
+    CALL PCO_REFRESH_SOLVER(st, msg)
+    p0 = (/1d0, 2d0, 3d0, 4d0, 5d0, 6d0/)
+    CALL PCO_P0_OVERRELAX(p0, 3d0)
+    CALL EL_TEST_CHECK(st.EQ.0 .AND. MAXVAL(ABS(p0 - (/-1d0, 2d0, 5d0, 12d0, 15d0, 18d0/))).LT.1d-14, &
+      'open component: mean kept, deviation x3; closed component: x3', nf, rank)
+    CALL PCO_RELEASE()
+  END SUBROUTINE test_p0_overrelax
 
   ! unit-height hexahedron [x0,x1] x [0,1] x [0,1], vertex coordinates x1,y1,z1, x2, ...
   SUBROUTINE cell(x0, x1, v)
