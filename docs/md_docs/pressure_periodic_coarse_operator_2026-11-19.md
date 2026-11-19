@@ -112,8 +112,11 @@ after validation. Whether the default should become wider is an open owner decis
     noise / noise (measured 1.0 on closed boxes in a first attempt); the scale is of the same
     component, so the ratio does not depend on the cell aspect ratio (open 0.5 at stretch 1,
     10, 30, 1e4, measured). The largest value per coarse element is collected to the master at
-    the first renewal; per component s_c = the largest over its elements. s_c <= 1e-10:
-    closed; s_c >= 1e-6: open; in between: undecidable. In wrapped mode the structure comes
+    the first renewal; per component s_c = the largest over its elements. s_c <= 256 eps
+    (2^-44 = 5.7e-14): closed; s_c >= 1e-6: open; in between: undecidable. The closed bound
+    sits just above the measured rounding population (closed components of every gate: 1.1e-15
+    to 1.4e-14, i.e. 5 to 63 eps; factor 4 to the largest), so it is the rounding level of the
+    assembled entries and not a modelling tolerance; see "Numerical limit" below. In wrapped mode the structure comes
     from the workers as well and the matrix check below is applied to the wrapped operator, so
     the two must agree (and the wrapped operator is compared with the gathered one entry by
     entry at every renewal).
@@ -121,12 +124,30 @@ after validation. Whether the default should become wider is an open owner decis
     ALL columns (the normwise scale), and e_c^T C over every column scaled by the column sums
     of moduli; one O(nnz) traversal (a nonzero entry between two components would contradict
     the decomposition and counts as an inconsistency). A closed component must have
-    right(c) <= 1e-8; an open one right(c) > 1e-13 (otherwise the constant is numerically in
-    the kernel of a structurally regular operator). A weak outlet (cells stretched across it)
+    right(c) <= 512 eps (2^-43 = 1.1e-13; measured closed 1.3e-15 to 2.0e-14, factor 5.7); an
+    open one right(c) > 512 eps (otherwise the constant is numerically in the kernel of a
+    structurally regular operator). A weak outlet (cells stretched across it)
     gives an open component with a small matrix measure (2.5e-10 in the unit test, below the
     former matrix-only threshold 1e-8): it stays open, no reference, and is solved exactly.
   - Undecidable or inconsistent: nothing is pinned; at the first renewal the run is refused
-    (explicit key) or falls back to legacy with the reason logged (key absent).
+    (explicit key) or falls back to legacy with the reason logged (key absent); on fallback
+    nothing of the periodic operator survives (solver storage, plan, classes, wrap structure,
+    vertex classes).
+  - Numerical limit (stated). A threshold-free decision does not exist in floating point: a
+    physical boundary flux of a constant pressure below the closed bound (relative to the B
+    entries around the element) cannot be told from the rounding of the assembled entries and
+    the component is pinned. At that level the ungauged system is singular to working
+    precision: unit test 20 (ring with an outlet of relative strength d) - with the right-hand
+    side perturbed at the backward-error level eps |A| |x| of a stable solve the ungauged mean
+    has the error 7.4e-1 at d = 2^-50 (closed, pinned), 7.2e-4 at 2^-40, 7.1e-7 at 2^-30,
+    7.4e-10 at 2^-20 (all three undecided: nothing pinned, fallback / refusal) and 6.2e-13 at
+    2^-10 (open); at d = 0 the factorisation reports the singular matrix. At the closed bound
+    itself (2^-44) the mean would be determinable to about 1e-2 only. The MPI case is a
+    Symmetry001 top plane inclined as z = H + d y (w constrained, v free): see "Final gates
+    on c76ca927" below. A criterion from the boundary-condition types alone (no free normal
+    component on any face) was considered and not used: it does not see the FBM and Dirichlet
+    masks that the structural measure reads from the assembled masks, and it would need the
+    face normals of curved and inclined boundaries, which brings the same rounding back.
   - Types 3/4 with a weakly open component: the over-relaxed (x3) P0 correction diverges when
     an open component is only weakly coupled to its outlet. Measured on the 12 x 12 x 120 box
     with a z outlet (single phase): matrix measure of the open component 0.90 (cubic cells):
@@ -134,10 +155,15 @@ after validation. Whether the default should become wider is an open owner decis
     diverge, type 2 converges (5e-4 and 0.16 per 20 cycles), legacy stagnates (0.86, 0.97).
     A variant that did not over-relax the constant of an open component slowed the cubic case
     to 13.4 cycles and still diverged at 30 x, so it was not kept. Types 3/4 are refused for an
-    open component with a matrix measure below 0.1 (`PCO_P0_WEAK_OPEN`): fallback to legacy
-    (key absent, logged), refusal (explicit key: use type 2), previous type kept (reload).
-    The threshold lies between the measured working (0.90; unit ring 0.11) and failing
-    (1.2e-2) cases; the cases between are not measured.
+    open component with a matrix measure below 0.1 (`PCO_P0_WEAK_OPEN`), evaluated with the
+    CURRENT measure at every refresh (the weighted EL mass changes the operator on the same
+    layout): at the first renewal fallback to legacy (key absent, logged) or refusal (explicit
+    key: use type 2); a crossing later in the run stops every rank with the same message (one
+    defined behaviour for both keys; a mid-run switch to legacy is not attempted); a type
+    reload to 3/4 is refused before the working factors are touched (previous type kept).
+    The cutoff 0.1 is empirical: working at 0.90 (cubic cells, full multigrid), failing at
+    1.2e-2 (stretch 10); the interval (1.2e-2, 0.90) is not certified (the unit ring at 0.11
+    checks the refresh only, not the over-relaxed multigrid correction).
   - One reference per closed component, the mean mode of its lowest element, set to zero on a
     solver-owned copy (row and column cleared except the diagonal, right-hand-side entry
     zeroed: symmetric elimination of a zero value); a zero diagonal of a reference row (a
@@ -145,7 +171,7 @@ after validation. Whether the default should become wider is an open owner decis
     so the equation reads d x = 0. For the SSOR types 1/3 a zero diagonal elsewhere in the copy
     is refused at the refresh.
   - Later refreshes keep the decision (no flipping) and report drift of the matrix measure
-    (closed above 1e-6, open at or below 1e-13). The decision does not use
+    (a closed component above 512 eps, an open one at or below it). The decision does not use
     `SimPar@NoOutflow`; a disagreement is logged (`PCO gauge note`). The right-hand-side
     compatibility measure assumes the left null vector e (symmetric operator); a right-hand
     side whose sum over a closed component does not vanish is reported (component, net value,
@@ -205,13 +231,16 @@ rank (allreduce in `ReloadParameterFile`, so every rank enters the reload or non
 parses it, then the ranks agree on EVERY parsed pressure setting (`PRESSURE_PARAMETERS_AGREE`,
 src_util/pressure_param_agreement.f90: MinLev, MedLev, Min/MaxIterCycle, SmoothSteps,
 IterCoarse, CrsSolverType, the two keys, the cycle type, DefImprCoarse, CrsRelaxPrm,
-Criterion1/2, RLX; allreduce min/max of the integers and of the reals, equal only when bitwise
-equal); on any difference every rank keeps the previous values (logged), so no rank can run a
+Criterion1/2, RLX; allreduce min/max of the integers and of the bit patterns of the reals:
+equal only when bitwise equal, +0 and -0 differ, a NaN is rejected); on any difference every rank keeps the previous values (logged), so no rank can run a
 different number of smoothing steps or cycles, i.e. of exchanges. A consistent reload behaves
 as before. Under a periodic operator a change of the master levels or a type outside 1-4 is
 then undone before the generic validation (which would abort on it); a new type 1-4 rebuilds
-the solver copy (same layout and gauge); the key and the check value are read once. The solves check the dimensions of
-the installed copy.
+the solver copy (same layout and gauge); the key and the check value are read once. At the
+first renewal the ranks agree on the key and the check interval (`PCO_KEYS_AGREE`, allreduce
+min/max) before anything is cached or branched on; on disagreement (a stale copy of the
+deck) every rank stops with that message, so no rank can enter a diagnostic collective alone
+later. The solves check the dimensions of the installed copy.
 
 Collective operations per periodic renewal: the pattern and extent check before the assembly
 (one pressure exchange, one allreduce); `Create_ParCMat` (as always); the knprP allreduce; the
@@ -266,7 +295,7 @@ periods do not fit the mesh (nbad: fallback or refusal).
 | master without coordinates of level MedLev+1 | fallback, logged | legacy | refused |
 | ambiguous or incomplete classes, mixed dof kinds, unequal Dirichlet flags over a class, an active axis without master images | fallback, logged (counts, first dof and its coordinates) | legacy | refused |
 | a worker coupling outside the master layout, a master row with two or no owners | fallback, logged | legacy | refused |
-| gauge undecidable at the first renewal (structural flux between 1e-10 and 1e-6, or structure and matrix inconsistent) | fallback, logged | legacy | refused |
+| gauge undecidable at the first renewal (structural flux between 256 eps and 1e-6, or structure and matrix inconsistent) | fallback, logged | legacy | refused |
 | coarse solver type 3/4 with an open component whose matrix measure is below 0.1 | fallback, logged | legacy | refused (use type 2) |
 | wrapped differs from gathered (any renewal) by more than 1e-10, or a non-finite entry | - | - | stop |
 
@@ -433,6 +462,56 @@ The EL application cannot show this: q2p1_el_pipeflow writes no dumps (the dump 
 FullC0ntact skips on the rank whose parInfo id is 0, the run logs "cannot write format.dmp"),
 so an EL restart is not available in this tree at all, with or without this change.
 
+## Final gates on c76ca927 (round 6, review round 4 fixes)
+
+Binaries `q2p1_el_pipeflow.c76ca927` (md5 e96cf7dc), `q2p1_dns_drag.c76ca927`,
+`q2p1_bench_sedimentation.c76ca927`, built on longhouse1a from the clean tree. Runs:
+`/data/warehouse17/rmuenste/runs/pcoarse/round6` (report.txt, report_extra.txt,
+margin_table.txt) and `round6_dns` (report.txt). Unit and MPI tests: job 163598, 6 of 6
+(pco-coarse-serial, pco-reload-mpi-3 and the four earlier tests). After the gate binary only
+this note and one comment in QuadSc_pco_solver.f90 changed.
+
+Not re-run on this binary (19 jobs cancelled before start on the owner's request, list in
+`round6/CANCELLED.txt`): E_A15 x 3 keys, the walled boxes F_walled06 / F_walledML / F_wallc06 /
+F_wall_per1 and F_minmed. The periodic operator is inactive or refused at validation there and
+no reload is issued, so the diff d3234201..c76ca927 is not executed apart from the start-up key
+agreement (two integer reductions); their round-5 results on 2777989b stand.
+
+| Group | Result on c76ca927 |
+|---|---|
+| Weighted EL 12 x 12 x 120 (D_m12, 40 solves) | gathered and wrapped 2.00 cycles per solve, defect ratio 1.808e-5; legacy 20 (all capped), 0.539 |
+| Operator identity (`_chk` runs: m12, s6, sp, p336, qbox9, sym, slip, slip_p336, lev2, lev3, open) | 0 failed checks; curved pipe: gathered passes (dax - gathered 5.5e-16), wrapped fails as before (0.18) and the explicit wrapped key is refused |
+| Coarse solver types 1/2/3 gathered, 2 wrapped (C_m12) | 0 failed checks |
+| Planar slip wall across the partition (B_slip, B_slip_p336) | one closed component (structural flux 8.4e-15 / 3.3e-15), 0 failed checks |
+| Stretched open boxes | type 2: open, no reference, compatible solve PASS (z10 5.2e-4, z30 0.16 per 20 cycles); type 4: fallback to legacy, logged; closed z10 type 4: one reference |
+| Bitwise, new vs base | G_s01 (3 keys), the six QBOX9 gates under `legacy`, cross_off, pipe legacy, A15 reload pairs (same values, SmoothSteps 16 -> 17): bitwise. The six QBOX9 gates with the key absent differ as intended (gathered by default) |
+| Reload under the periodic operator | type 4 -> 2 taken; MinLev change kept back, logged |
+| Mask conflict (F_conflict) | key absent: fallback, logged; explicit: refused |
+| DNS e4_l3 twin, 4 keys | every stream bitwise against base |
+| DNS d11 (QBOX9, fixed sphere) | key absent and legacy bitwise against base; gathered / wrapped 9.25 -> 3.33 cycles, drag within 6.8e-7, U_sup within 3.0e-8 of legacy |
+| DNS QBOX2 | key absent and legacy bitwise; gathered / wrapped identical to legacy at the printed digits |
+| DNS d11 stretched 1e4 (type 4) | explicit key refused (weakly open component, use type 2) |
+
+Inclined Symmetry001 top plane, z = H + d y (I_incl; the generator also tilts the y-periodic
+seam by d L_y, which stays inside the matching tolerance for these d: the gate shows the
+decision, it does not isolate the inclined trace from the seam):
+
+| d | structural flux | decision |
+|---|---|---|
+| 0 | 8.4e-15 | closed, one reference |
+| 2^-50 | 9.3e-15 | closed, one reference |
+| 2^-40 | 4.6e-13 | undecided: fallback to legacy, logged |
+| 2^-30 | 4.7e-10 | undecided: fallback (key absent), refused (explicit key) |
+| 2^-20 | 4.8e-7 | undecided: fallback to legacy, logged |
+| 2^-12 | 1.2e-4 | open, no reference, 20 of 20 checks pass |
+
+Margins of the closed decisions (bound / measured, `margin_table.txt`, every periodic run of
+both run sets): structural flux (bound 256 eps = 5.7e-14) between 4.1 (level 3, 1.40e-14) and
+303; matrix measure (bound 512 eps = 1.1e-13) between 5.8 (level 3, 1.96e-14) and 185. The 12 x
+12 x 120 box has 6.8 and 9.9 to 13. No certified case fell back. The measured values grow with
+the coarse level (1.1e-15 QBOX9, 8.4e-15 m12, 1.4e-14 level 3): a much larger coarse mesh can
+reach the bound and then falls back to legacy with the logged reason (safe, not silent).
+
 ## Cost (12 x 12 x 120 probe, 28 ranks, 20 steps, weighted EL, type 4)
 
 Master side, per renewal (the weighted EL operator renews every step; `PCO_TIMING` lines,
@@ -464,9 +543,11 @@ replaces the one after it (same cost). Round 5 (a loaded cluster): legacy 100.6 
 - DNS applications are outside the default scope (key absent = legacy, bitwise). Explicit
   gathered/wrapped is shown on d11 and QBOX2 (fixed sphere, triply periodic); moving particles
   in a periodic DNS under the new operator are not gated.
-- Runtime reload of the pressure parameters (Reload_Pres): the solver type change is covered by
-  the unit test; the collective agreement (file, parameter tuple) and the admission order are
-  not exercised by an application run.
+- Runtime reload of the pressure parameters (Reload_Pres): exercised in the application
+  (round 5 and 6: a taken type change 4 -> 2, a refused level change, consistent reloads on a
+  walled deck bitwise against the base binary); ranks reading different values (the
+  disagreement path) only through the MPI test hook (a rank-dependent file cannot be staged on
+  the shared file system).
 - Explicit admission extends to every application of the common driver whose configuration
   passes the validation (not only the gated ones); the default does not.
 - A weighted EL restart: q2p1_el_pipeflow writes no dumps (see G).
@@ -496,3 +577,16 @@ replaces the one after it (same cost). Round 5 (a loaded cluster): legacy 100.6 
 - A parse error of a reloaded pressure file (an invalid `Pres@PeriodicCoarseOperator`) stops
   every rank that reads it; a file that differs between ranks in that way would stop some ranks
   only (the parser has no error status to agree on).
+- From review round 5 (GPT-6.2 Astra, PASS; no wrong solve demonstrated for any of them):
+  - The structural test applies the component mask before the slip projection where the
+    assembly applies them in the other order; at an edge shared by an oblique Slip face and a
+    Symmetry face the two differ, which can cause an unnecessary fallback or refusal.
+  - The tolerance of the solve check scales with 1 / (weakest open matrix measure) for every
+    unknown: on a very weak outlet its PASS does not certify forward accuracy. The weak
+    constant mode should be judged separately.
+  - An inclined-plane gate with only x periodic (so that the seam is not tilted).
+  - The 0.1 cutoff of the P0 types is empirical; nothing between the working cases (0.90,
+    unit ring 0.11) and the failing one (1.2e-2) was measured.
+  - A type-2 solve directly after a refused 2 -> 4 reload request as an application run.
+- The closed bounds are tied to the measured rounding population (see the margins): a
+  resolution-aware bound would be needed before much larger coarse meshes are certified.

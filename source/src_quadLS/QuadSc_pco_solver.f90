@@ -51,8 +51,9 @@
 !          equation reads d x = 0 and not 0 x = 0.
 !        Numerical limit: a component whose physical boundary flux is below the closed bound
 !        (relative to the B entries around the element) is treated as closed and pinned. At
-!        that level the ungauged system is singular to working precision (unit test 21: the
-!        direct solve of the ungauged ring at outlet strength 2^-50 loses the mean entirely);
+!        that level the ungauged system is singular to working precision (unit test 20: with
+!        the right-hand side perturbed at the backward-error level, the direct solve of the
+!        ungauged ring at outlet strength 2^-50 has a mean error of 0.74; 5e-15 with the exact one);
 !        between the bound and 1e-6 nothing is pinned (fallback / refusal).
 !        Later refreshes keep the decision (no flipping between pinned and unpinned), check the
 !        matrix measure (a closed component above PCO_CLOSURE_TOL or an open one at or below it
