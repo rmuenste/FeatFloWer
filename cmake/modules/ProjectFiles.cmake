@@ -299,6 +299,7 @@ ${src_assemblies}
 ${CMAKE_SOURCE_DIR}/source/src_el/el_kernel.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_geometry.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_forces.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_periodic.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_halo.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_quadrature.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_diagnostics.f90
@@ -306,6 +307,7 @@ ${CMAKE_SOURCE_DIR}/source/src_el/el_momentum_model.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_va_flux.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_viscous.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_mm_operator.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_image_transfer.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_transfer.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_volume_averaged.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
@@ -332,6 +334,7 @@ set(src_quadLS_app_only
 ${CMAKE_SOURCE_DIR}/source/src_el/el_kernel.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_geometry.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_forces.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_periodic.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_halo.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_quadrature.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_diagnostics.f90
@@ -339,6 +342,7 @@ ${CMAKE_SOURCE_DIR}/source/src_el/el_momentum_model.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_va_flux.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_viscous.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_mm_operator.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_image_transfer.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_transfer.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_volume_averaged.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
@@ -439,6 +443,34 @@ if(BUILD_TESTING)
   target_include_directories(test_el_momentum_model PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
   target_compile_options(test_el_momentum_model PRIVATE ${Fortran_FLAGS})
   add_test(NAME el-momentum-model-serial COMMAND test_el_momentum_model)
+
+  # Periodic image treatment of the particle-mesh coupling (SimPar@ELPeriodicKernel = wrap):
+  # image enumeration, halo predicates, translation invariance, normalisation, continuity
+  # across a periodic plane on the synthetic mesh (one rank holding the whole lattice cell).
+  add_executable(test_el_periodic
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_el_periodic.f90)
+  target_link_libraries(test_el_periodic ff_quadLS_app el_test_helpers)
+  target_include_directories(test_el_periodic PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_el_periodic PRIVATE ${Fortran_FLAGS})
+  add_test(NAME el-periodic-serial COMMAND test_el_periodic)
+
+  # The same on a partitioned cell: neighbour graph, record exchange, owner reduction and the
+  # record operations on 4 and 8 ranks against one rank holding the cell
+  # (source/src_el/tests/test_el_periodic_mpi.f90).
+  add_executable(test_el_periodic_mpi
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_el_periodic_mpi.f90)
+  target_link_libraries(test_el_periodic_mpi ff_quadLS_app el_test_helpers)
+  target_include_directories(test_el_periodic_mpi PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_el_periodic_mpi PRIVATE ${Fortran_FLAGS})
+  if(MPIEXEC_EXECUTABLE)
+    foreach(_np 4 8)
+      add_test(NAME el-periodic-mpi-${_np}
+        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${_np}
+                ${MPIEXEC_PREFLAGS} $<TARGET_FILE:test_el_periodic_mpi>
+                ${MPIEXEC_POSTFLAGS})
+      set_tests_properties(el-periodic-mpi-${_np} PROPERTIES PROCESSORS ${_np})
+    endforeach()
+  endif()
 endif()
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
