@@ -19,7 +19,8 @@
 !     vertex class; a reproducible vector exciting every mode) the worker product with the
 !     E012_DAX arithmetic (C x + CP xp on the workers, distributed and collected with the
 !     coarse vector transfers of the multigrid) against the master products, every row,
-!     scaled by sum_j |A_ij| max|v|;
+!     scaled by sum_j |A_ij| max|v| (rows that are zero in the gathered operator must agree
+!     exactly: PCO_COMPARE_PRODUCTS);
 !   - closure (max |A e| / (|A| |e|)) and the left measure |e^T A| / (column sums of |A|) on
 !     closed components;
 !   - a compatible solve with the ungauged residual, the deviation from v up to the kernel and
@@ -35,12 +36,13 @@ MODULE pco_diagnostics
   USE def_FEAT, ONLY: MTERM, ILEV
   USE var_QuadScalar, ONLY: mg_mesh, mg_lMat, mg_CMat, mg_lPMat, mg_CPMat
   USE pco_periodic_topology, ONLY: tPcoClasses, PCO_GHOST_BUFFER_SIZE
+  USE pco_gather, ONLY: PCO_COARSE_TO_WORKERS, PCO_WORKERS_TO_COARSE
   USE pco_coarse_solver, ONLY: pco, PCO_SOLVE_CHECK, PCO_PROBE_IMBALANCE, PCO_RAW_MATVEC
 
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC :: PCO_COMPARE_OPERATORS, PCO_RUN_CHECK
+  PUBLIC :: PCO_COMPARE_OPERATORS, PCO_COMPARE_PRODUCTS, PCO_RUN_CHECK
 
 CONTAINS
 
@@ -90,6 +92,24 @@ CONTAINS
   END FUNCTION PCO_COMPARE_OPERATORS
 
   !-----------------------------------------------------------------------
+  ! max over the rows of |yd - y| / sc (sc: the row scale sum_j |A_ij| max|v| of the gathered
+  ! operator). A row with sc = 0 (a zero row of the gathered operator) is not skipped: there
+  ! the products must agree exactly, a difference counts 1 (as the entry comparison does).
+  !-----------------------------------------------------------------------
+  REAL*8 FUNCTION PCO_COMPARE_PRODUCTS(yd, y, sc) RESULT(e)
+    REAL*8, INTENT(IN) :: yd(:), y(:), sc(:)
+    INTEGER :: row
+    e = 0d0
+    DO row = 1, SIZE(sc)
+      IF (sc(row).GT.0d0) THEN
+        e = MAX(e, ABS(yd(row)-y(row))/sc(row))
+      ELSE IF (yd(row).NE.y(row)) THEN
+        e = MAX(e, 1d0)
+      END IF
+    END DO
+  END FUNCTION PCO_COMPARE_PRODUCTS
+
+  !-----------------------------------------------------------------------
   ! The check (module header). ag/aw/ai: master operators in the pco layout (dummies on the
   ! workers); weighted: ai is the per-image-mass variant (else equal to aw); crs: coarse
   ! solver type; nrenew: renewal number for the output.
@@ -136,15 +156,9 @@ CONTAINS
         DO row = 1, n
           sc(row) = SUM(ABS(ag(pco%ldA(row):pco%ldA(row+1)-1)))*vmax
         END DO
-        eg = 0d0
-        ew = 0d0
-        ei = 0d0
-        DO row = 1, n
-          IF (sc(row).LE.0d0) CYCLE
-          eg = MAX(eg, ABS(yd(row)-yg(row))/sc(row))
-          ew = MAX(ew, ABS(yd(row)-yw(row))/sc(row))
-          ei = MAX(ei, ABS(yd(row)-yi(row))/sc(row))
-        END DO
+        eg = PCO_COMPARE_PRODUCTS(yd, yg, sc)
+        ew = PCO_COMPARE_PRODUCTS(yd, yw, sc)
+        ei = PCO_COMPARE_PRODUCTS(yd, yi, sc)
         cnorm = MAXVAL(ABS(yd)/MAX(sc, 1d-300))
         WRITE(MTERM,'(A,I0,A,A,A,I0,3(A,ES10.3),A,ES10.3,A,A)') 'PCO_CHECK renewal ', nrenew, ' vector ', &
           TRIM(vname(iv)), ' rows ', n, ' dax-gathered ', eg, ' dax-wrapped ', ew, ' dax-per-image ', ei, &
@@ -297,7 +311,7 @@ CONTAINS
     ilev_save = ILEV
     ILEV = lev
     nel = mg_mesh%level(lev)%nel
-    CALL coarse_to_workers(lev, v, nel)
+    CALL PCO_COARSE_TO_WORKERS(lev, v, nel)
     IF (myid.NE.master) THEN
       ALLOCATE(xp(PCO_GHOST_BUFFER_SIZE(lev)))
       xp = 0d0
@@ -317,27 +331,8 @@ CONTAINS
       END DO
     END IF
     DEALLOCATE(xp)
-    CALL workers_to_coarse(lev, y, nel)
+    CALL PCO_WORKERS_TO_COARSE(lev, y, nel)
     ILEV = ilev_save
   END SUBROUTINE worker_product
-
-  ! the coarse vector transfers of the multigrid (QuadSc_mpi.f90), by level
-  SUBROUTINE coarse_to_workers(lev, d, nel)
-    INTEGER, INTENT(IN) :: lev, nel
-    REAL*8, INTENT(INOUT) :: d(:)
-    EXTERNAL E012GATHR_L1, E012GATHR_L2, E012GATHR_L3
-    IF (lev.EQ.1) CALL E012GATHR_L1(d, nel)
-    IF (lev.EQ.2) CALL E012GATHR_L2(d, nel)
-    IF (lev.EQ.3) CALL E012GATHR_L3(d, nel)
-  END SUBROUTINE coarse_to_workers
-
-  SUBROUTINE workers_to_coarse(lev, d, nel)
-    INTEGER, INTENT(IN) :: lev, nel
-    REAL*8, INTENT(INOUT) :: d(:)
-    EXTERNAL E012DISTR_L1, E012DISTR_L2, E012DISTR_L3
-    IF (lev.EQ.1) CALL E012DISTR_L1(d, nel)
-    IF (lev.EQ.2) CALL E012DISTR_L2(d, nel)
-    IF (lev.EQ.3) CALL E012DISTR_L3(d, nel)
-  END SUBROUTINE workers_to_coarse
 
 END MODULE pco_diagnostics

@@ -58,7 +58,7 @@ MODULE pco_gather
   END TYPE tPcoGatherPlan
 
   PUBLIC :: PCO_GATHER_BUILD, PCO_GATHER_VALUES, PCO_GATHER_UNCHANGED, PCO_GATHER_FREE
-  PUBLIC :: PCO_MASTER_ELEMENT_IDS
+  PUBLIC :: PCO_MASTER_ELEMENT_IDS, PCO_COARSE_TO_WORKERS, PCO_WORKERS_TO_COARSE
 
 CONTAINS
 
@@ -303,5 +303,28 @@ CONTAINS
     IF (ALLOCATED(plan%icol)) DEALLOCATE(plan%icol)
     plan%built = .FALSE.
   END SUBROUTINE PCO_GATHER_FREE
+
+  !-----------------------------------------------------------------------
+  ! The coarse vector transfers of the multigrid (QuadSc_mpi.f90), by level: master vector in
+  ! the master numbering (4 values per coarse element) to the workers, and back (every
+  ! element from its owner). Collective.
+  !-----------------------------------------------------------------------
+  SUBROUTINE PCO_COARSE_TO_WORKERS(lev, d, nel)
+    INTEGER, INTENT(IN) :: lev, nel
+    REAL*8, INTENT(INOUT) :: d(:)
+    EXTERNAL E012GATHR_L1, E012GATHR_L2, E012GATHR_L3
+    IF (lev.EQ.1) CALL E012GATHR_L1(d, nel)
+    IF (lev.EQ.2) CALL E012GATHR_L2(d, nel)
+    IF (lev.EQ.3) CALL E012GATHR_L3(d, nel)
+  END SUBROUTINE PCO_COARSE_TO_WORKERS
+
+  SUBROUTINE PCO_WORKERS_TO_COARSE(lev, d, nel)
+    INTEGER, INTENT(IN) :: lev, nel
+    REAL*8, INTENT(INOUT) :: d(:)
+    EXTERNAL E012DISTR_L1, E012DISTR_L2, E012DISTR_L3
+    IF (lev.EQ.1) CALL E012DISTR_L1(d, nel)
+    IF (lev.EQ.2) CALL E012DISTR_L2(d, nel)
+    IF (lev.EQ.3) CALL E012DISTR_L3(d, nel)
+  END SUBROUTINE PCO_WORKERS_TO_COARSE
 
 END MODULE pco_gather
