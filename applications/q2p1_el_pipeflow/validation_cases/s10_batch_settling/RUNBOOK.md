@@ -12,8 +12,11 @@ A wall-bounded bed on a laterally resolved fluid mesh settles 16 % faster than t
 reference because the bed is depleted next to the walls and a column-scale convection cell forms;
 three other Euler-Lagrange codes show the same cell, with excesses between 0.93 and 1.45 depending
 on code and particle-to-mesh mapping. A laterally periodic bed (no wall depletion; needs the
-wrapping kernel `SimPar@ELPeriodicKernel = wrap` of this branch) settles 4-5 % above the reference,
-in agreement with MFiX's periodic run (1.053). **The homogeneous-reference gates B1 and B2 are
+wrapping kernel `SimPar@ELPeriodicKernel = wrap` of this branch) settles 4-5 % above the reference.
+The agreement with MFiX's periodic run (1.053) stated here until 2026-11-19 is WITHDRAWN: that
+MFiX run overcounted the solid fraction at the cyclic planes; with a correct mapping the MFiX
+periodic bed convects (1.62), so the FeatFloWer periodic result stands alone (section 4,
+"Correction 2026-11-19"). **The homogeneous-reference gates B1 and B2 are
 exceeded as written; whether the one-dimensional reference is the right yardstick for a laterally
 resolved suspension is not established (owner's note, 2026-11-18). No pass is claimed and no
 solver defect is diagnosed; physical validation is inconclusive** until a trustworthy
@@ -161,7 +164,16 @@ sediment plateau exists; a 1.0-4.3 s fit includes zero positions and is meaningl
 
 Other codes, periodic [P]: MFiX (CYCLIC, GARG_2012, 8 x 8 x 80, same seed-1 bed, reference
 8.336 mm/s): core 1.053 (1.0-4.3 s), 1.052 (3.0-4.3 s), upper front 1.034, column means
--10.9 .. -7.6 mm/s. CFDEM periodic: core mean oscillates between +2 and -2 times the reference
+-10.9 .. -7.6 mm/s. **Correction 2026-11-19 [P]: this MFiX result is void.** The peer measured
+that MFiX's GARG_2012 mapping overcounts the solid fraction at cyclic planes (1.5 x in cells
+next to a plane, 2.25 x in corner columns; mean 0.191 instead of 0.150 on this deck). Its rerun
+with a correct mapping (SQUARE_DPVM 1 mm, run B_dpvm, job 163995): core 1.618 over 1.0-4.3 s
+(1.663 over 3.0-4.3 s, growing from 1.37 at 0.3 s), upper front 1.621, column means at 3 s
+-24.4 .. +13.7 mm/s, 20 % of the outer-ring particles rising: the periodic MFiX bed convects.
+No other code currently supports the FeatFloWer periodic 1.047 / 1.054. The peer's inference
+(not tested): the 8 x 8 cell periodic box may be unstable to column-scale convection in the
+cell-based codes, and the wider kernel here may suppress it. Every later mention of
+"MFiX 1.053 / 1.033 / 1.034" in this file refers to the void run. CFDEM periodic: core mean oscillates between +2 and -2 times the reference
 (undiagnosed). waLBerla particle-resolved (20 x 20 x 80 mm periodic box, 7 237 spheres):
 10 cells per diameter, 2 s: 0.74-0.75 of the reference, core still accelerating, whole-bed bounce.
 16 cells per diameter with a hydrostatic initial pressure (peer message 2026-11-18, 1 s; bounce
@@ -272,7 +284,9 @@ number.
    resolved runs are planned, and the relative agreement of MFiX and FeatFloWer on the
    laterally periodic bed (suspension speed 1.053 against 1.047 / 1.054, upper front 1.034
    against 1.085 / 1.084, 1.0-4.3 s, each against its own drag reference) is regarded as the
-   best result of the case. The gates B1 / B2 stay recorded as exceeded as written; no pass is
+   best result of the case. That basis fell the same day (Correction 2026-11-19 in section 4:
+   the MFiX number is void, the corrected MFiX bed convects at 1.62); the decision has not
+   been revisited by the owner since. The gates B1 / B2 stay recorded as exceeded as written; no pass is
    claimed.
 3. phi0 0.10 and 0.20, models B and Bfull: not run.
 4. Pressure multigrid under xy-periodicity: fixed (see 1); the repeat of the periodic runs
