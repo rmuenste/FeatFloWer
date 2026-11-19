@@ -742,7 +742,7 @@ END SUBROUTINE get_global_domain_extents
    CHARACTER cParam*8,cParam2*20
    CHARACTER cPeriodicAxis*8
    LOGICAL bOK,bOutNMAX
-   LOGICAL bPeriodicAxisSet
+   LOGICAL bPeriodicAxisSet, bNoOutflowSet
    LOGICAL el_lattice_ok
    REAL*8 dPeriodicLength
    INTEGER, ALLOCATABLE :: iPos(:)
@@ -779,6 +779,7 @@ END SUBROUTINE get_global_domain_extents
    bOutNMAX = .FALSE.
    cPeriodicAxis = " "
    bPeriodicAxisSet = .FALSE.
+   bNoOutflowSet = .FALSE.
    dPeriodicLength = 1.0d0
 
    DO
@@ -872,6 +873,7 @@ END SUBROUTINE get_global_domain_extents
          bRefFrame = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("NoOutflow")
          bNoOutflow = parse_yes_no_param(string, iEq, cName, cPar)
+         bNoOutflowSet = .TRUE.
        CASE ("Periodic")
          ! q2p1_el_pipeflow: enable a fully periodic box by setting the periodic
          ! match length to the unit-box edge (dPeriodicity defaults to 1d9 = off).
@@ -1105,7 +1107,10 @@ END SUBROUTINE get_global_domain_extents
        WRITE(*,'(A,A)') 'Invalid PeriodicAxis: ', TRIM(ADJUSTL(cPeriodicAxis))
        STOP 1
      END SELECT
-     bNoOutflow = .TRUE.
+     ! A periodic box is closed unless the deck says otherwise: an explicit SimPar@NoOutflow = No
+     ! (a periodic column with an outlet, case 11) is kept; without the key, or with Yes, the box
+     ! is closed as before.
+     IF (.NOT.(bNoOutflowSet .AND. .NOT.bNoOutflow)) bNoOutflow = .TRUE.
    END IF
 
    CALL EL_VALIDATE_CONFIG()
