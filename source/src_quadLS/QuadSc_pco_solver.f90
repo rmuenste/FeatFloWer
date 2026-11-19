@@ -26,10 +26,11 @@
 !          constrained dofs have an all-zero structural block and are two components);
 !        - closed component c: its indicator e_c (1 on the mean modes of its elements) is
 !          checked on its own, on EVERY row (inside and outside c): closure measure
-!          max_i |(C e_c)_i| / sum_j |C_ij| over the mean columns j of row i, below
-!          PCO_CLOSURE_TOL = 1e-8 (measured: closed 1.5e-15 to 2.0e-14, open 0.9 on the gated
-!          cases; the tolerance lies six orders from both); the left measure e_c^T C is formed
-!          the same way over every column;
+!          max_i |(C e_c)_i| / sum_j |C_ij| (j over ALL columns of row i: the normwise scale;
+!          a row whose mean-column entries are rounding noise - slope rows of a symmetric
+!          element - would give an O(1) ratio against the mean columns alone), below
+!          PCO_CLOSURE_TOL = 1e-8; the left measure e_c^T C over every column, scaled by the
+!          column sums of moduli;
 !        - one reference per closed component, the mean mode of its lowest element, set to
 !          zero in the SOLVER COPY only: row and column cleared except the diagonal, the
 !          right-hand-side entry zeroed (symmetric elimination of a zero value); a zero
@@ -301,8 +302,9 @@ CONTAINS
 
   !-----------------------------------------------------------------------
   ! Per component c, its indicator e_c (1 on the mean modes of its elements) on its own:
-  ! right(c) = max over EVERY row i of |(A e_c)_i| / sum over the mean columns j of |A_ij|,
-  ! left(c)  = max over EVERY column j of |(e_c^T A)_j| / sum over the mean rows i of |A_ij|.
+  ! right(c) = max over EVERY row i of |(A e_c)_i| / sum over all columns j of |A_ij|,
+  ! left(c)  = max over EVERY column j of |(e_c^T A)_j| / sum over all rows i of |A_ij|
+  ! (normwise scales: rounding noise in the mean couplings of a slope row stays small).
   ! The rows and columns outside c count as well, so a coupling of c to the rest of the
   ! system shows up in its measures (with components from nonzero connectivity it is zero).
   !-----------------------------------------------------------------------
@@ -323,6 +325,8 @@ CONTAINS
       nt = 0
       s = 0d0
       DO k = pco%ldA(row), pco%ldA(row+1)-1
+        s = s + ABS(pco%a(k))
+        ca(pco%colA(k)) = ca(pco%colA(k)) + ABS(pco%a(k))
         IF (MOD(pco%colA(k)-1,4).NE.0) CYCLE
         c = pco%comp_of((pco%colA(k)-1)/4+1)
         IF (seen(c).NE.row) THEN
@@ -332,17 +336,11 @@ CONTAINS
           touched(nt) = c
         END IF
         rs(c) = rs(c) + pco%a(k)
-        s = s + ABS(pco%a(k))
       END DO
       IF (s.GT.0d0) THEN
         DO i = 1, nt
           c = touched(i)
           right(c) = MAX(right(c), ABS(rs(c))/s)
-        END DO
-      END IF
-      IF (MOD(row-1,4).EQ.0) THEN
-        DO k = pco%ldA(row), pco%ldA(row+1)-1
-          ca(pco%colA(k)) = ca(pco%colA(k)) + ABS(pco%a(k))
         END DO
       END IF
     END DO
@@ -642,7 +640,7 @@ CONTAINS
     p0(1:pco%ns) = pco%sol
   END SUBROUTINE PCO_SOLVE_P0
 
-  ! the caller's solver kind and length against the installed copy (a structural reload that
+  ! the solver kind and length of the caller against the installed copy (a structural reload that
   ! bypassed the coordinator would index past the arrays)
   SUBROUTINE check_dims(n, reduced)
     INTEGER, INTENT(IN) :: n

@@ -50,6 +50,9 @@ PROGRAM TEST_PCO_COARSE
   !     (coincident or one period apart, per axis) links the dofs of both faces, and
   !     COUNT_PERIODIC_LINK counts the periodic ones on x (the pair classification alone
   !     says unshifted); cells of width 0.6 period get no periodic link
+  !  16 closure scale: a closed ring whose slope rows carry rounding-noise couplings to the
+  !     mean modes (1e-17, as on the symmetric 2 x 2 x 2 periodic box) stays closed (the
+  !     measure is normwise, not relative to the mean columns of the row alone)
 
   USE MPI
   USE TYPES, ONLY: tMultiMesh, TMatrix
@@ -95,6 +98,7 @@ PROGRAM TEST_PCO_COARSE
   CALL test_weak_bridge()
   CALL test_zero_reference_row()
   CALL test_link_provenance()
+  CALL test_closure_scale()
 
   CALL EL_TEST_REPORT(nf, rank, nproc, 'pco coarse')
   CALL MPI_Finalize(ierr)
@@ -872,6 +876,22 @@ CONTAINS
     CALL e013_links(p2, p1, per, nlink, nper)
     CALL EL_TEST_CHECK(nlink.EQ.9 .AND. ALL(nper.EQ.0), 'cells of width 0.6 period: ordinary links only', nf, rank)
   END SUBROUTINE test_link_provenance
+
+  !---------------------------------------------------------------------
+  SUBROUTINE test_closure_scale()
+    INTEGER :: st, crs
+    CHARACTER(len=256) :: msg
+    WRITE(*,'(A)') '16 closure scale with noise in the slope-mean couplings'
+    DO crs = 2, 4, 2
+      CALL ring_operator(6, crs, .FALSE.)
+      pco%a(PCO_BLOCK_SLOT(2, 2, 0, 1)) = 1d-17     ! slope row 2 of element 2 -> its own mean
+      pco%a(PCO_BLOCK_SLOT(5, 3, 0, 1)) = -2d-17
+      CALL PCO_REFRESH_SOLVER(st, msg)
+      CALL EL_TEST_CHECK(st.EQ.0 .AND. pco%ncomp.EQ.1 .AND. pco%nclosed.EQ.1 .AND. pco%closure_closed.LT.1d-16, &
+        'noise 1e-17 in slope-mean couplings: the ring stays closed, one reference', nf, rank)
+    END DO
+    CALL PCO_RELEASE()
+  END SUBROUTINE test_closure_scale
 
   ! unit-height hexahedron [x0,x1] x [0,1] x [0,1], vertex coordinates x1,y1,z1, x2, ...
   SUBROUTINE cell(x0, x1, v)
