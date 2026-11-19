@@ -6,8 +6,9 @@ MODULE UMFPackSolver
 !    the row-compressed matrix of the solver, handed to UMFPACK as column-compressed: UMFPACK
 !    therefore factorises and solves with the TRANSPOSE of the stored matrix (equal for the
 !    symmetric matrices it is used for; kept as it is, the certified runs depend on it). No
-!    status is checked. _Free releases only a factorisation that exists (legacy_factors_live),
-!    so callers that free before rebuilding cannot hit a handle another user owns.
+!    status is checked. Each handle is tracked on its own (legacy_symbolic_live,
+!    legacy_numeric_live: the wrapper returns -1 for a failed step); numeric factorisation is
+!    skipped after a failed symbolic analysis, and _Free releases only handles that exist.
 !
 ! 2. tUmfCSC (explicit orientation, used by the periodic coarse operator, QuadSc_pco_solver):
 !    the CSR matrix A of the caller is converted once into the compressed-COLUMN storage of A
@@ -21,7 +22,7 @@ IMPLICIT NONE
 
 INTEGER numeric, symbolic,n,nz,sys
 REAL*8 control (20), info (90)
-LOGICAL :: legacy_factors_live = .FALSE.
+LOGICAL :: legacy_symbolic_live = .FALSE., legacy_numeric_live = .FALSE.
 
 ! UMFPACK constants (umfpack.h)
 INTEGER, PARAMETER :: UMF_SYS_A = 0          ! UMFPACK_A: solve A x = b
@@ -102,10 +103,16 @@ IMPLICIT NONE
 
  ! Symbolic factorization
  call umf4sym (n, n, Mat%LdA, Mat%ColA, Ax, symbolic, control, info)
+ legacy_symbolic_live = (symbolic.GE.0)
 
- ! Numeric factorization
+ ! Numeric factorization (not on a failed symbolic analysis: its handle is -1)
+ IF (.NOT.legacy_symbolic_live) THEN
+  numeric = -1
+  legacy_numeric_live = .FALSE.
+  RETURN
+ END IF
  call umf4num (Mat%LdA, Mat%ColA, Ax, symbolic, numeric, control, info)
- legacy_factors_live = .TRUE.
+ legacy_numeric_live = (numeric.GE.0)
 
 END SUBROUTINE myUmfPack_Factorize
 !
@@ -113,15 +120,13 @@ END SUBROUTINE myUmfPack_Factorize
 !
 SUBROUTINE myUmfPack_Free()
 
- IF (.NOT.legacy_factors_live) RETURN
-
-! free the symbolic analysis
- call umf4fsym (symbolic)
+ ! free the symbolic analysis
+ IF (legacy_symbolic_live) call umf4fsym (symbolic)
+ legacy_symbolic_live = .FALSE.
 
 ! free the numeric factorization
- call umf4fnum (numeric)
-
- legacy_factors_live = .FALSE.
+ IF (legacy_numeric_live) call umf4fnum (numeric)
+ legacy_numeric_live = .FALSE.
 
 END SUBROUTINE myUmfPack_Free
 !
