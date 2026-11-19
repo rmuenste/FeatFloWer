@@ -103,7 +103,6 @@ set(src_util
   ${CMAKE_SOURCE_DIR}/source/src_util/MPI_DumpOutputProfiles.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/ReadExtrud3DParameters.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/pressure_coarse_key.f90
-  ${CMAKE_SOURCE_DIR}/source/src_util/pressure_coarse_key.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/types.f90
   ${CMAKE_SOURCE_DIR}/source/src_el/el_config.f90
   ${CMAKE_SOURCE_DIR}/source/src_el/el_fields.f90
@@ -467,6 +466,17 @@ if(BUILD_TESTING)
   target_include_directories(test_el_periodic PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
   target_compile_options(test_el_periodic PRIVATE ${Fortran_FLAGS})
   add_test(NAME el-periodic-serial COMMAND test_el_periodic)
+
+  # Periodic coarse pressure operator (QuadSc_pco_*.f90), the parts without MPI topology:
+  # UMFPACK orientation, periodic classes, element graph, type-3/4 vertex averaging, gauge and
+  # solver types 1-4. The topology-dependent parts (link census, gathered operator, identity
+  # against the worker product) are checked in the application (Pres@PeriodicCoarseCheck).
+  add_executable(test_pco_coarse
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_pco_coarse.f90)
+  target_link_libraries(test_pco_coarse ff_quadLS_app el_test_helpers)
+  target_include_directories(test_pco_coarse PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_pco_coarse PRIVATE ${Fortran_FLAGS})
+  add_test(NAME pco-coarse-serial COMMAND test_pco_coarse)
 
   # The same on a partitioned cell: neighbour graph, record exchange, owner reduction and the
   # record operations on 4 and 8 ranks against one rank holding the cell
