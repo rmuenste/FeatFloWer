@@ -351,13 +351,13 @@ product, all rows - zero rows of the gathered operator compared exactly -, check
 
 | item | run (job) | result |
 |---|---|---|
-| closed periodic cases | all `_chk` runs, D_m12_gath | one component, closed: structural flux 1.1e-15 to 1.4e-14, matrix 1.3e-15 to 2.0e-14; ungauged residual below 1e-15, reference 0 |
+| closed periodic cases | all `_chk` runs, D_m12_gath | one component, closed: structural flux 1.1e-15 to 1.4e-14, matrix 1.3e-15 to 2.0e-14 (open: 0.50; four orders or more from the structure thresholds 1e-10 / 1e-6); ungauged residual below 1e-15, reference 0 |
 | open periodic case (zmax Outflow), cubic cells | C_open_gath_chk (163412) | structural flux 0.50, matrix 0.90: open, no reference; 2.00 cycles, checks PASS |
-| open, cells stretched 10 x in z, type 4 | S_open_z10_t4 (163469) | structure open (0.50), matrix 1.2e-2: types 3/4 refused for the weakly open component, fallback to legacy logged |
+| open, cells stretched 10 x in z, type 4 | S_open_z10_t4 (163469) | structure open (0.50), matrix 1.2e-2: type 4 refused for the weakly open component, fallback to legacy logged (then as legacy: 0.86 per 20 cycles) |
 | open, stretched 10 x, type 2 | S_open_z10_t2 (163470) | gathered: open, no reference, compatible solve PASS; converges (5e-4 per 20 cycles; legacy S_open_z10_legacy 163488: 0.86) |
-| open, stretched 30 x, types 4 / 2 | S_open_z30_t4 (163478), S_open_z30_t2 (163486) | type 4 falls back to legacy (logged); type 2 gathered: open, no reference, solve PASS, 0.16 per 20 cycles |
-| closed, stretched 10 x, type 4 | S_closed_z10_t4 (163487) | closed (structure 5e-15, matrix 8.6e-15), one reference; 5e-3 per 20 cycles (legacy-type MG stagnates at this stretch) |
-| open, stretched 1e4 x (DNS d11, z images unmatched: free z faces) | d11z__gathered (163406), d11z__legacy (163408) | structure open (0.50), matrix 3.2e-11 - below the former matrix-only threshold 1e-8, which would have pinned it -: open, no reference; compatible coarse solve: ungauged residual 3e-16 (deviation 2.1e-8, conditioning); the flow itself diverges at this aspect ratio with legacy as well |
+| open, stretched 30 x, types 4 / 2 | S_open_z30_t4 (163478), S_open_z30_t2 (163486) | type 4 falls back to legacy (matrix 1.2e-3, logged); type 2 gathered: open, no reference, solve PASS, 0.16 per 20 cycles |
+| closed, stretched 10 x, type 4 | S_closed_z10_t4 (163487) | closed (structure 5.1e-15, matrix 8.6e-15), one reference; 5.1e-3 per 20 cycles (legacy at this stretch, dev5/X_sp_z10_closed4leg: 0.81) |
+| open, stretched 1e4 x (DNS d11, z images unmatched: free z faces), explicit gathered, type 4 | d11z__gathered (163406), d11z__legacy (163408) | structure open (0.50), matrix 3.2e-11 - below the former matrix-only threshold 1e-8, which would have pinned it: no reference; type 4 with this weakly open component is refused (`PCO REFUSED ... use type 2`). The legacy run of the same deck diverges in step 1 (the aspect ratio, not the coarse operator). In the development probe dev5/U_d11_z10000 (before the P0 refusal) the same decision was taken and the compatible coarse solve had the ungauged residual 3e-16 |
 | type 1 / 2 / 3 / 4 (m12) | 163405 / 163407 / 163409 / 163379 | 2.05 / 2.00 / 2.00 / 2.00 cycles |
 
 **D. End-to-end probes**
@@ -450,7 +450,8 @@ jobs; indicative). Round 3: legacy 61.8 s, gathered 32.4 s, wrapped 33.1 s (1628
 162837); wrapped gathers and compares at every renewal (0.43 s for 20 renewals including the
 assembly, comparison 0.11 s). Round 4: legacy 75.0 s, gathered 31.8 s, wrapped 32.5 s (163077,
 163072, 163075; the legacy run on a busier node); the pattern check before the assembly
-replaces the one after it (same cost). The worker-side assembly of C is the same in all three (1.16 s).
+replaces the one after it (same cost). Round 5 (a loaded cluster): legacy 100.6 s, gathered
+52.7 s, wrapped 53.4 s (163384, 163379, 163382); the structural flux is evaluated once. The worker-side assembly of C is the same in all three (1.16 s).
 
 ## Not covered
 
