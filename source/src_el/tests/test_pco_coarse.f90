@@ -32,9 +32,24 @@ PROGRAM TEST_PCO_COARSE
   !   9 vertex averaging on a 1 x 1 x n strip (more vertices, 4(n+1), than pressure unknowns,
   !     4 n): own nvt-sized workspace, exact values
   !  10 runtime change of the coarse solver type 2 -> 4 -> 1 on the installed layout
-  !  11 census classification of a coupled pair: adjacent cells of width 0.6 period share a
-  !     vertex unshifted (no periodic link), a pair across the plane needs the shift, a pair
+  !  11 census consistency classification of a coupled pair: adjacent cells of width 0.6
+  !     period share a vertex unshifted, a pair across the plane needs the shift, a pair
   !     without a shared vertex is inconsistent
+  !  12 operator comparison (wrapped validation): NaN or Inf in either operand rejected, a
+  !     small nonzero entry in a row that is zero in the oracle rejected, rounding passes
+  !  13 weak bridge: two closed rings joined by one conservative edge of weight 1e-12 are ONE
+  !     component with one reference (each indicator checked on its own); a compatible
+  !     right-hand side that needs a pressure difference of 1 across the bridge is solved
+  !     with that difference (types 2, 4); also the two separate rings keep two references
+  !  14 closed singleton whose mean row vanishes: the reference equation gets a nonzero
+  !     diagonal on the copy, full (types 1, 2) and reduced (types 3, 4) solves succeed; the
+  !     raw SOR leaves the zero row unchanged; a zero diagonal outside a reference is
+  !     refused for the SSOR types
+  !  15 link provenance of the census: two cells along a periodic axis, one per rank, share
+  !     the ordinary face x = 1/2 and the periodic face x = 0 ~ 1. The E013 acceptance test
+  !     (coincident or one period apart, per axis) links the dofs of both faces, and
+  !     COUNT_PERIODIC_LINK counts the periodic ones on x (the pair classification alone
+  !     says unshifted); cells of width 0.6 period get no periodic link
 
   USE MPI
   USE TYPES, ONLY: tMultiMesh, TMatrix
@@ -47,7 +62,10 @@ PROGRAM TEST_PCO_COARSE
   USE pco_p0_reconstruct, ONLY: PCO_SET_VERTEX_CLASSES, PCO_P0_TO_VERTEX, pco_vertex_values
   USE pco_coarse_solver, ONLY: pco, PCO_INSTALL_LAYOUT, PCO_REFRESH_SOLVER, PCO_SOLVE_CHECK, &
                                PCO_BLOCK_SLOT, PCO_NEIGHBOUR_POS, PCO_SOLVE_FULL, PCO_SOLVE_P0, &
-                               PCO_RELEASE, PCO_CHANGE_SOLVER_TYPE
+                               PCO_RELEASE, PCO_CHANGE_SOLVER_TYPE, PCO_RAW_SOR, PCO_RAW_MATVEC
+  USE pco_diagnostics, ONLY: PCO_COMPARE_OPERATORS
+  USE PP3D_MPI, ONLY: COUNT_PERIODIC_LINK
+  USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_VALUE, IEEE_QUIET_NAN, IEEE_POSITIVE_INF
   USE mg_QuadScalar, ONLY: INTPVB
   USE EL_TEST_HELPERS, ONLY: EL_TEST_INIT, EL_TEST_CHECK, EL_TEST_REPORT, BUILD_STRUCTURED_MESH, &
                              BUILD_DOF_COORDINATES
@@ -73,6 +91,10 @@ PROGRAM TEST_PCO_COARSE
   CALL test_strip_reconstruction()
   CALL test_solver_type_change()
   CALL test_pair_shift()
+  CALL test_compare_operators()
+  CALL test_weak_bridge()
+  CALL test_zero_reference_row()
+  CALL test_link_provenance()
 
   CALL EL_TEST_REPORT(nf, rank, nproc, 'pco coarse')
   CALL MPI_Finalize(ierr)
@@ -644,6 +666,212 @@ CONTAINS
     CALL PCO_PAIR_SHIFT(va, vc, per, 1d-5, shift, kind)
     CALL EL_TEST_CHECK(kind.EQ.-1, 'no finite period: no shift is tried', nf, rank)
   END SUBROUTINE test_pair_shift
+
+  !---------------------------------------------------------------------
+  SUBROUTINE test_compare_operators()
+    ! two rows: row 1 a normal row, row 2 zero in the oracle
+    INTEGER :: ld(3) = (/1, 3, 5/), kmax
+    REAL*8 :: ref(4), a(4), nan, inf, d
+    WRITE(*,'(A)') '12 operator comparison'
+    nan = IEEE_VALUE(nan, IEEE_QUIET_NAN)
+    inf = IEEE_VALUE(inf, IEEE_POSITIVE_INF)
+    ref = (/2d0, -1d0, 0d0, 0d0/)
+    a = ref
+    a(1) = a(1)*(1d0 + 1d-15)
+    d = PCO_COMPARE_OPERATORS(a, ref, kmax, ld)
+    CALL EL_TEST_CHECK(d.LT.1d-14, 'rounding difference passes', nf, rank)
+    a = ref
+    a(2) = nan
+    d = PCO_COMPARE_OPERATORS(a, ref, kmax, ld)
+    CALL EL_TEST_CHECK(d.GE.HUGE(1d0) .AND. kmax.EQ.2, 'NaN in the tested operator rejected', nf, rank)
+    a = ref
+    ref(2) = nan
+    d = PCO_COMPARE_OPERATORS(a, ref, kmax, ld)
+    CALL EL_TEST_CHECK(d.GE.HUGE(1d0) .AND. kmax.EQ.2, 'NaN in the oracle (gathered) rejected', nf, rank)
+    ref = (/2d0, -1d0, 0d0, 0d0/)
+    a = ref
+    ref(1) = inf
+    a(1) = inf
+    d = PCO_COMPARE_OPERATORS(a, ref, kmax, ld)
+    CALL EL_TEST_CHECK(d.GE.HUGE(1d0) .AND. kmax.EQ.1, 'Inf in both operands (Inf/Inf) rejected', nf, rank)
+    ref = (/2d0, -1d0, 0d0, 0d0/)
+    a = ref
+    a(1) = -inf
+    d = PCO_COMPARE_OPERATORS(a, ref, kmax, ld)
+    CALL EL_TEST_CHECK(d.GE.HUGE(1d0) .AND. kmax.EQ.1, 'Inf in the tested operator rejected', nf, rank)
+    a = ref
+    a(4) = 1d-20
+    d = PCO_COMPARE_OPERATORS(a, ref, kmax, ld)
+    CALL EL_TEST_CHECK(d.GE.1d0 .AND. kmax.EQ.4, 'small nonzero entry in a zero oracle row rejected', nf, rank)
+  END SUBROUTINE test_compare_operators
+
+  !---------------------------------------------------------------------
+  ! two_rings plus one conservative mean-mode edge of weight w between elements 1 and 4
+  SUBROUTINE bridged_rings(crs, w)
+    INTEGER, INTENT(IN) :: crs
+    REAL*8, INTENT(IN) :: w
+    CALL two_rings(crs, .FALSE.)
+    pco%a(PCO_BLOCK_SLOT(1, 1, 0, 1)) = pco%a(PCO_BLOCK_SLOT(1, 1, 0, 1)) + w
+    pco%a(PCO_BLOCK_SLOT(4, 1, 0, 1)) = pco%a(PCO_BLOCK_SLOT(4, 1, 0, 1)) + w
+    pco%a(PCO_BLOCK_SLOT(1, 1, PCO_NEIGHBOUR_POS(1, 4), 1)) = -w
+    pco%a(PCO_BLOCK_SLOT(4, 1, PCO_NEIGHBOUR_POS(4, 1), 1)) = -w
+  END SUBROUTINE bridged_rings
+
+  SUBROUTINE test_weak_bridge()
+    INTEGER :: crs, st, it, i
+    CHARACTER(len=256) :: msg
+    CHARACTER(len=32) :: lab
+    REAL*8 :: xt(24), b(24), x(24), p0(6), r(24), jump, berr
+    WRITE(*,'(A)') '13 weak bridge between two closed rings'
+    xt = 0d0
+    DO i = 4, 6
+      xt(4*(i-1)+1) = 1d0                       ! ring B one unit above ring A
+    END DO
+    DO crs = 2, 4, 2
+      WRITE(lab,'(A,I0)') 'type ', crs
+      CALL bridged_rings(crs, 1d-12)
+      CALL PCO_REFRESH_SOLVER(st, msg)
+      CALL EL_TEST_CHECK(st.EQ.0 .AND. pco%ncomp.EQ.1 .AND. pco%nclosed.EQ.1 .AND. COUNT(pco%sref).EQ.1 &
+        .AND. pco%closure_closed.LT.1d-14, TRIM(lab)//': bridge 1e-12: one component, one reference', nf, rank)
+      CALL PCO_RAW_MATVEC(xt, b)
+      it = 10
+      IF (crs.EQ.2) THEN
+        CALL PCO_SOLVE_FULL(x, b, 24, it, 1d-12, 1d0)
+      ELSE
+        CALL PCO_SOLVE_P0(b, p0, it, 1d-12, 1d0)
+        x = 0d0
+        DO i = 1, 6
+          x(4*(i-1)+1) = p0(i)
+        END DO
+        b(2:24:4) = 0d0
+        b(3:24:4) = 0d0
+        b(4:24:4) = 0d0
+      END IF
+      CALL PCO_RAW_MATVEC(x, r)
+      berr = MAXVAL(ABS(r - b))/(4d0*MAXVAL(ABS(x)))
+      jump = (SUM(x(13:24:4)) - SUM(x(1:12:4)))/3d0
+      WRITE(*,'(A,2ES11.3)') '    pressure jump across the bridge, backward error:', jump, berr
+      CALL EL_TEST_CHECK(ABS(jump - 1d0).LT.1d-2 .AND. berr.LT.1d-12, &
+        TRIM(lab)//': compatible rhs solved with the jump 1 across the weak bridge', nf, rank)
+      CALL bridged_rings(crs, 0d0)
+      CALL PCO_REFRESH_SOLVER(st, msg)
+      CALL EL_TEST_CHECK(st.EQ.0 .AND. pco%ncomp.EQ.2 .AND. COUNT(pco%sref).EQ.2, &
+        TRIM(lab)//': without the bridge: two components, two references', nf, rank)
+    END DO
+    CALL PCO_RELEASE()
+  END SUBROUTINE test_weak_bridge
+
+  !---------------------------------------------------------------------
+  ! one element, no neighbours: block diag(0, d2, d3, d4) (closed: the mean row vanishes)
+  SUBROUTINE singleton(crs, d)
+    INTEGER, INTENT(IN) :: crs
+    REAL*8, INTENT(IN) :: d(4)
+    INTEGER, ALLOCATABLE :: eptr(:), enbr(:)
+    INTEGER :: mp
+    ALLOCATE(eptr(2), enbr(1))
+    eptr = 1
+    enbr = 0
+    CALL PCO_INSTALL_LAYOUT(1, 1, eptr, enbr, crs, 2)
+    pco%a = 0d0
+    DO mp = 1, 4
+      pco%a(PCO_BLOCK_SLOT(1, mp, 0, mp)) = d(mp)
+    END DO
+  END SUBROUTINE singleton
+
+  SUBROUTINE test_zero_reference_row()
+    INTEGER :: crs, st, it
+    CHARACTER(len=256) :: msg
+    CHARACTER(len=32) :: lab
+    REAL*8 :: b(4), x(4), p0(1), xs(4)
+    WRITE(*,'(A)') '14 closed singleton with a vanishing mean row'
+    b = (/0d0, 3d0, 8d0, 15d0/)
+    DO crs = 1, 4
+      WRITE(lab,'(A,I0)') 'type ', crs
+      CALL singleton(crs, (/0d0, 3d0, 4d0, 5d0/))
+      CALL PCO_REFRESH_SOLVER(st, msg)
+      CALL EL_TEST_CHECK(st.EQ.0 .AND. pco%nclosed.EQ.1 .AND. pco%sref(1) .AND. &
+        pco%sa(pco%sldA(1)).NE.0d0, TRIM(lab)//': reference diagonal nonzero on the copy, refresh ok', nf, rank)
+      it = 50
+      IF (crs.LE.2) THEN
+        x = -1d0
+        CALL PCO_SOLVE_FULL(x, b, 4, it, 1d-13, 1d0)
+        CALL EL_TEST_CHECK(MAXVAL(ABS(x - (/0d0, 1d0, 2d0, 3d0/))).LT.1d-13, &
+          TRIM(lab)//': full solve, reference 0 and the slopes', nf, rank)
+      ELSE
+        p0 = -1d0
+        CALL PCO_SOLVE_P0(b, p0, it, 1d-13, 1d0)
+        CALL EL_TEST_CHECK(p0(1).EQ.0d0, TRIM(lab)//': reduced solve (1 x 1 zero system), reference 0', nf, rank)
+      END IF
+    END DO
+    xs = (/7d0, 0d0, 0d0, 0d0/)
+    CALL PCO_RAW_SOR(xs, b, 1, 1d0)
+    CALL EL_TEST_CHECK(xs(1).EQ.7d0 .AND. MAXVAL(ABS(xs(2:4) - (/1d0, 2d0, 3d0/))).LT.1d-15, &
+      'raw SOR: the zero row keeps its value, no division by zero', nf, rank)
+    CALL singleton(1, (/1d0, 0d0, 4d0, 5d0/))
+    CALL PCO_REFRESH_SOLVER(st, msg)
+    CALL EL_TEST_CHECK(st.EQ.4, 'type 1: zero diagonal outside a reference refused at the refresh', nf, rank)
+    CALL PCO_RELEASE()
+  END SUBROUTINE test_zero_reference_row
+
+  !---------------------------------------------------------------------
+  ! the dofs (3 x 3 Q2 positions) of the faces x = xa and x = xb of a unit cross-section cell
+  SUBROUTINE face_dofs(xa, xb, p)
+    REAL*8, INTENT(IN) :: xa, xb
+    REAL*8, INTENT(OUT) :: p(3,18)
+    INTEGER :: i, j, k
+    k = 0
+    DO i = 0, 2
+      DO j = 0, 2
+        k = k + 1
+        p(:,k) = (/xa, 0.5d0*DBLE(i), 0.5d0*DBLE(j)/)
+        p(:,k+9) = (/xb, 0.5d0*DBLE(i), 0.5d0*DBLE(j)/)
+      END DO
+    END DO
+  END SUBROUTINE face_dofs
+
+  ! the acceptance test of E013_CreateComm*: every remote dof against the local ones, first hit
+  SUBROUTINE e013_links(prem, ploc, per, nlink, nper)
+    REAL*8, INTENT(IN) :: prem(:,:), ploc(:,:), per(3)
+    INTEGER, INTENT(OUT) :: nlink, nper(3)
+    INTEGER :: i, j
+    REAL*8, PARAMETER :: eps = 1d-5
+    LOGICAL :: hit
+    nlink = 0
+    nper = 0
+    DO i = 1, SIZE(prem,2)
+      DO j = 1, SIZE(ploc,2)
+        hit = ((ABS(prem(1,i)-ploc(1,j)).LT.eps).OR.(ABS(ABS(prem(1,i)-ploc(1,j))-per(1)).LT.eps)).AND. &
+              ((ABS(prem(2,i)-ploc(2,j)).LT.eps).OR.(ABS(ABS(prem(2,i)-ploc(2,j))-per(2)).LT.eps)).AND. &
+              ((ABS(prem(3,i)-ploc(3,j)).LT.eps).OR.(ABS(ABS(prem(3,i)-ploc(3,j))-per(3)).LT.eps))
+        IF (hit) THEN
+          nlink = nlink + 1
+          CALL COUNT_PERIODIC_LINK(prem(:,i), ploc(:,j), nper)
+          EXIT
+        END IF
+      END DO
+    END DO
+  END SUBROUTINE e013_links
+
+  SUBROUTINE test_link_provenance()
+    REAL*8 :: p1(3,18), p2(3,18), va(24), vb(24), per(3)
+    INTEGER :: nlink, nper(3), shift(3), kind
+    WRITE(*,'(A)') '15 census link provenance'
+    per = (/1d0, 1d9, 1d9/)
+    CALL cell(0d0, 0.5d0, va)
+    CALL cell(0.5d0, 1d0, vb)
+    CALL PCO_PAIR_SHIFT(va, vb, per, 1d-5, shift, kind)
+    CALL EL_TEST_CHECK(kind.EQ.0, 'two cells along a periodic axis: the pair classification says unshifted', &
+      nf, rank)
+    CALL face_dofs(0d0, 0.5d0, p1)
+    CALL face_dofs(0.5d0, 1d0, p2)
+    CALL e013_links(p2, p1, per, nlink, nper)
+    CALL EL_TEST_CHECK(nlink.EQ.18 .AND. ALL(nper.EQ.(/9, 0, 0/)), &
+      'two cells, one per rank: 9 ordinary + 9 periodic links, axis x active from the provenance', nf, rank)
+    CALL face_dofs(0d0, 0.6d0, p1)
+    CALL face_dofs(0.6d0, 1.2d0, p2)
+    CALL e013_links(p2, p1, per, nlink, nper)
+    CALL EL_TEST_CHECK(nlink.EQ.9 .AND. ALL(nper.EQ.0), 'cells of width 0.6 period: ordinary links only', nf, rank)
+  END SUBROUTINE test_link_provenance
 
   ! unit-height hexahedron [x0,x1] x [0,1] x [0,1], vertex coordinates x1,y1,z1, x2, ...
   SUBROUTINE cell(x0, x1, v)
