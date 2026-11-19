@@ -120,6 +120,15 @@ MODULE pco_coarse_solver
   REAL*8, PARAMETER, PUBLIC :: PCO_FLUX_CLOSED = 1d-10, PCO_FLUX_OPEN = 1d-6
   REAL*8, PARAMETER :: MATRIX_ROUNDING = 1d-13, DRIFT_CLOSED = 1d-6
   INTEGER, PARAMETER, PUBLIC :: PCO_GAUGE_UNDECIDED = 5
+  ! types 3/4 (P0 coarse system, correction over-relaxed by 3 in crs_P0_Correction) diverge
+  ! with a weakly open component (an outlet across cells stretched in z): measured on a 12 x 12
+  ! x 120 box with a z outlet - matrix measure of the open component 0.90 (unstretched): 2
+  ! cycles per solve; 1.2e-2 (stretch 10) and 1.2e-3 (stretch 30): divergence with types 3
+  ! and 4, while type 2 converges and legacy stagnates. Below PCO_WEAK_OPEN the P0 types are
+  ! refused (status PCO_P0_WEAK_OPEN): fallback to legacy (key absent), refusal (explicit),
+  ! the previous type kept (runtime reload).
+  REAL*8, PARAMETER, PUBLIC :: PCO_WEAK_OPEN = 1d-1
+  INTEGER, PARAMETER, PUBLIC :: PCO_P0_WEAK_OPEN = 6
   ! reported right-hand-side imbalance |sum b| / sum |b| over a closed component. The coarse
   ! right-hand side of a converging cycle is a small defect whose sum is rounding of the
   ! divergence cancellation: relative imbalances up to ~2e-2 occur in compatible single-phase
@@ -131,7 +140,7 @@ MODULE pco_coarse_solver
   PUBLIC :: PCO_ACTIVE, PCO_INSTALL_LAYOUT, PCO_CHANGE_SOLVER_TYPE, PCO_REFRESH_SOLVER
   PUBLIC :: PCO_SOLVE_FULL, PCO_SOLVE_P0, PCO_RAW_SOR, PCO_RAW_MATVEC, PCO_BLOCK_SLOT
   PUBLIC :: PCO_NEIGHBOUR_POS, PCO_RELEASE, PCO_SOLVE_CHECK, PCO_PROBE_IMBALANCE
-  PUBLIC :: PCO_SET_STRUCTURAL_FLUX, PCO_P0_OVERRELAX
+  PUBLIC :: PCO_SET_STRUCTURAL_FLUX
 
 CONTAINS
 
@@ -585,6 +594,14 @@ CONTAINS
     ELSE
       CALL check_gauge()
     END IF
+    IF ((pco%solver_type.EQ.3 .OR. pco%solver_type.EQ.4) .AND. pco%nclosed.LT.pco%ncomp .AND. &
+        pco%closure_open.LT.PCO_WEAK_OPEN) THEN
+      status = PCO_P0_WEAK_OPEN
+      WRITE(msg,'(A,I0,A,ES9.2,A,ES8.1,A)') 'coarse solver type ', pco%solver_type, &
+        ' (P0 system) with a weakly open component (matrix measure ', pco%closure_open, ' below ', &
+        PCO_WEAK_OPEN, '): its over-relaxed P0 correction diverges there; use type 2 (or 1)'
+      RETURN
+    END IF
 
     DO k = 1, SIZE(pco%sa)
       pco%sa(k) = pco%a(pco%sfrom(k))
@@ -888,45 +905,6 @@ CONTAINS
       x(i) = x(i) - aux*omega/pco%sa(pco%sldA(i))
     END DO
   END SUBROUTINE ssor
-
-  !-----------------------------------------------------------------------
-  ! Over-relaxation of the P0 coarse correction of types 3/4 (crs_P0_Correction; the legacy
-  ! branch multiplies the whole P0 solution by 3, compensating the slope modes the P0 system
-  ! leaves out). The constant of an OPEN component is represented exactly by the P0 system
-  ! (no slope is missing in it) and is nearly in the kernel when the component is weakly open
-  ! (an outlet across strongly stretched cells): over-relaxing it amplifies its error by
-  ! 1 - f = -2 per cycle, which no smoother damps, and the multigrid diverges (measured: 12 x 12
-  ! x 120 box with a z outlet, cells stretched 10 x in z, types 3 and 4; type 2 converges).
-  ! Here: closed components as the legacy branch (p0 = f p0: their constant is in the kernel);
-  ! open components p0 = m + f (p0 - m), m the mean of p0 over the component. Master.
-  !-----------------------------------------------------------------------
-  SUBROUTINE PCO_P0_OVERRELAX(p0, f)
-    REAL*8, INTENT(INOUT) :: p0(:)
-    REAL*8, INTENT(IN) :: f
-    REAL*8, ALLOCATABLE :: sm(:), cn(:)
-    INTEGER :: e, c
-    IF (pco%nclosed.EQ.pco%ncomp) THEN
-      p0 = f*p0
-      RETURN
-    END IF
-    ALLOCATE(sm(pco%ncomp), cn(pco%ncomp))
-    sm = 0d0
-    cn = 0d0
-    DO e = 1, pco%nel
-      c = pco%comp_of(e)
-      sm(c) = sm(c) + p0(e)
-      cn(c) = cn(c) + 1d0
-    END DO
-    DO e = 1, pco%nel
-      c = pco%comp_of(e)
-      IF (pco%comp_closed(c)) THEN
-        p0(e) = f*p0(e)
-      ELSE
-        p0(e) = sm(c)/cn(c) + f*(p0(e) - sm(c)/cn(c))
-      END IF
-    END DO
-    DEALLOCATE(sm, cn)
-  END SUBROUTINE PCO_P0_OVERRELAX
 
   !-----------------------------------------------------------------------
   ! SOR sweeps with the raw (ungauged) operator: the smoothing of the type-3/4 coarse

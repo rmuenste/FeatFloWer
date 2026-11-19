@@ -55,7 +55,9 @@ PROGRAM TEST_PCO_COARSE
   !     measure is normwise, not relative to the mean columns of the row alone)
   !  17 gauge from the structure: a weak outlet (open diagonal 2 + 1e-9, matrix closure
   !     2.5e-10, below the matrix tolerance) with a structural flux of order one stays open,
-  !     no reference, and the exact solution (one on every mean mode) is returned (types 2, 4);
+  !     no reference, and the exact solution (one on every mean mode) is returned (type 2);
+  !     the P0 types 3/4 are refused for it (their over-relaxed P0 correction diverges at weak
+  !     outlets, measured), a well open ring is accepted;
   !     next to it the closed ring with noise stays closed (16). Inconsistent or undecidable
   !     cases set no reference and return PCO_GAUGE_UNDECIDED: structurally closed but the
   !     operator does not annihilate the constant; structurally open but the constant is in
@@ -65,8 +67,6 @@ PROGRAM TEST_PCO_COARSE
   !  19 coordinate tolerance per coordinate (as the E013 links): an image offset by 0.8
   !     DEpsPrec in two coordinates is coincident for the pair check and the master classes;
   !     1.2 DEpsPrec in one coordinate is not
-  !  20 P0 over-relaxation of types 3/4: an open component keeps its mean (only the deviation
-  !     is multiplied by 3), a closed one is multiplied by 3 as in the legacy branch
 
   USE MPI
   USE TYPES, ONLY: tMultiMesh, TMatrix
@@ -80,7 +80,7 @@ PROGRAM TEST_PCO_COARSE
   USE pco_coarse_solver, ONLY: pco, PCO_INSTALL_LAYOUT, PCO_REFRESH_SOLVER, PCO_SOLVE_CHECK, &
                                PCO_BLOCK_SLOT, PCO_NEIGHBOUR_POS, PCO_SOLVE_FULL, PCO_SOLVE_P0, &
                                PCO_RELEASE, PCO_CHANGE_SOLVER_TYPE, PCO_RAW_SOR, PCO_RAW_MATVEC, &
-                               PCO_SET_STRUCTURAL_FLUX, PCO_GAUGE_UNDECIDED, PCO_P0_OVERRELAX
+                               PCO_SET_STRUCTURAL_FLUX, PCO_GAUGE_UNDECIDED, PCO_P0_WEAK_OPEN
   USE pco_diagnostics, ONLY: PCO_COMPARE_OPERATORS, PCO_COMPARE_PRODUCTS
   USE PP3D_MPI, ONLY: COUNT_PERIODIC_LINK, DEpsPrec
   USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_VALUE, IEEE_QUIET_NAN, IEEE_POSITIVE_INF
@@ -117,7 +117,6 @@ PROGRAM TEST_PCO_COARSE
   CALL test_structural_gauge()
   CALL test_compare_products()
   CALL test_componentwise_tolerance()
-  CALL test_p0_overrelax()
 
   CALL EL_TEST_REPORT(nf, rank, nproc, 'pco coarse')
   CALL MPI_Finalize(ierr)
@@ -932,31 +931,36 @@ CONTAINS
     INTEGER :: st, crs, it
     CHARACTER(len=256) :: msg
     CHARACTER(len=32) :: lab
-    REAL*8 :: xt(24), b(24), x(24), p0(6)
+    REAL*8 :: xt(24), b(24), x(24)
     WRITE(*,'(A)') '17 gauge from the structure, the matrix as a consistency check'
     xt = 0d0
     xt(1:24:4) = 1d0
-    DO crs = 2, 4, 2
+    crs = 2
+    WRITE(lab,'(A,I0)') 'type ', crs
+    CALL ring_operator(6, crs, .TRUE.)
+    pco%a(PCO_BLOCK_SLOT(1, 1, 0, 1)) = 2d0 + 1d-9          ! weak outlet
+    CALL PCO_REFRESH_SOLVER(st, msg)
+    WRITE(*,'(A,ES11.3)') '    weak outlet: matrix closure measure', pco%closure_open
+    CALL EL_TEST_CHECK(st.EQ.0 .AND. pco%nclosed.EQ.0 .AND. .NOT.ANY(pco%sref) .AND. pco%closure_open.LT.1d-8, &
+      TRIM(lab)//': weak outlet (matrix closure below 1e-8) structurally open: no reference', nf, rank)
+    CALL PCO_RAW_MATVEC(xt, b)
+    it = 10
+    CALL PCO_SOLVE_FULL(x, b, 24, it, 1d-12, 1d0)
+    WRITE(*,'(A,ES11.3)') '    weak outlet: max |x - 1| on the means', MAXVAL(ABS(x(1:24:4) - 1d0))
+    CALL EL_TEST_CHECK(MAXVAL(ABS(x(1:24:4) - 1d0)).LT.1d-5, &
+      TRIM(lab)//': weak outlet solved: the exact solution 1 (a reference would return 0)', nf, rank)
+    ! the P0 types are refused for a weakly open component
+    DO crs = 3, 4
       WRITE(lab,'(A,I0)') 'type ', crs
       CALL ring_operator(6, crs, .TRUE.)
-      pco%a(PCO_BLOCK_SLOT(1, 1, 0, 1)) = 2d0 + 1d-9          ! weak outlet
+      pco%a(PCO_BLOCK_SLOT(1, 1, 0, 1)) = 2d0 + 1d-9
       CALL PCO_REFRESH_SOLVER(st, msg)
-      WRITE(*,'(A,ES11.3)') '    weak outlet: matrix closure measure', pco%closure_open
-      CALL EL_TEST_CHECK(st.EQ.0 .AND. pco%nclosed.EQ.0 .AND. .NOT.ANY(pco%sref) .AND. pco%closure_open.LT.1d-8, &
-        TRIM(lab)//': weak outlet (matrix closure below 1e-8) structurally open: no reference', nf, rank)
-      CALL PCO_RAW_MATVEC(xt, b)
-      it = 10
-      IF (crs.EQ.2) THEN
-        CALL PCO_SOLVE_FULL(x, b, 24, it, 1d-12, 1d0)
-      ELSE
-        CALL PCO_SOLVE_P0(b, p0, it, 1d-12, 1d0)
-        x = 0d0
-        x(1:24:4) = p0
-      END IF
-      WRITE(*,'(A,ES11.3)') '    weak outlet: max |x - 1| on the means', MAXVAL(ABS(x(1:24:4) - 1d0))
-      CALL EL_TEST_CHECK(MAXVAL(ABS(x(1:24:4) - 1d0)).LT.1d-5, &
-        TRIM(lab)//': weak outlet solved: the exact solution 1 (a reference would return 0)', nf, rank)
+      CALL EL_TEST_CHECK(st.EQ.PCO_P0_WEAK_OPEN .AND. pco%nclosed.EQ.0, &
+        TRIM(lab)//': weakly open component with the P0 system: refused (use type 2)', nf, rank)
     END DO
+    CALL ring_operator(6, 4, .TRUE.)                          ! well open (0.11): accepted
+    CALL PCO_REFRESH_SOLVER(st, msg)
+    CALL EL_TEST_CHECK(st.EQ.0, 'type 4: a well open component (matrix measure 0.11) is accepted', nf, rank)
     ! structurally closed, but the operator does not annihilate the constant
     CALL ring_operator(6, 2, .TRUE.)
     CALL set_flux(6, 0)
@@ -1021,21 +1025,6 @@ CONTAINS
     CALL EL_TEST_CHECK(cls%nincomplete.GE.1, 'master classes: 1.2 tol in one coordinate is not coincident', &
       nf, rank)
   END SUBROUTINE test_componentwise_tolerance
-
-  !---------------------------------------------------------------------
-  SUBROUTINE test_p0_overrelax()
-    INTEGER :: st
-    CHARACTER(len=256) :: msg
-    REAL*8 :: p0(6)
-    WRITE(*,'(A)') '20 P0 over-relaxation'
-    CALL two_rings(4, .TRUE.)                  ! ring A (1-3) open, ring B (4-6) closed
-    CALL PCO_REFRESH_SOLVER(st, msg)
-    p0 = (/1d0, 2d0, 3d0, 4d0, 5d0, 6d0/)
-    CALL PCO_P0_OVERRELAX(p0, 3d0)
-    CALL EL_TEST_CHECK(st.EQ.0 .AND. MAXVAL(ABS(p0 - (/-1d0, 2d0, 5d0, 12d0, 15d0, 18d0/))).LT.1d-14, &
-      'open component: mean kept, deviation x3; closed component: x3', nf, rank)
-    CALL PCO_RELEASE()
-  END SUBROUTINE test_p0_overrelax
 
   ! unit-height hexahedron [x0,x1] x [0,1] x [0,1], vertex coordinates x1,y1,z1, x2, ...
   SUBROUTINE cell(x0, x1, v)

@@ -4,7 +4,7 @@ USE PP3D_MPI, ONLY:E011DMat,myid,showID,MPI_COMM_WORLD,& !E011Sum,
                    COMM_Maximum,COMM_SUMM,COMM_NLComplete
 USE var_QuadScalar
 USE UMFPackSolver, ONLY : myUmfPack_Solve,myUmfPack_Free
-USE pco_coarse_solver, ONLY : PCO_ACTIVE,PCO_SOLVE_FULL,PCO_SOLVE_P0,PCO_RAW_SOR,PCO_P0_OVERRELAX
+USE pco_coarse_solver, ONLY : PCO_ACTIVE,PCO_SOLVE_FULL,PCO_SOLVE_P0,PCO_RAW_SOR
 USE pco_p0_reconstruct, ONLY : PCO_P0_TO_VERTEX,pco_vertex_values
 #ifdef MKL_PARDISO_AVAIL
 USE PardisoSolver, ONLY : myPardiso_Solve,myPardiso_Free
@@ -2584,12 +2584,7 @@ SUBROUTINE crs_P0_Correction(p0)
 REAL*8 p0(:)
 EXTERNAL E011
 
- IF (PCO_ACTIVE()) THEN
-  ! the over-relaxation 3 of the legacy branch, the constant of an open component excluded
-  CALL PCO_P0_OVERRELAX(p0, 3d0)
- ELSE
-  p0 = 3d0*p0
- END IF
+ p0 = 3d0*p0
  IF (PCO_ACTIVE()) THEN
   ! periodic averaging into its own nvt-sized arrays (pco_vertex_values)
   CALL PCO_P0_TO_VERTEX(p0,&

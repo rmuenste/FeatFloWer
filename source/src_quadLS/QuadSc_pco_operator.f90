@@ -99,7 +99,8 @@ MODULE pco_coarse_operator
   USE pco_wrap, ONLY: tPcoWrap, PCO_WRAP_BUILD, PCO_WRAP_ASSEMBLE, PCO_MASS_ORDINARY, &
                       PCO_MASS_EL_WEIGHTED, PCO_MASS_EL_PER_IMAGE
   USE pco_coarse_solver, ONLY: pco, PCO_INSTALL_LAYOUT, PCO_REFRESH_SOLVER, PCO_RELEASE, &
-                               PCO_CHANGE_SOLVER_TYPE, PCO_SET_STRUCTURAL_FLUX, PCO_GAUGE_UNDECIDED
+                               PCO_CHANGE_SOLVER_TYPE, PCO_SET_STRUCTURAL_FLUX, PCO_GAUGE_UNDECIDED, &
+                               PCO_P0_WEAK_OPEN
   USE pco_p0_reconstruct, ONLY: PCO_SET_VERTEX_CLASSES
   USE pco_diagnostics, ONLY: PCO_COMPARE_OPERATORS, PCO_RUN_CHECK
 
@@ -495,9 +496,9 @@ CONTAINS
     CALL MPI_Bcast(status, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
     IF (status.NE.0) THEN
       CALL MPI_Bcast(msg, LEN(msg), MPI_CHARACTER, 0, MPI_COMM_WORLD, ierr)
-      IF (status.EQ.PCO_GAUGE_UNDECIDED .AND. st%nrenew.EQ.1) THEN
+      IF ((status.EQ.PCO_GAUGE_UNDECIDED .OR. status.EQ.PCO_P0_WEAK_OPEN) .AND. st%nrenew.EQ.1) THEN
         ! nothing was pinned: refusal (explicit key) or fallback to legacy (key absent)
-        CALL fail(st%mode, 'gauge of the coarse pressure operator: '//TRIM(msg))
+        CALL fail(st%mode, 'coarse pressure operator: '//TRIM(msg))
         RETURN
       END IF
       CALL stop_all('PCO STOP (renewal): '//TRIM(msg))
@@ -720,6 +721,20 @@ CONTAINS
     msg = ' '
     IF (myid.EQ.master) CALL PCO_CHANGE_SOLVER_TYPE(crs_new, status, msg)
     CALL MPI_Bcast(status, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+    IF (status.EQ.PCO_P0_WEAK_OPEN) THEN
+      ! not suitable for this operator: back to the previous type, logged
+      CALL MPI_Bcast(msg, LEN(msg), MPI_CHARACTER, 0, MPI_COMM_WORLD, ierr)
+      status = 0
+      IF (myid.EQ.master) CALL PCO_CHANGE_SOLVER_TYPE(st%crs, status, msg)
+      CALL MPI_Bcast(status, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+      IF (status.NE.0) THEN
+        CALL MPI_Bcast(msg, LEN(msg), MPI_CHARACTER, 0, MPI_COMM_WORLD, ierr)
+        CALL stop_all('PCO STOP (reload of the coarse solver type): '//TRIM(msg))
+      END IF
+      LinSc%prm%MGprmIn%CrsSolverType = st%crs
+      CALL say('PCO: the reloaded coarse solver type is not taken - '//TRIM(msg)//'; previous type kept')
+      RETURN
+    END IF
     IF (status.NE.0) THEN
       CALL MPI_Bcast(msg, LEN(msg), MPI_CHARACTER, 0, MPI_COMM_WORLD, ierr)
       CALL stop_all('PCO STOP (reload of the coarse solver type): '//TRIM(msg))
