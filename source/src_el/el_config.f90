@@ -314,6 +314,10 @@ MODULE EL_CONFIG
   ! without the hydrostatic part, buoyant bed weight, floor contact force, bed heights, porosity
   ! of the bed window). Diagnostic only; no effect on the solution.
   INTEGER :: el_bed_audit_freq = 0
+  ! SimPar@ELVelocityAuditFreq = N (default 0 = off): every N steps the EL_UMAX_AUDIT line
+  ! (EL_VELOCITY_AUDIT: location, components and local porosity of the fastest fluid dof,
+  ! smallest element porosity, inlet-plane porosity). Diagnostic only.
+  INTEGER :: el_velocity_audit_freq = 0
   ! Mesoscale lane-mode filter for periodic settling boxes: each step,
   ! subtract from u_z its zero-mean x-binned and y-binned plane averages
   ! (the gravest "lane" modes of the two-way-coupled concentration
@@ -582,6 +586,10 @@ CONTAINS
       WRITE(*,*) 'ELBedAuditFreq must be >= 0 (0 = off).'
       STOP 1
     END IF
+    IF (el_velocity_audit_freq.LT.0) THEN
+      WRITE(*,*) 'ELVelocityAuditFreq must be >= 0 (0 = off).'
+      STOP 1
+    END IF
 
     IF (el_tavg_window.LE.0.0d0 .OR. el_tavg_window.GT.1.0d0) THEN
       WRITE(*,*) 'ELTAvgWindow must be in (0,1].'
@@ -641,6 +649,8 @@ CONTAINS
     CALL EL_PRINT_INLET_TABLE(mfile)
     IF (el_bed_audit_freq.GT.0) WRITE(mfile,'(A,I0)') 'EL bed audit freq         = ', &
       el_bed_audit_freq
+    IF (el_velocity_audit_freq.GT.0) WRITE(mfile,'(A,I0)') 'EL velocity audit freq    = ', &
+      el_velocity_audit_freq
 
     IF (mterm.NE.mfile) THEN
       WRITE(mterm,'(A,A)') 'EL kernel                 = ', TRIM(el_kernel)
@@ -689,6 +699,8 @@ CONTAINS
       CALL EL_PRINT_INLET_TABLE(mterm)
       IF (el_bed_audit_freq.GT.0) WRITE(mterm,'(A,I0)') 'EL bed audit freq         = ', &
         el_bed_audit_freq
+      IF (el_velocity_audit_freq.GT.0) WRITE(mterm,'(A,I0)') 'EL velocity audit freq    = ', &
+        el_velocity_audit_freq
     END IF
 
   END SUBROUTINE EL_PRINT_CONFIG

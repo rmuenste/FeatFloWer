@@ -27,8 +27,9 @@ use EL_CONFIG, only: el_apply_fluid_feedback, el_prescribed_field, el_shear_rate
                      el_prescribed_umax, el_cylinder_center, el_cylinder_radius, &
                      el_cylinder_axis, el_initial_field
 use EL_CONFIG, only: el_write_diagnostics, el_fluid_gravity, el_meso_filter
-use EL_CONFIG, only: el_bed_audit_freq
+use EL_CONFIG, only: el_bed_audit_freq, el_velocity_audit_freq
 use EL_BED_AUDIT, only: EL_WRITE_BED_AUDIT
+use EL_VELOCITY_AUDIT, only: EL_WRITE_VELOCITY_AUDIT
 use EL_GEOMETRY, only: EL_DOMAIN_Z_CENTER
 use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS, EL_WRITE_PARTICLE_LOG, &
                           EL_CAPTURE_MOMENTUM_REFERENCE, el_momentum_reference_set, &
@@ -486,6 +487,19 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
     ! plane pressures after the fluid solve of this step, bed weight, heights, porosity.
     IF (el_bed_audit_freq.GT.0) CALL EL_WRITE_BED_AUDIT(LinSc%valP(NLMAX)%x, timens, tstep, &
       mfile, itns, mg_mesh, NLMAX, Properties%Density(1), Properties%Gravity)
+    ! Velocity audit (SimPar@ELVelocityAuditFreq > 0, deck-only guard; collective over the
+    ! workers): where the fastest fluid dof sits and the porosity there.
+    IF (el_velocity_audit_freq.GT.0) THEN
+      IF (MOD(itns, el_velocity_audit_freq).EQ.0) THEN
+        ILEV = NLMAX
+        CALL SETLEV(2)
+        CALL SetUp_myQ2Coor(mg_mesh%level(ILEV)%dcorvg, mg_mesh%level(ILEV)%dcorag, &
+                            mg_mesh%level(ILEV)%kvert, mg_mesh%level(ILEV)%karea, &
+                            mg_mesh%level(ILEV)%kedge)
+        CALL EL_WRITE_VELOCITY_AUDIT(QuadSc%valU, QuadSc%valV, QuadSc%valW, myQ2Coor, &
+          QuadSc%ndof, timens, mfile, itns, mg_mesh, NLMAX)
+      END IF
+    END IF
   END IF
 
 END SUBROUTINE Transport_q2p1_UxyzP_el

@@ -307,6 +307,7 @@ ${CMAKE_SOURCE_DIR}/source/src_el/el_halo.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_quadrature.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_diagnostics.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_bed_audit.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_velocity_audit.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_momentum_model.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_va_flux.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_viscous.f90
@@ -350,6 +351,7 @@ ${CMAKE_SOURCE_DIR}/source/src_el/el_halo.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_quadrature.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_diagnostics.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_bed_audit.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_velocity_audit.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_momentum_model.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_va_flux.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_viscous.f90
