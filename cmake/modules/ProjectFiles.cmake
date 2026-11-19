@@ -103,6 +103,7 @@ set(src_util
   ${CMAKE_SOURCE_DIR}/source/src_util/MPI_DumpOutputProfiles.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/ReadExtrud3DParameters.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/pressure_coarse_key.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/pressure_param_agreement.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/types.f90
   ${CMAKE_SOURCE_DIR}/source/src_el/el_config.f90
   ${CMAKE_SOURCE_DIR}/source/src_el/el_fields.f90
@@ -479,6 +480,22 @@ if(BUILD_TESTING)
   target_include_directories(test_pco_coarse PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
   target_compile_options(test_pco_coarse PRIVATE ${Fortran_FLAGS})
   add_test(NAME pco-coarse-serial COMMAND test_pco_coarse)
+
+  # Collective agreement on reloaded pressure parameters (src_util/pressure_param_agreement.f90)
+  # on 3 ranks: equal values stay; a value changed on one rank (test hook: the parsed tuple is
+  # perturbed on that rank) restores the previous values on every rank.
+  add_executable(test_pco_reload
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_pco_reload.f90)
+  target_link_libraries(test_pco_reload ff_quadLS_app el_test_helpers)
+  target_include_directories(test_pco_reload PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_pco_reload PRIVATE ${Fortran_FLAGS})
+  if(MPIEXEC_EXECUTABLE)
+    add_test(NAME pco-reload-mpi-3
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 3
+              ${MPIEXEC_PREFLAGS} $<TARGET_FILE:test_pco_reload>
+              ${MPIEXEC_POSTFLAGS})
+    set_tests_properties(pco-reload-mpi-3 PROPERTIES PROCESSORS 3)
+  endif()
 
   # The same on a partitioned cell: neighbour graph, record exchange, owner reduction and the
   # record operations on 4 and 8 ranks against one rank holding the cell

@@ -41,6 +41,8 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
 !             Reload_SimPar, Reload_Prop
 !-------------------------------------------------------------------------------
  USE pco_coarse_operator, ONLY : PCO_PRESSURE_PARAMETERS_RELOADED, PCO_PRESSURE_RELOAD_ADMIT
+ USE pressure_param_agreement, ONLY : PRESSURE_PARAMETERS_AGREE
+ USE types, ONLY : tParamP
  USE PP3D_MPI, ONLY : myid,master,showid,ShareValueK_myMPI,&
                       Barrier_myMPI,ShareValueC_myMPI
  USE Transport_Q2P1, ONLY : myDataFile,QuadSc,LinSc,Properties
@@ -54,7 +56,8 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
  CHARACTER(len=100) :: command, cvalue
  CHARACTER(len=7)   :: CSimPar
  INTEGER :: iEnd(1), iCmnd(1), iExist(1), iPos, iFile, istat
- LOGICAL :: bExist
+ LOGICAL :: bExist, bAgreed
+ TYPE(tParamP) :: PresPrmOld
  DOUBLE PRECISION :: TSTEP, THETA, THSTEP, TIMENS, EPSNS
  INTEGER :: NITNS, ITNS
  COMMON /NSPAR/  TSTEP,THETA,THSTEP,TIMENS,EPSNS,NITNS,ITNS
@@ -186,9 +189,19 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
    CASE ("Reload_Pres")
     CALL ReloadParameterFile(MFILE, MTERM, cvalue, "Pressure", bExist)
     IF (bExist) THEN
+     PresPrmOld = LinSc%prm
      CALL GetPresParameters(LinSc%prm, LinSc%cName, MFILE)
-     ! a periodic coarse operator agrees on the reloaded values and undoes what it cannot take
-     ! (before the generic validation, which would abort on it)
+     ! every rank parsed the file on its own: the ranks must run with the same settings (the
+     ! number of smoothing steps or cycles decides the number of exchanges of each rank)
+     CALL PRESSURE_PARAMETERS_AGREE(LinSc%prm, PresPrmOld, bAgreed)
+     IF (.NOT.bAgreed .AND. myid == showid) THEN
+       WRITE(MTERM,'(A)') 'WARNING: the ranks read different pressure parameters from the reload file; '// &
+                          'previous values kept on every rank'
+       WRITE(MFILE,'(A)') 'WARNING: the ranks read different pressure parameters from the reload file; '// &
+                          'previous values kept on every rank'
+     END IF
+     ! a periodic coarse operator undoes what it cannot take (before the generic validation,
+     ! which would abort on it)
      CALL PCO_PRESSURE_RELOAD_ADMIT()
      ! A runtime reload must not be able to smuggle in an unsupported type.
      CALL ValidateSolverTypes(QuadSc%prm%MGprmIn%CrsSolverType,&
