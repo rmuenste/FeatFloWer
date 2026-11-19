@@ -309,6 +309,11 @@ MODULE EL_CONFIG
   ! bitwise as before.
   CHARACTER(LEN=256) :: el_inlet_table_file = ' '
   TYPE(tElInletTable) :: el_inlet_table
+  ! SimPar@ELBedAuditFreq = N (default 0 = off): every N steps the EL_BED_AUDIT line (EL_BED_AUDIT
+  ! module: area-mean pressure on the inlet and outlet planes, their difference with and
+  ! without the hydrostatic part, buoyant bed weight, floor contact force, bed heights, porosity
+  ! of the bed window). Diagnostic only; no effect on the solution.
+  INTEGER :: el_bed_audit_freq = 0
   ! Mesoscale lane-mode filter for periodic settling boxes: each step,
   ! subtract from u_z its zero-mean x-binned and y-binned plane averages
   ! (the gravest "lane" modes of the two-way-coupled concentration
@@ -573,6 +578,11 @@ CONTAINS
     END IF
     CALL EL_LOAD_INLET_TABLE()
 
+    IF (el_bed_audit_freq.LT.0) THEN
+      WRITE(*,*) 'ELBedAuditFreq must be >= 0 (0 = off).'
+      STOP 1
+    END IF
+
     IF (el_tavg_window.LE.0.0d0 .OR. el_tavg_window.GT.1.0d0) THEN
       WRITE(*,*) 'ELTAvgWindow must be in (0,1].'
       STOP 1
@@ -629,6 +639,8 @@ CONTAINS
     WRITE(mfile,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
     WRITE(mfile,'(A,3ES14.6)') 'EL inlet u0 / u1 / ramp   = ', el_inlet_u0, el_inlet_u1, el_inlet_tramp
     CALL EL_PRINT_INLET_TABLE(mfile)
+    IF (el_bed_audit_freq.GT.0) WRITE(mfile,'(A,I0)') 'EL bed audit freq         = ', &
+      el_bed_audit_freq
 
     IF (mterm.NE.mfile) THEN
       WRITE(mterm,'(A,A)') 'EL kernel                 = ', TRIM(el_kernel)
@@ -675,6 +687,8 @@ CONTAINS
       WRITE(mterm,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
       WRITE(mterm,'(A,3ES14.6)') 'EL inlet u0 / u1 / ramp   = ', el_inlet_u0, el_inlet_u1, el_inlet_tramp
       CALL EL_PRINT_INLET_TABLE(mterm)
+      IF (el_bed_audit_freq.GT.0) WRITE(mterm,'(A,I0)') 'EL bed audit freq         = ', &
+        el_bed_audit_freq
     END IF
 
   END SUBROUTINE EL_PRINT_CONFIG

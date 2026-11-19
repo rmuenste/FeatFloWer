@@ -27,6 +27,8 @@ use EL_CONFIG, only: el_apply_fluid_feedback, el_prescribed_field, el_shear_rate
                      el_prescribed_umax, el_cylinder_center, el_cylinder_radius, &
                      el_cylinder_axis, el_initial_field
 use EL_CONFIG, only: el_write_diagnostics, el_fluid_gravity, el_meso_filter
+use EL_CONFIG, only: el_bed_audit_freq
+use EL_BED_AUDIT, only: EL_WRITE_BED_AUDIT
 use EL_GEOMETRY, only: EL_DOMAIN_Z_CENTER
 use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS, EL_WRITE_PARTICLE_LOG, &
                           EL_CAPTURE_MOMENTUM_REFERENCE, el_momentum_reference_set, &
@@ -480,6 +482,10 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
       Properties%Density(1), EL_CLOSURE_VISCOSITY(Properties%Viscosity(1)), &
       el_field_data%epsilon_f)
     CALL EL_WRITE_PARTICLE_LOG(timens, itns)
+    ! Bed audit (SimPar@ELBedAuditFreq > 0, deck-only guard; collective over the workers):
+    ! plane pressures after the fluid solve of this step, bed weight, heights, porosity.
+    IF (el_bed_audit_freq.GT.0) CALL EL_WRITE_BED_AUDIT(LinSc%valP(NLMAX)%x, timens, tstep, &
+      mfile, itns, mg_mesh, NLMAX, Properties%Density(1), Properties%Gravity)
   END IF
 
 END SUBROUTINE Transport_q2p1_UxyzP_el
