@@ -82,6 +82,7 @@ PROGRAM TEST_EL_TRANSFER
   CALL test_wall_volume_conservation(failures)
   CALL test_force_spread_conservation(failures)
   CALL test_drag_B_spread_conservation(failures)
+  CALL test_drag_B_hrz_weights(failures)
   CALL test_feedback_source_capture(failures)
   CALL test_feedback_source_apply(failures)
   CALL test_zero_force(failures)
@@ -217,6 +218,48 @@ CONTAINS
     CALL check(ABS(deposited-drag_b).LE.1.0d-10*(ABS(drag_b)+1.0d0), &
                'drag_B spreading: sum_a B_a = B_i', nf)
   END SUBROUTINE test_drag_B_spread_conservation
+
+  ! SimPar@ELDragImplicitWeights = hrz: a small kernel inside one element, centred where some Q2
+  ! basis functions are negative. Row-sum weights give a negative nodal drag coefficient there
+  ! (the anti-damping of case 11); the HRZ weights are non-negative and keep the total, and the
+  ! split partner is deposited with the same weights (EL_DEPOSIT_PARTICLE, argument split).
+  SUBROUTINE test_drag_B_hrz_weights(nf)
+    INTEGER, INTENT(INOUT) :: nf
+    TYPE(tElParticleRecord) :: p
+    REAL*8 :: sample(EL_SAMPLE_SIZE), force(3), split(3), drag_b, rowsum_min, rowsum_total
+    REAL*8, ALLOCATABLE :: rowsum_b(:)
+    p%position = (/0.32d0, 0.33d0, 0.34d0/)
+    p%radius = 0.02d0                 ! kernel radius 0.1, mostly inside the element [0.25, 0.5]^3
+    p%density = 1.0d0
+    force = 0.0d0
+    drag_b = 2.0d0
+    split = (/0.0d0, 0.0d0, -0.7d0/)
+    val_u = 0.0d0; val_v = 0.0d0; val_w = 0.0d0; val_p = 0.0d0
+    CALL EL_BEGIN_FIELD_UPDATE(.TRUE.)
+    CALL EL_INTEGRATE_PARTICLE(mesh, 1, val_u, val_v, val_w, val_p, &
+                               el_field_data%epsilon_f, p, sample)
+    CALL EL_DEPOSIT_PARTICLE(mesh, 1, p, sample(1), force, el_field_data, drag_b=drag_b)
+    ALLOCATE(rowsum_b(SIZE(el_field_data%drag_B_ml)))
+    rowsum_b = el_field_data%drag_B_ml
+    rowsum_min = MINVAL(rowsum_b)
+    rowsum_total = SUM(rowsum_b)
+    CALL check(rowsum_min.LT.0.0d0, 'drag_B row-sum weights: negative nodal coefficient (the defect)', nf)
+    CALL EL_BEGIN_FIELD_UPDATE(.TRUE.)
+    CALL EL_DEPOSIT_PARTICLE(mesh, 1, p, sample(1), force, el_field_data, drag_b=drag_b, &
+                             split=split)
+    CALL check(MINVAL(el_field_data%drag_B_ml).GE.0.0d0, 'drag_B hrz weights: non-negative', nf)
+    CALL check(ABS(SUM(el_field_data%drag_B_ml) - rowsum_total).LE.1.0d-12*ABS(rowsum_total), &
+               'drag_B hrz weights: same total as row-sum', nf)
+    CALL check(ABS(SUM(el_field_data%drag_B_ml) - drag_b).LE.1.0d-10*drag_b, &
+               'drag_B hrz weights: sum_a B_a = B_i', nf)
+    ! force_rhs = -split * w_hrz: total -split, and every entry >= 0 for split(3) < 0
+    CALL check(ABS(SUM(el_field_data%force_rhs(3,:)) + split(3)).LE.1.0d-12 .AND. &
+               MINVAL(el_field_data%force_rhs(3,:)).GE.0.0d0, &
+               'split partner: deposited with the hrz weights (total -split, one sign)', nf)
+    WRITE(*,'(A,ES12.4,A,ES12.4)') '  hrz test: row-sum min B_a ', rowsum_min, &
+      ', hrz min B_a ', MINVAL(el_field_data%drag_B_ml)
+    DEALLOCATE(rowsum_b)
+  END SUBROUTINE test_drag_B_hrz_weights
 
   SUBROUTINE test_feedback_source_capture(nf)
     INTEGER, INTENT(INOUT) :: nf

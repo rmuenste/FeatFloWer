@@ -31,6 +31,26 @@ MODULE EL_CONFIG
   LOGICAL, PARAMETER :: el_drag_standard_form(0:6) = (/ .FALSE., .TRUE., .TRUE., .TRUE., &
     .TRUE., .TRUE., .TRUE. /)
   CHARACTER(LEN=32) :: el_drag_coupling = 'explicit'
+  ! SimPar@ELDragImplicitWeights = rowsum | hrz
+  !   Nodal weights of the implicit part of the semi-implicit drag (the coefficient B_i on the
+  !   diagonal of the fluid matrix and its split partner +B u_f on the explicit side; the drag
+  !   impulse itself and the other reactions keep the row-sum weights in both modes):
+  !   'rowsum' (default) w_i = int K phi_i / norm, the weights of every other deposit (campaign
+  !            behaviour, bitwise). With Q2 basis functions w_i is negative at the nodes that a
+  !            particle kernel reaches only with the negative lobes of phi_i: a node at the edge
+  !            of a sparse particle cloud can get B_i < 0, i.e. an anti-damping term. Harmless
+  !            while the fluid mass dominates (liquids); in a gas (case 11, rho_p/rho_f 860)
+  !            thstep |B_i| is comparable with the lumped fluid mass and the velocity at such a
+  !            node grows (spikes of 2-20 m/s in the first protocol run, job 163872).
+  !   'hrz'    diagonal-scaling (Hinton-Rock-Zienkiewicz) lumping per element:
+  !            w_i = int K phi_i^2 * (sum_j int K phi_j) / (sum_j int K phi_j^2) / norm >= 0, the
+  !            same total per particle and element as 'rowsum'. Needs ELDragCoupling =
+  !            semi_implicit (refused otherwise). docs/md_docs/el_min_fluidization_prep_2026-11-19.md
+  !            section 7.
+  CHARACTER(LEN=32) :: el_drag_implicit_weights = 'rowsum'
+  CHARACTER(LEN=6), PARAMETER :: el_drag_iw_names(0:1) = (/ 'rowsum', 'hrz   ' /)
+  ! Resolved by EL_VALIDATE_CONFIG (deck-only, the same on every rank): 'hrz' selected.
+  LOGICAL :: el_drag_hrz = .FALSE.
   CHARACTER(LEN=32) :: el_lift_model = 'none'
   CHARACTER(LEN=32) :: el_inertial_lift = 'none'
   CHARACTER(LEN=32) :: el_prescribed_field = 'none'
@@ -337,6 +357,7 @@ CONTAINS
     CALL EL_LOWERCASE(el_kernel)
     CALL EL_LOWERCASE(el_drag_model)
     CALL EL_LOWERCASE(el_drag_coupling)
+    CALL EL_LOWERCASE(el_drag_implicit_weights)
     CALL EL_LOWERCASE(el_lift_model)
     CALL EL_LOWERCASE(el_inertial_lift)
     CALL EL_LOWERCASE(el_prescribed_field)
@@ -397,6 +418,16 @@ CONTAINS
       WRITE(*,'(A,A)') 'Invalid ELDragCoupling: ', TRIM(el_drag_coupling)
       STOP 1
     END SELECT
+
+    IF (.NOT.ANY(TRIM(el_drag_implicit_weights).EQ.el_drag_iw_names)) THEN
+      WRITE(*,'(A,A)') 'Invalid ELDragImplicitWeights (rowsum|hrz): ', TRIM(el_drag_implicit_weights)
+      STOP 1
+    END IF
+    el_drag_hrz = (TRIM(el_drag_implicit_weights).EQ.TRIM(el_drag_iw_names(1)))
+    IF (el_drag_hrz .AND. .NOT.el_drag_semi_implicit) THEN
+      WRITE(*,*) 'ELDragImplicitWeights = hrz needs ELDragCoupling = semi_implicit.'
+      STOP 1
+    END IF
 
     IF (el_drag_semi_implicit .AND. .NOT.el_apply_fluid_feedback) THEN
       WRITE(*,*) 'ELDragCoupling=semi_implicit requires ELApplyFluidFeedback=Yes.'
@@ -609,6 +640,7 @@ CONTAINS
     WRITE(mfile,'(A,ES14.6)') 'EL epsilon relaxation     = ', el_eps_f_relax
     WRITE(mfile,'(A,A)') 'EL drag model             = ', TRIM(el_drag_model)
     WRITE(mfile,'(A,A)') 'EL drag coupling          = ', TRIM(el_drag_coupling)
+    IF (el_drag_hrz) WRITE(mfile,'(A,A)') 'EL drag implicit weights  = ', TRIM(el_drag_implicit_weights)
     WRITE(mfile,'(A,L1)') 'EL pressure force         = ', el_pressure_force
     WRITE(mfile,'(A,L1)') 'EL pressure feedback      = ', el_pressure_feedback
     WRITE(mfile,'(A,A)') 'EL lift model             = ', TRIM(el_lift_model)
@@ -659,6 +691,7 @@ CONTAINS
       WRITE(mterm,'(A,ES14.6)') 'EL epsilon relaxation     = ', el_eps_f_relax
       WRITE(mterm,'(A,A)') 'EL drag model             = ', TRIM(el_drag_model)
       WRITE(mterm,'(A,A)') 'EL drag coupling          = ', TRIM(el_drag_coupling)
+      IF (el_drag_hrz) WRITE(mterm,'(A,A)') 'EL drag implicit weights  = ', TRIM(el_drag_implicit_weights)
       WRITE(mterm,'(A,L1)') 'EL pressure force         = ', el_pressure_force
       WRITE(mterm,'(A,L1)') 'EL pressure feedback      = ', el_pressure_feedback
       WRITE(mterm,'(A,A)') 'EL lift model             = ', TRIM(el_lift_model)

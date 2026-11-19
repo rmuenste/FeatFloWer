@@ -131,26 +131,28 @@ CONTAINS
   ! Deposit of one record: solid volume (alpha_p and its kernel gradient), reaction force and,
   ! when present, the drag coefficient. normalization is the kernel integral of the particle
   ! over all ranks and images, as the owner summed it.
-  SUBROUTINE EL_DEPOSIT_RECORD(mesh, ilev, record, box, normalization, force, fields, drag_b)
+  SUBROUTINE EL_DEPOSIT_RECORD(mesh, ilev, record, box, normalization, force, fields, drag_b, &
+                               split)
 
     TYPE(tMultiMesh), INTENT(IN) :: mesh
     INTEGER, INTENT(IN) :: ilev
     TYPE(tElParticleRecord), INTENT(IN) :: record
     REAL*8, INTENT(IN) :: box(6), normalization, force(3)
     TYPE(tElFieldStorage), INTENT(INOUT) :: fields
-    REAL*8, INTENT(IN), OPTIONAL :: drag_b
+    REAL*8, INTENT(IN), OPTIONAL :: drag_b, split(3)
 
     TYPE(tElParticleRecord) :: images(EL_MAX_IMAGES)
     INTEGER :: n, k
 
     IF (.NOT.EL_PERIODIC_ACTIVE()) THEN
-      CALL EL_DEPOSIT_PARTICLE(mesh, ilev, record, normalization, force, fields, drag_b)
+      CALL EL_DEPOSIT_PARTICLE(mesh, ilev, record, normalization, force, fields, drag_b, split)
       RETURN
     END IF
 
     CALL EL_RECORD_IMAGES(record, box, images, n)
     DO k = 1, n
-      CALL EL_DEPOSIT_PARTICLE(mesh, ilev, images(k), normalization, force, fields, drag_b)
+      CALL EL_DEPOSIT_PARTICLE(mesh, ilev, images(k), normalization, force, fields, drag_b, &
+                               split)
     END DO
 
   END SUBROUTINE EL_DEPOSIT_RECORD

@@ -25,6 +25,7 @@ MODULE EL_TRANSFER
                        el_apply_particle_forces, el_apply_fluid_feedback, &
                        el_write_diagnostics, el_momentum_audit_freq, &
                        el_drag_semi_implicit, el_pressure_feedback, el_prescribed_field, &
+                       el_drag_hrz, &
                        EL_VA_CONSERVATIVE_FORM, EL_INLET_SUPERFICIAL
   USE EL_VA_FLUX, ONLY: EL_VA_RECONSTRUCT_EPS_LOCAL, EL_VA_EMBED_Q1_IN_Q2, &
                         EL_VA_CHECK_DOF_LAYOUT
@@ -141,7 +142,7 @@ CONTAINS
     REAL*8 :: global_grav_buoy(3), local_particle_total(3), global_particle_total(3)
     REAL*8 :: local_rhs(3), global_rhs(3), feedback_residual(3)
     REAL*8 :: feedback_residual_norm, volume_rel_error
-    INTEGER :: n_owned, n_records, i, ierr, ndof, nel, nel_min
+    INTEGER :: n_owned, n_records, i, ierr, ndof, nel, nel_min, nres
     INTEGER :: local_record_rank, global_record_ranks
     INTEGER :: n_marked
     INTEGER :: global_records, max_records
@@ -226,7 +227,11 @@ CONTAINS
     IF (EL_PERIODIC_ACTIVE()) local_box = EL_HALO_LOCAL_BOX()
     ALLOCATE(local_samples(EL_SAMPLE_SIZE,n_records))
     ALLOCATE(owned_samples(EL_SAMPLE_SIZE,n_owned))
-    ALLOCATE(owned_result(5,n_owned), record_result(5,n_records))
+    ! rows: 1 normalisation, 2:4 explicit feedback, 5 drag coefficient B, and under
+    ! ELDragImplicitWeights = hrz 6:8 the split partner -B u_f (deposited with the HRZ weights)
+    nres = 5
+    IF (el_drag_hrz) nres = 8
+    ALLOCATE(owned_result(nres,n_owned), record_result(nres,n_records))
     local_samples = 0.0d0
     owned_samples = 0.0d0
     owned_result = 0.0d0
@@ -329,7 +334,11 @@ CONTAINS
       ! EL_DEPOSIT_PARTICLE subtracts feedback_used, hence the minus sign.
       IF (el_drag_semi_implicit .AND. advance_history .AND. &
           .NOT.el_apply_particle_forces) THEN
-        feedback_used = feedback_used - force_result%drag_B*force_result%u_f
+        IF (el_drag_hrz) THEN
+          owned_result(6:8,i) = -force_result%drag_B*force_result%u_f
+        ELSE
+          feedback_used = feedback_used - force_result%drag_B*force_result%u_f
+        END IF
       END IF
       local_drag = local_drag + force_result%drag
       local_lift = local_lift + force_result%lift
@@ -376,8 +385,14 @@ CONTAINS
           ! implicit correction of the split. EL_DEPOSIT_PARTICLE subtracts
           ! feedback_used, so pass
           !   feedback_used = drag_force_eff + feedback_nondrag - B*u_f.
-          feedback_used = drag_force_eff + feedback_nondrag - &
-            force_result%drag_B*force_result%u_f
+          IF (el_drag_hrz) THEN
+            ! the split partner goes with the implicit coefficient (HRZ weights)
+            feedback_used = drag_force_eff + feedback_nondrag
+            owned_result(6:8,i) = -force_result%drag_B*force_result%u_f
+          ELSE
+            feedback_used = drag_force_eff + feedback_nondrag - &
+              force_result%drag_B*force_result%u_f
+          END IF
         ELSE
           feedback_used = drag_force_eff + feedback_nondrag
         END IF
@@ -388,13 +403,21 @@ CONTAINS
 #endif
       owned_result(2:4,i) = feedback_used
       local_feedback = local_feedback + feedback_used
+      ! the split partner is deposited separately under hrz; it belongs to the reaction total
+      IF (el_drag_hrz) local_feedback = local_feedback + owned_result(6:8,i)
       local_drag_impl = local_drag_impl + drag_force_eff
     END DO
 
     CALL EL_BROADCAST_FROM_OWNERS(owned_result, record_result)
     DO i=1,n_records
-      CALL EL_DEPOSIT_RECORD(mesh, ilev, records(i), local_box, record_result(1,i), &
-        record_result(2:4,i), el_field_data, drag_b=record_result(5,i))
+      IF (el_drag_hrz) THEN
+        CALL EL_DEPOSIT_RECORD(mesh, ilev, records(i), local_box, record_result(1,i), &
+          record_result(2:4,i), el_field_data, drag_b=record_result(5,i), &
+          split=record_result(6:8,i))
+      ELSE
+        CALL EL_DEPOSIT_RECORD(mesh, ilev, records(i), local_box, record_result(1,i), &
+          record_result(2:4,i), el_field_data, drag_b=record_result(5,i))
+      END IF
     END DO
 
     local_rhs(1) = SUM(el_field_data%force_rhs(1,:))
