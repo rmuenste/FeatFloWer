@@ -6,14 +6,20 @@
 !
 ! 1. Is periodicity active? (PCO_LINK_CENSUS, collective)
 !    A finite period alone does not say so (q2p1_dns_drag sets unit periods on every box).
-!    The evidence used is the coupling the workers actually apply: every ghost column of the
-!    parallel pressure matrix CP couples an owned element with an element of another rank.
-!    Each worker exchanges the vertex coordinates of its elements through the pressure
-!    exchange (GetParPressure); a coupled pair is shifted on axis a when the two elements
-!    share a vertex only after a shift s P with s_a /= 0 (not unshifted), and inconsistent
-!    when they share no vertex in any image. An axis is active when the global number of
-!    shifted links on it is positive; the master then has to find the images of that axis
-!    in its classes (checked by the coordinator).
+!    The evidence is the provenance of the couplings the workers apply: the communication
+!    set-up (E013_CreateComm*, QuadSc_mpi.f90) accepts a velocity dof link between two ranks
+!    when the coordinates coincide or lie one period apart, axis by axis, and counts the
+!    accepted links that matched through the period of axis a (MGE013(lev)%nPerLink). Every
+!    periodic coupling of the worker operator goes through such links (the pressure ghost
+!    elements of CP are the elements at the linked dofs, ParPresComm_Init). Axis a is
+!    active when the global count is positive. This is not re-derived from geometry: an
+!    element pair that shares an ordinary vertex AND a periodic image (two coarse cells along
+!    a periodic axis, one per rank) still contributes its periodic links, and a pair joined
+!    through several images contributes every axis. The master then has to find the images
+!    of every active axis in its classes (checked by the coordinator).
+!    In addition every coupled element pair of CP is checked for consistency: the two
+!    elements must share a vertex unshifted or after some shift s P (PCO_PAIR_SHIFT); a pair
+!    that shares none in any image (nbad) means periods that do not fit the mesh.
 !
 ! 2. Which dofs of the unpartitioned coarse mesh are periodic images of each other?
 !    (PCO_BUILD_CLASSES, master only)
@@ -58,7 +64,7 @@ MODULE pco_periodic_topology
   END TYPE tPcoClasses
 
   TYPE, PUBLIC :: tPcoLinkCensus
-    INTEGER :: nshift(3) = 0                 ! coupled element pairs across a plane of axis a
+    INTEGER :: nshift(3) = 0                 ! accepted dof links through the period of axis a
     INTEGER :: nbad = 0                      ! couplings without a shared vertex in any image
     LOGICAL :: axis_active(3) = .FALSE.
     LOGICAL :: possible = .TRUE.             ! every worker has the pressure structure of lev
@@ -100,15 +106,15 @@ CONTAINS
   END FUNCTION PCO_GHOST_BUFFER_SIZE
 
   !-----------------------------------------------------------------------
-  ! Census of the shifted worker links on level lev. Collective (every rank; the master
-  ! contributes nothing). The workers exchange the 24 vertex coordinates of their elements
-  ! (six pressure exchanges of four values each) and classify every element pair coupled by
-  ! a ghost column of CP: the pair is coupled without a shift when the two elements share a
-  ! vertex (distance below DEpsPrec, the tolerance of the worker links in PARENTCOMM),
-  ! across the periodic planes of the axes with s_a /= 0 when they share a vertex after the
-  ! shift s P (s in {-1,0,1}^3 on the axes with a finite period, the unshifted test first),
-  ! and inconsistently (nbad) when neither holds. Adjacent cells of any width share a vertex
-  ! unshifted, so a walled mesh never counts a shifted link.
+  ! Census of level lev. Collective (every rank; the master contributes nothing).
+  ! Activity: nshift(a) = global number of accepted velocity dof links through the period of
+  ! axis a on level lev (MGE013(lev)%nPerLink, counted by the communication set-up; see the
+  ! module header). A walled mesh has none: adjacent cells of any width match coincident
+  ! dofs, and a period that is not a distance between interface dofs matches nothing.
+  ! Consistency: the workers exchange the 24 vertex coordinates of their elements (six
+  ! pressure exchanges of four values each); an element pair coupled by a ghost column of CP
+  ! that shares no vertex unshifted nor after any shift s P (s in {-1,0,1}^3 on the axes with
+  ! a finite period) is counted in nbad.
   ! census%possible is .FALSE. on every rank when some worker has no pressure structure on
   ! level lev (then nothing is counted).
   !-----------------------------------------------------------------------
@@ -116,7 +122,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: lev
     TYPE(tPcoLinkCensus), INTENT(OUT) :: census
     REAL*8, ALLOCATABLE :: p(:), pp(:), vx(:,:), gx(:,:)
-    INTEGER :: nel, iel, k, ia, ic, a, ierr, ilev_save, nbuf, chunk, g, shift(3), kind
+    INTEGER :: nel, iel, k, ia, ic, ierr, ilev_save, nbuf, chunk, g, shift(3), kind
     INTEGER :: nloc(4), nglob(4)
     LOGICAL :: can, can_all
     INTEGER, PARAMETER :: NV = 24
@@ -172,16 +178,14 @@ CONTAINS
           IF (MOD(k-1,4).NE.0) CYCLE            ! one entry per coupled ghost element
           g = (k-1)/4 + 1
           CALL PCO_PAIR_SHIFT(vx(:,iel), gx(:,g), dPeriodicity, DEpsPrec, shift, kind)
-          IF (kind.EQ.1) THEN
-            DO a = 1, 3
-              IF (shift(a).NE.0) nloc(a) = nloc(a) + 1
-            END DO
-          ELSE IF (kind.LT.0) THEN
-            nloc(4) = nloc(4) + 1
-          END IF
+          IF (kind.LT.0) nloc(4) = nloc(4) + 1
         END DO
       END DO
       DEALLOCATE(vx, gx)
+      ! the provenance of the periodic couplings (communication set-up)
+      IF (ALLOCATED(MGE013)) THEN
+        IF (lev.GE.LBOUND(MGE013,1) .AND. lev.LE.UBOUND(MGE013,1)) nloc(1:3) = MGE013(lev)%nPerLink
+      END IF
     END IF
     DEALLOCATE(p, pp)
 
@@ -194,11 +198,12 @@ CONTAINS
   END SUBROUTINE PCO_LINK_CENSUS
 
   !-----------------------------------------------------------------------
-  ! Classification of a coupled element pair from the 8 vertex coordinates of each (ve, vf:
+  ! Consistency of a coupled element pair from the 8 vertex coordinates of each (ve, vf:
   ! x1,y1,z1, x2, ...): kind 0 when they share a vertex unshifted, 1 when they share one only
   ! after the shift shift*period (shift in {-1,0,1}^3, nonzero only on axes with a finite
   ! period, the first such shift found), -1 when they share none in any image. tol: the
-  ! coincidence tolerance (DEpsPrec in the census).
+  ! coincidence tolerance (DEpsPrec in the census). Used for nbad only: kind 0 does not mean
+  ! that the pair has no periodic coupling (it may share a periodic image as well).
   !-----------------------------------------------------------------------
   SUBROUTINE PCO_PAIR_SHIFT(ve, vf, period, tol, shift, kind)
     REAL*8, INTENT(IN) :: ve(24), vf(24), period(3), tol

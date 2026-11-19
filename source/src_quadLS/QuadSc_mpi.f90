@@ -1974,6 +1974,7 @@ DO pID=1,subnodes
      jAux = jAux + 1
      MGE013(ILEV)%ST(pID)%VertLink(1,jAux) = CoorSP(pID)%iCoor(J)
      MGE013(ILEV)%ST(pID)%VertLink(2,jAux) = CoorSP(pID)%iCoor(J)
+     CALL COUNT_PERIODIC_LINK((/P1X,P1Y,P1Z/),(/P2X,P2Y,P2Z/),MGE013(ILEV)%nPerLink)
      EXIT
     END IF
    END DO
@@ -2436,6 +2437,7 @@ DO pID=1,subnodes
      jAux = jAux + 1
      MGE013(ILEV)%ST(pID)%VertLink(1,jAux) = CoorST(myid)%iCoor(J)
      MGE013(ILEV)%ST(pID)%VertLink(2,jAux) = CoorST(myid)%iCoor(J)
+     CALL COUNT_PERIODIC_LINK((/P1X,P1Y,P1Z/),(/P2X,P2Y,P2Z/),MGE013(ILEV)%nPerLink)
      EXIT
     END IF
    END DO
