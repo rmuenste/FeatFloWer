@@ -20,7 +20,8 @@
 !     E012_DAX arithmetic (C x + CP xp on the workers, distributed and collected with the
 !     coarse vector transfers of the multigrid) against the master products, every row,
 !     scaled by sum_j |A_ij| max|v|;
-!   - closure (max |A e| / (|A| |e|)) and the left measure e^T A on closed components;
+!   - closure (max |A e| / (|A| |e|)) and the left measure |e^T A| / (column sums of |A|) on
+!     closed components;
 !   - a compatible solve with the ungauged residual, the deviation from v up to the kernel and
 !     the value of the reference unknowns (PCO_SOLVE_CHECK, diagnostic path);
 !   - an incompatible right-hand side (a constant added to the mean modes) must show an
@@ -159,9 +160,11 @@ CONTAINS
       ALLOCATE(cs(n), ca(n))
       cs = 0d0
       ca = 0d0
-      DO row = 1, n, 4
+      ! e^T A over the mean rows, scaled by the column sums of moduli over ALL rows (normwise, as
+      ! the gauge measures: slope-row couplings at rounding level must not inflate it)
+      DO row = 1, n
         DO k = pco%ldA(row), pco%ldA(row+1)-1
-          cs(pco%colA(k)) = cs(pco%colA(k)) + ag(k)
+          IF (MOD(row-1,4).EQ.0) cs(pco%colA(k)) = cs(pco%colA(k)) + ag(k)
           ca(pco%colA(k)) = ca(pco%colA(k)) + ABS(ag(k))
         END DO
       END DO
