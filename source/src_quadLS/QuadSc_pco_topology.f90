@@ -201,25 +201,31 @@ CONTAINS
 
   !-----------------------------------------------------------------------
   ! Structural flux of a constant pressure (workers; the gauge decision of the periodic coarse
-  ! operator). With e = 1 on the mean modes, (B e)_i is the discrete gradient of a constant at
-  ! velocity dof i: analytically zero at every dof whose support closes (interior, periodic
-  ! seam: the B row of a worker holds the contributions of its own and of its ghost elements,
-  ! the periodic images included), the boundary integral of the basis function times the
-  ! normal at a dof of an open boundary. Per dof i and component d with a FREE velocity
-  ! (knpr_d(i) /= 1, the masks of Get_CMat; slip enters through the projected B of
-  ! SetSlipOnBandBT) the ratio |sum_j B_d(i,j)| / sum_j |B_d(i,j)| over the mean columns is
-  ! computed (PCO_DOF_FLUX): rounding level where the contributions cancel, order one where
-  ! they do not, independent of the cell aspect ratio (numerator and denominator come from the
-  ! same dof). r(4(e-1)+1) = the largest ratio over the 27 Q2 dofs of local element e of level
-  ! lev (other entries 0), for the coarse vector collection to the master. Local, no
-  ! communication (the ghost columns hold the mean modes at 4(g-1)+1, as in CP).
+  ! operator). With e = 1 on the mean modes, g_d(i) = sum_j B_d(i,j) e_j is the discrete
+  ! gradient of a constant at velocity dof i, component d: analytically zero at every dof
+  ! whose support closes (interior, periodic seam: the B row of a worker holds the
+  ! contributions of its own and of its ghost elements, the periodic images included), the
+  ! boundary integral of the basis function times n_d at a dof of an open boundary. Per local
+  ! element e of level lev and component d:
+  !    ratio_d(e) = max over the FREE dofs i of e of |g_d(i)|  /  max over all dofs i of e of
+  !                 sum_j |B_d(i,j)|   (j over the mean-mode columns, own and ghost)
+  ! (free: knpr_d(i) /= 1, the masks of Get_CMat; slip enters through the projected B of
+  ! SetSlipOnBandBT). The denominator is the size of the B entries of component d around the
+  ! element, so the ratio is rounding where every free dof closes - also at dofs whose single
+  ! entries vanish analytically (element and face bubbles: |g| is rounding of a tiny number,
+  ! measured against the element scale, not against itself) - and of order one at a free
+  ! boundary dof, independent of the cell aspect ratio (numerator and denominator are of the
+  ! same component d). r(4(e-1)+1) = max_d ratio_d(e) (other entries 0), for the coarse vector
+  ! collection to the master. Local, no communication (the ghost columns hold the mean modes
+  ! at 4(g-1)+1, as in CP).
   !-----------------------------------------------------------------------
   SUBROUTINE PCO_FREE_FLUX(lev, r)
     INTEGER, INTENT(IN) :: lev
     REAL*8, INTENT(OUT) :: r(:)
-    REAL*8, ALLOCATABLE :: rdof(:)
-    INTEGER :: nvt, net, nat, nel, ndof, i, iel, k
+    REAL*8, ALLOCATABLE :: gnum(:,:), gden(:,:)
+    INTEGER :: nvt, net, nat, nel, ndof, i, iel, k, d
     INTEGER :: dofs(27)
+    REAL*8 :: num, den
     LOGICAL :: ghosts
     r = 0d0
     IF (myid.EQ.master) RETURN
@@ -230,69 +236,76 @@ CONTAINS
     ndof = nvt + net + nat + nel
     ghosts = ALLOCATED(mg_qlPMat)
     IF (ghosts) ghosts = ALLOCATED(mg_qlPMat(lev)%LdA)
-    ALLOCATE(rdof(ndof))
+    ALLOCATE(gnum(3,ndof), gden(3,ndof))
     DO i = 1, ndof
-      rdof(i) = MAX(dof_component(mg_BXMat(lev)%a, mg_BXPMat, QuadSc%knprU(lev)%x(i)), &
-                    dof_component(mg_BYMat(lev)%a, mg_BYPMat, QuadSc%knprV(lev)%x(i)), &
-                    dof_component(mg_BZMat(lev)%a, mg_BZPMat, QuadSc%knprW(lev)%x(i)))
+      CALL dof_row(mg_BXMat(lev)%a, mg_BXPMat, QuadSc%knprU(lev)%x(i), gnum(1,i), gden(1,i))
+      CALL dof_row(mg_BYMat(lev)%a, mg_BYPMat, QuadSc%knprV(lev)%x(i), gnum(2,i), gden(2,i))
+      CALL dof_row(mg_BZMat(lev)%a, mg_BZPMat, QuadSc%knprW(lev)%x(i), gnum(3,i), gden(3,i))
     END DO
     DO iel = 1, nel
       dofs(1:8) = mg_mesh%level(lev)%kvert(:, iel)
       dofs(9:20) = nvt + mg_mesh%level(lev)%kedge(:, iel)
       dofs(21:26) = nvt + net + mg_mesh%level(lev)%karea(:, iel)
       dofs(27) = nvt + net + nat + iel
-      DO k = 1, 27
-        r(4*(iel-1)+1) = MAX(r(4*(iel-1)+1), rdof(dofs(k)))
+      DO d = 1, 3
+        num = 0d0
+        den = 0d0
+        DO k = 1, 27
+          num = MAX(num, gnum(d, dofs(k)))
+          den = MAX(den, gden(d, dofs(k)))
+        END DO
+        IF (den.GT.0d0) r(4*(iel-1)+1) = MAX(r(4*(iel-1)+1), num/den)
       END DO
     END DO
-    DEALLOCATE(rdof)
+    DEALLOCATE(gnum, gden)
   CONTAINS
-    REAL*8 FUNCTION dof_component(bl, bp, mask) RESULT(ratio)
+    ! |g_d(i)| (0 for a constrained component) and sum_j |B_d(i,j)| of dof i
+    SUBROUTINE dof_row(bl, bp, mask, gn, gd)
       REAL*8, INTENT(IN) :: bl(:)
       TYPE(mg_Matrix), INTENT(IN) :: bp(:)
       INTEGER, INTENT(IN) :: mask
+      REAL*8, INTENT(OUT) :: gn, gd
       INTEGER :: l0, l1, g0, g1
-      ratio = 0d0
-      IF (mask.EQ.1) RETURN
       l0 = mg_qlMat(lev)%LdA(i)
       l1 = mg_qlMat(lev)%LdA(i+1) - 1
       IF (ghosts) THEN
         g0 = mg_qlPMat(lev)%LdA(i)
         g1 = mg_qlPMat(lev)%LdA(i+1) - 1
-        ratio = PCO_DOF_FLUX(bl(l0:l1), mg_qlMat(lev)%ColA(l0:l1), &
-                             bp(lev)%a(g0:g1), mg_qlPMat(lev)%ColA(g0:g1))
+        CALL PCO_DOF_FLUX(bl(l0:l1), mg_qlMat(lev)%ColA(l0:l1), gn, gd, &
+                          bp(lev)%a(g0:g1), mg_qlPMat(lev)%ColA(g0:g1))
       ELSE
-        ratio = PCO_DOF_FLUX(bl(l0:l1), mg_qlMat(lev)%ColA(l0:l1))
+        CALL PCO_DOF_FLUX(bl(l0:l1), mg_qlMat(lev)%ColA(l0:l1), gn, gd)
       END IF
-    END FUNCTION dof_component
+      IF (mask.EQ.1) gn = 0d0
+    END SUBROUTINE dof_row
   END SUBROUTINE PCO_FREE_FLUX
 
-  ! |sum| / sum|.| over the mean-mode columns (4(e-1)+1) of one B row: local part (bl, cl) and
-  ! optionally the ghost part (bg, cg); 0 for a row without mean-mode entries
-  REAL*8 FUNCTION PCO_DOF_FLUX(bl, cl, bg, cg) RESULT(ratio)
+  ! |sum| and sum|.| over the mean-mode columns (4(e-1)+1) of one B row: local part (bl, cl)
+  ! and optionally the ghost part (bg, cg)
+  SUBROUTINE PCO_DOF_FLUX(bl, cl, gn, gd, bg, cg)
     REAL*8, INTENT(IN) :: bl(:)
     INTEGER, INTENT(IN) :: cl(:)
+    REAL*8, INTENT(OUT) :: gn, gd
     REAL*8, INTENT(IN), OPTIONAL :: bg(:)
     INTEGER, INTENT(IN), OPTIONAL :: cg(:)
-    REAL*8 :: sm, sa
+    REAL*8 :: sm
     INTEGER :: k
     sm = 0d0
-    sa = 0d0
+    gd = 0d0
     DO k = 1, SIZE(cl)
       IF (MOD(cl(k)-1,4).NE.0) CYCLE
       sm = sm + bl(k)
-      sa = sa + ABS(bl(k))
+      gd = gd + ABS(bl(k))
     END DO
     IF (PRESENT(bg)) THEN
       DO k = 1, SIZE(cg)
         IF (MOD(cg(k)-1,4).NE.0) CYCLE
         sm = sm + bg(k)
-        sa = sa + ABS(bg(k))
+        gd = gd + ABS(bg(k))
       END DO
     END IF
-    ratio = 0d0
-    IF (sa.GT.0d0) ratio = ABS(sm)/sa
-  END FUNCTION PCO_DOF_FLUX
+    gn = ABS(sm)
+  END SUBROUTINE PCO_DOF_FLUX
 
   !-----------------------------------------------------------------------
   ! Consistency of a coupled element pair from the 8 vertex coordinates of each (ve, vf:
