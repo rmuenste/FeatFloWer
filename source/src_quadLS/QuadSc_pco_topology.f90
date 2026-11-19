@@ -65,7 +65,7 @@ MODULE pco_periodic_topology
   END TYPE tPcoLinkCensus
 
   PUBLIC :: PCO_LINK_CENSUS, PCO_BUILD_CLASSES, PCO_CLASS_MASK_CONFLICTS, PCO_ELEMENT_GRAPH
-  PUBLIC :: PCO_GHOST_BUFFER_SIZE
+  PUBLIC :: PCO_GHOST_BUFFER_SIZE, PCO_MASKS_DIFFER
 
   ! coordinate hash for the partner search
   TYPE tPointHash
@@ -333,9 +333,7 @@ CONTAINS
       IF (cls%ptr(k+1)-cls%ptr(k).EQ.1) CYCLE
       r = cls%mem(cls%ptr(k))
       DO j = cls%ptr(k)+1, cls%ptr(k+1)-1
-        IF ((ku(cls%mem(j)).EQ.1).NEQV.(ku(r).EQ.1) .OR. &
-            (kv(cls%mem(j)).EQ.1).NEQV.(kv(r).EQ.1) .OR. &
-            (kw(cls%mem(j)).EQ.1).NEQV.(kw(r).EQ.1)) THEN
+        IF (PCO_MASKS_DIFFER(ku(cls%mem(j)), kv(cls%mem(j)), kw(cls%mem(j)), ku(r), kv(r), kw(r))) THEN
           nconf = nconf + 1
           IF (PRESENT(first)) THEN
             IF (first.EQ.0) first = r
@@ -345,6 +343,18 @@ CONTAINS
       END DO
     END DO
   END FUNCTION PCO_CLASS_MASK_CONFLICTS
+
+  !-----------------------------------------------------------------------
+  ! .TRUE. when two dofs carry different Dirichlet masks (flag == 1 per component, the test
+  ! of Get_CMat). Each component compared on its own: .NEQV. binds weaker than .OR.
+  !-----------------------------------------------------------------------
+  LOGICAL FUNCTION PCO_MASKS_DIFFER(u1, v1, w1, u2, v2, w2)
+    INTEGER, INTENT(IN) :: u1, v1, w1, u2, v2, w2
+    LOGICAL :: m1(3), m2(3)
+    m1 = (/u1.EQ.1, v1.EQ.1, w1.EQ.1/)
+    m2 = (/u2.EQ.1, v2.EQ.1, w2.EQ.1/)
+    PCO_MASKS_DIFFER = ANY(m1 .NEQV. m2)
+  END FUNCTION PCO_MASKS_DIFFER
 
   !-----------------------------------------------------------------------
   ! Element graph of level lev through vertex classes: f is a neighbour of e (f /= e) when a
