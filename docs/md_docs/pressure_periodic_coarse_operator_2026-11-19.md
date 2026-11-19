@@ -92,27 +92,65 @@ after validation. Whether the default should become wider is an open owner decis
 - Raw operator (`pco%a`): ungauged, never modified by a solve; it serves the type-3/4 smoothing
   (`PCO_RAW_SOR`, the sweep of `crs_E012_SOR_Smoother`; a row with a zero diagonal keeps its
   value) and the checks. A non-finite entry stops the run.
-- Gauge, decided once per layout at the first refresh: components from every nonzero coupling
-  (elements coupled when any entry of their 4x4 block is nonzero; a weak but real coupling, e.g.
-  1e-12 against order-one diagonals, joins them, so one pressure constant is pinned once; two
-  regions touching only through constrained dofs share an all-zero structural block and are two
-  components). Each component indicator e_c is checked on its own: closed when
-  max_i |(C e_c)_i| / sum_j |C_ij| (j over the mean columns) < 1e-8 with i over EVERY row, inside
-  and outside the component (measured on the gates: closed 1.7e-15 to 2.0e-14, open 0.9; the
-  tolerance lies six orders from both); e_c^T C likewise over every column. One reference per
-  closed component, the mean mode of its lowest element, set to zero on a solver-owned copy
-  (row and column cleared except the diagonal, right-hand-side entry zeroed: symmetric
-  elimination of a zero value); a zero diagonal of a reference row (a closed component whose
-  mean row vanishes) becomes the largest diagonal modulus of the copy, so the equation reads
-  d x = 0. For the SSOR types 1/3 a zero diagonal elsewhere in the copy is refused at the
-  refresh. Later refreshes keep the decision (no flipping) and
-  report drift (closed above 1e-6 or open below 1e-10). The decision is taken from the operator,
-  not from `SimPar@NoOutflow`; a disagreement is logged (`PCO gauge note`). The left measure
-  e^T A of the closed components is reported; the right-hand-side compatibility measure assumes
-  the left null vector e (symmetric operator). A right-hand side whose sum over a closed
-  component does not vanish is reported (component, net value, relative imbalance; above 0.1
-  relative: late-cycle defects of compatible single-phase runs reach 2e-2 at defects of
-  1e-14), not changed.
+- Gauge, decided once per layout at the first refresh, from the structure of the operator;
+  the matrix is a consistency check.
+  - Components: elements coupled when any entry of their 4x4 block is nonzero (a weak but real
+    coupling, e.g. 1e-12 against order-one diagonals, joins them, so one pressure constant is
+    pinned once; two regions touching only through constrained dofs share an all-zero
+    structural block and are two components).
+  - Structure (authoritative): does a constant pressure on the component produce a gradient
+    at a free velocity dof? With e = 1 on the mean modes, g_d(i) = sum_j B_d(i,j) e_j is that
+    gradient at velocity dof i, component d (B rows of the workers: own and ghost elements,
+    the periodic images included). Per coarse element and component d the workers form
+    max over the FREE dofs of the element of |g_d(i)| divided by max over all its dofs of
+    sum_j |B_d(i,j)| (mean-mode columns; free: the masks of `Get_CMat`; slip enters through the
+    projected B of `SetSlipOnBandBT`; `PCO_FREE_FLUX`). Where the support of every free dof
+    closes (interior, periodic seam) the contributions cancel to rounding; at a free boundary
+    dof they do not (order one: 0.5 to 1 measured). The scale is the size of the B entries of
+    component d around the element, not the row of the dof itself: element and face bubbles
+    have rows whose single entries vanish analytically, so a row-relative ratio would be
+    noise / noise (measured 1.0 on closed boxes in a first attempt); the scale is of the same
+    component, so the ratio does not depend on the cell aspect ratio (open 0.5 at stretch 1,
+    10, 30, 1e4, measured). The largest value per coarse element is collected to the master at
+    the first renewal; per component s_c = the largest over its elements. s_c <= 1e-10:
+    closed; s_c >= 1e-6: open; in between: undecidable. In wrapped mode the structure comes
+    from the workers as well and the matrix check below is applied to the wrapped operator, so
+    the two must agree (and the wrapped operator is compared with the gathered one entry by
+    entry at every renewal).
+  - Matrix (consistency): right(c) = max over the rows i of |(C e_c)_i| / sum_j |C_ij|, j over
+    ALL columns (the normwise scale), and e_c^T C over every column scaled by the column sums
+    of moduli; one O(nnz) traversal (a nonzero entry between two components would contradict
+    the decomposition and counts as an inconsistency). A closed component must have
+    right(c) <= 1e-8; an open one right(c) > 1e-13 (otherwise the constant is numerically in
+    the kernel of a structurally regular operator). A weak outlet (cells stretched across it)
+    gives an open component with a small matrix measure (2.5e-10 in the unit test, below the
+    former matrix-only threshold 1e-8): it stays open, no reference, and is solved exactly.
+  - Undecidable or inconsistent: nothing is pinned; at the first renewal the run is refused
+    (explicit key) or falls back to legacy with the reason logged (key absent).
+  - Types 3/4 with a weakly open component: the over-relaxed (x3) P0 correction diverges when
+    an open component is only weakly coupled to its outlet. Measured on the 12 x 12 x 120 box
+    with a z outlet (single phase): matrix measure of the open component 0.90 (cubic cells):
+    2 cycles per solve; 1.2e-2 (cells stretched 10 x in z) and 1.2e-3 (30 x): types 3 and 4
+    diverge, type 2 converges (5e-4 and 0.16 per 20 cycles), legacy stagnates (0.86, 0.97).
+    A variant that did not over-relax the constant of an open component slowed the cubic case
+    to 13.4 cycles and still diverged at 30 x, so it was not kept. Types 3/4 are refused for an
+    open component with a matrix measure below 0.1 (`PCO_P0_WEAK_OPEN`): fallback to legacy
+    (key absent, logged), refusal (explicit key: use type 2), previous type kept (reload).
+    The threshold lies between the measured working (0.90; unit ring 0.11) and failing
+    (1.2e-2) cases; the cases between are not measured.
+  - One reference per closed component, the mean mode of its lowest element, set to zero on a
+    solver-owned copy (row and column cleared except the diagonal, right-hand-side entry
+    zeroed: symmetric elimination of a zero value); a zero diagonal of a reference row (a
+    closed component whose mean row vanishes) becomes the largest diagonal modulus of the copy,
+    so the equation reads d x = 0. For the SSOR types 1/3 a zero diagonal elsewhere in the copy
+    is refused at the refresh.
+  - Later refreshes keep the decision (no flipping) and report drift of the matrix measure
+    (closed above 1e-6, open at or below 1e-13). The decision does not use
+    `SimPar@NoOutflow`; a disagreement is logged (`PCO gauge note`). The right-hand-side
+    compatibility measure assumes the left null vector e (symmetric operator); a right-hand
+    side whose sum over a closed component does not vanish is reported (component, net value,
+    relative imbalance; above 0.1 relative: late-cycle defects of compatible single-phase runs
+    reach 2e-2 at defects of 1e-14), not changed.
 - Solver copy: full system (types 1, 2) or mean modes (types 3, 4), pattern fixed (explicit
   zeros kept). Types 2/4: UMFPACK through `tUmfCSC`, the compressed-column storage of the copy
   (UMFPACK solves A x = b), symbolic analysis once per layout, numeric factorisation at every
@@ -133,7 +171,7 @@ after validation. Whether the default should become wider is an open owner decis
 | module (file) | responsibility |
 |---|---|
 | `pressure_coarse_key` (src_util/pressure_coarse_key.f90) | key values, names, parsing |
-| `pco_periodic_topology` (QuadSc_pco_topology.f90) | link census on the workers (shared vertices, `PCO_PAIR_SHIFT`); dof classes on the master (coordinate hash, all combined shifts, union-find, completeness / ambiguity / kind checks, axes realised); constraint conflicts (`PCO_MASKS_DIFFER`); element graph through vertex classes; master coordinate check |
+| `pco_periodic_topology` (QuadSc_pco_topology.f90) | structural flux of a constant pressure on the workers (`PCO_FREE_FLUX`); link census on the workers (shared vertices, `PCO_PAIR_SHIFT`); dof classes on the master (coordinate hash, all combined shifts, union-find, completeness / ambiguity / kind checks, axes realised); constraint conflicts (`PCO_MASKS_DIFFER`); element graph through vertex classes; master coordinate check |
 | `pco_gather` (QuadSc_pco_gather.f90) | global element/unknown ids, gather plan with validation, value collection, immutability check |
 | `pco_wrap` (QuadSc_pco_wrap.f90) | wrapped structure and assembly |
 | `pco_coarse_solver` (QuadSc_pco_solver.f90) | master storage: layout, gauge decision, solver copy, UMFPACK / BiCGStab solves, raw SOR, solver type change, diagnostic solves |
@@ -141,6 +179,7 @@ after validation. Whether the default should become wider is an open owner decis
 | `pco_diagnostics` (QuadSc_pco_check.f90) | operator comparison, the check (worker product, closure, solver check, imbalance probe) |
 | `pco_coarse_operator` (QuadSc_pco_operator.f90) | `Renew_Pressure_Operator`, `PCO_REGISTER_APPLICATION`, `PCO_PRESSURE_RELOAD_ADMIT`, `PCO_PRESSURE_PARAMETERS_RELOADED`; mode decision, default scope, validation and refusal, pattern check before the assembly, renewal, wrapped validation, logging |
 | `UMFPackSolver` (UmfpackSolver.f90) | `tUmfCSC` adapter; legacy handles tracked one by one, the legacy solve stops without a live factorisation |
+| `pressure_param_agreement` (src_util/pressure_param_agreement.f90) | collective agreement on the reloaded pressure settings (every mode) |
 | `PP3D_MPI` (src_mpi/pp3d_mpi.f90), `E013_CreateComm*` (QuadSc_mpi.f90) | `MGE013(lev)%nPerLink`: the accepted velocity dof links through the period of each axis, counted where the links are made (`COUNT_PERIODIC_LINK`; the exchanges are unchanged) |
 
 Call sites: `OperatorRegenaration` (C branch), `EL_MM_Pressure_Operator` (every step, hands W
@@ -161,12 +200,17 @@ renewal checks, BEFORE `Create_CMat` / `Create_ParCMat` write into their kept al
 pattern, the ghost numbering and the ownership of the workers against the plan and the extent
 of every C / CP value array against its pattern; after the assembly the absence of pressure
 Dirichlet elements; a change stops the run (restart). A runtime reload of the pressure
-parameters: the file must be visible on every rank (agreed by an allreduce in
-`ReloadParameterFile`, so every rank enters the reload or none); the ranks agree on the
-proposed (solver type, MinLev, MedLev) (allreduce min/max; disagreement: old values
-everywhere); a change of the master levels or a type outside 1-4 is undone before the generic
-validation (which would abort on it); a new type 1-4 rebuilds the solver copy (same layout
-and gauge); the key and the check value are read once. The solves check the dimensions of
+parameters (every mode, also legacy and non-periodic runs): the file must be visible on every
+rank (allreduce in `ReloadParameterFile`, so every rank enters the reload or none); every rank
+parses it, then the ranks agree on EVERY parsed pressure setting (`PRESSURE_PARAMETERS_AGREE`,
+src_util/pressure_param_agreement.f90: MinLev, MedLev, Min/MaxIterCycle, SmoothSteps,
+IterCoarse, CrsSolverType, the two keys, the cycle type, DefImprCoarse, CrsRelaxPrm,
+Criterion1/2, RLX; allreduce min/max of the integers and of the reals, equal only when bitwise
+equal); on any difference every rank keeps the previous values (logged), so no rank can run a
+different number of smoothing steps or cycles, i.e. of exchanges. A consistent reload behaves
+as before. Under a periodic operator a change of the master levels or a type outside 1-4 is
+then undone before the generic validation (which would abort on it); a new type 1-4 rebuilds
+the solver copy (same layout and gauge); the key and the check value are read once. The solves check the dimensions of
 the installed copy.
 
 Collective operations per periodic renewal: the pattern and extent check before the assembly
@@ -176,9 +220,10 @@ wrapped mode the broadcast of the comparison result; the status broadcast (and t
 when it fails); when due, the check (one gather, three distribute/exchange/collect cycles). At
 the first renewal in addition: the census (six pressure exchanges and two allreduces: the
 structure flag; the consistency and link counts), the plan (one exchange, gathers,
-broadcasts) and the broadcasts of the master validation. Per reload under a periodic
-operator: two allreduces (the agreed tuple) and, for a new solver type, one status
-broadcast.
+broadcasts), the broadcasts of the master validation and the structural flux of the gauge
+(one coarse vector collection). Per reload (every mode): one allreduce for the file and four
+for the agreement of the parsed settings; under a periodic operator, for a new solver type,
+one status broadcast.
 
 Extension points: a further operator is a key value and a branch in `refresh_raw`; a further
 default configuration is an entry of `default_scope` with its gate; a master hierarchy
@@ -221,6 +266,8 @@ periods do not fit the mesh (nbad: fallback or refusal).
 | master without coordinates of level MedLev+1 | fallback, logged | legacy | refused |
 | ambiguous or incomplete classes, mixed dof kinds, unequal Dirichlet flags over a class, an active axis without master images | fallback, logged (counts, first dof and its coordinates) | legacy | refused |
 | a worker coupling outside the master layout, a master row with two or no owners | fallback, logged | legacy | refused |
+| gauge undecidable at the first renewal (structural flux between 1e-10 and 1e-6, or structure and matrix inconsistent) | fallback, logged | legacy | refused |
+| coarse solver type 3/4 with an open component whose matrix measure is below 0.1 | fallback, logged | legacy | refused (use type 2) |
 | wrapped differs from gathered (any renewal) by more than 1e-10, or a non-finite entry | - | - | stop |
 
 Refusal: every rank reaches the same decision (counts broadcast from the master), the master
@@ -247,128 +294,125 @@ and probes do not touch the production statistics.
 
 ## Tests and gates
 
-Binaries, all built on longhouse1a from the clean tree at 34556706 (the reviewed state of review
-round 2): `q2p1_el_pipeflow.34556706` (EL recipe of build-perk-lh, md5 ab25d782),
-`q2p1_bench_sedimentation.34556706` and `q2p1_dns_drag.34556706` (the certified DNS twin recipe:
+Binaries, all built on longhouse1a from the clean tree at 2777989b (the state of review round 3):
+`q2p1_el_pipeflow.2777989b` (EL recipe of build-perk-lh, md5 1dda0d02),
+`q2p1_bench_sedimentation.2777989b` and `q2p1_dns_drag.2777989b` (the certified DNS twin recipe:
 gcc 13.2 wrappers, serial PE, HardContactAndFluid, FBM acceleration), the same DNS targets of the
-base 16ffcbcc (`*.base`, worktree FeatFloWer-pcoarse-base) and, to show the census defect, the
-round-3 DNS binary `q2p1_dns_drag.1004a4de`. The tree builds with USE_PE=OFF (q2p1_fac3d,
-q2p1_fc_ext, build-nope) and the changed q2p1_cc source compiles (its application does not link
-in this tree, before this change). Runs: `/data/warehouse17/rmuenste/runs/pcoarse/round4` (EL,
-report.txt) and `round4_dns` (`tools/dns_report4.py`); every directory has versions.txt. Probe
-metrics from the `XxX` lines: cycles per solve, geometric mean of DefFinal/DefInit, `res1_L1`
-of the last `EL_VA_FLUX` line. Two intermediate binaries of review round 2 were discarded after
-their first runs (round4a_c36b65d3, round4b_989936c9): the new 2 x 2 x 2 gate exposed the
-closure scale (normwise now) and the left measure of the check.
+base 16ffcbcc (`*.base`, worktree FeatFloWer-pcoarse-base) and the round-3 DNS binary
+`q2p1_dns_drag.1004a4de` (census defect). The tree builds with USE_PE=OFF (q2p1_fac3d,
+q2p1_fc_ext, build-nope) and the q2p1_cc source compiles (its application does not link in this
+tree, before this change). Runs: `/data/warehouse17/rmuenste/runs/pcoarse/round5` (EL; report.txt,
+report_extra.txt) and `round5_dns` (report.txt, `tools/dns_report4.py`); every directory has
+versions.txt. Probe metrics from the `XxX` lines: cycles per solve, geometric mean of
+DefFinal/DefInit, `res1_L1` of the last `EL_VA_FLUX` line. Development probes of this round
+(stretched boxes, the first forms of the structural measure, the over-relaxation variants) are in
+`runs/pcoarse/dev5`; a first full gate run with an intermediate binary is kept in
+round5a_5cab5b57 (it showed the over-relaxation variant slowing C_open, see Conventions).
 
-Unit tests (`test_pco_coarse`, ctest `pco-coarse-serial`, job 163070; 234 assertions):
-UMFPACK orientation, status, double release; classes 2/4/8 images, incomplete/ambiguous
-refusals, neighbours, periodic averaging; gauge on closed and open rings, types 1-4; the 64
-Dirichlet mask pairs; two closed blocks sharing a structural zero block (two references) and an
-open/closed pair; BiCGStab zero right-hand side and exact convergence at the half step;
-averaging on a 1 x 1 x 5 strip; solver type change 2 -> 4 -> 1; census pair consistency;
-operator comparison with NaN/Inf in either operand and a small entry in a zero oracle row; two
-closed rings joined by a conservative edge of 1e-12 (one component, one reference, the
-compatible solution with the pressure jump 1 across the bridge, types 2 and 4); a closed
-singleton with a vanishing mean row through full (types 1, 2) and reduced (3, 4) solves, the
-raw SOR on its zero row, a zero diagonal outside a reference refused for SSOR; the E013
-acceptance test on two cells along a periodic axis, one per rank (periodic links on x counted
-while the pair classification says unshifted) and on 0.6-period cells (none); a closed ring
-with rounding-noise slope-mean couplings stays closed.
+Unit and MPI tests (job 163377, measured counts of `[ ok ]` records): `pco-coarse-serial` 115
+(the serial checks of the earlier rounds and: operator comparison with NaN/Inf in either operand
+and a small entry in a zero oracle row; the weak bridge; the zero reference row through full and
+reduced solves; E013 link provenance on two cells per axis; the closure scale with noise; the
+structural gauge - a weak outlet with matrix measure 2.5e-10 stays open, has no reference and is
+solved exactly (type 2), the P0 types are refused for it, a well open ring (0.11) is accepted,
+structure closed / matrix open, structure open / matrix in the numerical kernel and a structural
+value between the thresholds are undecided without a reference; the zero-row worker-product
+comparison; the per-coordinate tolerance of the pair check and of the master classes),
+`pco-reload-mpi-3` 5 (3 ranks; test hook: the parsed parameter set perturbed on one rank -
+smoothing steps, a real in the last bit, the cycle type, a NaN - restores the previous values on
+every rank; equal values are kept). The job runs six ctest entries in all (252 records).
 
 **A. Operator identity** (worker product with the E012_DAX arithmetic against the master
-product, all rows, normwise row scale; checks at renewals 1, 2, 10, 20, maxima over them)
+product, all rows - zero rows of the gathered operator compared exactly -, checks at renewals 1,
+2, 10, 20, maxima over them)
 
 | case | run (job) | dax - gathered | dax - wrapped | per-image mass variant | verdict |
 |---|---|---|---|---|---|
-| 12x12x120 (coarse 6x6x60), weighted EL | D_m12_gath_chk (163079), D_m12_wrap_chk (163081) | 6.8e-16 | 1.4e-14 | 4.1e-04 | PASS, 28 lines, 0 FAIL |
-| 6x6x60 (coarse 3x3x30), weighted EL | D_s6_gath_chk (163083), D_s6_wrap_chk (163085) | 7.7e-16 | 9.0e-15 | 5.9e-05 | PASS |
-| 12x12x120 single phase | D_sp_gath_chk (163089), D_sp_wrap_chk (163092) | 5.3e-16 | 1.4e-14 | = wrapped | PASS |
-| coarse level 2, explicit | X_lev2_gath_chk (163157) | 4.9e-16 | 2.0e-14 | - | PASS |
-| coarse level 3, explicit | X_lev3_gath_chk (163159) | 5.7e-16 | 4.8e-14 | - | PASS (7 423 488 entries) |
-| DNS d11, QBOX9 triply periodic | d11__gathered (163086), d11__wrapped (163087) | 3.9e-16 | 2.3e-15 | - | PASS |
-| DNS QBOX2, 2 x 2 x 2 coarse cells, one per worker | q2__gathered (163094), q2__wrapped (163096) | 1.6e-16 | 8.0e-16 | - | PASS, 0 FAIL |
+| 12x12x120 (coarse 6x6x60), weighted EL | D_m12_gath_chk (163386), D_m12_wrap_chk (163388) | 6.8e-16 | 1.4e-14 | 4.1e-04 | PASS, 28 lines, 0 FAIL |
+| 6x6x60 (coarse 3x3x30), weighted EL | D_s6_gath_chk (163391), D_s6_wrap_chk (163393) | 7.7e-16 | 9.0e-15 | 5.9e-05 | PASS |
+| 12x12x120 single phase | D_sp_gath_chk (163396), D_sp_wrap_chk (163399) | 5.3e-16 | 1.4e-14 | = wrapped | PASS |
+| coarse level 2, explicit | X_lev2_gath_chk (163466) | 4.9e-16 | 2.0e-14 | - | PASS |
+| coarse level 3, explicit | X_lev3_gath_chk (163468) | 5.7e-16 | 4.8e-14 | - | PASS |
+| DNS d11 (QBOX9) | d11__gathered (163392), d11__wrapped (163394) | 3.9e-16 | 2.3e-15 | - | PASS |
+| DNS QBOX2 | q2__gathered (163401), q2__wrapped (163402) | 1.6e-16 | 8.0e-16 | - | PASS |
 
-**B. Gathered vs wrapped entry by entry** (difference / largest modulus of the row)
+**B. Gathered vs wrapped entry by entry**
 
 | case | run (job) | entries | max difference | verdict |
 |---|---|---|---|---|
-| xy periodic, z walls | D_m12_gath_chk (163079) | 922 752 | 1.1e-13 | PASS |
-| z planes Symmetry001 | B_sym_gath_chk (163109), B_sym_wrap_chk (163110) | 922 752 | 1.1e-13 | PASS |
-| 3x3x6 partition (55 ranks) | B_p336_gath_chk (163111), B_p336_wrap_chk (163112) | 114 048 | 6.6e-14 | PASS |
-| triply periodic QBOX9 (corner class of 8) | B_qbox9_gath_chk (163104), B_qbox9_wrap_chk (163105) | 314 928 | 1.6e-14 | PASS |
-| QBOX2 (every element pair coupled ordinarily and periodically) | q2__gathered (163094) | 1 024 | 1.2e-15 | PASS |
-| z-periodic pipe, s05 E1 (curved wall) | B_pipe_gath_chk (163106) | 482 112 | 1.8e-01 | wrapped FAIL (dax - gathered 5.5e-16 PASS); wrapped refused: B_pipe_wrap_chk (163107, exit 1, `PCO REFUSED`) |
+| xy periodic, z walls | D_m12_gath_chk (163386) | 922 752 | 1.1e-13 | PASS |
+| z planes Symmetry001 | B_sym_gath_chk (163418), B_sym_wrap_chk (163419) | 922 752 | 1.1e-13 | PASS |
+| 3x3x6 partition (55 ranks) | B_p336_gath_chk (163420), B_p336_wrap_chk (163421) | 114 048 | 6.6e-14 | PASS |
+| triply periodic QBOX9 | B_qbox9_gath_chk (163413), B_qbox9_wrap_chk (163414) | 314 928 | 1.6e-14 | PASS |
+| QBOX2 | q2__gathered (163401) | 1 024 | 1.2e-15 | PASS |
+| z-periodic pipe, s05 E1 (curved wall) | B_pipe_gath_chk (163415) | 482 112 | 1.8e-01 | wrapped FAIL (dax - gathered 5.5e-16 PASS); wrapped refused: B_pipe_wrap_chk (163416, exit 1) |
 
-Wrapped runs compare with the gathered operator at every renewal (1.1e-13 at renewals 1, 2, 20
-of D_m12_wrap, 163075).
-
-**C. Gauge and solvers**
+**C. Gauge and solvers** (structural flux s and matrix measure, as logged in `PCO gauge`)
 
 | item | run (job) | result |
 |---|---|---|
-| closed periodic cases | all `_chk` runs | one component, closed, closure 7.7e-16 (QBOX2) to 2.0e-14 (coarse level 3), e^T A the same, ungauged residual below 1e-15, reference 0, incompatible right-hand side reported |
-| open periodic case (zmax Outflow) | C_open_gath_chk (163103) | closure 0.90: no reference; gauge note; 2.00 cycles, 0 FAIL |
-| type 1 (BiCGStab, full) | C_m12_gath_t1 (163098) | 2.05 cycles, 3.94e-05, res1 3.3445e-11 |
-| type 2 (UMFPACK, full) | C_m12_gath_t2 (163099), C_m12_wrap_t2 (163101) | 2.00, 1.38e-05, 3.3442e-11; gathered and wrapped identical |
-| type 3 (BiCGStab, P0) | C_m12_gath_t3 (163100) | 2.00, 1.82e-05 |
-| type 4 (UMFPACK, P0) | D_m12_gath (163072) | 2.00, 1.81e-05, 3.3442e-11 |
+| closed periodic cases | all `_chk` runs, D_m12_gath | one component, closed: structural flux 1.1e-15 to 1.4e-14, matrix 1.3e-15 to 2.0e-14; ungauged residual below 1e-15, reference 0 |
+| open periodic case (zmax Outflow), cubic cells | C_open_gath_chk (163412) | structural flux 0.50, matrix 0.90: open, no reference; 2.00 cycles, checks PASS |
+| open, cells stretched 10 x in z, type 4 | S_open_z10_t4 (163469) | structure open (0.50), matrix 1.2e-2: types 3/4 refused for the weakly open component, fallback to legacy logged |
+| open, stretched 10 x, type 2 | S_open_z10_t2 (163470) | gathered: open, no reference, compatible solve PASS; converges (5e-4 per 20 cycles; legacy S_open_z10_legacy 163488: 0.86) |
+| open, stretched 30 x, types 4 / 2 | S_open_z30_t4 (163478), S_open_z30_t2 (163486) | type 4 falls back to legacy (logged); type 2 gathered: open, no reference, solve PASS, 0.16 per 20 cycles |
+| closed, stretched 10 x, type 4 | S_closed_z10_t4 (163487) | closed (structure 5e-15, matrix 8.6e-15), one reference; 5e-3 per 20 cycles (legacy-type MG stagnates at this stretch) |
+| open, stretched 1e4 x (DNS d11, z images unmatched: free z faces) | d11z__gathered (163406), d11z__legacy (163408) | structure open (0.50), matrix 3.2e-11 - below the former matrix-only threshold 1e-8, which would have pinned it -: open, no reference; compatible coarse solve: ungauged residual 3e-16 (deviation 2.1e-8, conditioning); the flow itself diverges at this aspect ratio with legacy as well |
+| type 1 / 2 / 3 / 4 (m12) | 163405 / 163407 / 163409 / 163379 | 2.05 / 2.00 / 2.00 / 2.00 cycles |
 
 **D. End-to-end probes**
 
 | case | legacy (job) | gathered (job) | wrapped (job) |
 |---|---|---|---|
-| PR15_m12_probe, weighted EL | 20.00 cycles (40/40 at cap), 0.539, res1 9.81e-08, bitwise vs 162042 (163077) | 2.00, 1.81e-05, 3.3442e-11 (163072) | identical XxX lines (163075) |
-| PK_smoke_wrap2, 6x6x60 | 20.00, 0.411, prefix-bitwise (163088) | 2.05, 6.28e-05, 3.97e-12 (163083) | same (163085) |
-| MG_sp single phase | 20.00, 0.822, bitwise (163095) | 2.00, 4.97e-06 (163089) | 2.00, 6.46e-06 (163092) |
-| MG_crs2 (type 2) | 20.00, 0.541, bitwise (163102) | see C | see C |
-| coarse level 2 (MG_L3 deck) | key absent = legacy: 20.00, 0.462 (X_lev2_unset, 163158) | explicit: 2.00, 1.27e-04 (163157) | - |
-| DNS d11, 40 steps | 9.25 cycles, 1.77e-06 (d11__legacy 163084) | 3.33, 6.00e-07 (163086) | 3.33, 6.00e-07 (163087) |
-| DNS QBOX2, 10 steps | 3.60, 4.60e-07 (q2__legacy 163093) | 3.60, 4.60e-07 (163094) | 3.60, 4.60e-07 (163096) |
+| PR15_m12_probe, weighted EL | 20.00 cycles, 0.539, bitwise vs 162042 (163384) | 2.00, 1.81e-05, 3.3442e-11 (163379) | identical XxX lines (163382) |
+| PK_smoke_wrap2, 6x6x60 | 20.00, 0.411, prefix-bitwise (163395) | 2.05, 6.28e-05 (163391) | same (163393) |
+| MG_sp single phase | 20.00, 0.822, bitwise (163403) | 2.00, 4.97e-06 (163396) | 2.00, 6.46e-06 (163399) |
+| MG_crs2 (type 2) | 20.00, 0.541, bitwise (163411) | see C | see C |
+| coarse level 2 | key absent = legacy: 20.00, 0.462 (163467) | explicit: 2.00, 1.27e-04 (163466) | - |
+| DNS d11, 40 steps | 9.25 cycles (163390) | 3.33 (163392); drag within 6.8e-7, bulk flow 3.0e-8 of legacy | 3.33 (163394) |
+| DNS QBOX2, 10 steps | 3.60 (163400) | 3.60, printed drag and XxX identical (163401) | same (163402) |
 
-DNS d11, gathered (and wrapped) against legacy over 40 steps: axial drag (particle_force.log fz)
-at most 6.8e-07 relative (fz(0.4) 8.82883971e-03 vs 8.82884008e-03), superficial velocity
-(bulk_flow.log) 3.0e-08: within the solver tolerance of the legacy run. QBOX2: the printed drag,
-bulk flow and `XxX` lines are identical to legacy (the coarse correction of 8 elements under a
-level-4 hierarchy does not change the printed digits); its role is the activation (P below).
+**P. Census on two coarse cells per periodic axis** (QBOX2, mesh by `tools/make_box_mesh.py`,
+which reproduces QBOX9 byte for byte): round-3 binary, explicit gathered: periodicity inactive,
+legacy (q2__r3gathered, 163404); 2777989b: axes TTT, 200 accepted periodic dof links per axis,
+identity PASS (163401); key absent and legacy bitwise vs base (163398, 163400; base 163397).
 
-**P. Census on two coarse cells per periodic axis** (QBOX2: unit cube, 2 x 2 x 2 coarse cells,
-one per worker, 8 workers + master; every element pair shares an ordinary vertex and periodic
-images; mesh written by `tools/make_box_mesh.py`, which reproduces the certified QBOX9 mesh
-byte for byte)
+**R. Runtime reload** (`_data/ProcCtrl.txt`: `Reload_Pres = _data/reload_pres.dat`, executed
+after step 1)
 
-| binary, key | run (job) | result |
+| case | runs (jobs) | result |
 |---|---|---|
-| round 3 (1004a4de), gathered explicit | q2__r3gathered (163097) | `PCO periods declared ... no worker coupling crosses a periodic plane: periodicity inactive, legacy operator` (the defect: an explicit request silently legacy) |
-| 34556706, gathered explicit | q2__gathered (163094) | `axes TTT shifted links 200 200 200`, 37 classes (largest 8), operator identity PASS |
-| 34556706, absent / legacy | q2__unset (163091), q2__legacy (163093) | bitwise vs the base binary (163090) |
+| walled A15 deck (legacy, not periodic), the same values | R_A15_same__new (163489) vs __base (163490) | every stream bitwise: a consistent reload behaves as before |
+| walled A15 deck, MGSmoothSteps 16 -> 17 | R_A15_change__new (163491) vs __base (163493) | the reload is taken in both (protocol: 17), every stream bitwise |
+| periodic gathered (m12), coarse solver type 4 -> 2 | R_m12_type (163494) | `coarse solver type changed by reload from 4 to 2`, 2.00 cycles continue |
+| periodic gathered (m12), MinLev/MedLev 1 -> 2 | R_m12_minlev (163495) | not taken (logged), previous values, 2.00 cycles continue |
+| ranks parsing different values | pco-reload-mpi-3 (163377) | test hook (a rank-dependent file cannot be staged on the shared file system): previous values on every rank |
 
-**E. Bitwise** (EL: `el_stream_compare.py --strict` on every EL stream, `XxX` lines as text,
-particle logs byte for byte; DNS: particle_force.log, bulk_flow.log, the `SED_BENCH_*`,
-`DNS_PART_FORCE` and `XxX` lines)
+**E. Bitwise**
 
 | case | key | runs (jobs) | result |
 |---|---|---|---|
-| 4 non-periodic EL gates (SCOL4, VFT10 x 3) | absent / gathered / wrapped | E_gates (163119-163130) | 12/12 bitwise |
-| 6 periodic QBOX9 EL gates | legacy | 163131, 163133, 163135, 163137, 163139, 163141 | 6/6 bitwise |
-| 6 periodic QBOX9 EL gates | absent (= gathered) | 163132, ..., 163142 | not bitwise (expected); 2.03-2.28 cycles |
-| A15 wall-bounded batch | absent / gathered / wrapped | E_A15__* (163143-163145) | prefix-bitwise vs A15, bitwise vs the base binary |
-| P15_probe_cross twin | legacy | E_cross_off__legacy (163146) | bitwise |
-| s05 pipe | legacy | B_pipe_legacy (163108) | bitwise vs the base binary |
-| DNS e4_l3 twin (q2p1_bench_sedimentation, 32 ranks; certified deck, not periodic) | absent / legacy / gathered / wrapped vs base binary | e4l3__* (163071 base, 163073, 163074, 163076, 163078) | 4/4 bitwise on every stream |
-| DNS d11 (triply periodic, unregistered application) | absent / legacy vs base binary | d11__unset (163082), d11__legacy (163084), base 163080 | bitwise (key absent is legacy outside the default scope, logged) |
-| DNS QBOX2 | absent / legacy vs base binary | q2__unset (163091), q2__legacy (163093), base 163090 | bitwise |
+| 4 non-periodic EL gates (SCOL4, VFT10 x 3) | absent / gathered / wrapped | 163428-163439 | 12/12 bitwise |
+| 6 periodic QBOX9 EL gates | legacy | 163440, 163442, 163444, 163446, 163448, 163450 | 6/6 bitwise |
+| 6 periodic QBOX9 EL gates | absent (= gathered) | 163441, ..., 163451 | not bitwise (expected); 2.03-2.28 cycles |
+| A15 wall-bounded batch | absent / gathered / wrapped | 163452-163454 | prefix-bitwise vs A15, bitwise vs base |
+| P15_probe_cross twin | legacy | 163455 | bitwise |
+| s05 pipe | legacy | 163417 | bitwise vs base |
+| DNS e4_l3 twin | absent / legacy / gathered / wrapped vs base | 163378 (base), 163380, 163381, 163383, 163385 | 4/4 bitwise on every stream |
+| DNS d11 | absent / legacy vs base | 163389, 163390 (base 163387) | bitwise |
+| DNS QBOX2 | absent / legacy vs base | 163398, 163400 (base 163397) | bitwise |
 
 **F. Refusals and inactive periodicity**
 
 | case | run (job) | result |
 |---|---|---|
-| walled A15 box, unit periods | F_wall_per1 (163113), F_wall_per1_gath (163114) | periodicity inactive, logged; bitwise vs base |
-| walled A15 box, periods 0.6 of a coarse cell (x, y) | F_walled06__{unset,gathered,wrapped} (163148-163150), base 163151 | periodicity inactive (no accepted periodic dof link), bitwise vs base under every key |
-| walled A15 box, unit periods, MinLev 1 < MedLev 2 | F_walledML__{unset,legacy,gathered,wrapped} (163152-163155), base 163156 | periodicity inactive, bitwise vs base under every key (no refusal) |
-| x pair Wall / Periodic | F_conflict_default (163115), F_conflict_gath (163116) | fallback logged (1428 conflicts) / `PCO REFUSED`, exit 1 |
-| periodic, MinLev 1 < MedLev 2 | F_minmed_default (163117), F_minmed_gath (163118) | legacy logged (outside the default scope) / refused |
-| wrapped on a curved boundary | B_pipe_wrap_chk (163107) | refused |
+| walled A15 box (coarse cell 0.0025), unit periods | F_wall_per1 (163422), F_wall_per1_gath (163423) | periodicity inactive, logged; bitwise vs base |
+| walled A15 box, periods 0.008333 on x, y (3.33 coarse cells: cell width 0.3 period) | F_walled06__{unset,gathered,wrapped} (163457-163459), base 163460 | periodicity inactive (no accepted periodic dof link), bitwise vs base under the three key settings |
+| walled A15 box, periods 0.0041667 on x, y (cell width 0.6 period) | F_wallc06__{unset,gathered} (163496, 163497), base 163498 | periodicity inactive, bitwise vs base |
+| walled A15 box, unit periods, MinLev 1 < MedLev 2 | F_walledML__{unset,legacy,gathered,wrapped} (163461-163464), base 163465 | periodicity inactive, bitwise vs base under every key |
+| x pair Wall / Periodic | F_conflict_default (163424), F_conflict_gath (163425) | fallback logged / `PCO REFUSED`, exit 1 |
+| periodic, MinLev 1 < MedLev 2 | F_minmed_default (163426), F_minmed_gath (163427) | legacy logged / refused |
+| wrapped on a curved boundary | B_pipe_wrap_chk (163416) | refused |
 | explicit key with coarse solver type 5, 7-10 | - | not reachable in this build (ValidateSolverTypes stops first) |
 
 **G. Restart** (round 3; DNS d11, q2p1_dns_drag; a continuous run of 20 steps against a run of
@@ -447,3 +491,7 @@ replaces the one after it (same cost). The worker-side assembly of C is the same
   legacy arithmetic; would make wrapped usable on curved periodic meshes.
 - Wider default (other applications, coarse levels 2/3): an owner decision; each needs its
   gate entry in `default_scope`.
+- Reload_Velo parses rank-locally like Reload_Pres did (no agreement); outside this branch.
+- A parse error of a reloaded pressure file (an invalid `Pres@PeriodicCoarseOperator`) stops
+  every rank that reads it; a file that differs between ranks in that way would stop some ranks
+  only (the parser has no error status to agree on).
