@@ -1,0 +1,594 @@
+!=========================================================================
+! QuadSc_pco_topology.f90 - periodic topology of the coarse pressure level of the master
+!
+! Part of the periodic coarse pressure operator (overview: QuadSc_pco_operator.f90). This
+! module answers two questions and owns no solver state:
+!
+! 1. Is periodicity active? (PCO_LINK_CENSUS, collective)
+!    A finite period alone does not say so (q2p1_dns_drag sets unit periods on every box).
+!    The evidence used is the coupling the workers actually apply: every ghost column of the
+!    parallel pressure matrix CP couples an owned element with an element of another rank.
+!    Each worker exchanges its element centroids (and sizes) through the pressure exchange
+!    (GetParPressure) and classifies every coupled pair by the centroid offset d:
+!      s_a = NINT(d_a / P_a) on each axis a with a finite period P_a (dPeriodicity),
+!      s_a /= 0  -> the pair is coupled across a periodic plane of axis a (shifted link),
+!      |d - s P| must stay below two element sizes (coupled elements are neighbours),
+!    otherwise the coupling is inconsistent with the declared periods. An axis is active
+!    when the global number of shifted links on it is positive.
+!
+! 2. Which dofs of the unpartitioned coarse mesh are periodic images of each other?
+!    (PCO_BUILD_CLASSES, master only)
+!    Velocity (Q2) dofs of level lev, numbered vertices, edges, faces, elements, with the
+!    coordinates of level lev+1 (where they are vertices). Partners are searched with every
+!    combined shift s P, s in {-1,0,1}^3 on the active axes (a vertex on a periodic edge has
+!    3 images, in a triply periodic corner 7), by a hash of the coordinates with the tolerance
+!    the workers use for their links (DEpsPrec). The partner relation is closed by union-find
+!    into classes. Refused (counted, reported by the caller):
+!      ambiguous  more than one dof within the tolerance of one shifted probe
+!      incomplete a class whose members span m periodic axes must have 2^m members and every
+!                 member 2^m - 1 direct partners
+!      mixed      a class mixing vertex, edge, face or element dofs
+!    The planes are not assumed to be the faces of a bounding box: any surface pair related
+!    by the translation P is found, a missing partner on a periodic plane shows up later as a
+!    worker coupling outside the master structure (pco_gather) or as an incomplete class.
+!
+! Also here: the conflict count of the velocity constraint masks over a class
+! (PCO_CLASS_MASK_CONFLICTS) and the element graph through vertex classes
+! (PCO_ELEMENT_GRAPH: elements sharing a vertex or one of its periodic images), which is
+! the block pattern of the periodic coarse pressure matrix.
+!=========================================================================
+MODULE pco_periodic_topology
+
+  USE PP3D_MPI, ONLY: myid, master, subnodes, MPI_COMM_WORLD, MPI_INTEGER, MPI_SUM, MPI_MAX, &
+                      MPI_DOUBLE_PRECISION, dPeriodicity, DEpsPrec, MGE013
+  USE var_QuadScalar, ONLY: mg_mesh, mg_lPMat
+  USE def_FEAT, ONLY: ILEV
+
+  IMPLICIT NONE
+  PRIVATE
+
+  ! dof classes of one mesh level; singletons are classes too
+  TYPE, PUBLIC :: tPcoClasses
+    INTEGER :: ndof = 0, nvt = 0, ncls = 0, nmulti = 0, maxsize = 0
+    INTEGER, ALLOCATABLE :: cls_of(:)        ! dof -> class
+    INTEGER, ALLOCATABLE :: ptr(:), mem(:)   ! members of class k: mem(ptr(k):ptr(k+1)-1), ascending
+    ! refusal counters of the construction
+    INTEGER :: nambiguous = 0, nincomplete = 0, nmixed = 0
+    INTEGER :: first_bad = 0                 ! a dof of the first refused class (0: none)
+  END TYPE tPcoClasses
+
+  TYPE, PUBLIC :: tPcoLinkCensus
+    INTEGER :: nshift(3) = 0                 ! coupled element pairs across a plane of axis a
+    INTEGER :: nbad = 0                      ! couplings inconsistent with the periods
+    LOGICAL :: axis_active(3) = .FALSE.
+    REAL*8  :: worst = 0d0                   ! largest |d - sP| / element size
+  END TYPE tPcoLinkCensus
+
+  PUBLIC :: PCO_LINK_CENSUS, PCO_BUILD_CLASSES, PCO_CLASS_MASK_CONFLICTS, PCO_ELEMENT_GRAPH
+  PUBLIC :: PCO_GHOST_BUFFER_SIZE
+
+  ! coordinate hash for the partner search
+  TYPE tPointHash
+    REAL*8 :: h = 0d0, x0(3) = 0d0
+    INTEGER :: n = 0
+    INTEGER(8), ALLOCATABLE :: key(:)
+    INTEGER, ALLOCATABLE :: idx(:)
+  END TYPE tPointHash
+  INTEGER(8), PARAMETER :: HB = 2_8**20      ! cells per axis of the hash key
+
+CONTAINS
+
+  !-----------------------------------------------------------------------
+  ! Size of the ghost buffer GetParPressure fills on level lev (workers): four values per
+  ! ghost element slot of the exchange lists, and at least every column of CP.
+  !-----------------------------------------------------------------------
+  INTEGER FUNCTION PCO_GHOST_BUFFER_SIZE(lev) RESULT(nbuf)
+    INTEGER, INTENT(IN) :: lev
+    INTEGER :: pjd, i
+    nbuf = 4
+    IF (myid.EQ.master) RETURN
+    IF (ALLOCATED(MGE013(lev)%SP)) THEN
+      DO pjd = 1, SIZE(MGE013(lev)%SP)
+        DO i = 1, MGE013(lev)%SP(pjd)%Num
+          nbuf = MAX(nbuf, 4*MGE013(lev)%SP(pjd)%VertLink(2,i))
+        END DO
+      END DO
+    END IF
+    IF (ALLOCATED(mg_lPMat(lev)%ColA)) THEN
+      IF (SIZE(mg_lPMat(lev)%ColA).GT.0) nbuf = MAX(nbuf, MAXVAL(mg_lPMat(lev)%ColA))
+    END IF
+  END FUNCTION PCO_GHOST_BUFFER_SIZE
+
+  !-----------------------------------------------------------------------
+  ! Census of the shifted worker links on level lev. Collective (every rank; the master
+  ! contributes nothing). Element size = twice the largest vertex distance from the centroid.
+  !-----------------------------------------------------------------------
+  SUBROUTINE PCO_LINK_CENSUS(lev, census)
+    INTEGER, INTENT(IN) :: lev
+    TYPE(tPcoLinkCensus), INTENT(OUT) :: census
+    REAL*8, ALLOCATABLE :: p(:), pp(:)
+    INTEGER :: nel, iel, k, ia, ic, base, a, s, ierr, ilev_save
+    INTEGER :: nloc(4), nglob(4)
+    REAL*8 :: c(3), d(3), r(3), h, wloc, wglob
+
+    nloc = 0
+    wloc = 0d0
+    ilev_save = ILEV
+    IF (myid.NE.master) THEN
+      nel = mg_mesh%level(lev)%nel
+      ALLOCATE(p(4*nel), pp(PCO_GHOST_BUFFER_SIZE(lev)))
+      pp = 0d0
+      DO iel = 1, nel
+        CALL element_centroid_size(lev, iel, c, h)
+        p(4*(iel-1)+1:4*(iel-1)+3) = c
+        p(4*(iel-1)+4) = h
+      END DO
+    ELSE
+      ALLOCATE(p(4), pp(4))
+    END IF
+    ILEV = lev
+    CALL GetParPressure(p, pp)
+    ILEV = ilev_save
+
+    IF (myid.NE.master) THEN
+      DO iel = 1, nel
+        ic = 4*(iel-1)+1
+        DO ia = mg_lPMat(lev)%LdA(ic), mg_lPMat(lev)%LdA(ic+1)-1
+          k = mg_lPMat(lev)%ColA(ia)
+          IF (MOD(k-1,4).NE.0) CYCLE            ! one entry per coupled ghost element
+          base = k
+          d = pp(base:base+2) - p(ic:ic+2)
+          h = MAX(p(ic+3), pp(base+3))
+          DO a = 1, 3
+            s = 0
+            IF (dPeriodicity(a).LT.1d8) s = NINT(d(a)/dPeriodicity(a))
+            r(a) = d(a) - DBLE(s)*MERGE(dPeriodicity(a), 0d0, s.NE.0)
+            IF (s.NE.0) nloc(a) = nloc(a) + 1
+          END DO
+          IF (NORM2(r).GT.2d0*h) nloc(4) = nloc(4) + 1
+          IF (h.GT.0d0) wloc = MAX(wloc, NORM2(r)/h)
+        END DO
+      END DO
+    END IF
+    DEALLOCATE(p, pp)
+
+    CALL MPI_Allreduce(nloc, nglob, 4, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
+    CALL MPI_Allreduce(wloc, wglob, 1, MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_WORLD, ierr)
+    census%nshift = nglob(1:3)
+    census%nbad = nglob(4)
+    census%worst = wglob
+    census%axis_active = (census%nshift.GT.0)
+
+  END SUBROUTINE PCO_LINK_CENSUS
+
+  SUBROUTINE element_centroid_size(lev, iel, c, h)
+    INTEGER, INTENT(IN) :: lev, iel
+    REAL*8, INTENT(OUT) :: c(3), h
+    INTEGER :: j
+    c = 0d0
+    DO j = 1, 8
+      c = c + mg_mesh%level(lev)%dcorvg(:, mg_mesh%level(lev)%kvert(j,iel))
+    END DO
+    c = 0.125d0*c
+    h = 0d0
+    DO j = 1, 8
+      h = MAX(h, NORM2(mg_mesh%level(lev)%dcorvg(:, mg_mesh%level(lev)%kvert(j,iel)) - c))
+    END DO
+    h = 2d0*h
+  END SUBROUTINE element_centroid_size
+
+  !-----------------------------------------------------------------------
+  ! Periodic classes of the Q2 dofs of level lev on the master (see module header).
+  ! axis_active / period: the axes found active by the census and their periods.
+  !-----------------------------------------------------------------------
+  SUBROUTINE PCO_BUILD_CLASSES(lev, axis_active, period, cls)
+    INTEGER, INTENT(IN) :: lev
+    LOGICAL, INTENT(IN) :: axis_active(3)
+    REAL*8, INTENT(IN) :: period(3)
+    TYPE(tPcoClasses), INTENT(INOUT) :: cls
+
+    TYPE(tPointHash) :: hash
+    INTEGER :: ndof, nvt, net, nat, i, j, k, sx, sy, sz, nhit, hits(2), a, m, sz_k
+    INTEGER, ALLOCATABLE :: parent(:), npartner(:), cnt(:), root2cls(:)
+    REAL*8, ALLOCATABLE :: x(:,:)
+    REAL*8 :: q(3), span(3), tol
+    INTEGER :: shift(3)
+
+    nvt = mg_mesh%level(lev)%nvt
+    net = mg_mesh%level(lev)%net
+    nat = mg_mesh%level(lev)%nat
+    ndof = nvt + net + nat + mg_mesh%level(lev)%nel
+    tol = DEpsPrec
+    ALLOCATE(x(3,ndof))
+    x = mg_mesh%level(lev+1)%dcorvg(:,1:ndof)
+
+    CALL hash_build(hash, x, ndof, tol)
+
+    ALLOCATE(parent(ndof), npartner(ndof))
+    DO i = 1, ndof
+      parent(i) = i
+    END DO
+    npartner = 0
+    cls%nambiguous = 0
+    cls%nincomplete = 0
+    cls%nmixed = 0
+    cls%first_bad = 0
+
+    DO i = 1, ndof
+      DO sx = -1, 1
+      DO sy = -1, 1
+      DO sz = -1, 1
+        shift = (/sx, sy, sz/)
+        IF (ALL(shift.EQ.0)) CYCLE
+        IF (ANY(shift.NE.0 .AND. .NOT.axis_active)) CYCLE
+        q = x(:,i) + DBLE(shift)*MERGE(period, 0d0, axis_active)
+        CALL hash_query(hash, x, q, tol, hits, nhit)
+        IF (nhit.GT.1) THEN
+          cls%nambiguous = cls%nambiguous + 1
+          IF (cls%first_bad.EQ.0) cls%first_bad = i
+        END IF
+        IF (nhit.GE.1) THEN
+          npartner(i) = npartner(i) + 1
+          CALL uf_union(parent, i, hits(1))
+        END IF
+      END DO
+      END DO
+      END DO
+    END DO
+
+    ! classes in the order of their smallest dof
+    ALLOCATE(root2cls(ndof), cnt(ndof))
+    root2cls = 0
+    IF (ALLOCATED(cls%cls_of)) DEALLOCATE(cls%cls_of)
+    ALLOCATE(cls%cls_of(ndof))
+    cls%ncls = 0
+    DO i = 1, ndof
+      j = uf_find(parent, i)
+      IF (root2cls(j).EQ.0) THEN
+        cls%ncls = cls%ncls + 1
+        root2cls(j) = cls%ncls
+      END IF
+      cls%cls_of(i) = root2cls(j)
+    END DO
+    IF (ALLOCATED(cls%ptr)) DEALLOCATE(cls%ptr)
+    IF (ALLOCATED(cls%mem)) DEALLOCATE(cls%mem)
+    ALLOCATE(cls%ptr(cls%ncls+1), cls%mem(ndof))
+    cnt = 0
+    DO i = 1, ndof
+      cnt(cls%cls_of(i)) = cnt(cls%cls_of(i)) + 1
+    END DO
+    cls%ptr(1) = 1
+    DO k = 1, cls%ncls
+      cls%ptr(k+1) = cls%ptr(k) + cnt(k)
+    END DO
+    cnt(1:cls%ncls) = cls%ptr(1:cls%ncls)
+    DO i = 1, ndof
+      k = cls%cls_of(i)
+      cls%mem(cnt(k)) = i
+      cnt(k) = cnt(k) + 1
+    END DO
+
+    ! completeness and type consistency
+    cls%nmulti = 0
+    cls%maxsize = 1
+    DO k = 1, cls%ncls
+      sz_k = cls%ptr(k+1) - cls%ptr(k)
+      IF (sz_k.EQ.1) CYCLE
+      cls%nmulti = cls%nmulti + 1
+      cls%maxsize = MAX(cls%maxsize, sz_k)
+      m = 0
+      DO a = 1, 3
+        IF (.NOT.axis_active(a)) CYCLE
+        span(a) = MAXVAL(x(a, cls%mem(cls%ptr(k):cls%ptr(k+1)-1))) - &
+                  MINVAL(x(a, cls%mem(cls%ptr(k):cls%ptr(k+1)-1)))
+        IF (span(a).GT.0.5d0*period(a)) m = m + 1
+      END DO
+      IF (sz_k.NE.2**m .OR. ANY(npartner(cls%mem(cls%ptr(k):cls%ptr(k+1)-1)).NE.2**m-1)) THEN
+        cls%nincomplete = cls%nincomplete + 1
+        IF (cls%first_bad.EQ.0) cls%first_bad = cls%mem(cls%ptr(k))
+      END IF
+      IF (dof_kind(cls%mem(cls%ptr(k)), nvt, net, nat).NE. &
+          dof_kind(cls%mem(cls%ptr(k+1)-1), nvt, net, nat)) THEN
+        cls%nmixed = cls%nmixed + 1
+        IF (cls%first_bad.EQ.0) cls%first_bad = cls%mem(cls%ptr(k))
+      END IF
+    END DO
+    ! members of a class are ascending, so kinds of the first and the last member bound
+    ! the kinds of all (dof_kind is monotone in the dof number)
+
+    cls%ndof = ndof
+    cls%nvt = nvt
+    DEALLOCATE(x, parent, npartner, cnt, root2cls)
+    CALL hash_free(hash)
+
+  END SUBROUTINE PCO_BUILD_CLASSES
+
+  INTEGER FUNCTION dof_kind(i, nvt, net, nat)
+    INTEGER, INTENT(IN) :: i, nvt, net, nat
+    IF (i.LE.nvt) THEN
+      dof_kind = 1
+    ELSE IF (i.LE.nvt+net) THEN
+      dof_kind = 2
+    ELSE IF (i.LE.nvt+net+nat) THEN
+      dof_kind = 3
+    ELSE
+      dof_kind = 4
+    END IF
+  END FUNCTION dof_kind
+
+  !-----------------------------------------------------------------------
+  ! Number of classes whose members carry different velocity constraint flags (Dirichlet
+  ! per component, the test of Get_CMat: flag == 1). On the workers the flags of coupled
+  ! dofs are the same; a class with different flags on the master is a periodic pair with
+  ! different physical conditions on its two sides.
+  !-----------------------------------------------------------------------
+  INTEGER FUNCTION PCO_CLASS_MASK_CONFLICTS(cls, ku, kv, kw) RESULT(nconf)
+    TYPE(tPcoClasses), INTENT(IN) :: cls
+    INTEGER, INTENT(IN) :: ku(:), kv(:), kw(:)
+    INTEGER :: k, j, r
+    nconf = 0
+    DO k = 1, cls%ncls
+      IF (cls%ptr(k+1)-cls%ptr(k).EQ.1) CYCLE
+      r = cls%mem(cls%ptr(k))
+      DO j = cls%ptr(k)+1, cls%ptr(k+1)-1
+        IF ((ku(cls%mem(j)).EQ.1).NEQV.(ku(r).EQ.1) .OR. &
+            (kv(cls%mem(j)).EQ.1).NEQV.(kv(r).EQ.1) .OR. &
+            (kw(cls%mem(j)).EQ.1).NEQV.(kw(r).EQ.1)) THEN
+          nconf = nconf + 1
+          EXIT
+        END IF
+      END DO
+    END DO
+  END FUNCTION PCO_CLASS_MASK_CONFLICTS
+
+  !-----------------------------------------------------------------------
+  ! Element graph of level lev through vertex classes: f is a neighbour of e (f /= e) when a
+  ! vertex of e and a vertex of f are in one class. eptr/enbr: CSR, neighbours ascending.
+  ! The vertex classes are the classes of the first nvt dofs (a class never mixes kinds).
+  !-----------------------------------------------------------------------
+  SUBROUTINE PCO_ELEMENT_GRAPH(lev, cls, eptr, enbr)
+    INTEGER, INTENT(IN) :: lev
+    TYPE(tPcoClasses), INTENT(IN) :: cls
+    INTEGER, ALLOCATABLE, INTENT(OUT) :: eptr(:), enbr(:)
+    INTEGER :: nel, nvt, iel, j, v, w, k, f, n, ipos, mw
+    INTEGER, ALLOCATABLE :: vptr(:), vel(:), fill(:), stamp(:), buf(:)
+
+    nel = mg_mesh%level(lev)%nel
+    nvt = mg_mesh%level(lev)%nvt
+    ALLOCATE(vptr(nvt+1), fill(nvt+1), vel(8*nel), stamp(nel), buf(nel))
+    fill = 0
+    DO iel = 1, nel
+      DO j = 1, 8
+        v = mg_mesh%level(lev)%kvert(j,iel)
+        fill(v+1) = fill(v+1) + 1
+      END DO
+    END DO
+    vptr(1) = 1
+    DO v = 1, nvt
+      vptr(v+1) = vptr(v) + fill(v+1)
+    END DO
+    fill(1:nvt) = vptr(1:nvt)
+    DO iel = 1, nel
+      DO j = 1, 8
+        v = mg_mesh%level(lev)%kvert(j,iel)
+        vel(fill(v)) = iel
+        fill(v) = fill(v) + 1
+      END DO
+    END DO
+
+    stamp = 0
+    ALLOCATE(eptr(nel+1))
+    ! two passes: count, then fill
+    DO ipos = 1, 2
+      eptr(1) = 1
+      DO iel = 1, nel
+        n = 0
+        DO j = 1, 8
+          v = mg_mesh%level(lev)%kvert(j,iel)
+          k = cls%cls_of(v)
+          DO mw = cls%ptr(k), cls%ptr(k+1)-1
+            w = cls%mem(mw)
+            DO f = vptr(w), vptr(w+1)-1
+              IF (vel(f).EQ.iel) CYCLE
+              IF (stamp(vel(f)).EQ.iel + (ipos-1)*nel) CYCLE
+              stamp(vel(f)) = iel + (ipos-1)*nel
+              n = n + 1
+              buf(n) = vel(f)
+            END DO
+          END DO
+        END DO
+        IF (ipos.EQ.2) THEN
+          CALL isort(buf, n)
+          enbr(eptr(iel):eptr(iel)+n-1) = buf(1:n)
+        END IF
+        eptr(iel+1) = eptr(iel) + n
+      END DO
+      IF (ipos.EQ.1) ALLOCATE(enbr(MAX(eptr(nel+1)-1,1)))
+    END DO
+    DEALLOCATE(vptr, fill, vel, stamp, buf)
+
+  END SUBROUTINE PCO_ELEMENT_GRAPH
+
+  SUBROUTINE isort(a, n)
+    INTEGER, INTENT(INOUT) :: a(:)
+    INTEGER, INTENT(IN) :: n
+    INTEGER :: i, j, t
+    DO i = 2, n
+      t = a(i)
+      j = i - 1
+      DO WHILE (j.GE.1)
+        IF (a(j).LE.t) EXIT
+        a(j+1) = a(j)
+        j = j - 1
+      END DO
+      a(j+1) = t
+    END DO
+  END SUBROUTINE isort
+
+  !-----------------------------------------------------------------------
+  ! union-find
+  !-----------------------------------------------------------------------
+  INTEGER FUNCTION uf_find(parent, i) RESULT(r)
+    INTEGER, INTENT(INOUT) :: parent(:)
+    INTEGER, INTENT(IN) :: i
+    INTEGER :: j, t
+    r = i
+    DO WHILE (parent(r).NE.r)
+      r = parent(r)
+    END DO
+    j = i
+    DO WHILE (parent(j).NE.r)
+      t = parent(j)
+      parent(j) = r
+      j = t
+    END DO
+  END FUNCTION uf_find
+
+  SUBROUTINE uf_union(parent, i, j)
+    INTEGER, INTENT(INOUT) :: parent(:)
+    INTEGER, INTENT(IN) :: i, j
+    INTEGER :: ri, rj
+    ri = uf_find(parent, i)
+    rj = uf_find(parent, j)
+    IF (ri.EQ.rj) RETURN
+    IF (ri.LT.rj) THEN
+      parent(rj) = ri
+    ELSE
+      parent(ri) = rj
+    END IF
+  END SUBROUTINE uf_union
+
+  !-----------------------------------------------------------------------
+  ! coordinate hash: cells of size h >= 4 tol, keys sorted; a query visits the 27 cells
+  ! around the probe and returns the points within tol (at most two reported, nhit counts all)
+  !-----------------------------------------------------------------------
+  SUBROUTINE hash_build(hs, x, n, tol)
+    TYPE(tPointHash), INTENT(INOUT) :: hs
+    INTEGER, INTENT(IN) :: n
+    REAL*8, INTENT(IN) :: x(3,n), tol
+    INTEGER :: i
+    REAL*8 :: ext
+    hs%n = n
+    hs%x0 = MINVAL(x, DIM=2)
+    ext = MAXVAL(MAXVAL(x, DIM=2) - hs%x0)
+    hs%h = MAX(4d0*tol, 2d0*ext/DBLE(HB/2))
+    hs%x0 = hs%x0 - 2d0*hs%h
+    ALLOCATE(hs%key(n), hs%idx(n))
+    DO i = 1, n
+      hs%key(i) = cell_key(hs, x(:,i))
+      hs%idx(i) = i
+    END DO
+    CALL heapsort_key(hs%key, hs%idx, n)
+  END SUBROUTINE hash_build
+
+  SUBROUTINE hash_free(hs)
+    TYPE(tPointHash), INTENT(INOUT) :: hs
+    IF (ALLOCATED(hs%key)) DEALLOCATE(hs%key)
+    IF (ALLOCATED(hs%idx)) DEALLOCATE(hs%idx)
+    hs%n = 0
+  END SUBROUTINE hash_free
+
+  INTEGER(8) FUNCTION cell_key(hs, p) RESULT(key)
+    TYPE(tPointHash), INTENT(IN) :: hs
+    REAL*8, INTENT(IN) :: p(3)
+    key = index_key(FLOOR((p - hs%x0)/hs%h, KIND=8))
+  END FUNCTION cell_key
+
+  INTEGER(8) FUNCTION index_key(ic) RESULT(key)
+    INTEGER(8), INTENT(IN) :: ic(3)
+    IF (ANY(ic.LT.0_8) .OR. ANY(ic.GE.HB)) THEN
+      key = -1_8
+    ELSE
+      key = (ic(1)*HB + ic(2))*HB + ic(3)
+    END IF
+  END FUNCTION index_key
+
+  SUBROUTINE hash_query(hs, x, q, tol, hits, nhit)
+    TYPE(tPointHash), INTENT(IN) :: hs
+    REAL*8, INTENT(IN) :: x(:,:), q(3), tol
+    INTEGER, INTENT(OUT) :: hits(2), nhit
+    INTEGER :: dx, dy, dz, lo, hi, m
+    INTEGER(8) :: key, ic0(3)
+    nhit = 0
+    hits = 0
+    ! the 27 cells around the cell of q, by integer offsets (distinct cells, no rounding)
+    ic0 = FLOOR((q - hs%x0)/hs%h, KIND=8)
+    DO dx = -1, 1
+    DO dy = -1, 1
+    DO dz = -1, 1
+      key = index_key(ic0 + INT((/dx, dy, dz/), KIND=8))
+      IF (key.LT.0_8) CYCLE
+      CALL key_range(hs%key, hs%n, key, lo, hi)
+      DO m = lo, hi
+        IF (NORM2(x(:,hs%idx(m)) - q).LT.tol) THEN
+          nhit = nhit + 1
+          IF (nhit.LE.2) hits(nhit) = hs%idx(m)
+        END IF
+      END DO
+    END DO
+    END DO
+    END DO
+  END SUBROUTINE hash_query
+
+  ! positions lo..hi of key in the sorted array (hi < lo: absent)
+  SUBROUTINE key_range(keys, n, key, lo, hi)
+    INTEGER(8), INTENT(IN) :: keys(:), key
+    INTEGER, INTENT(IN) :: n
+    INTEGER, INTENT(OUT) :: lo, hi
+    INTEGER :: l, r, mid
+    l = 1
+    r = n + 1
+    DO WHILE (l.LT.r)
+      mid = (l + r)/2
+      IF (keys(mid).LT.key) THEN
+        l = mid + 1
+      ELSE
+        r = mid
+      END IF
+    END DO
+    lo = l
+    hi = l - 1
+    DO WHILE (hi+1.LE.n)
+      IF (keys(hi+1).NE.key) EXIT
+      hi = hi + 1
+    END DO
+  END SUBROUTINE key_range
+
+  SUBROUTINE heapsort_key(key, idx, n)
+    INTEGER(8), INTENT(INOUT) :: key(:)
+    INTEGER, INTENT(INOUT) :: idx(:)
+    INTEGER, INTENT(IN) :: n
+    INTEGER :: i, iend
+    DO i = n/2, 1, -1
+      CALL sift(i, n)
+    END DO
+    DO iend = n, 2, -1
+      CALL swap(1, iend)
+      CALL sift(1, iend-1)
+    END DO
+  CONTAINS
+    SUBROUTINE sift(start, last)
+      INTEGER, INTENT(IN) :: start, last
+      INTEGER :: root, child
+      root = start
+      DO
+        child = 2*root
+        IF (child.GT.last) EXIT
+        IF (child+1.LE.last) THEN
+          IF (key(child+1).GT.key(child)) child = child + 1
+        END IF
+        IF (key(root).GE.key(child)) EXIT
+        CALL swap(root, child)
+        root = child
+      END DO
+    END SUBROUTINE sift
+    SUBROUTINE swap(a, b)
+      INTEGER, INTENT(IN) :: a, b
+      INTEGER(8) :: tk
+      INTEGER :: ti
+      tk = key(a); key(a) = key(b); key(b) = tk
+      ti = idx(a); idx(a) = idx(b); idx(b) = ti
+    END SUBROUTINE swap
+  END SUBROUTINE heapsort_key
+
+END MODULE pco_periodic_topology

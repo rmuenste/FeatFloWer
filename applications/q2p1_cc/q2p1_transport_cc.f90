@@ -11,6 +11,7 @@ USE param_parser, ONLY : GetPhysiclaParameters,write_param_real,write_param_int
 ! USE LinScalar, ONLY: AddSurfaceTension
 use def_cc
 use def_QuadScalar
+use pco_coarse_operator, ONLY: Renew_Pressure_Operator
 use var_QuadScalar_newton, ONLY:zeitstep
 IMPLICIT NONE
 
@@ -990,10 +991,8 @@ IF (iType.EQ.myMatrixRenewal%C) THEN
   CALL Fill_QuadLinParMat()
  END IF
 
- CALL Create_CMat(QuadSc%knprU,QuadSc%knprV,QuadSc%knprW,LinSc%knprP,LinSc%prm%MGprmIn%MinLev,LinSc%prm%MGprmIn%CrsSolverType)
- IF (myid.ne.master) THEN
-  CALL Create_ParCMat(QuadSc%knprU,QuadSc%knprV,QuadSc%knprW)
- END IF
+ ! C, its parallel part and the master's coarse operator (QuadSc_pco_operator.f90)
+ CALL Renew_Pressure_Operator()
  bHit = .TRUE.
 END IF
 

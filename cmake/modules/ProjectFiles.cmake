@@ -103,6 +103,7 @@ set(src_util
   ${CMAKE_SOURCE_DIR}/source/src_util/MPI_DumpOutputProfiles.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/ReadExtrud3DParameters.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/pressure_coarse_key.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/pressure_coarse_key.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/types.f90
   ${CMAKE_SOURCE_DIR}/source/src_el/el_config.f90
   ${CMAKE_SOURCE_DIR}/source/src_el/el_fields.f90
@@ -322,12 +323,18 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_main.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_var.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_user.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/viscosity_model.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_topology.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_solver.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_gather.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_wrap.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_reconstruct.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver_hypre.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver_coarse.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_struct.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_assembly.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_operator.f90
 ${CMAKE_SOURCE_DIR}/source/initialization/app_initialization.f90
 )
 
@@ -356,12 +363,18 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_comm.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_main.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_user.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/viscosity_model.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_topology.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_solver.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_gather.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_wrap.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_reconstruct.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver_hypre.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver_coarse.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_struct.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_assembly.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_pco_operator.f90
 ${CMAKE_SOURCE_DIR}/source/initialization/app_initialization.f90
 ${CMAKE_SOURCE_DIR}/source/Init.f90
 ${CMAKE_SOURCE_DIR}/source/Umbrella.f90
