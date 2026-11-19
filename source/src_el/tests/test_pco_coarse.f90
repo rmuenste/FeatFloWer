@@ -53,6 +53,18 @@ PROGRAM TEST_PCO_COARSE
   !  16 closure scale: a closed ring whose slope rows carry rounding-noise couplings to the
   !     mean modes (1e-17, as on the symmetric 2 x 2 x 2 periodic box) stays closed (the
   !     measure is normwise, not relative to the mean columns of the row alone)
+  !  17 gauge from the structure: a weak outlet (open diagonal 2 + 1e-9, matrix closure
+  !     2.5e-10, below the matrix tolerance) with a structural flux of order one stays open,
+  !     no reference, and the exact solution (one on every mean mode) is returned (types 2, 4);
+  !     next to it the closed ring with noise stays closed (16). Inconsistent or undecidable
+  !     cases set no reference and return PCO_GAUGE_UNDECIDED: structurally closed but the
+  !     operator does not annihilate the constant; structurally open but the constant is in
+  !     the numerical kernel; a structural flux between the closed and the open thresholds
+  !  18 worker-product comparison: a zero row of the gathered operator with a nonzero worker
+  !     result fails (it was skipped)
+  !  19 coordinate tolerance per coordinate (as the E013 links): an image offset by 0.8
+  !     DEpsPrec in two coordinates is coincident for the pair check and the master classes;
+  !     1.2 DEpsPrec in one coordinate is not
 
   USE MPI
   USE TYPES, ONLY: tMultiMesh, TMatrix
@@ -65,9 +77,10 @@ PROGRAM TEST_PCO_COARSE
   USE pco_p0_reconstruct, ONLY: PCO_SET_VERTEX_CLASSES, PCO_P0_TO_VERTEX, pco_vertex_values
   USE pco_coarse_solver, ONLY: pco, PCO_INSTALL_LAYOUT, PCO_REFRESH_SOLVER, PCO_SOLVE_CHECK, &
                                PCO_BLOCK_SLOT, PCO_NEIGHBOUR_POS, PCO_SOLVE_FULL, PCO_SOLVE_P0, &
-                               PCO_RELEASE, PCO_CHANGE_SOLVER_TYPE, PCO_RAW_SOR, PCO_RAW_MATVEC
-  USE pco_diagnostics, ONLY: PCO_COMPARE_OPERATORS
-  USE PP3D_MPI, ONLY: COUNT_PERIODIC_LINK
+                               PCO_RELEASE, PCO_CHANGE_SOLVER_TYPE, PCO_RAW_SOR, PCO_RAW_MATVEC, &
+                               PCO_SET_STRUCTURAL_FLUX, PCO_GAUGE_UNDECIDED
+  USE pco_diagnostics, ONLY: PCO_COMPARE_OPERATORS, PCO_COMPARE_PRODUCTS
+  USE PP3D_MPI, ONLY: COUNT_PERIODIC_LINK, DEpsPrec
   USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_VALUE, IEEE_QUIET_NAN, IEEE_POSITIVE_INF
   USE mg_QuadScalar, ONLY: INTPVB
   USE EL_TEST_HELPERS, ONLY: EL_TEST_INIT, EL_TEST_CHECK, EL_TEST_REPORT, BUILD_STRUCTURED_MESH, &
@@ -99,6 +112,9 @@ PROGRAM TEST_PCO_COARSE
   CALL test_zero_reference_row()
   CALL test_link_provenance()
   CALL test_closure_scale()
+  CALL test_structural_gauge()
+  CALL test_compare_products()
+  CALL test_componentwise_tolerance()
 
   CALL EL_TEST_REPORT(nf, rank, nproc, 'pco coarse')
   CALL MPI_Finalize(ierr)
@@ -383,7 +399,19 @@ CONTAINS
       END DO
     END DO
     IF (open) pco%a(PCO_BLOCK_SLOT(1, 1, 0, 1)) = 2.5d0
+    CALL set_flux(nel, MERGE(1, 0, open))
   END SUBROUTINE ring_operator
+
+  ! structural flux of a constant pressure per element (PCO_FREE_FLUX of the workers in the
+  ! application): order one on element 1 when iopen = 1, zero elsewhere
+  SUBROUTINE set_flux(nel, iopen)
+    INTEGER, INTENT(IN) :: nel, iopen
+    REAL*8 :: fl(nel)
+    fl = 0d0
+    IF (iopen.EQ.1) fl(1) = 1d0
+    IF (iopen.EQ.2) fl = 1d0
+    CALL PCO_SET_STRUCTURAL_FLUX(fl)
+  END SUBROUTINE set_flux
 
   SUBROUTINE test_gauge_solver()
     INTEGER, PARAMETER :: nel = 6
@@ -500,6 +528,7 @@ CONTAINS
       END DO
     END DO
     IF (open_a) pco%a(PCO_BLOCK_SLOT(1, 1, 0, 1)) = 3d0
+    CALL set_flux(6, MERGE(1, 0, open_a))
   END SUBROUTINE two_rings
 
   SUBROUTINE test_components()
@@ -559,6 +588,7 @@ CONTAINS
         pco%a(PCO_BLOCK_SLOT(e, mp, 0, mp)) = DBLE(e + mp)
       END DO
     END DO
+    CALL set_flux(4, 2)
   END SUBROUTINE diagonal_operator
 
   SUBROUTINE test_bicgstab_edges()
@@ -767,8 +797,8 @@ CONTAINS
 
   !---------------------------------------------------------------------
   ! one element, no neighbours: block diag(0, d2, d3, d4) (closed: the mean row vanishes)
-  SUBROUTINE singleton(crs, d)
-    INTEGER, INTENT(IN) :: crs
+  SUBROUTINE singleton(crs, d, iopen)
+    INTEGER, INTENT(IN) :: crs, iopen
     REAL*8, INTENT(IN) :: d(4)
     INTEGER, ALLOCATABLE :: eptr(:), enbr(:)
     INTEGER :: mp
@@ -780,6 +810,7 @@ CONTAINS
     DO mp = 1, 4
       pco%a(PCO_BLOCK_SLOT(1, mp, 0, mp)) = d(mp)
     END DO
+    CALL set_flux(1, iopen)
   END SUBROUTINE singleton
 
   SUBROUTINE test_zero_reference_row()
@@ -791,7 +822,7 @@ CONTAINS
     b = (/0d0, 3d0, 8d0, 15d0/)
     DO crs = 1, 4
       WRITE(lab,'(A,I0)') 'type ', crs
-      CALL singleton(crs, (/0d0, 3d0, 4d0, 5d0/))
+      CALL singleton(crs, (/0d0, 3d0, 4d0, 5d0/), 0)
       CALL PCO_REFRESH_SOLVER(st, msg)
       CALL EL_TEST_CHECK(st.EQ.0 .AND. pco%nclosed.EQ.1 .AND. pco%sref(1) .AND. &
         pco%sa(pco%sldA(1)).NE.0d0, TRIM(lab)//': reference diagonal nonzero on the copy, refresh ok', nf, rank)
@@ -811,7 +842,7 @@ CONTAINS
     CALL PCO_RAW_SOR(xs, b, 1, 1d0)
     CALL EL_TEST_CHECK(xs(1).EQ.7d0 .AND. MAXVAL(ABS(xs(2:4) - (/1d0, 2d0, 3d0/))).LT.1d-15, &
       'raw SOR: the zero row keeps its value, no division by zero', nf, rank)
-    CALL singleton(1, (/1d0, 0d0, 4d0, 5d0/))
+    CALL singleton(1, (/1d0, 0d0, 4d0, 5d0/), 1)
     CALL PCO_REFRESH_SOLVER(st, msg)
     CALL EL_TEST_CHECK(st.EQ.4, 'type 1: zero diagonal outside a reference refused at the refresh', nf, rank)
     CALL PCO_RELEASE()
@@ -892,6 +923,101 @@ CONTAINS
     END DO
     CALL PCO_RELEASE()
   END SUBROUTINE test_closure_scale
+
+  !---------------------------------------------------------------------
+  SUBROUTINE test_structural_gauge()
+    INTEGER :: st, crs, it
+    CHARACTER(len=256) :: msg
+    CHARACTER(len=32) :: lab
+    REAL*8 :: xt(24), b(24), x(24), p0(6)
+    WRITE(*,'(A)') '17 gauge from the structure, the matrix as a consistency check'
+    xt = 0d0
+    xt(1:24:4) = 1d0
+    DO crs = 2, 4, 2
+      WRITE(lab,'(A,I0)') 'type ', crs
+      CALL ring_operator(6, crs, .TRUE.)
+      pco%a(PCO_BLOCK_SLOT(1, 1, 0, 1)) = 2d0 + 1d-9          ! weak outlet
+      CALL PCO_REFRESH_SOLVER(st, msg)
+      WRITE(*,'(A,ES11.3)') '    weak outlet: matrix closure measure', pco%closure_open
+      CALL EL_TEST_CHECK(st.EQ.0 .AND. pco%nclosed.EQ.0 .AND. .NOT.ANY(pco%sref) .AND. pco%closure_open.LT.1d-8, &
+        TRIM(lab)//': weak outlet (matrix closure below 1e-8) structurally open: no reference', nf, rank)
+      CALL PCO_RAW_MATVEC(xt, b)
+      it = 10
+      IF (crs.EQ.2) THEN
+        CALL PCO_SOLVE_FULL(x, b, 24, it, 1d-12, 1d0)
+      ELSE
+        CALL PCO_SOLVE_P0(b, p0, it, 1d-12, 1d0)
+        x = 0d0
+        x(1:24:4) = p0
+      END IF
+      WRITE(*,'(A,ES11.3)') '    weak outlet: max |x - 1| on the means', MAXVAL(ABS(x(1:24:4) - 1d0))
+      CALL EL_TEST_CHECK(MAXVAL(ABS(x(1:24:4) - 1d0)).LT.1d-5, &
+        TRIM(lab)//': weak outlet solved: the exact solution 1 (a reference would return 0)', nf, rank)
+    END DO
+    ! structurally closed, but the operator does not annihilate the constant
+    CALL ring_operator(6, 2, .TRUE.)
+    CALL set_flux(6, 0)
+    CALL PCO_REFRESH_SOLVER(st, msg)
+    CALL EL_TEST_CHECK(st.EQ.PCO_GAUGE_UNDECIDED .AND. .NOT.ANY(pco%sref), &
+      'structure closed, matrix open: undecided, no reference ('//TRIM(msg(1:60))//')', nf, rank)
+    ! structurally open, but the constant is in the numerical kernel
+    CALL ring_operator(6, 2, .FALSE.)
+    CALL set_flux(6, 1)
+    CALL PCO_REFRESH_SOLVER(st, msg)
+    CALL EL_TEST_CHECK(st.EQ.PCO_GAUGE_UNDECIDED .AND. .NOT.ANY(pco%sref), &
+      'structure open, matrix closed to rounding: undecided, no reference', nf, rank)
+    ! structural flux between the thresholds
+    CALL ring_operator(6, 2, .FALSE.)
+    CALL PCO_SET_STRUCTURAL_FLUX((/1d-8, 0d0, 0d0, 0d0, 0d0, 0d0/))
+    CALL PCO_REFRESH_SOLVER(st, msg)
+    CALL EL_TEST_CHECK(st.EQ.PCO_GAUGE_UNDECIDED .AND. .NOT.ANY(pco%sref), &
+      'structural flux 1e-8 (between 1e-10 and 1e-6): undecided, no reference', nf, rank)
+    CALL PCO_RELEASE()
+  END SUBROUTINE test_structural_gauge
+
+  !---------------------------------------------------------------------
+  SUBROUTINE test_compare_products()
+    REAL*8 :: yd(3), y(3), sc(3)
+    WRITE(*,'(A)') '18 worker-product comparison on zero rows'
+    sc = (/2d0, 0d0, 1d0/)
+    y = (/1d0, 0d0, -1d0/)
+    yd = y
+    yd(1) = yd(1) + 1d-16
+    CALL EL_TEST_CHECK(PCO_COMPARE_PRODUCTS(yd, y, sc).LT.1d-15, 'rounding on scaled rows passes', nf, rank)
+    yd(2) = 1d-30
+    CALL EL_TEST_CHECK(PCO_COMPARE_PRODUCTS(yd, y, sc).GE.1d0, &
+      'zero gathered row, nonzero worker result: fails (was skipped)', nf, rank)
+  END SUBROUTINE test_compare_products
+
+  !---------------------------------------------------------------------
+  SUBROUTINE test_componentwise_tolerance()
+    REAL*8 :: va(24), vb(24), per(3), tol
+    INTEGER :: shift(3), kind, n, iv
+    TYPE(tPcoClasses) :: cls
+    REAL*8 :: pe(3) = (/1d0, 1d0, 1d0/)
+    WRITE(*,'(A)') '19 coordinate tolerance per coordinate'
+    tol = DEpsPrec
+    per = (/1d0, 1d9, 1d9/)
+    CALL cell(0d0, 0.5d0, va)
+    CALL cell(1d0, 1.5d0, vb)                 ! image of va across x = 0 ~ 1 shares x = 1
+    vb(2:24:3) = vb(2:24:3) + 0.8d0*tol      ! offset 0.8 tol in y and z: Euclidean 1.13 tol
+    vb(3:24:3) = vb(3:24:3) + 0.8d0*tol
+    CALL PCO_PAIR_SHIFT(va, vb, per, tol, shift, kind)
+    CALL EL_TEST_CHECK(kind.EQ.1, 'pair check: offset 0.8 tol in two coordinates is coincident (as E013)', nf, rank)
+    n = 3
+    CALL make_mesh(n, .FALSE., .FALSE.)
+    iv = (n+1)*(n+1)                          ! vertex (1,1,0)
+    mg_mesh%level(2)%dcorvg(2, iv) = mg_mesh%level(2)%dcorvg(2, iv) - 0.8d0*tol
+    mg_mesh%level(2)%dcorvg(3, iv) = mg_mesh%level(2)%dcorvg(3, iv) + 0.8d0*tol
+    CALL PCO_BUILD_CLASSES(1, (/.TRUE., .TRUE., .FALSE./), pe, cls)
+    CALL EL_TEST_CHECK(cls%nincomplete.EQ.0 .AND. cls%nambiguous.EQ.0, &
+      'master classes: an image offset by 0.8 tol in two coordinates stays in its class', nf, rank)
+    CALL make_mesh(n, .FALSE., .FALSE.)
+    mg_mesh%level(2)%dcorvg(2, iv) = mg_mesh%level(2)%dcorvg(2, iv) - 1.2d0*tol
+    CALL PCO_BUILD_CLASSES(1, (/.TRUE., .TRUE., .FALSE./), pe, cls)
+    CALL EL_TEST_CHECK(cls%nincomplete.GE.1, 'master classes: 1.2 tol in one coordinate is not coincident', &
+      nf, rank)
+  END SUBROUTINE test_componentwise_tolerance
 
   ! unit-height hexahedron [x0,x1] x [0,1] x [0,1], vertex coordinates x1,y1,z1, x2, ...
   SUBROUTINE cell(x0, x1, v)

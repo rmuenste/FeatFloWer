@@ -27,7 +27,7 @@
 !    coordinates of level lev+1 (where they are vertices). Partners are searched with every
 !    combined shift s P, s in {-1,0,1}^3 on the active axes (a vertex on a periodic edge has
 !    3 images, in a triply periodic corner 7), by a hash of the coordinates with the tolerance
-!    the workers use for their links (DEpsPrec). The partner relation is closed by union-find
+!    the workers use for their links (DEpsPrec, per coordinate as in E013). The partner relation is closed by union-find
 !    into classes. Refused (counted, reported by the caller):
 !      ambiguous  more than one dof within the tolerance of one shifted probe
 !      incomplete a class whose members span m periodic axes must have 2^m members and every
@@ -46,7 +46,8 @@ MODULE pco_periodic_topology
 
   USE PP3D_MPI, ONLY: myid, master, MPI_COMM_WORLD, MPI_INTEGER, MPI_SUM, MPI_LOGICAL, MPI_LAND, &
                       dPeriodicity, DEpsPrec, MGE013
-  USE var_QuadScalar, ONLY: mg_mesh, mg_lPMat
+  USE var_QuadScalar, ONLY: mg_mesh, mg_lPMat, mg_qlMat, mg_qlPMat, mg_BXMat, mg_BYMat, mg_BZMat, &
+                            mg_BXPMat, mg_BYPMat, mg_BZPMat, QuadSc, mg_Matrix
   USE def_FEAT, ONLY: ILEV
 
   IMPLICIT NONE
@@ -72,6 +73,7 @@ MODULE pco_periodic_topology
 
   PUBLIC :: PCO_LINK_CENSUS, PCO_BUILD_CLASSES, PCO_CLASS_MASK_CONFLICTS, PCO_ELEMENT_GRAPH
   PUBLIC :: PCO_GHOST_BUFFER_SIZE, PCO_MASKS_DIFFER, PCO_MASTER_HAS_DOF_COORDINATES, PCO_PAIR_SHIFT
+  PUBLIC :: PCO_FREE_FLUX, PCO_DOF_FLUX
 
   ! coordinate hash for the partner search
   TYPE tPointHash
@@ -198,11 +200,107 @@ CONTAINS
   END SUBROUTINE PCO_LINK_CENSUS
 
   !-----------------------------------------------------------------------
+  ! Structural flux of a constant pressure (workers; the gauge decision of the periodic coarse
+  ! operator). With e = 1 on the mean modes, (B e)_i is the discrete gradient of a constant at
+  ! velocity dof i: analytically zero at every dof whose support closes (interior, periodic
+  ! seam: the B row of a worker holds the contributions of its own and of its ghost elements,
+  ! the periodic images included), the boundary integral of the basis function times the
+  ! normal at a dof of an open boundary. Per dof i and component d with a FREE velocity
+  ! (knpr_d(i) /= 1, the masks of Get_CMat; slip enters through the projected B of
+  ! SetSlipOnBandBT) the ratio |sum_j B_d(i,j)| / sum_j |B_d(i,j)| over the mean columns is
+  ! computed (PCO_DOF_FLUX): rounding level where the contributions cancel, order one where
+  ! they do not, independent of the cell aspect ratio (numerator and denominator come from the
+  ! same dof). r(4(e-1)+1) = the largest ratio over the 27 Q2 dofs of local element e of level
+  ! lev (other entries 0), for the coarse vector collection to the master. Local, no
+  ! communication (the ghost columns hold the mean modes at 4(g-1)+1, as in CP).
+  !-----------------------------------------------------------------------
+  SUBROUTINE PCO_FREE_FLUX(lev, r)
+    INTEGER, INTENT(IN) :: lev
+    REAL*8, INTENT(OUT) :: r(:)
+    REAL*8, ALLOCATABLE :: rdof(:)
+    INTEGER :: nvt, net, nat, nel, ndof, i, iel, k
+    INTEGER :: dofs(27)
+    LOGICAL :: ghosts
+    r = 0d0
+    IF (myid.EQ.master) RETURN
+    nvt = mg_mesh%level(lev)%nvt
+    net = mg_mesh%level(lev)%net
+    nat = mg_mesh%level(lev)%nat
+    nel = mg_mesh%level(lev)%nel
+    ndof = nvt + net + nat + nel
+    ghosts = ALLOCATED(mg_qlPMat)
+    IF (ghosts) ghosts = ALLOCATED(mg_qlPMat(lev)%LdA)
+    ALLOCATE(rdof(ndof))
+    DO i = 1, ndof
+      rdof(i) = MAX(dof_component(mg_BXMat(lev)%a, mg_BXPMat, QuadSc%knprU(lev)%x(i)), &
+                    dof_component(mg_BYMat(lev)%a, mg_BYPMat, QuadSc%knprV(lev)%x(i)), &
+                    dof_component(mg_BZMat(lev)%a, mg_BZPMat, QuadSc%knprW(lev)%x(i)))
+    END DO
+    DO iel = 1, nel
+      dofs(1:8) = mg_mesh%level(lev)%kvert(:, iel)
+      dofs(9:20) = nvt + mg_mesh%level(lev)%kedge(:, iel)
+      dofs(21:26) = nvt + net + mg_mesh%level(lev)%karea(:, iel)
+      dofs(27) = nvt + net + nat + iel
+      DO k = 1, 27
+        r(4*(iel-1)+1) = MAX(r(4*(iel-1)+1), rdof(dofs(k)))
+      END DO
+    END DO
+    DEALLOCATE(rdof)
+  CONTAINS
+    REAL*8 FUNCTION dof_component(bl, bp, mask) RESULT(ratio)
+      REAL*8, INTENT(IN) :: bl(:)
+      TYPE(mg_Matrix), INTENT(IN) :: bp(:)
+      INTEGER, INTENT(IN) :: mask
+      INTEGER :: l0, l1, g0, g1
+      ratio = 0d0
+      IF (mask.EQ.1) RETURN
+      l0 = mg_qlMat(lev)%LdA(i)
+      l1 = mg_qlMat(lev)%LdA(i+1) - 1
+      IF (ghosts) THEN
+        g0 = mg_qlPMat(lev)%LdA(i)
+        g1 = mg_qlPMat(lev)%LdA(i+1) - 1
+        ratio = PCO_DOF_FLUX(bl(l0:l1), mg_qlMat(lev)%ColA(l0:l1), &
+                             bp(lev)%a(g0:g1), mg_qlPMat(lev)%ColA(g0:g1))
+      ELSE
+        ratio = PCO_DOF_FLUX(bl(l0:l1), mg_qlMat(lev)%ColA(l0:l1))
+      END IF
+    END FUNCTION dof_component
+  END SUBROUTINE PCO_FREE_FLUX
+
+  ! |sum| / sum|.| over the mean-mode columns (4(e-1)+1) of one B row: local part (bl, cl) and
+  ! optionally the ghost part (bg, cg); 0 for a row without mean-mode entries
+  REAL*8 FUNCTION PCO_DOF_FLUX(bl, cl, bg, cg) RESULT(ratio)
+    REAL*8, INTENT(IN) :: bl(:)
+    INTEGER, INTENT(IN) :: cl(:)
+    REAL*8, INTENT(IN), OPTIONAL :: bg(:)
+    INTEGER, INTENT(IN), OPTIONAL :: cg(:)
+    REAL*8 :: sm, sa
+    INTEGER :: k
+    sm = 0d0
+    sa = 0d0
+    DO k = 1, SIZE(cl)
+      IF (MOD(cl(k)-1,4).NE.0) CYCLE
+      sm = sm + bl(k)
+      sa = sa + ABS(bl(k))
+    END DO
+    IF (PRESENT(bg)) THEN
+      DO k = 1, SIZE(cg)
+        IF (MOD(cg(k)-1,4).NE.0) CYCLE
+        sm = sm + bg(k)
+        sa = sa + ABS(bg(k))
+      END DO
+    END IF
+    ratio = 0d0
+    IF (sa.GT.0d0) ratio = ABS(sm)/sa
+  END FUNCTION PCO_DOF_FLUX
+
+  !-----------------------------------------------------------------------
   ! Consistency of a coupled element pair from the 8 vertex coordinates of each (ve, vf:
   ! x1,y1,z1, x2, ...): kind 0 when they share a vertex unshifted, 1 when they share one only
   ! after the shift shift*period (shift in {-1,0,1}^3, nonzero only on axes with a finite
   ! period, the first such shift found), -1 when they share none in any image. tol: the
-  ! coincidence tolerance (DEpsPrec in the census). Used for nbad only: kind 0 does not mean
+  ! coincidence tolerance (DEpsPrec in the census), applied per coordinate as by the E013
+  ! links (|dx_a| < tol on every axis). Used for nbad only: kind 0 does not mean
   ! that the pair has no periodic coupling (it may share a periodic image as well).
   !-----------------------------------------------------------------------
   SUBROUTINE PCO_PAIR_SHIFT(ve, vf, period, tol, shift, kind)
@@ -236,7 +334,7 @@ CONTAINS
       DO i = 1, 8
         q = ve(3*(i-1)+1:3*i) + DBLE(s)*MERGE(period, 0d0, s.NE.0)
         DO j = 1, 8
-          IF (NORM2(q - vf(3*(j-1)+1:3*j)).LT.tol) THEN
+          IF (MAXVAL(ABS(q - vf(3*(j-1)+1:3*j))).LT.tol) THEN
             share = .TRUE.
             RETURN
           END IF
@@ -565,7 +663,8 @@ CONTAINS
 
   !-----------------------------------------------------------------------
   ! coordinate hash: cells of size h >= 4 tol, keys sorted; a query visits the 27 cells
-  ! around the probe and returns the points within tol (at most two reported, nhit counts all)
+  ! around the probe and returns the points within tol in every coordinate (the componentwise
+  ! test of the E013 links; at most two reported, nhit counts all)
   !-----------------------------------------------------------------------
   SUBROUTINE hash_build(hs, x, n, tol)
     TYPE(tPointHash), INTENT(INOUT) :: hs
@@ -625,7 +724,7 @@ CONTAINS
       IF (key.LT.0_8) CYCLE
       CALL key_range(hs%key, hs%n, key, lo, hi)
       DO m = lo, hi
-        IF (NORM2(x(:,hs%idx(m)) - q).LT.tol) THEN
+        IF (MAXVAL(ABS(x(:,hs%idx(m)) - q)).LT.tol) THEN
           nhit = nhit + 1
           IF (nhit.LE.2) hits(nhit) = hs%idx(m)
         END IF

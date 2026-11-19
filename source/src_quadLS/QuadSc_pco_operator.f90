@@ -45,8 +45,12 @@
 ! free of pressure Dirichlet elements; otherwise every rank stops (restart); values
 ! (gathered: collected; wrapped: assembled on the master and compared with the gathered values,
 ! refused above 1e-10 or on a non-finite entry - the master geometry is not the worker geometry
-! on curved boundaries); solver refresh on the master (gauge decided at the first refresh,
-! factorisation; pco_coarse_solver), status collective; the check when due.
+! on curved boundaries); at the first renewal the structural flux of a constant pressure
+! (PCO_FREE_FLUX on the workers, collected to the master) for the gauge decision; solver
+! refresh on the master (gauge decided at the first refresh from the structure, the matrix
+! as a consistency check; factorisation; pco_coarse_solver), status collective; an
+! undecidable gauge at the first renewal refuses an explicit key or falls back to legacy
+! (key absent), before anything is pinned; the check when due.
 ! Legacy keeps its arithmetic: Setup_UMFPACK_CoarseSolver as before; the release of the
 ! previous legacy factorisation stays at its call sites (EL adapter for types 2/4, MG_Solver
 ! for MatrixRenewal C >= 2).
@@ -55,15 +59,16 @@
 ! allreduce), Create_ParCMat (as always), the knprP allreduce, the value gather (gathered
 ! mode and the wrapped comparison: one MPI_Gatherv), in wrapped mode the broadcast of the
 ! comparison result, the status broadcast (and the message on failure) and, when the check
-! is due, the check (one gather, three distribute/exchange/collect cycles).
+! is due, the check (one gather, three distribute/exchange/collect cycles). At the first
+! renewal also the structural flux for the gauge (one coarse vector collection).
 !
-! Runtime reload (ProcessControl Reload_Pres; every rank, the file availability agreed
-! collectively there): PCO_PRESSURE_RELOAD_ADMIT before the generic validation - the key and
-! the check value are read once and kept; the ranks agree on the proposed (solver type,
-! MinLev, MedLev) (allreduce; disagreement: old values everywhere); under a periodic operator
-! a change of the master levels or a type outside 1-4 is not taken (old values restored,
-! logged), so the generic validator never sees it; then PCO_PRESSURE_PARAMETERS_RELOADED -
-! a new type 1-4 rebuilds the solver copy (same layout and gauge).
+! Runtime reload (ProcessControl Reload_Pres; every rank; the file availability and all parsed
+! pressure settings agreed collectively there, PRESSURE_PARAMETERS_AGREE):
+! PCO_PRESSURE_RELOAD_ADMIT before the generic validation - the key and the check value are
+! read once and kept; under a periodic operator a change of the master levels or a type
+! outside 1-4 is not taken (old values restored, logged), so the generic validator never sees
+! it; then PCO_PRESSURE_PARAMETERS_RELOADED - a new type 1-4 rebuilds the solver copy (same
+! layout and gauge).
 !
 ! Output: PCO lines (mode, reason, census, classes, gauge) on the protocol and terminal
 ! (showid); PCO_TIMING lines at renewals 1, 2 and every 20th (master); PCO_CHECK lines of
@@ -77,8 +82,8 @@
 MODULE pco_coarse_operator
 
   USE PP3D_MPI, ONLY: myid, master, showid, MPI_COMM_WORLD, MPI_INTEGER, MPI_LOGICAL, MPI_LOR, &
-                      MPI_DOUBLE_PRECISION, MPI_CHARACTER, MPI_MIN, MPI_MAX, dPeriodicity
-  USE def_FEAT, ONLY: MTERM, MFILE1
+                      MPI_DOUBLE_PRECISION, MPI_CHARACTER, dPeriodicity
+  USE def_FEAT, ONLY: MTERM, MFILE1, ILEV
   USE var_QuadScalar, ONLY: LinSc, QuadSc, mg_mesh, mg_MlRhoPmat, mg_MlPMat, bNoOutflow, &
                             bMasterTurnedOn, mg_CMat, mg_CPMat, mg_lMat, mg_lPMat
   USE QuadSc_assembly, ONLY: Create_CMat
@@ -88,13 +93,13 @@ MODULE pco_coarse_operator
                                  PCO_KEY_NAME
   USE pco_periodic_topology, ONLY: tPcoClasses, tPcoLinkCensus, PCO_LINK_CENSUS, PCO_BUILD_CLASSES, &
                                    PCO_CLASS_MASK_CONFLICTS, PCO_ELEMENT_GRAPH, &
-                                   PCO_MASTER_HAS_DOF_COORDINATES
+                                   PCO_MASTER_HAS_DOF_COORDINATES, PCO_FREE_FLUX
   USE pco_gather, ONLY: tPcoGatherPlan, PCO_GATHER_BUILD, PCO_GATHER_VALUES, PCO_GATHER_UNCHANGED, &
-                        PCO_GATHER_FREE
+                        PCO_GATHER_FREE, PCO_WORKERS_TO_COARSE
   USE pco_wrap, ONLY: tPcoWrap, PCO_WRAP_BUILD, PCO_WRAP_ASSEMBLE, PCO_MASS_ORDINARY, &
                       PCO_MASS_EL_WEIGHTED, PCO_MASS_EL_PER_IMAGE
   USE pco_coarse_solver, ONLY: pco, PCO_INSTALL_LAYOUT, PCO_REFRESH_SOLVER, PCO_RELEASE, &
-                               PCO_CHANGE_SOLVER_TYPE
+                               PCO_CHANGE_SOLVER_TYPE, PCO_SET_STRUCTURAL_FLUX, PCO_GAUGE_UNDECIDED
   USE pco_p0_reconstruct, ONLY: PCO_SET_VERTEX_CLASSES
   USE pco_diagnostics, ONLY: PCO_COMPARE_OPERATORS, PCO_RUN_CHECK
 
@@ -176,14 +181,15 @@ CONTAINS
 
     IF (.NOT.st%resolved) CALL resolve_mode()
 
+    ! a periodic mode; at its first renewal an undecidable gauge falls back to legacy (key
+    ! absent) or refuses the run (explicit key), see renew_periodic
+    IF (st%mode.NE.PCO_KEY_LEGACY) CALL renew_periodic(w_coarse, rho)
+
     IF (st%mode.EQ.PCO_KEY_LEGACY) THEN
       ! as inside the legacy Create_CMat: no set-up when the master does not assemble
       IF (bMasterTurnedOn) CALL Setup_UMFPACK_CoarseSolver(LinSc%knprP, LinSc%prm%MGprmIn%CrsSolverType, &
                                                            LinSc%prm%MGprmIn%MinLev, bNoOutflow)
-      RETURN
     END IF
-
-    CALL renew_periodic(w_coarse, rho)
 
   END SUBROUTINE Renew_Pressure_Operator
 
@@ -478,6 +484,9 @@ CONTAINS
     st%t_values = st%t_values + (t1 - t0)
     st%t_wrapcheck = st%t_wrapcheck + (t2 - t1)
 
+    ! the structure of the gauge decision, once (first renewal)
+    IF (st%nrenew.EQ.1) CALL structural_flux()
+
     status = 0
     msg = ' '
     t0 = MPI_WTIME()
@@ -486,6 +495,11 @@ CONTAINS
     CALL MPI_Bcast(status, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
     IF (status.NE.0) THEN
       CALL MPI_Bcast(msg, LEN(msg), MPI_CHARACTER, 0, MPI_COMM_WORLD, ierr)
+      IF (status.EQ.PCO_GAUGE_UNDECIDED .AND. st%nrenew.EQ.1) THEN
+        ! nothing was pinned: refusal (explicit key) or fallback to legacy (key absent)
+        CALL fail(st%mode, 'gauge of the coarse pressure operator: '//TRIM(msg))
+        RETURN
+      END IF
       CALL stop_all('PCO STOP (renewal): '//TRIM(msg))
     END IF
 
@@ -566,8 +580,8 @@ CONTAINS
   ! differ by up to 18 % next to the curved wall, where the legacy master matrix has the
   ! wrapped value (consistent with the missing projection; not proven to be the only cause).
   ! Every renewal the wrapped values are compared with the gathered ones entry by entry
-  ! (PCO_COMPARE_OPERATORS: rows scaled by their largest modulus, rows that are zero in the
-  ! gathered operator by the largest modulus overall, non-finite entries rejected); a
+  ! (PCO_COMPARE_OPERATORS: both operands finite, rows scaled by their largest modulus, a row
+  ! that is zero in the gathered operator must be exactly zero in the wrapped one); a
   ! difference above WRAP_TOL stops the run. Collective.
   !-----------------------------------------------------------------------
   SUBROUTINE validate_wrapped()
@@ -600,12 +614,32 @@ CONTAINS
     END IF
   END SUBROUTINE validate_wrapped
 
+  !-----------------------------------------------------------------------
+  ! Structural flux of a constant pressure per coarse element (collective): the workers
+  ! evaluate their B rows (PCO_FREE_FLUX), the coarse vector collection brings the values to
+  ! the master numbering, the master hands them to the gauge decision.
+  !-----------------------------------------------------------------------
+  SUBROUTINE structural_flux()
+    REAL*8, ALLOCATABLE :: r(:)
+    INTEGER :: nel, ilev_save
+    nel = mg_mesh%level(st%lev)%nel
+    ALLOCATE(r(4*nel))
+    CALL PCO_FREE_FLUX(st%lev, r)
+    ilev_save = ILEV
+    ILEV = st%lev
+    CALL PCO_WORKERS_TO_COARSE(st%lev, r, nel)
+    ILEV = ilev_save
+    IF (myid.EQ.master) CALL PCO_SET_STRUCTURAL_FLUX(r(1:4*nel:4))
+    DEALLOCATE(r)
+  END SUBROUTINE structural_flux
+
   ! gauge decision of the first renewal against SimPar@NoOutflow (master)
   SUBROUTINE report_gauge()
     CHARACTER(len=256) :: line
-    WRITE(line,'(A,I0,A,I0,A,ES10.3,A,ES10.3,A,ES10.3,A,L1)') 'PCO gauge: components ', pco%ncomp, &
-      ', closed (C e = 0, one zero reference each) ', pco%nclosed, ', closure measure closed ', &
-      pco%closure_closed, ' open ', MERGE(pco%closure_open, 0d0, pco%nclosed.LT.pco%ncomp), &
+    WRITE(line,'(A,I0,A,I0,A,ES10.3,A,ES10.3,A,ES10.3,A,ES10.3,A,ES10.3,A,L1)') 'PCO gauge: components ', &
+      pco%ncomp, ', closed (C e = 0, one zero reference each) ', pco%nclosed, &
+      ', structural flux closed ', pco%flux_closed, ' open ', MERGE(pco%flux_open, 0d0, pco%nclosed.LT.pco%ncomp), &
+      ', closure measure closed ', pco%closure_closed, ' open ', MERGE(pco%closure_open, 0d0, pco%nclosed.LT.pco%ncomp), &
       ' left closed ', pco%left_closed, ', SimPar@NoOutflow ', bNoOutflow
     WRITE(MTERM,'(A)') TRIM(line)
     IF ((pco%nclosed.GT.0) .NEQV. bNoOutflow) WRITE(MTERM,'(A)') &
@@ -640,13 +674,13 @@ CONTAINS
 
   !=======================================================================
   ! Runtime reload of the pressure parameters, step 1 (ProcessControl Reload_Pres, every rank,
-  ! after the parse and BEFORE the generic validation; collective once the operator is
-  ! resolved): the key and the check value are kept; the ranks agree on the proposed
-  ! (solver type, MinLev, MedLev); under a periodic operator a change that is not taken is
-  ! undone here, so the generic validator sees the previous values.
+  ! after the parse and the collective agreement on the parsed values
+  ! (PRESSURE_PARAMETERS_AGREE: equal on every rank, or the previous values everywhere), and
+  ! BEFORE the generic validation; no communication here): the key and the check value are
+  ! kept; under a periodic operator a change that it cannot take is undone, so the generic
+  ! validator sees the previous values.
   !=======================================================================
   SUBROUTINE PCO_PRESSURE_RELOAD_ADMIT()
-    INTEGER :: t(3), tmin(3), tmax(3), ierr
     IF (.NOT.st%resolved) RETURN
     IF (LinSc%prm%PeriodicCoarseOperator.NE.st%requested .OR. LinSc%prm%PeriodicCoarseCheck.NE.st%check) THEN
       LinSc%prm%PeriodicCoarseOperator = st%requested
@@ -654,12 +688,8 @@ CONTAINS
       CALL say('PCO: Pres@PeriodicCoarseOperator / PeriodicCoarseCheck are read once; the reloaded values are not taken')
     END IF
     IF (st%mode.EQ.PCO_KEY_LEGACY) RETURN
-    t = (/LinSc%prm%MGprmIn%CrsSolverType, LinSc%prm%MGprmIn%MinLev, LinSc%prm%MGprmIn%MedLev/)
-    CALL MPI_Allreduce(t, tmin, 3, MPI_INTEGER, MPI_MIN, MPI_COMM_WORLD, ierr)
-    CALL MPI_Allreduce(t, tmax, 3, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, ierr)
-    IF (ANY(tmin.NE.tmax)) THEN
-      CALL keep_previous('PCO: the ranks read different reloaded coarse parameters; previous values kept')
-    ELSE IF (t(2).NE.st%minlev .OR. t(3).NE.st%medlev .OR. t(1).LT.1 .OR. t(1).GT.4) THEN
+    IF (LinSc%prm%MGprmIn%MinLev.NE.st%minlev .OR. LinSc%prm%MGprmIn%MedLev.NE.st%medlev .OR. &
+        LinSc%prm%MGprmIn%CrsSolverType.LT.1 .OR. LinSc%prm%MGprmIn%CrsSolverType.GT.4) THEN
       CALL keep_previous('PCO: a reloaded coarse level or a coarse solver type outside 1-4 is not taken '// &
                          'under the periodic coarse operator (restart for that); previous values kept')
     END IF

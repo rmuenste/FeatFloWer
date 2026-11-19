@@ -19,18 +19,26 @@
 !        (wrapped); ungauged and never modified by a solve. It is the operator of the type-3/4
 !        smoothing (PCO_RAW_SOR: the SOR sweep of crs_E012_SOR_Smoother; a row with a zero
 !        diagonal is left unchanged instead of divided by zero) and of the checks.
-! gauge: decided ONCE per layout, at the first refresh, from the operator itself:
-!        - components: elements e, f are coupled when some entry of their 4x4 block is
-!          nonzero (every nonzero connection counts, however weak: a weak but real coupling
-!          must not split one pressure constant into two; two regions that touch only through
-!          constrained dofs have an all-zero structural block and are two components);
-!        - closed component c: its indicator e_c (1 on the mean modes of its elements) is
-!          checked on its own, on EVERY row (inside and outside c): closure measure
-!          max_i |(C e_c)_i| / sum_j |C_ij| (j over ALL columns of row i: the normwise scale;
-!          a row whose mean-column entries are rounding noise - slope rows of a symmetric
-!          element - would give an O(1) ratio against the mean columns alone), below
-!          PCO_CLOSURE_TOL = 1e-8; the left measure e_c^T C over every column, scaled by the
-!          column sums of moduli;
+! gauge: decided ONCE per layout, at the first refresh, from the structure of the operator,
+!        with the matrix as a consistency check:
+!        - components: elements e, f are coupled when any entry of their 4x4 block is nonzero
+!          (a weak but real coupling joins them; two regions that touch only through
+!          constrained dofs have an all-zero block and are two components);
+!        - structure (authoritative): s_c = the largest structural flux of a constant pressure
+!          over the free velocity dofs of the elements of c (PCO_FREE_FLUX on the workers:
+!          |sum| / sum|.| of the mean-mode entries of each B row with a free velocity
+!          component; rounding level where the dof support closes, order one at a free
+!          boundary, whatever the cell aspect ratio), handed over by PCO_SET_STRUCTURAL_FLUX.
+!          s_c <= FLUX_CLOSED (1e-10): closed; s_c >= FLUX_OPEN (1e-6): open; in between the
+!          decision is undecidable;
+!        - matrix (consistency): right(c) = max over EVERY row i of |(C e_c)_i| / sum_j |C_ij|
+!          (all columns: the normwise scale). A closed component must have right(c) <=
+!          PCO_CLOSURE_TOL (1e-8); an open one right(c) > MATRIX_ROUNDING (1e-13), otherwise the
+!          constant is numerically in the kernel of an operator that is structurally regular.
+!          A weak outlet (cells stretched across it) gives an open component with a small
+!          right(c) (2.5e-10 in the unit test): it stays open, no reference;
+!        - undecidable or inconsistent: status PCO_GAUGE_UNDECIDED, nothing is pinned (the
+!          coordinator refuses an explicit key or falls back to legacy, logged);
 !        - one reference per closed component, the mean mode of its lowest element, set to
 !          zero in the SOLVER COPY only: row and column cleared except the diagonal, the
 !          right-hand-side entry zeroed (symmetric elimination of a zero value); a zero
@@ -38,10 +46,10 @@
 !          replaced on the copy by the largest diagonal modulus of the copy, so the reference
 !          equation reads d x = 0 and not 0 x = 0.
 !        Later refreshes keep the decision (no flipping between pinned and unpinned) and check
-!        it: a closed component whose measure rises above DRIFT_CLOSED or an open one that
-!        falls below DRIFT_OPEN is reported (pco%drift). The left null vector of a closed
-!        component is checked at the decision (|e^T A| / e^T |A|); the right-hand-side
-!        compatibility measure below assumes it is e (symmetric operator).
+!        the matrix measure: a closed component above DRIFT_CLOSED or an open one below
+!        MATRIX_ROUNDING is reported (pco%drift). The left measure e_c^T C (column sums of
+!        moduli as scale) is computed at the decision and reported; the right-hand-side
+!        compatibility measure below assumes the left null vector e (symmetric operator).
 !        A right-hand side whose sum over a closed component does not vanish is reported
 !        (component, absolute net value, relative imbalance), not changed.
 ! solver copy: full (types 1, 2) or mean modes only (types 3, 4), pattern fixed (explicit zeros
@@ -86,6 +94,9 @@ MODULE pco_coarse_solver
     REAL*8  :: closure_closed = 0d0      ! largest closure measure of the closed components
     REAL*8  :: left_closed = 0d0         ! largest |e^T A| / e^T |A| of the closed components
     LOGICAL :: drift = .FALSE.           ! a later refresh contradicts the gauge decision
+    REAL*8, ALLOCATABLE :: elem_flux(:)  ! structural flux per element (PCO_SET_STRUCTURAL_FLUX)
+    REAL*8  :: flux_closed = 0d0         ! largest structural flux of the closed components
+    REAL*8  :: flux_open = 0d0           ! smallest structural flux of the open components
     ! solver copy
     LOGICAL :: reduced = .FALSE.
     INTEGER :: ns = 0
@@ -106,7 +117,9 @@ MODULE pco_coarse_solver
   TYPE(tPcoSystem), PUBLIC, SAVE, TARGET :: pco
 
   REAL*8, PARAMETER, PUBLIC :: PCO_CLOSURE_TOL = 1d-8
-  REAL*8, PARAMETER :: DRIFT_CLOSED = 1d-6, DRIFT_OPEN = 1d-10
+  REAL*8, PARAMETER, PUBLIC :: PCO_FLUX_CLOSED = 1d-10, PCO_FLUX_OPEN = 1d-6
+  REAL*8, PARAMETER :: MATRIX_ROUNDING = 1d-13, DRIFT_CLOSED = 1d-6
+  INTEGER, PARAMETER, PUBLIC :: PCO_GAUGE_UNDECIDED = 5
   ! reported right-hand-side imbalance |sum b| / sum |b| over a closed component. The coarse
   ! right-hand side of a converging cycle is a small defect whose sum is rounding of the
   ! divergence cancellation: relative imbalances up to ~2e-2 occur in compatible single-phase
@@ -118,6 +131,7 @@ MODULE pco_coarse_solver
   PUBLIC :: PCO_ACTIVE, PCO_INSTALL_LAYOUT, PCO_CHANGE_SOLVER_TYPE, PCO_REFRESH_SOLVER
   PUBLIC :: PCO_SOLVE_FULL, PCO_SOLVE_P0, PCO_RAW_SOR, PCO_RAW_MATVEC, PCO_BLOCK_SLOT
   PUBLIC :: PCO_NEIGHBOUR_POS, PCO_RELEASE, PCO_SOLVE_CHECK, PCO_PROBE_IMBALANCE
+  PUBLIC :: PCO_SET_STRUCTURAL_FLUX
 
 CONTAINS
 
@@ -301,75 +315,81 @@ CONTAINS
   END SUBROUTINE PCO_CHANGE_SOLVER_TYPE
 
   !-----------------------------------------------------------------------
-  ! Per component c, its indicator e_c (1 on the mean modes of its elements) on its own:
-  ! right(c) = max over EVERY row i of |(A e_c)_i| / sum over all columns j of |A_ij|,
-  ! left(c)  = max over EVERY column j of |(e_c^T A)_j| / sum over all rows i of |A_ij|
-  ! (normwise scales: rounding noise in the mean couplings of a slope row stays small).
-  ! The rows and columns outside c count as well, so a coupling of c to the rest of the
-  ! system shows up in its measures (with components from nonzero connectivity it is zero).
+  ! Structural flux per element (master; the coordinator collects PCO_FREE_FLUX of the
+  ! workers at the first renewal, unit tests set it directly). Required by the gauge decision.
   !-----------------------------------------------------------------------
-  SUBROUTINE closure_measures(right, left)
-    REAL*8, INTENT(OUT) :: right(:), left(:)
-    REAL*8, ALLOCATABLE :: cs(:,:), ca(:), rs(:)
-    INTEGER, ALLOCATABLE :: seen(:), touched(:)
-    INTEGER :: row, k, c, nt, i
-    REAL*8 :: s
+  SUBROUTINE PCO_SET_STRUCTURAL_FLUX(flux)
+    REAL*8, INTENT(IN) :: flux(:)
+    IF (ALLOCATED(pco%elem_flux)) DEALLOCATE(pco%elem_flux)
+    ALLOCATE(pco%elem_flux(SIZE(flux)))
+    pco%elem_flux = flux
+  END SUBROUTINE PCO_SET_STRUCTURAL_FLUX
+
+  !-----------------------------------------------------------------------
+  ! Matrix measures per component c (indicator e_c = 1 on the mean modes of its elements), one
+  ! sparse traversal, O(nnz):
+  !   right(c) = max over the rows i of c of |(A e_c)_i| / sum_j |A_ij| (all columns),
+  !   left(c)  = max over the columns j of c of |(e_c^T A)_j| / sum_i |A_ij| (all rows).
+  ! Rows and columns outside c: with components from nonzero connectivity, every nonzero
+  ! entry joins two elements of one component, so (A e_c) and (e_c^T A) vanish outside c
+  ! exactly; a nonzero entry between two components would contradict the decomposition and is
+  ! counted in nleak (the caller treats it as an inconsistency). left is optional (the drift
+  ! check needs only right).
+  !-----------------------------------------------------------------------
+  SUBROUTINE closure_measures(right, nleak, left)
+    REAL*8, INTENT(OUT) :: right(:)
+    INTEGER, INTENT(OUT) :: nleak
+    REAL*8, INTENT(OUT), OPTIONAL :: left(:)
+    REAL*8, ALLOCATABLE :: cs(:), ca(:)
+    INTEGER :: row, k, c, cr
+    REAL*8 :: s, rs
     right = 0d0
-    left = 0d0
-    ! left: column sums of the mean rows per component, kept sparse per column
-    ALLOCATE(rs(pco%ncomp), seen(pco%ncomp), touched(pco%ncomp), ca(pco%n))
-    seen = 0
-    ca = 0d0
-    DO row = 1, pco%n
-      ! right: row i against every e_c (only the components present in the row)
-      nt = 0
-      s = 0d0
-      DO k = pco%ldA(row), pco%ldA(row+1)-1
-        s = s + ABS(pco%a(k))
-        ca(pco%colA(k)) = ca(pco%colA(k)) + ABS(pco%a(k))
-        IF (MOD(pco%colA(k)-1,4).NE.0) CYCLE
-        c = pco%comp_of((pco%colA(k)-1)/4+1)
-        IF (seen(c).NE.row) THEN
-          seen(c) = row
-          rs(c) = 0d0
-          nt = nt + 1
-          touched(nt) = c
-        END IF
-        rs(c) = rs(c) + pco%a(k)
-      END DO
-      IF (s.GT.0d0) THEN
-        DO i = 1, nt
-          c = touched(i)
-          right(c) = MAX(right(c), ABS(rs(c))/s)
-        END DO
-      END IF
-    END DO
-    ! left, per component: e_c^T A over every column
-    ALLOCATE(cs(pco%n, 1))
-    DO c = 1, pco%ncomp
+    nleak = 0
+    IF (PRESENT(left)) THEN
+      left = 0d0
+      ALLOCATE(cs(pco%n), ca(pco%n))
       cs = 0d0
-      DO row = 1, pco%n, 4
-        IF (pco%comp_of((row-1)/4+1).NE.c) CYCLE
-        DO k = pco%ldA(row), pco%ldA(row+1)-1
-          cs(pco%colA(k),1) = cs(pco%colA(k),1) + pco%a(k)
-        END DO
+      ca = 0d0
+    END IF
+    DO row = 1, pco%n
+      cr = pco%comp_of((row-1)/4+1)
+      s = 0d0
+      rs = 0d0
+      DO k = pco%ldA(row), pco%ldA(row+1)-1
+        IF (pco%a(k).EQ.0d0) CYCLE
+        c = pco%comp_of((pco%colA(k)-1)/4+1)
+        IF (c.NE.cr) nleak = nleak + 1
+        s = s + ABS(pco%a(k))
+        IF (MOD(pco%colA(k)-1,4).EQ.0) rs = rs + pco%a(k)
+        IF (PRESENT(left)) THEN
+          ca(pco%colA(k)) = ca(pco%colA(k)) + ABS(pco%a(k))
+          IF (MOD(row-1,4).EQ.0) cs(pco%colA(k)) = cs(pco%colA(k)) + pco%a(k)
+        END IF
       END DO
-      DO k = 1, pco%n
-        IF (ca(k).GT.0d0) left(c) = MAX(left(c), ABS(cs(k,1))/ca(k))
-      END DO
+      IF (s.GT.0d0) right(cr) = MAX(right(cr), ABS(rs)/s)
     END DO
-    DEALLOCATE(rs, seen, touched, ca, cs)
+    IF (PRESENT(left)) THEN
+      DO k = 1, pco%n
+        c = pco%comp_of((k-1)/4+1)
+        IF (ca(k).GT.0d0) left(c) = MAX(left(c), ABS(cs(k))/ca(k))
+      END DO
+      DEALLOCATE(cs, ca)
+    END IF
   END SUBROUTINE closure_measures
 
   !-----------------------------------------------------------------------
   ! Gauge decision (see the module header): components by union-find over the nonzero
-  ! element blocks, closure per component indicator, references.
+  ! element blocks, structure (authoritative) and matrix (consistency) per component,
+  ! references. status 0, or PCO_GAUGE_UNDECIDED with msg (nothing pinned).
   !-----------------------------------------------------------------------
-  SUBROUTINE decide_gauge()
+  SUBROUTINE decide_gauge(status, msg)
+    INTEGER, INTENT(OUT) :: status
+    CHARACTER(len=*), INTENT(OUT) :: msg
     INTEGER, ALLOCATABLE :: parent(:), root2c(:)
-    REAL*8, ALLOCATABLE :: right(:), left(:)
-    INTEGER :: e, f, j, mp, mq, c, nel, pos
+    REAL*8, ALLOCATABLE :: right(:), left(:), sflux(:)
+    INTEGER :: e, f, j, mp, mq, c, nel, pos, nleak, cbad
     REAL*8 :: bmax
+    CHARACTER(len=16) :: why
 
     nel = pco%nel
     ALLOCATE(parent(nel), root2c(nel))
@@ -405,20 +425,90 @@ CONTAINS
     DO e = nel, 1, -1
       pco%comp_ref(pco%comp_of(e)) = e
     END DO
-    CALL closure_measures(right, left)
-    pco%comp_closed = (right.LE.PCO_CLOSURE_TOL)
+    status = 0
+    msg = ' '
+    IF (.NOT.ALLOCATED(pco%elem_flux)) THEN
+      status = PCO_GAUGE_UNDECIDED
+      msg = 'no structural flux of the constant pressure was provided (internal)'
+      DEALLOCATE(parent, root2c, right, left)
+      RETURN
+    END IF
+    IF (SIZE(pco%elem_flux).NE.nel) THEN
+      status = PCO_GAUGE_UNDECIDED
+      msg = 'structural flux of the wrong length (internal)'
+      DEALLOCATE(parent, root2c, right, left)
+      RETURN
+    END IF
+    ALLOCATE(sflux(pco%ncomp))
+    sflux = 0d0
+    DO e = 1, nel
+      sflux(pco%comp_of(e)) = MAX(sflux(pco%comp_of(e)), pco%elem_flux(e))
+    END DO
+    CALL closure_measures(right, nleak, left)
+    cbad = 0
+    why = ' '
+    DO c = 1, pco%ncomp
+      IF (sflux(c).LE.PCO_FLUX_CLOSED) THEN
+        pco%comp_closed(c) = .TRUE.
+        IF (right(c).GT.PCO_CLOSURE_TOL .AND. cbad.EQ.0) THEN
+          cbad = c
+          why = 'closed-matrix'
+        END IF
+      ELSE IF (sflux(c).GE.PCO_FLUX_OPEN) THEN
+        pco%comp_closed(c) = .FALSE.
+        IF (right(c).LE.MATRIX_ROUNDING .AND. cbad.EQ.0) THEN
+          cbad = c
+          why = 'open-matrix'
+        END IF
+      ELSE
+        pco%comp_closed(c) = .FALSE.
+        IF (cbad.EQ.0) THEN
+          cbad = c
+          why = 'flux'
+        END IF
+      END IF
+    END DO
+    IF (nleak.GT.0) THEN
+      status = PCO_GAUGE_UNDECIDED
+      WRITE(msg,'(I0,A)') nleak, ' nonzero entries between two components (internal inconsistency)'
+    ELSE IF (cbad.GT.0) THEN
+      status = PCO_GAUGE_UNDECIDED
+      SELECT CASE (TRIM(why))
+      CASE ('flux')
+        WRITE(msg,'(A,I0,A,ES9.2,A,ES8.1,A,ES8.1,A)') 'component ', cbad, ': structural flux of a constant pressure ', &
+          sflux(cbad), ' between closed (<=', PCO_FLUX_CLOSED, ') and open (>=', PCO_FLUX_OPEN, '): undecidable'
+      CASE ('closed-matrix')
+        WRITE(msg,'(A,I0,A,ES9.2,A,ES9.2,A)') 'component ', cbad, ': structurally closed (flux ', sflux(cbad), &
+          ') but the operator does not annihilate the constant (', right(cbad), ')'
+      CASE DEFAULT
+        WRITE(msg,'(A,I0,A,ES9.2,A,ES9.2,A)') 'component ', cbad, ': structurally open (flux ', sflux(cbad), &
+          ') but the constant is numerically in the kernel of the operator (', right(cbad), ')'
+      END SELECT
+      msg = TRIM(msg)//'; no reference is set'
+    END IF
+    IF (status.NE.0) THEN
+      pco%comp_closed = .FALSE.
+      pco%nclosed = 0
+      DEALLOCATE(parent, root2c, right, left, sflux)
+      RETURN
+    END IF
     pco%nclosed = COUNT(pco%comp_closed)
     pco%closure_closed = 0d0
     pco%closure_open = HUGE(1d0)
     pco%left_closed = 0d0
+    pco%flux_closed = 0d0
+    pco%flux_open = HUGE(1d0)
     DO c = 1, pco%ncomp
       IF (pco%comp_closed(c)) THEN
         pco%closure_closed = MAX(pco%closure_closed, right(c))
         pco%left_closed = MAX(pco%left_closed, left(c))
+        pco%flux_closed = MAX(pco%flux_closed, sflux(c))
       ELSE
         pco%closure_open = MIN(pco%closure_open, right(c))
+        pco%flux_open = MIN(pco%flux_open, sflux(c))
       END IF
     END DO
+    DEALLOCATE(sflux)
     pco%gauge_decided = .TRUE.
     CALL map_gauge_to_copy()
     DEALLOCATE(parent, root2c, right, left)
@@ -456,20 +546,20 @@ CONTAINS
 
   ! the decision of decide_gauge against the current values (reported once per drift)
   SUBROUTINE check_gauge()
-    REAL*8, ALLOCATABLE :: right(:), left(:)
-    INTEGER :: c
+    REAL*8, ALLOCATABLE :: right(:)
+    INTEGER :: c, nleak
     LOGICAL :: bad
-    ALLOCATE(right(pco%ncomp), left(pco%ncomp))
-    CALL closure_measures(right, left)
-    bad = .FALSE.
+    ALLOCATE(right(pco%ncomp))
+    CALL closure_measures(right, nleak)
+    bad = (nleak.GT.0)
     DO c = 1, pco%ncomp
       IF (pco%comp_closed(c) .AND. right(c).GT.DRIFT_CLOSED) bad = .TRUE.
-      IF (.NOT.pco%comp_closed(c) .AND. right(c).LT.DRIFT_OPEN) bad = .TRUE.
+      IF (.NOT.pco%comp_closed(c) .AND. right(c).LE.MATRIX_ROUNDING) bad = .TRUE.
     END DO
     IF (bad .AND. .NOT.pco%drift) WRITE(MTERM,'(A)') 'PCO gauge drift: the closure of a '// &
       'component no longer matches the decision of the first refresh (kept; see pco%drift)'
     pco%drift = pco%drift .OR. bad
-    DEALLOCATE(right, left)
+    DEALLOCATE(right)
   END SUBROUTINE check_gauge
 
   !-----------------------------------------------------------------------
@@ -490,7 +580,8 @@ CONTAINS
       RETURN
     END IF
     IF (.NOT.pco%gauge_decided) THEN
-      CALL decide_gauge()
+      CALL decide_gauge(status, msg)
+      IF (status.NE.0) RETURN
     ELSE
       CALL check_gauge()
     END IF
@@ -920,6 +1011,7 @@ CONTAINS
     IF (ALLOCATED(pco%comp_of)) DEALLOCATE(pco%comp_of)
     IF (ALLOCATED(pco%comp_ref)) DEALLOCATE(pco%comp_ref)
     IF (ALLOCATED(pco%comp_closed)) DEALLOCATE(pco%comp_closed)
+    IF (ALLOCATED(pco%elem_flux)) DEALLOCATE(pco%elem_flux)
     IF (ALLOCATED(pco%sldA)) DEALLOCATE(pco%sldA)
     IF (ALLOCATED(pco%scolA)) DEALLOCATE(pco%scolA)
     IF (ALLOCATED(pco%sfrom)) DEALLOCATE(pco%sfrom)
