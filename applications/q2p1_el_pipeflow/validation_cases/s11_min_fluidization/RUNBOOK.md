@@ -217,28 +217,71 @@ Full protocol resubmitted: `runs/fluid11/R_proto_hrz`, job 164004 (partition lon
 `grep 'maximum norm of velocity'`, and the evaluation `fl11_post.py R_proto_hrz --steps
 R_proto_hrz/_data/steps.txt`.
 
-## 8. Results table (to be filled by the protocol runs)
+## 8. Results of the protocol (bed R, 2026-11-19/20)
 
-| Run | bed | dt | F1 plateau | fixed-branch slope (Pa s/m) | eps_bed | U_mf fit | U_mf closure at eps_bed | F2 worst | F3 | F4 (/0.182) | F5 |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| (not run) | R | | | | | | | | | | |
-| (not run) | A | | | | | | | | | | |
+Runs (`runs/fluid11`, details in runs_versions.txt) [V]:
+
+- `R_proto` (job 163872, binary 87474a41, deck before `hrz`): FAILED at step 11 315 (t 2.83 s, U 0.22 m/s):
+  velocity spikes from step 2618 (negative implicit drag weights at the bed surface, section 7a), velocity
+  solve diverged. No gate evaluated.
+- `R_proto_hrz` (job 164004, binary 77ffd070, deck = R_proto + `ELDragImplicitWeights = hrz` +
+  velocity audit): COMPLETED in 6 h 10 min (0.74 s per step on this node; the probes gave 0.55-0.64),
+  largest velocity norm 1.05 m/s. Evaluation `fl11_post.py R_proto_hrz --steps R_proto_hrz/_data/steps.txt`
+  (post tool of 2026-11-20: F1 and F3 by the agreed rules, floor force from the particle momentum balance).
+
+Per step (0.2-0.5 s of each step; dp* = dp_dyn A / W):
+
+| U m/s | 0.30 | 0.28 | 0.26 | 0.24 | 0.22 | 0.20 | 0.18 | 0.16 | 0.14 | 0.12 | 0.10 | 0.08 | 0.06 | 0.04 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| dp* | 0.973 | 0.983 | 0.975 | 0.979 | 0.984 | 0.987 | 0.990 | 0.870 | 0.752 | 0.636 | 0.523 | 0.413 | 0.305 | 0.201 |
+| floor / W (balance) | 0.020 | 0.017 | 0.019 | 0.016 | 0.016 | 0.012 | 0.012 | 0.132 | 0.250 | 0.366 | 0.478 | 0.588 | 0.695 | 0.799 |
+| dp* + floor / W | 0.993 | 1.000 | 0.994 | 0.995 | 0.999 | 1.000 | 1.002 | 1.001 | 1.002 | 1.002 | 1.001 | 1.001 | 1.001 | 1.000 |
+| core porosity | 0.505 | 0.480 | 0.459 | 0.434 | 0.411 | 0.387 | 0.370 | 0.370 | 0.370 | 0.369 | 0.369 | 0.369 | 0.369 | 0.369 |
+| core gradient / closure | | | | | | | | | 0.946 | 0.947 | 0.947 | 0.949 | 0.951 | 0.954 |
+
+The floor force of the first evaluation (pe wall-contact impulse) read 10/9 of the applied force
+(dp* + floor 1.016-1.089 in the fixed branch); it is the unrelaxed PGS impulse of pe, design note
+section 8. The table uses the balance value.
+
+| Gate | rule | FeatFloWer (R_proto_hrz) | verdict |
+|---|---|---|---|
+| F1 plateau | mean dp* over the steps with dp* > 0.95 (0.30-0.18 m/s, 7 steps) | 0.981 (dp* + floor 0.998) | PASS (1 +- 0.02) |
+| F2 fixed branch | core gradient / Gidaspow at the core porosity 0.369, 6 steps 0.14-0.04 | 0.946-0.954 (worst -5.4 %); interior 5-20 mm 1.014-1.024; whole bed (H = z99 + r) 0.964-0.974 | FAIL (+-5 %), split in design note section 9 |
+| F3 U_mf | Ergun form dp* = a U + b U^2 through the origin over the fixed steps, at dp* = 1 / at the plateau | 0.1813 / 0.1783 m/s against Gidaspow 0.1642 at 0.369: 1.104 / 1.086 (linear fit, old rule: 0.1820, 1.109) | FAIL (+-5 %) |
+| F4 | U_mf / 0.182 | 0.996 / 0.980 | reported |
+| F5 | particle count, highest centre at 0.04 m/s | 9789 throughout; 24.0 mm < 50 mm | PASS |
+
+Other codes on the same bed and protocol [P, peer messages of 2026-11-20, not recomputed here]:
+
+| Code | plateau | fluidised steps | packed porosity | gradient / closure | U_mf / closure |
+|---|---|---|---|---|---|
+| CFDEM (bed C) | 0.942 (0.932-0.952) | 0.22-0.30 | 0.390 | 0.869 (whole bed) | 1.07 / 1.13 |
+| MFiX-DEM (interim) | 0.959, 0.976 | 0.28-0.30 only | 0.392 | 0.754 (core) | 1.33 (unexplained) |
+| FeatFloWer (this record) | 0.981 | 0.18-0.30 | 0.369 | 0.946-0.954 (core), 0.964-0.974 (whole bed) | 1.104 / 1.086 (Ergun form), 1.109 (linear) |
+
+Readings [I]: the defluidised FeatFloWer bed packs denser (core 0.369) than the spec table assumes (0.40)
+and than the CFDEM / MFiX beds (0.39), so its closure U_mf is lower (0.164 m/s); that the measured U_mf
+(0.181) equals the NETL value is a coincidence of packing and closure, not a validation. The core
+deficit against the closure sits at the window ends (kernel 2.5 d against a 2 d exclusion); the window
+interior is 1-2 % above the closure. Bed A not run.
 
 ## 9. Open points
 
-1. Packing and the protocol range [I, from the probes]: the pe beds settle at a core porosity of 0.427
-   (collapsed lattice) and 0.418 (collapsed loose bed, transient), not 0.40 as the spec's table assumes;
-   Gidaspow U_mf at 0.427 is 0.255 m/s. With U0 = 0.30 m/s only the first steps are above U_mf and
-   possibly none above 1.2 U_mf (the F1 selection). The bed of the protocol is the defluidised one and may
-   pack differently. To be raised with the peer before the protocol run: a higher U0 (e.g. 0.40 m/s) or
-   F1 over the steps above the measured U_mf.
-2. F1 plateau: the 0.3 s window after start-up gave 0.985 +- 0.049 with 1.9 % of the weight on the floor;
-   whether the long-time plateau of the protocol reaches 1.00 +- 0.02 is open (bubbling, 0.5 s per step).
-3. F2 definition: gradient of the bed core (window, gate value of fl11_post) against dp over the whole bed
-   (0.962 vs 0.918 / 0.967 in the fixed-bed probe). The spec measures dp over the column and the porosity
-   of the core; the definition should be agreed with the peer.
-4. Bed A cost (section 7) and the missing particle-state restart.
-5. Not run: the protocol itself (by instruction), a step-size study, bed A beyond 0.05 s, models B / Bfull,
-   closures wenyu / ergun as controls.
-6. The pe json keeps `boxWallsEnabled_ false` and z walls at the column ends; the top wall at 100 mm was
-   never approached (zmax 59.5 mm at the start, 30 mm when bubbling).
+1. Protocol range: answered by the run - the defluidised bed packs at 0.369, U_mf about 0.18 m/s, seven
+   fluidised steps (0.18-0.30 m/s) qualify for F1. (The probe-based worry of 2026-11-19 about 0.30 being
+   too close to U_mf was based on the looser collapsed beds of the probes.)
+2. F2 definition and the window: with a 2.5 d kernel the 2 d exclusion of the spec leaves the kernel
+   of the window-edge particles reaching the loose end layers; core 0.946-0.954, interior 1.014-1.024
+   (design note section 9). A window of kernel radius + 1 d, or the like-for-like closure at the
+   kernel-sampled porosity (ratio_k, audit field eps_kern_slip_win, from 2026-11-20 runs on), to be agreed
+   with the peer.
+3. pe: the wall-contact impulse and the contact virial report the unrelaxed PGS impulse (1/0.9 of the
+   applied one); fix needed in pe (design note section 8); the bed audit uses the momentum balance.
+4. `ELDragImplicitWeights = hrz` as default: owner decision; effect on the s10 liquid gate D_s6 over
+   200 steps measured (design note section 7, RUNBOOK of this case section 7a).
+5. F3 FAIL (+8.6 / +10.4 %): dp* is the pressure drop of the whole bed, whose mean porosity over
+   H = z99 + r is 0.376 against the core 0.369 (looser floor and top layers). Gidaspow U_mf at 0.376 is
+   0.174 m/s, against which the measured 0.181 is +4 %, close to the whole-bed gradient ratio
+   0.964-0.974. Which porosity the F3 reference takes is a definition to agree with the peer [I].
+6. Bed A cost (section 7) and the missing particle-state restart; bed A not run.
+7. Not run: a step-size study, models B / Bfull, closures wenyu / ergun as controls.

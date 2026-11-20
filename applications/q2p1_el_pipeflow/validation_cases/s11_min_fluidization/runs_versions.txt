@@ -10,6 +10,7 @@ q2p1_el_pipeflow.ab23bb6e      3d85ac8c68405f501b10a81b5c32f06c  ab23bb6e (+ NoO
 q2p1_el_pipeflow.87474a41      ca5f0e69124a321502a62b40d1d5dc58  87474a41 (+ window gradient in the audit)
 q2p1_el_pipeflow.d3d23e4b      14024aff59d1e7c010f0cf4814f49ac6  d3d23e4b (+ EL_UMAX_AUDIT velocity audit)
 q2p1_el_pipeflow.77ffd070      5db6c471129220c1fe577d968f0f8771  77ffd070 (+ ELDragImplicitWeights = hrz)
+q2p1_el_pipeflow.c8541cfc      4d39efe3184ff6504753543f3c3d24b3  c8541cfc (+ floor_bal_z and kernel-sampled window means in the bed audit; after the merge of origin/master 85039031)
 
 job     run                      binary     result
 163801  unit (ctest)             build      drag test STOP 24 (test tolerance), el-transfer-mpi-8 slots: test fixed, 8 tasks
@@ -28,4 +29,6 @@ job     run                      binary     result
 163992  R_diag                   d3d23e4b   first 4800 steps of R_proto with EL_UMAX_AUDIT every step; bitwise with R_proto
 163998  unit                     77ffd070 tree  12/12 incl. the hrz weight test
 163999  gate/{D_s6,G_tier2,E2w5}__hrzbin + R_hrz  77ffd070  gate bitwise; R_hrz 5200 steps of the protocol with hrz, no spike
-164004  R_proto_hrz              77ffd070   full protocol with hrz (submitted 2026-11-19 21:16, long, 10 h)
+164004  R_proto_hrz              77ffd070   full protocol with hrz: COMPLETED in 6 h 10 min, max |u| 1.05 m/s (RUNBOOK section 8)
+164099  gate/{D_s6,G_tier2,E2w5}__c8541cfc + hrzliquid/D_s6_200_{rowsum,hrz} + R_static (attempt 1)  c8541cfc  gate bitwise; liquid hrz effect; R_static refused at the seed-gap check
+164100  R_static                 c8541cfc   settled bed at 0.04 m/s, 400 steps: dp* + floor_bal 1.0002-1.0011

@@ -218,3 +218,95 @@ writing), and whether `hrz` changes the fixed-bed gradient of the probes (the ro
 distribute only the implicit correction B (u_i - u_f), which vanishes in a converged steady state with
 u_i = u_f; in a fixed bed u_i differs from the sampled u_f at element scale, so a small change is
 possible) [I].
+
+**General property (2026-11-20).** The negative row-sum weight is not specific to case 11: every
+semi-implicit Euler-Lagrange run deposits B_i = sum_p B_p int K_p phi_i / norm_p with the Q2 basis, and a
+node reached only by the negative lobes of phi_i gets B_i < 0 (unit test: -4.5 % of B_p for a small
+kernel). In a liquid the anti-damping thstep |B_i| is negligible against the lumped fluid mass, so the
+runs are stable, but the nodal weights are formally wrong there too (an anti-damping coefficient where
+the physical drag damps). `hrz` keeps the element totals and changes only the distribution of the
+implicit correction B (u_i - u_f) inside an element. Whether it should become the default is an owner
+decision. Its effect on a liquid gate [V, job 164099, `runs/fluid11/hrzliquid`]: the D_s6 deck (s10
+periodic settling bed, rho_f 1000, mu 0.05, model A weighted, 18 335 particles) run for 200 steps (0.1 s)
+with rowsum and with hrz: the total drag agrees to 8e-5 (it is fixed by the bed weight), the mean
+particle velocity is 0.08 % lower with hrz at step 20, 0.24 % at 60, 0.33 % at 100 and 0.42 % at 200
+(slip alike), i.e. a small change that has not levelled off after 0.1 s; the long-run effect on the
+s10 numbers (core 1.047) is not measured.
+
+## 8. Floor force of the bed audit: the pe wall-contact impulse is the unrelaxed PGS impulse
+
+**Finding [V].** In the fixed branch of the protocol run (R_proto_hrz, job 164004) dp* + floor/W with the
+pe wall-contact impulse (`getElWallContactImpulse`, audit field floor_z) was 1.016 at 0.16 m/s rising to
+1.089 at 0.04 m/s, while a static bed must give 1. The ratio floor_pe / (W - F) is 10/9 = 1.111 in every
+fixed step (1.1111-1.1113) and also in the fluidised steps (1.108-1.111): a constant factor, not a
+geometric effect. The EL_NEWTON_PAIR audit shows the same: the particle momentum is constant (dp ~ 0)
+while the wall impulse exceeds the impulse of the applied forces by 11.1 % (its mismatch column).
+
+**Cause [V, pe source read].** `HardContactEulerLagrange` folds every hard-contact velocity correction
+into the bodies with the uniform under-relaxation `relaxationParam_ = 0.9` (v += 0.9 dv; the comments
+there explain why both sides of a cross-rank contact must get the same fold). The converged contact
+impulses p_[i] therefore over-state the impulse actually applied to the bodies by 1/0.9. The wall
+channel (`wallContactImpulse_`, accumulated from p_[i] after the PGS loop) and the contact virial
+(`contactVirial_`, same loop, EL_CONT_STRESS) both report p, not 0.9 p. The dynamics are correct (the
+bed is static and its momentum is conserved); only the two diagnostic channels are scaled. An earlier
+suspicion (shadow copies at the periodic planes counted twice) does not fit: the factor is the same in
+fluidised and fixed states and equals 1/0.9 to four digits; contacts of remote bodies with global
+bodies are rejected by the contact filter.
+
+**Needed in pe (not changed here, pin 43e8fb54 kept):** accumulate relaxationParam_ * p_[i] (the applied
+impulse) in wallContactImpulse_ and contactVirial_, or document both channels as unrelaxed. Affected
+FeatFloWer diagnostics: EL_NEWTON_PAIR (its mismatch carries 0.11 x the wall impulse whenever particles
+rest on a z wall), EL_WALL_STRESS tauC, EL_CONT_STRESS (contact stress, Kroupa campaign) - all scaled by
+1/0.9 where contacts carry load [I for the last two: same accumulation].
+
+**FeatFloWer remedy (commit c8541cfc).** The bed audit line gets `floor_bal_z = (dp - expected)_z / dt`,
+the wall force from the momentum balance of the particles over the PE advance (EL_NEWTON_PAIR_END keeps
+dp and the applied-force impulse every step). It is the floor force when the floor is the only wall the
+particles touch (top wall far above the bed in case 11). Over the existing protocol log (same two
+numbers from the EL_NEWTON_PAIR lines): dp* + floor/W = 1.0003-1.0016 in the fixed branch, 0.993-1.002
+in the fluidised steps; the fluidised floor shares become 1.2-2.0 % (were 1.3-2.3 %). The post tool
+uses floor_bal (from the audit line, or from EL_NEWTON_PAIR for older logs).
+
+Verification [V]: `runs/fluid11/R_static` (job 164100, binary c8541cfc): the settled bed of R_proto_hrz
+at t 7.5 s (positions from the particle logs; json `seedAllowContact_ true`, a first attempt in job
+164099 was refused by the seed-gap check) at a constant 0.04 m/s for 400 steps: dp* + floor_bal/W =
+1.0002-1.0011, floor_pe / floor_bal = 1.111 throughout, dp* 0.2013-0.2014.
+
+## 9. The 5 % deficit of the core gradient against the closure
+
+Measured (R_proto_hrz, fixed branch 0.04-0.14 m/s): -<dp/dz> over the bed window [2 d, H - 2 d] is
+0.946-0.954 of Gidaspow (= Ergun) at the exact window porosity 0.369. Decomposition at four output frames
+(0.04, 0.06, 0.10, 0.14 m/s; `runs/fluid11/tools/core_deficit.py`: the code's kernel sample replicated
+from the VTK fields - deen_poly kernel, 27-point Gauss quadrature per element, periodic images, P0
+porosity exact, velocity trilinear from the vertices; replicated total drag within 0.2 % of
+EL_FORCE_BUDGET at all four frames) [V]:
+
+| factor | 0.04 | 0.06 | 0.10 | 0.14 |
+|---|---|---|---|---|
+| (a) kernel-sampled porosity at the window particles: mean 0.3722-0.3731, +0.0035 above the slab value -> drag | 0.9855 | 0.9857 | 0.9862 | 0.9866 |
+| (b) nonlinearity: mean of drag(eps_i) against drag(mean eps) | 1.0020 | 1.0020 | 1.0020 | 1.0019 |
+| (c) sampled slip u_z 2.3-2.4 % below U/eps (particles sample the slower flow next to them) | 0.9779 | 0.9775 | 0.9770 | 0.9765 |
+| (d+e) rest: model-A identity n<F_d>/eps against the measured window gradient | 0.9883 | 0.9843 | 0.9813 | 0.9801 |
+| product = measured / closure | 0.9544 | 0.9504 | 0.9474 | 0.9461 |
+
+Of the rest, the porosity the fluid momentum balance carries (deposited element porosity 0.3698-0.3705,
++0.001 above the slab value) accounts for 0.3 %; the remainder (0.9-1.7 %, growing with U) is not split
+further (pressure force at the particle positions against the window mean, viscous term of model A,
+P1 gradient measure) [I].
+
+**Where it sits [V].** Restricted to the interior of the window (more than one kernel radius, 2.5 d,
+from both window ends), the sampled porosity is 0.0004 BELOW the exact value (the self-voidage sense, a
++0.3 % drag effect) and the sampled slip is 0.996 of U/eps. A gradient from the vertex pressure between
+the vertex planes 5 and 20 mm is 1.014-1.024 of the closure at the exact porosity of that slab, between
+2.5 and 22.5 mm 0.956-0.966. Factors (a) and (c) come from the particles within one kernel radius of the
+window ends: their kernels reach into the loose floor layer (and are cut by the floor) and into the bed
+top, which the 2 d exclusion of the spec does not remove for a 2.5 d kernel. The self-voidage bias of
+this code (eps_eff about 0.975 for a single particle) does not apply in a packed bed: there the
+particle's own volume is part of a field that is already dense, and the interior bias is -0.0004.
+
+**Like-for-like reference.** The closure evaluated at the porosity the drag actually uses: the mean
+kernel-sampled porosity of the window particles, now in the audit line (eps_kern_slip_win, commit
+c8541cfc) and in the post tool as ratio_k. It removes factor (a) only; (c) is a property of the
+resolved flow (flow through the looser regions), (b) is +0.2 %. In R_static (0.04 m/s, settled bed) the
+code's own window mean of the sampled porosity is 0.37205 (the replication above gave 0.37220) and the
+sampled slip 0.1063 m/s (replication 0.1060): ratio_w 0.954, ratio_k 0.991.
