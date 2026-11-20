@@ -25,7 +25,7 @@ MODULE EL_TRANSFER
                        el_apply_particle_forces, el_apply_fluid_feedback, &
                        el_write_diagnostics, el_momentum_audit_freq, &
                        el_drag_semi_implicit, el_pressure_feedback, el_prescribed_field, &
-                       el_drag_hrz, &
+                       el_drag_hrz, el_bed_audit_freq, &
                        EL_VA_CONSERVATIVE_FORM, EL_INLET_SUPERFICIAL
   USE EL_VA_FLUX, ONLY: EL_VA_RECONSTRUCT_EPS_LOCAL, EL_VA_EMBED_Q1_IN_Q2, &
                         EL_VA_CHECK_DOF_LAYOUT
@@ -38,7 +38,8 @@ MODULE EL_TRANSFER
                      EL_HALO_DOMAIN_BOX
   USE EL_MOMENTUM_MODEL, ONLY: EL_MM_VISCOUS_FORCE
   USE EL_VISCOUS, ONLY: EL_VISCOUS_LAPLACIAN, EL_VIS_SIZE
-  USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION
+  USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION, EL_SAMPLE_EPSILON_F
+  USE EL_BED_AUDIT, ONLY: EL_BED_AUDIT_BEGIN_SAMPLES, EL_BED_AUDIT_RECORD_SAMPLE
   ! the three coupling operations of a record on this rank (the record and, under
   ! SimPar@ELPeriodicKernel = wrap, its periodic images)
   USE EL_IMAGE_TRANSFER, ONLY: EL_SAMPLE_RECORD, EL_SAMPLE_RECORD_VISCOUS, EL_DEPOSIT_RECORD
@@ -298,6 +299,10 @@ CONTAINS
       CALL EL_REDUCE_TO_OWNERS(local_lap, owned_lap)
     END IF
 
+    ! bed audit (SimPar@ELBedAuditFreq > 0): the kernel-sampled porosity and slip of the
+    ! particles, recorded in the post-advance pass (the state the audit line of this step sees)
+    IF (el_bed_audit_freq.GT.0 .AND. .NOT.advance_history) CALL EL_BED_AUDIT_BEGIN_SAMPLES()
+
     DO i=1,n_owned
       IF (owned_samples(1,i).LE.0.0d0) THEN
         WRITE(*,'(A,I0,A,I0,A,3ES14.6)') 'Fatal E-L transfer error on rank ', &
@@ -316,6 +321,11 @@ CONTAINS
       END IF
       owned_result(1,i) = owned_samples(EL_SAMPLE_NORMALIZATION,i)
       owned_result(5,i) = force_result%drag_B
+      IF (el_bed_audit_freq.GT.0 .AND. .NOT.advance_history) &
+        CALL EL_BED_AUDIT_RECORD_SAMPLE(owned_particles(i)%position(3), &
+          MIN(1.0d0, MAX(el_eps_f_min, owned_samples(EL_SAMPLE_EPSILON_F,i)/ &
+          owned_samples(EL_SAMPLE_NORMALIZATION,i))), &
+          force_result%u_f(3) - owned_particles(i)%velocity(3))
       ! Default: the explicit feedback force (drag + lift, + the pressure reaction
       ! under ELPressureFeedback), used as deposited by the post-advance diagnostic
       ! pass and by the pre-advance pass when the particles are not advanced. The

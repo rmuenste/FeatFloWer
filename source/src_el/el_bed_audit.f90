@@ -7,7 +7,7 @@
 !   EL_BED_AUDIT t= step= p_in_out= p_in p_out area_in_out= area_in area_out
 !                dp_hydro_dyn= dp dp_hydro dp_dyn n= n weight_z_floor_z= weight_z floor_z
 !                z50_95_99_max= z50 z95 z99 zmax eps_bed= eps_bed window= z_lo z_hi
-!                gradz_win= G
+!                gradz_win= G floor_bal_z= F eps_kern_slip_win= e s
 !
 !   p_in, p_out   area-mean pressure on the bottom (z = zmin of the EL domain box) and the top
 !                 (z = zmax) plane. The P1 (discontinuous linear) pressure of each element is
@@ -42,6 +42,19 @@
 !                 (overlap of the element z range with the window; exact for elements bounded
 !                 by two z planes, as in the case-11 mesh, a volume-fraction estimate otherwise).
 !                 The pressure gradient of the bed core, the counterpart of eps_bed (gate F2).
+!   floor_bal_z   force of the walls on the particles from the momentum balance of the particles
+!                 over the last PE advance: (dp - expected)_z / dt with dp the measured change of
+!                 the total particle momentum and expected the impulse of the forces the CFD side
+!                 applied (EL_DIAGNOSTICS: EL_NEWTON_PAIR_END, kept every step). It is the floor
+!                 force when the floor is the only wall the particles touch (case 11: the top wall
+!                 is far above the bed). Independent of the contact bookkeeping of pe; floor_z
+!                 (pe wall-contact impulse) reports the unrelaxed PGS impulse, 1/0.9 of the
+!                 impulse pe applies (design note section 8). 0 when the balance of this step is
+!                 not available.
+!   eps_kern_slip_win  mean kernel-sampled porosity (the value the drag closure uses, clipped as
+!                 there) and mean sampled slip u_f,z - v_z of the particles whose centre lies in
+!                 the window, from the post-advance transfer pass of this step
+!                 (EL_BED_AUDIT_RECORD_SAMPLE); -1 / 0 without particles there.
 !
 ! The hydrodynamic forces on the particles (drag, pressure force) are in the EL_FORCE_BUDGET
 ! line of the transfer pass of the same step (evaluated with the fluid state before the
@@ -58,6 +71,7 @@ MODULE EL_BED_AUDIT
   USE EL_CONFIG, ONLY: el_bed_audit_freq, el_fluid_gravity
   USE EL_GEOMETRY, ONLY: el_domain_box, el_domain_box_set
   USE EL_QUADRATURE, ONLY: EL_Q1_MAP
+  USE EL_DIAGNOSTICS, ONLY: el_pair_last_step, el_pair_last_dp, el_pair_last_expected
 #ifdef HAVE_PE
   USE DEM_QUERY, ONLY: tParticleData, numLocalParticles, getAllParticles, &
                        getElWallContactImpulse
@@ -66,12 +80,15 @@ MODULE EL_BED_AUDIT
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC :: EL_WRITE_BED_AUDIT
+  PUBLIC :: EL_WRITE_BED_AUDIT, EL_BED_AUDIT_BEGIN_SAMPLES, EL_BED_AUDIT_RECORD_SAMPLE
   ! helpers, public for the unit test
   PUBLIC :: EL_SPHERE_SLAB_VOLUME, EL_HISTOGRAM_QUANTILE, EL_PLANE_PRESSURE_LOCAL, &
             EL_WINDOW_GRADIENT_LOCAL
 
   INTEGER, PARAMETER :: NBINS = 4000
+  ! per height bin of the particle centre: sum of the kernel-sampled porosity, of the sampled slip
+  ! (z) and the count, of the owned particles of this rank (EL_BED_AUDIT_RECORD_SAMPLE)
+  REAL*8, SAVE :: sample_bins(3, NBINS) = 0.0d0
 
 CONTAINS
 
@@ -85,7 +102,8 @@ CONTAINS
 
     REAL*8 :: zmin, zmax, tol, loc(7), glob(7), p_in, p_out, dp, dp_hydro
     REAL*8 :: zq(3), zlo, zhi, eps_bed, dmean, rmean, zmax_loc, zmax_glob, floor_z, imp(3)
-    REAL*8 :: win_loc(3), win(3), gradz_win
+    REAL*8 :: win_loc(3), win(3), gradz_win, floor_bal, kern(3), kern_g(3)
+    REAL*8 :: eps_kern, slip_kern, zb
     INTEGER :: hist_loc(NBINS), hist(NBINS), nloc, nglob, ierr, i, ib
 #ifdef HAVE_PE
     TYPE(tParticleData), ALLOCATABLE :: particles(:)
@@ -175,6 +193,25 @@ CONTAINS
     IF (ALLOCATED(particles)) DEALLOCATE(particles)
 #endif
 
+    ! wall force from the particle momentum balance of this step
+    floor_bal = 0.0d0
+    IF (el_pair_last_step.EQ.istep .AND. dt.GT.0.0d0) &
+      floor_bal = (el_pair_last_dp(3) - el_pair_last_expected(3))/dt
+
+    ! kernel-sampled porosity and slip of the particles with the centre in the window
+    kern = 0.0d0
+    DO ib = 1, NBINS
+      zb = zmin + (DBLE(ib) - 0.5d0)*(zmax - zmin)/DBLE(NBINS)
+      IF (zb.GE.zlo .AND. zb.LE.zhi) kern = kern + sample_bins(:, ib)
+    END DO
+    CALL MPI_Allreduce(kern, kern_g, 3, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
+    eps_kern = -1.0d0
+    slip_kern = 0.0d0
+    IF (kern_g(3).GT.0.0d0) THEN
+      eps_kern = kern_g(1)/kern_g(3)
+      slip_kern = kern_g(2)/kern_g(3)
+    END IF
+
     IF (myid.EQ.showid) THEN
       CALL WRITE_LINE(6)
       CALL WRITE_LINE(mfile)
@@ -185,12 +222,13 @@ CONTAINS
     SUBROUTINE WRITE_LINE(unit)
       INTEGER, INTENT(IN) :: unit
       WRITE(unit,'(A,ES14.6,A,I0,A,2ES16.8,A,2ES14.6,A,3ES16.8,A,I0,A,2ES14.6,A,4ES14.6,' // &
-                 'A,ES14.6,A,2ES14.6,A,ES16.8)') &
+                 'A,ES14.6,A,2ES14.6,A,ES16.8,A,ES16.8,A,2ES16.8)') &
         'EL_BED_AUDIT t= ', time, ' step= ', istep, ' p_in_out= ', p_in, p_out, &
         ' area_in_out= ', glob(1), glob(3), ' dp_hydro_dyn= ', dp, dp_hydro, dp - dp_hydro, &
         ' n= ', nglob, ' weight_z_floor_z= ', glob(5), floor_z, &
         ' z50_95_99_max= ', zq, zmax_glob, ' eps_bed= ', eps_bed, ' window= ', zlo, zhi, &
-        ' gradz_win= ', gradz_win
+        ' gradz_win= ', gradz_win, ' floor_bal_z= ', floor_bal, &
+        ' eps_kern_slip_win= ', eps_kern, slip_kern
     END SUBROUTINE WRITE_LINE
 
   END SUBROUTINE EL_WRITE_BED_AUDIT
@@ -264,6 +302,24 @@ CONTAINS
       END DO
     END DO
   END SUBROUTINE EL_PLANE_PRESSURE_LOCAL
+
+  ! Kernel-sampled quantities of the particles for the window means of the audit: reset at the
+  ! start of the post-advance transfer pass, one record per owned particle (EL_TRANSFER, only
+  ! with SimPar@ELBedAuditFreq > 0). Rank-local, no collective.
+  SUBROUTINE EL_BED_AUDIT_BEGIN_SAMPLES()
+    sample_bins = 0.0d0
+  END SUBROUTINE EL_BED_AUDIT_BEGIN_SAMPLES
+
+  SUBROUTINE EL_BED_AUDIT_RECORD_SAMPLE(z, eps, slip_z)
+    REAL*8, INTENT(IN) :: z, eps, slip_z
+    INTEGER :: ib
+    IF (.NOT.el_domain_box_set) RETURN
+    ib = 1 + INT(DBLE(NBINS)*(z - el_domain_box(5))/(el_domain_box(6) - el_domain_box(5)))
+    ib = MIN(NBINS, MAX(1, ib))
+    sample_bins(1, ib) = sample_bins(1, ib) + eps
+    sample_bins(2, ib) = sample_bins(2, ib) + slip_z
+    sample_bins(3, ib) = sample_bins(3, ib) + 1.0d0
+  END SUBROUTINE EL_BED_AUDIT_RECORD_SAMPLE
 
   ! Volume of the elements of this rank inside the slab za < z < zb and its integral of -dp/dz
   ! (P1 pressure: the gradient is constant per element, entry 4 of its block). The part of an

@@ -30,6 +30,12 @@ MODULE EL_DIAGNOSTICS
   LOGICAL :: el_momentum_reference_set = .FALSE.
   REAL*8 :: el_momentum_reference(3) = 0.0d0
   REAL*8 :: el_pair_momentum_before(3) = 0.0d0
+  ! Momentum balance of the particles over the last PE advance, kept every step by
+  ! EL_NEWTON_PAIR_END for the bed audit (EL_BED_AUDIT): measured change dp of the total
+  ! particle momentum and the impulse of the forces the CFD side applied (expected); their
+  ! difference is the impulse of everything else, i.e. of the walls. Step index -1: not set.
+  INTEGER :: el_pair_last_step = -1
+  REAL*8 :: el_pair_last_dp(3) = 0.0d0, el_pair_last_expected(3) = 0.0d0
   REAL*8 :: el_fluid_pair_before(3) = 0.0d0
   REAL*8 :: el_fluid_pair_mid(3) = 0.0d0
   LOGICAL :: el_fluid_pair_stage_set = .FALSE.
@@ -645,6 +651,9 @@ CONTAINS
     CALL EL_LOCAL_PARTICLE_MOMENTUM(local_p, vsum, cnt)
     CALL MPI_Allreduce(local_p, p_after, 3, MPI_DOUBLE_PRECISION, MPI_SUM, &
       MPI_COMM_SUBS, ierr)
+    el_pair_last_step = istep
+    el_pair_last_dp = p_after - el_pair_momentum_before
+    el_pair_last_expected = expected_impulse
     IF (MOD(ABS(istep), el_momentum_audit_freq).NE.0) RETURN
 
     ! Momentum absorbed by the z-walls this macro step (wall lubrication +
