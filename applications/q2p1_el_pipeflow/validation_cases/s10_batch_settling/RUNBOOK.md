@@ -173,7 +173,13 @@ with a correct mapping (SQUARE_DPVM 1 mm, run B_dpvm, job 163995): core 1.618 ov
 No other code currently supports the FeatFloWer periodic 1.047 / 1.054. The peer's inference
 (not tested): the 8 x 8 cell periodic box may be unstable to column-scale convection in the
 cell-based codes, and the wider kernel here may suppress it. Every later mention of
-"MFiX 1.053 / 1.033 / 1.034" in this file refers to the void run. CFDEM periodic: core mean oscillates between +2 and -2 times the reference
+"MFiX 1.053 / 1.033 / 1.034" in this file refers to the void run. **Second correction 2026-11-20 [P]:**
+SQUARE_DPVM also mis-maps at cyclic planes (it loses solids there: mapped gas fraction 0.424 in
+edge columns against 0.398 geometric, measured on the case-11 bed), so the 1.618 above is not a
+clean result either. With DES_INTERP_SCHEME NONE (no interpolation) the peer reports a steady
+core ratio of 1.37 for the periodic case-10 bed. MFiX periodic therefore reads 1.05 (GARG, void),
+1.62 (DPVM, void) and 1.37 (NONE) depending on the mapping; none of them supports or refutes the
+FeatFloWer 1.047 / 1.054. CFDEM periodic: core mean oscillates between +2 and -2 times the reference
 (undiagnosed). waLBerla particle-resolved (20 x 20 x 80 mm periodic box, 7 237 spheres):
 10 cells per diameter, 2 s: 0.74-0.75 of the reference, core still accelerating, whole-bed bounce.
 16 cells per diameter with a hydrostatic initial pressure (peer message 2026-11-18, 1 s; bounce
