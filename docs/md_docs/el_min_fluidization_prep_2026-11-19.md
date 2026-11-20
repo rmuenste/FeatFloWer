@@ -276,7 +276,7 @@ at t 7.5 s (positions from the particle logs; json `seedAllowContact_ true`, a f
 
 Measured (R_proto_hrz, fixed branch 0.04-0.14 m/s): -<dp/dz> over the bed window [2 d, H - 2 d] is
 0.946-0.954 of Gidaspow (= Ergun) at the exact window porosity 0.369. Decomposition at four output frames
-(0.04, 0.06, 0.10, 0.14 m/s; `runs/fluid11/tools/core_deficit.py`: the code's kernel sample replicated
+(0.04, 0.06, 0.10, 0.14 m/s; `s11_min_fluidization/tools/core_deficit.py`: the code's kernel sample replicated
 from the VTK fields - deen_poly kernel, 27-point Gauss quadrature per element, periodic images, P0
 porosity exact, velocity trilinear from the vertices; replicated total drag within 0.2 % of
 EL_FORCE_BUDGET at all four frames) [V]:
