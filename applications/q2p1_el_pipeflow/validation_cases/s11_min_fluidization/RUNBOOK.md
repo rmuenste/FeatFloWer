@@ -285,3 +285,21 @@ interior is 1-2 % above the closure. Bed A not run.
    0.964-0.974. Which porosity the F3 reference takes is a definition to agree with the peer [I].
 6. Bed A cost (section 7) and the missing particle-state restart; bed A not run.
 7. Not run: a step-size study, models B / Bfull, closures wenyu / ergun as controls.
+
+## Particle movie of the protocol run
+
+`/data/warehouse17/rmuenste/runs/fluid11/movie/fluid11_R_proto_movie_particles.mp4` (52 s, 2560 x 1440,
+30 fps, 74 MB; not tracked). Run `R_proto_movie` (job 164399, binary c8541cfc, 5 h 59 min): the deck of
+`R_proto_hrz` with `SimPar@ELParticleLogFreq = 20` (one particle frame every 5 ms) and
+`SimPar@OutputFreq = 0.0249d0`; its per-step table is identical to `R_proto_hrz` to the printed
+digits [V]. One image per logged particle frame, no interpolation (1 501 frames); largest displacement
+of a particle between two frames 1.37 d after t = 0.2 s, 3.2 d during the collapse of the loose start
+bed (`movie/check_R_proto_movie.log`) [V]. Tool `tools/fl11_movie.py` (`--check`, `--stats`,
+`--frames`), render job `tools/fl11_movie_render.sbatch` (job 164533, 8 min 37 s, Slurm).
+Content: x-z and y-z cuts and a top-down slab (1 d thick, discs = largest section of the sphere in
+the slab, colour = vertical particle velocity, +-0.10 m/s), solid fraction in 1 mm bins, traces of
+U, dp*, dp* + floor / W and the bed top with a time cursor; MFiX and CFDEM step means as
+peer-reported markers [P]. What it shows: in this 17 d wide periodic box the fluidised bed slugs
+(a plug rises, particles rain through a void band below it, about ten cycles per second), it does
+not bubble; the regime label follows the F1 rule, so the 0.18 m/s step reads "fluidised" with the
+particles at rest.
