@@ -94,3 +94,31 @@ job     run                      binary     result
         max overlap 7.4e-6 (7.4e-6 / 6.0e-6), Tgran 1.41e-3 (1.37e-3 / 1.09e-3), contacts 6.9e3 (7.6e3 / 14.7e3); overall max
         overlap 1.33e-5 at step 390 (collapse); 0.634 s/step (R_rest_on2000 0.514 on nx-05, R_smoke_r1_2000 0.576 on nx-01);
         EL_RESTITUTION_STATS steps 1000-2000 per CFD step: impacting 8434, support 49304, sweeps_max 100 (the cap) in every step
+
+Restitution fix round 2 (external review, 2026-11-21): pe feature/el-restitution 45c9268 (5 commits on 97563ed6, NOT pushed;
+libs/pe/.pin): support rows relative to the post-compression state (undisturbed network = exact fixed point), friction on every
+affected row, stop rule on synchronised velocities (keys restitutionMaxIterations_/CheckInterval_/AbsTolerance_/RelTolerance_,
+defaults 24 / 4 / 1e-4 m/s / 1e-3, minimum restitutionIterations_ 4), only armed rows (candidate + compression) book restitution,
+refusal from the live body storage in both solvers, HCSITS exact shadow relay with restitution on, rejectRestitutionRequest()
+switches the solver off, EL_RESTITUTION_STATS round-2 format (pe_step + cfd_step, delivered, stop reasons, residuals).
+binary                                md5                               source
+q2p1_el_pipeflow.288aee16-pe45c9268   3b10e44c52c953dbf4f2f4067373e858  288aee16 (Fortran = 627caf47) + pe 45c9268; build-fluid11 on nx-05 (job 164864,
+                                                                         runs/fluid11/pe_restitution/build_ff.sbatch, build id epycmilan-linux-gcc-release pinned)
+
+job     run                      binary     result
+164861  pe presets serial + mpi, pe working tree = 45c9268  -  serial 60/60, mpi 21/21
+164862  round-2 tests on the 97563ed library (failing-before)  -  5 serial / 6 mpi targets need the new API (no compile); of the rest
+        support, support-plain, el-restitution, setup-inherit, hcsits-restitution-mpi fail (el-restitution-mpi: new API)
+164863  common tests on 97563ed vs 45c9268  -  serial 45/45 identical output, mpi 17/19 identical, 2 identical up to rank line order
+164865  gate/{D_s6,G_tier2,E2w5,VB40}__288aee16-pe45c9268 vs __base; R_rest3_off400 vs R_smoke_r1  288aee16-pe45c9268  all common EL
+        streams + XxX bitwise, particle logs 27/27 (gate/pc_compare_288aee16-pe45c9268.txt); no EL_RESTITUTION_STATS with the keys absent
+164866  R_rest3_on2000 (deck = R_rest2_on2000, threshold 0.01, stop-rule keys absent)  288aee16-pe45c9268  completed on nx-06; steps
+        1000-2000 (R_rest2 / R_rest / e=0): dp* 0.975 (0.974 / 0.975 / 0.982), floor/W 0.024 (0.023 / 0.023 / 0.021), max overlap 6.4e-6
+        (7.4e-6 / 7.4e-6 / 6.0e-6), Tgran 1.35e-3 (1.41e-3 / 1.37e-3 / 1.09e-3), contacts 10.9e3 (6.9e3 / 7.6e3 / 14.7e3); 0.560 s/step
+        (0.634 / 0.514 on nx-05, 0.576 on nx-01); per CFD step delivered 1266, sub-steps converged 5636 capped 4364 of 10000,
+        sweeps mean 21.5, residual max 4.7e-3 m/s
+164867  R_static_r2off (R_static inputs, friction 0.15 per material, keys absent)  288aee16-pe45c9268  dp* 0.2010, floor/W 0.799 (300-400),
+        max overlap 1.27e-7, Tgran 1.5e-9; 0.935 s/step on nx-05
+164868  R_static_r2on (same + restitution on, threshold 0.01)  288aee16-pe45c9268  dp* 0.2010, floor/W 0.799 (300-400), max overlap 1.74e-7
+        (1.13e-7 in 300-400), Tgran 1.6e-9; delivered 33 rebounds in 400 steps (5 in steps 300-400), approach max 0.024 m/s, support
+        closing after the inelastic solve up to 0.025 m/s; 0.890 s/step
