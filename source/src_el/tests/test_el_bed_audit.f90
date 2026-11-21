@@ -9,19 +9,30 @@
 !          element-wise discontinuous field: the face-centroid sum)
 !   74-75  window gradient -<dp/dz>: affine field over a window that cuts elements; element-
 !          wise gradients weighted with the cut volumes
+!   80-81  window margin MAX(2 d, kernel support radius)
+!   82-85  floor_bal_z: forces armed (balance), force-off contact-free fixture (stationary
+!          particles, no pe force, the CFD side computed the buoyant weight but did not arm it:
+!          unavailable, not an upward floor force), balance of another step, dt = 0
+!   86-89  kernel-sampled window means: recorded samples, bin-centre selection at both window
+!          ends, sums; unavailable value is NaN
 !=========================================================================
 PROGRAM TEST_EL_BED_AUDIT
 
   USE TYPES, ONLY: tMultiMesh
+  USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_IS_NAN
   USE EL_BED_AUDIT, ONLY: EL_SPHERE_SLAB_VOLUME, EL_HISTOGRAM_QUANTILE, EL_PLANE_PRESSURE_LOCAL, &
-                          EL_WINDOW_GRADIENT_LOCAL
+                          EL_WINDOW_GRADIENT_LOCAL, EL_BED_WINDOW_MARGIN, EL_BED_FLOOR_BALANCE, &
+                          EL_BED_WINDOW_SAMPLE_SUMS, EL_BED_UNAVAILABLE, &
+                          EL_BED_AUDIT_BEGIN_SAMPLES, EL_BED_AUDIT_RECORD_SAMPLE
+  USE EL_CONFIG, ONLY: el_kernel_width_factor
+  USE EL_GEOMETRY, ONLY: EL_SET_DOMAIN_BOX
   USE EL_TEST_HELPERS, ONLY: EL_TEST_INIT, BUILD_STRUCTURED_MESH, EL_TEST_RELEASE_MESH
 
   IMPLICIT NONE
 
   TYPE(tMultiMesh) :: mesh
   INTEGER :: hist(10), iel, n, i, j
-  REAL*8 :: pi, r, v, area, pint, a0, b(3), c(3), expected
+  REAL*8 :: pi, r, v, area, pint, a0, b(3), c(3), expected, sums(3), wz, dtt
   REAL*8, ALLOCATABLE :: p(:)
 
   pi = ACOS(-1.0d0)
@@ -97,6 +108,46 @@ PROGRAM TEST_EL_BED_AUDIT
   IF (ABS(area - 0.4d0).GT.1.0d-14) STOP 74
   IF (ABS(pint/area + 18.0d0).GT.1.0d-12) STOP 75
   CALL EL_TEST_RELEASE_MESH(mesh)
+
+  ! ---- 80-81: window margin ------------------------------------------------------------------
+  r = 0.435d-3
+  el_kernel_width_factor = 2.5d0          ! support radius 5 r = 2.5 d > 2 d (case 11)
+  IF (ABS(EL_BED_WINDOW_MARGIN(r) - 5.0d0*r).GT.1.0d-18) STOP 80
+  el_kernel_width_factor = 0.5d0          ! support radius r < 2 d
+  IF (ABS(EL_BED_WINDOW_MARGIN(r) - 4.0d0*r).GT.1.0d-18) STOP 81
+  el_kernel_width_factor = 2.5d0
+
+  ! ---- 82-85: floor balance ------------------------------------------------------------------
+  dtt = 2.5d-4
+  wz = -3.0d-3                            ! buoyant bed weight (z), N
+  ! forces armed, bed at rest on the floor: dp = 0, expected = dt W -> floor force -W (upward)
+  IF (ABS(EL_BED_FLOOR_BALANCE(7, 7, 0.0d0, dtt*wz, dtt, .TRUE.) + wz).GT.1.0d-15) STOP 82
+  ! force-off, contact-free fixture: nothing armed (ELApplyParticleForces = No), no pe force, no
+  ! contact: dp = 0 while expected still holds the computed weight impulse. The former
+  ! (dp - expected)/dt reported an upward floor force -W here; now unavailable.
+  IF (.NOT.IEEE_IS_NAN(EL_BED_FLOOR_BALANCE(7, 7, 0.0d0, dtt*wz, dtt, .FALSE.))) STOP 83
+  ! the recorded balance belongs to another step, or no step length
+  IF (.NOT.IEEE_IS_NAN(EL_BED_FLOOR_BALANCE(6, 7, 0.0d0, dtt*wz, dtt, .TRUE.))) STOP 84
+  IF (.NOT.IEEE_IS_NAN(EL_BED_FLOOR_BALANCE(7, 7, 0.0d0, dtt*wz, 0.0d0, .TRUE.))) STOP 85
+
+  ! ---- 86-89: kernel-sampled window means ----------------------------------------------------
+  CALL EL_SET_DOMAIN_BOX(0.0d0, 1.0d0, 0.0d0, 1.0d0, 0.0d0, 1.0d0)   ! 4000 bins of 2.5e-4
+  CALL EL_BED_AUDIT_BEGIN_SAMPLES()
+  CALL EL_BED_AUDIT_RECORD_SAMPLE(0.10d0, 0.50d0, 0.20d0)     ! below the window
+  CALL EL_BED_AUDIT_RECORD_SAMPLE(0.50d0, 0.40d0, 0.10d0)
+  CALL EL_BED_AUDIT_RECORD_SAMPLE(0.50d0, 0.38d0, 0.12d0)     ! same bin
+  CALL EL_BED_AUDIT_RECORD_SAMPLE(0.19995d0, 0.90d0, 9.0d0)   ! bin centre 0.199875 < z_lo
+  CALL EL_BED_AUDIT_RECORD_SAMPLE(0.20010d0, 0.36d0, 0.30d0)  ! bin centre 0.200125 >= z_lo
+  CALL EL_BED_AUDIT_RECORD_SAMPLE(0.80010d0, 0.80d0, 7.0d0)   ! bin centre 0.800125 > z_hi
+  CALL EL_BED_AUDIT_RECORD_SAMPLE(1.50d0, 0.99d0, 5.0d0)      ! above the box: last bin
+  CALL EL_BED_WINDOW_SAMPLE_SUMS(0.0d0, 1.0d0, 0.2d0, 0.8d0, sums)
+  IF (ABS(sums(3) - 3.0d0).GT.0.0d0) STOP 86
+  IF (ABS(sums(1) - (0.40d0 + 0.38d0 + 0.36d0)).GT.1.0d-15) STOP 87
+  IF (ABS(sums(2) - (0.10d0 + 0.12d0 + 0.30d0)).GT.1.0d-15) STOP 88
+  IF (.NOT.IEEE_IS_NAN(EL_BED_UNAVAILABLE())) STOP 89
+  CALL EL_BED_AUDIT_BEGIN_SAMPLES()
+  CALL EL_BED_WINDOW_SAMPLE_SUMS(0.0d0, 1.0d0, 0.2d0, 0.8d0, sums)
+  IF (ANY(sums.NE.0.0d0)) STOP 89
 
   WRITE(*,'(A)') 'test_el_bed_audit: all checks passed'
 

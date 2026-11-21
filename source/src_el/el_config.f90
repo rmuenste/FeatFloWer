@@ -617,6 +617,12 @@ CONTAINS
       WRITE(*,*) 'ELBedAuditFreq must be >= 0 (0 = off).'
       STOP 1
     END IF
+    ! the audit planes and the bed window are the z planes of the domain box (EL_BED_AUDIT)
+    IF (el_bed_audit_freq.GT.0 .AND. TRIM(el_domain_type).NE.'box') THEN
+      WRITE(*,'(A,A,A)') 'ELBedAuditFreq > 0 needs ELDomainType = box (inlet / outlet planes and ', &
+        'the bed window are z planes of the domain box); ELDomainType = ', TRIM(el_domain_type)
+      STOP 1
+    END IF
     IF (el_velocity_audit_freq.LT.0) THEN
       WRITE(*,*) 'ELVelocityAuditFreq must be >= 0 (0 = off).'
       STOP 1

@@ -11,7 +11,7 @@ MODULE EL_DIAGNOSTICS
                        el_domain_type, el_cylinder_center, &
                        el_cylinder_radius, el_cylinder_axis, &
                        el_momentum_fix, el_meso_filter_bins, &
-                       el_shear_rate, el_wall_stress_diag
+                       el_shear_rate, el_wall_stress_diag, el_bed_audit_freq
   USE EL_GEOMETRY, ONLY: el_domain_box, el_domain_box_set
   USE EL_MOMENTUM_MODEL, ONLY: EL_MM_WEIGHTED_INERTIA
   USE def_FEAT, ONLY: NITNS
@@ -34,6 +34,7 @@ MODULE EL_DIAGNOSTICS
   ! EL_NEWTON_PAIR_END for the bed audit (EL_BED_AUDIT): measured change dp of the total
   ! particle momentum and the impulse of the forces the CFD side applied (expected); their
   ! difference is the impulse of everything else, i.e. of the walls. Step index -1: not set.
+  ! Kept only with SimPar@ELBedAuditFreq > 0 (the default path stores nothing).
   INTEGER :: el_pair_last_step = -1
   REAL*8 :: el_pair_last_dp(3) = 0.0d0, el_pair_last_expected(3) = 0.0d0
   REAL*8 :: el_fluid_pair_before(3) = 0.0d0
@@ -651,9 +652,11 @@ CONTAINS
     CALL EL_LOCAL_PARTICLE_MOMENTUM(local_p, vsum, cnt)
     CALL MPI_Allreduce(local_p, p_after, 3, MPI_DOUBLE_PRECISION, MPI_SUM, &
       MPI_COMM_SUBS, ierr)
-    el_pair_last_step = istep
-    el_pair_last_dp = p_after - el_pair_momentum_before
-    el_pair_last_expected = expected_impulse
+    IF (el_bed_audit_freq.GT.0) THEN
+      el_pair_last_step = istep
+      el_pair_last_dp = p_after - el_pair_momentum_before
+      el_pair_last_expected = expected_impulse
+    END IF
     IF (MOD(ABS(istep), el_momentum_audit_freq).NE.0) RETURN
 
     ! Momentum absorbed by the z-walls this macro step (wall lubrication +

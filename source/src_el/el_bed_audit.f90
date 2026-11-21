@@ -7,7 +7,16 @@
 !   EL_BED_AUDIT t= step= p_in_out= p_in p_out area_in_out= area_in area_out
 !                dp_hydro_dyn= dp dp_hydro dp_dyn n= n weight_z_floor_z= weight_z floor_z
 !                z50_95_99_max= z50 z95 z99 zmax eps_bed= eps_bed window= z_lo z_hi
-!                gradz_win= G floor_bal_z= F eps_kern_slip_win= e s
+!                gradz_win= G floor_bal_z= F eps_kern_slip_win= e s win_margin= m
+!                gradz_win_dyn= Gd
+!
+! Unavailable values are printed as NaN (never 0 or -HUGE): a plane without an element face
+! (p_in / p_out and with them dp, dp_dyn), no particle (heights, window, eps_bed, gradz_win),
+! an empty window, a floor balance outside its assumptions (floor_bal_z), no particle centre
+! in the window (eps_kern_slip_win).
+!
+! Geometry: the audit needs the box domain (SimPar@ELDomainType = box); EL_CONFIG refuses a
+! positive ELBedAuditFreq with any other domain at start-up on every rank.
 !
 !   p_in, p_out   area-mean pressure on the bottom (z = zmin of the EL domain box) and the top
 !                 (z = zmax) plane. The P1 (discontinuous linear) pressure of each element is
@@ -32,16 +41,24 @@
 !   z50/z95/z99   heights below which 50 / 95 / 99 % of the particle centres lie (histogram of
 !                 NBINS bins over [zmin, zmax], linear inside a bin: resolution (zmax-zmin)/NBINS).
 !   zmax          highest particle centre.
-!   eps_bed       porosity of the bed window [z_lo, z_hi] = [zmin + 2 d, z99 + r - 2 d] from the
+!   eps_bed       porosity of the bed window [z_lo, z_hi] = [zmin + m, z99 + r - m] from the
 !                 particle positions (exact sphere-slab overlap, d and r the mean diameter and
-!                 radius): 1 - V_solid(window) / (area_in (z_hi - z_lo)); -1 when the window is
-!                 empty. Laterally periodic and walled boxes alike (the slab volume of a sphere
-!                 does not depend on x, y).
+!                 radius, m = win_margin): 1 - V_solid(window) / (area_in (z_hi - z_lo)); NaN when
+!                 the window is empty. Laterally periodic and walled boxes alike (the slab volume
+!                 of a sphere does not depend on x, y).
+!   win_margin    m = MAX(2 d, kernel support radius of the mean particle) (EL_CONFIG:
+!                 EL_KERNEL_SUPPORT_RADIUS, the radius the transfer maps with): the window
+!                 excludes two diameters and the mapping support at both ends.
 !   gradz_win     -<dp/dz> over the same window: the element-wise constant z gradient of the P1
 !                 pressure weighted with the part of the element volume inside [z_lo, z_hi]
-!                 (overlap of the element z range with the window; exact for elements bounded
-!                 by two z planes, as in the case-11 mesh, a volume-fraction estimate otherwise).
-!                 The pressure gradient of the bed core, the counterpart of eps_bed (gate F2).
+!                 (overlap of the element z range with the window). EXACT ONLY for elements
+!                 bounded by two z planes (the case-11 mesh); for any other element, even a
+!                 tapered hex with horizontal top and bottom faces, the height fraction is not the
+!                 volume fraction and the value is an estimate. The total gradient, including the
+!                 hydrostatic part when the fluid carries gravity (gate F2 uses gradz_win_dyn).
+!   gradz_win_dyn the window gradient without the hydrostatic part, gradz_win - dp_hydro /
+!                 (zmax - zmin) (= gradz_win when the fluid carries no gravity, as in every
+!                 momentum model): the counterpart of dp_dyn.
 !   floor_bal_z   force of the walls on the particles from the momentum balance of the particles
 !                 over the last PE advance: (dp - expected)_z / dt with dp the measured change of
 !                 the total particle momentum and expected the impulse of the forces the CFD side
@@ -49,12 +66,17 @@
 !                 force when the floor is the only wall the particles touch (case 11: the top wall
 !                 is far above the bed). Independent of the contact bookkeeping of pe; floor_z
 !                 (pe wall-contact impulse) reports the unrelaxed PGS impulse, 1/0.9 of the
-!                 impulse pe applies (design note section 8). 0 when the balance of this step is
-!                 not available.
+!                 impulse pe applies (design note section 8). Assumptions: the CFD side arms pe
+!                 with the hydrodynamic forces and the buoyant weight (ELApplyParticleForces =
+!                 Yes; expected is then the impulse of exactly those forces) and pe adds no
+!                 external force of its own (no pe gravity). The value then contains the force of
+!                 ALL walls. NaN when the balance is not available: forces not armed
+!                 (ELApplyParticleForces = No, nothing in expected acted on the particles) or no
+!                 balance recorded for this step.
 !   eps_kern_slip_win  mean kernel-sampled porosity (the value the drag closure uses, clipped as
 !                 there) and mean sampled slip u_f,z - v_z of the particles whose centre lies in
-!                 the window, from the post-advance transfer pass of this step
-!                 (EL_BED_AUDIT_RECORD_SAMPLE); -1 / 0 without particles there.
+!                 the window (bin centre in [z_lo, z_hi]), from the post-advance transfer pass of
+!                 this step (EL_BED_AUDIT_RECORD_SAMPLE); NaN / NaN without particles there.
 !
 ! The hydrodynamic forces on the particles (drag, pressure force) are in the EL_FORCE_BUDGET
 ! line of the transfer pass of the same step (evaluated with the fluid state before the
@@ -68,7 +90,9 @@ MODULE EL_BED_AUDIT
   USE MPI
   USE PP3D_MPI, ONLY: myid, showid, MPI_COMM_SUBS
   USE TYPES, ONLY: tMultiMesh
-  USE EL_CONFIG, ONLY: el_bed_audit_freq, el_fluid_gravity
+  USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_VALUE, IEEE_QUIET_NAN
+  USE EL_CONFIG, ONLY: el_bed_audit_freq, el_fluid_gravity, el_apply_particle_forces, &
+                       EL_KERNEL_SUPPORT_RADIUS
   USE EL_GEOMETRY, ONLY: el_domain_box, el_domain_box_set
   USE EL_QUADRATURE, ONLY: EL_Q1_MAP
   USE EL_DIAGNOSTICS, ONLY: el_pair_last_step, el_pair_last_dp, el_pair_last_expected
@@ -83,7 +107,8 @@ MODULE EL_BED_AUDIT
   PUBLIC :: EL_WRITE_BED_AUDIT, EL_BED_AUDIT_BEGIN_SAMPLES, EL_BED_AUDIT_RECORD_SAMPLE
   ! helpers, public for the unit test
   PUBLIC :: EL_SPHERE_SLAB_VOLUME, EL_HISTOGRAM_QUANTILE, EL_PLANE_PRESSURE_LOCAL, &
-            EL_WINDOW_GRADIENT_LOCAL
+            EL_WINDOW_GRADIENT_LOCAL, EL_BED_WINDOW_MARGIN, EL_BED_FLOOR_BALANCE, &
+            EL_BED_WINDOW_SAMPLE_SUMS, EL_BED_UNAVAILABLE
 
   INTEGER, PARAMETER :: NBINS = 4000
   ! per height bin of the particle centre: sum of the kernel-sampled porosity, of the sampled slip
@@ -101,9 +126,9 @@ CONTAINS
     REAL*8, INTENT(IN) :: density, gravity(3)
 
     REAL*8 :: zmin, zmax, tol, loc(7), glob(7), p_in, p_out, dp, dp_hydro
-    REAL*8 :: zq(3), zlo, zhi, eps_bed, dmean, rmean, zmax_loc, zmax_glob, floor_z, imp(3)
-    REAL*8 :: win_loc(3), win(3), gradz_win, floor_bal, kern(3), kern_g(3)
-    REAL*8 :: eps_kern, slip_kern, zb
+    REAL*8 :: zq(3), zlo, zhi, eps_bed, rmean, margin, zmax_loc, zmax_glob, floor_z, imp(3)
+    REAL*8 :: win_loc(3), win(3), gradz_win, gradz_dyn, floor_bal, kern(3), kern_g(3)
+    REAL*8 :: eps_kern, slip_kern
     INTEGER :: hist_loc(NBINS), hist(NBINS), nloc, nglob, ierr, i, ib
 #ifdef HAVE_PE
     TYPE(tParticleData), ALLOCATABLE :: particles(:)
@@ -111,7 +136,12 @@ CONTAINS
 
     IF (el_bed_audit_freq.LE.0) RETURN
     IF (MOD(ABS(istep), el_bed_audit_freq).NE.0) RETURN
-    IF (.NOT.el_domain_box_set) RETURN
+    ! EL_CONFIG refuses the audit without a box domain at start-up on every rank, so this
+    ! cannot be reached; a rank-local return would leave the other workers in the collectives
+    IF (.NOT.el_domain_box_set) THEN
+      WRITE(*,'(A,I0)') 'Fatal: EL_BED_AUDIT without a box domain on rank ', myid
+      CALL MPI_Abort(MPI_COMM_SUBS, 914, ierr)
+    END IF
     zmin = el_domain_box(5)
     zmax = el_domain_box(6)
     tol = 1.0d-6*(zmax - zmin)
@@ -149,8 +179,9 @@ CONTAINS
     CALL MPI_Allreduce(nloc, nglob, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_SUBS, ierr)
     CALL MPI_Allreduce(zmax_loc, zmax_glob, 1, MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_SUBS, ierr)
 
-    p_in = 0.0d0
-    p_out = 0.0d0
+    ! plane means (unavailable when the plane holds no element face of the mesh)
+    p_in = EL_BED_UNAVAILABLE()
+    p_out = EL_BED_UNAVAILABLE()
     IF (glob(1).GT.0.0d0) p_in = glob(2)/glob(1)
     IF (glob(3).GT.0.0d0) p_out = glob(4)/glob(3)
     dp = p_in - p_out
@@ -159,20 +190,23 @@ CONTAINS
     floor_z = 0.0d0
     IF (dt.GT.0.0d0) floor_z = -glob(7)/dt
 
-    ! bed heights and the porosity of the bed window (identical histogram on every rank)
-    zq = zmin
-    eps_bed = -1.0d0
-    zlo = zmin
-    zhi = zmin
-    gradz_win = 0.0d0
+    ! bed heights and the porosity of the bed window (identical histogram on every rank; the
+    ! branch depends on the global count only)
+    zq = EL_BED_UNAVAILABLE()
+    zmax_glob = MERGE(zmax_glob, EL_BED_UNAVAILABLE(), nglob.GT.0)
+    eps_bed = EL_BED_UNAVAILABLE()
+    zlo = EL_BED_UNAVAILABLE()
+    zhi = EL_BED_UNAVAILABLE()
+    margin = EL_BED_UNAVAILABLE()
+    gradz_win = EL_BED_UNAVAILABLE()
     IF (nglob.GT.0) THEN
       zq(1) = EL_HISTOGRAM_QUANTILE(hist, zmin, zmax, 0.50d0)
       zq(2) = EL_HISTOGRAM_QUANTILE(hist, zmin, zmax, 0.95d0)
       zq(3) = EL_HISTOGRAM_QUANTILE(hist, zmin, zmax, 0.99d0)
       rmean = glob(6)/DBLE(nglob)
-      dmean = 2.0d0*rmean
-      zlo = zmin + 2.0d0*dmean
-      zhi = zq(3) + rmean - 2.0d0*dmean
+      margin = EL_BED_WINDOW_MARGIN(rmean)
+      zlo = zmin + margin
+      zhi = zq(3) + rmean - margin
       ! win: 1 solid volume in the window, 2 fluid-mesh volume in the window, 3 its integral
       ! of -dp/dz
       win_loc = 0.0d0
@@ -192,21 +226,20 @@ CONTAINS
 #ifdef HAVE_PE
     IF (ALLOCATED(particles)) DEALLOCATE(particles)
 #endif
+    ! the window gradient without the hydrostatic part (the counterpart of dp_dyn)
+    gradz_dyn = gradz_win - dp_hydro/(zmax - zmin)
 
-    ! wall force from the particle momentum balance of this step
-    floor_bal = 0.0d0
-    IF (el_pair_last_step.EQ.istep .AND. dt.GT.0.0d0) &
-      floor_bal = (el_pair_last_dp(3) - el_pair_last_expected(3))/dt
+    ! wall force from the particle momentum balance of this step (forces actually armed only)
+    floor_bal = EL_BED_FLOOR_BALANCE(el_pair_last_step, istep, el_pair_last_dp(3), &
+                                     el_pair_last_expected(3), dt, el_apply_particle_forces)
 
-    ! kernel-sampled porosity and slip of the particles with the centre in the window
+    ! kernel-sampled porosity and slip of the particles with the centre in the window (no
+    ! particle: zlo, zhi unavailable, nothing selected; every worker enters the reduction)
     kern = 0.0d0
-    DO ib = 1, NBINS
-      zb = zmin + (DBLE(ib) - 0.5d0)*(zmax - zmin)/DBLE(NBINS)
-      IF (zb.GE.zlo .AND. zb.LE.zhi) kern = kern + sample_bins(:, ib)
-    END DO
+    IF (nglob.GT.0) CALL EL_BED_WINDOW_SAMPLE_SUMS(zmin, zmax, zlo, zhi, kern)
     CALL MPI_Allreduce(kern, kern_g, 3, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
-    eps_kern = -1.0d0
-    slip_kern = 0.0d0
+    eps_kern = EL_BED_UNAVAILABLE()
+    slip_kern = EL_BED_UNAVAILABLE()
     IF (kern_g(3).GT.0.0d0) THEN
       eps_kern = kern_g(1)/kern_g(3)
       slip_kern = kern_g(2)/kern_g(3)
@@ -222,16 +255,57 @@ CONTAINS
     SUBROUTINE WRITE_LINE(unit)
       INTEGER, INTENT(IN) :: unit
       WRITE(unit,'(A,ES14.6,A,I0,A,2ES16.8,A,2ES14.6,A,3ES16.8,A,I0,A,2ES14.6,A,4ES14.6,' // &
-                 'A,ES14.6,A,2ES14.6,A,ES16.8,A,ES16.8,A,2ES16.8)') &
+                 'A,ES14.6,A,2ES14.6,A,ES16.8,A,ES16.8,A,2ES16.8,A,ES14.6,A,ES16.8)') &
         'EL_BED_AUDIT t= ', time, ' step= ', istep, ' p_in_out= ', p_in, p_out, &
         ' area_in_out= ', glob(1), glob(3), ' dp_hydro_dyn= ', dp, dp_hydro, dp - dp_hydro, &
         ' n= ', nglob, ' weight_z_floor_z= ', glob(5), floor_z, &
         ' z50_95_99_max= ', zq, zmax_glob, ' eps_bed= ', eps_bed, ' window= ', zlo, zhi, &
         ' gradz_win= ', gradz_win, ' floor_bal_z= ', floor_bal, &
-        ' eps_kern_slip_win= ', eps_kern, slip_kern
+        ' eps_kern_slip_win= ', eps_kern, slip_kern, ' win_margin= ', margin, &
+        ' gradz_win_dyn= ', gradz_dyn
     END SUBROUTINE WRITE_LINE
 
   END SUBROUTINE EL_WRITE_BED_AUDIT
+
+  ! The value printed for an unavailable quantity of the audit line (quiet NaN).
+  REAL*8 FUNCTION EL_BED_UNAVAILABLE()
+    EL_BED_UNAVAILABLE = IEEE_VALUE(1.0d0, IEEE_QUIET_NAN)
+  END FUNCTION EL_BED_UNAVAILABLE
+
+  ! Margin of the bed window at both ends: two mean diameters (the spec) or the kernel support
+  ! radius of the mean particle (the radius the transfer maps with), whichever is larger.
+  REAL*8 FUNCTION EL_BED_WINDOW_MARGIN(rmean)
+    REAL*8, INTENT(IN) :: rmean
+    EL_BED_WINDOW_MARGIN = MAX(4.0d0*rmean, EL_KERNEL_SUPPORT_RADIUS(rmean))
+  END FUNCTION EL_BED_WINDOW_MARGIN
+
+  ! Wall force on the particles (z) from their momentum balance over the PE advance of step
+  ! istep: (dp - expected)/dt, with dp the measured change of the particle momentum and expected
+  ! the impulse of the forces the CFD side armed. Unavailable (NaN) unless the CFD side armed pe
+  ! with the forces (forces_armed: ELApplyParticleForces = Yes; otherwise nothing of expected
+  ! acted and the difference is no wall force), the balance belongs to this step and dt > 0.
+  REAL*8 FUNCTION EL_BED_FLOOR_BALANCE(last_step, istep, dp_z, expected_z, dt, forces_armed)
+    INTEGER, INTENT(IN) :: last_step, istep
+    REAL*8, INTENT(IN) :: dp_z, expected_z, dt
+    LOGICAL, INTENT(IN) :: forces_armed
+    EL_BED_FLOOR_BALANCE = EL_BED_UNAVAILABLE()
+    IF (forces_armed .AND. last_step.EQ.istep .AND. dt.GT.0.0d0) &
+      EL_BED_FLOOR_BALANCE = (dp_z - expected_z)/dt
+  END FUNCTION EL_BED_FLOOR_BALANCE
+
+  ! Sums (porosity, slip z, count) of the recorded particle samples of this rank whose height bin
+  ! has its centre in [zlo, zhi] (bins of EL_BED_AUDIT_RECORD_SAMPLE over [zmin, zmax]).
+  SUBROUTINE EL_BED_WINDOW_SAMPLE_SUMS(zmin, zmax, zlo, zhi, sums)
+    REAL*8, INTENT(IN) :: zmin, zmax, zlo, zhi
+    REAL*8, INTENT(OUT) :: sums(3)
+    REAL*8 :: zb
+    INTEGER :: ib
+    sums = 0.0d0
+    DO ib = 1, NBINS
+      zb = zmin + (DBLE(ib) - 0.5d0)*(zmax - zmin)/DBLE(NBINS)
+      IF (zb.GE.zlo .AND. zb.LE.zhi) sums = sums + sample_bins(:, ib)
+    END DO
+  END SUBROUTINE EL_BED_WINDOW_SAMPLE_SUMS
 
   ! Area and area integral of the P1 pressure over the element faces of this rank that lie in
   ! the plane z = zplane (all four face vertices within tol). Pressure layout of the solver:
