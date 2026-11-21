@@ -12,7 +12,7 @@ NP=$(( $(grep '^SimPar@SubMeshNumber' "$R/_data/q2p1_param.dat" | sed 's/.*= *//
   echo "FeatFloWer worktree $W"
   echo "binary source $(cat "$BIN.commit" 2>/dev/null || echo unknown)"
   echo "worktree HEAD at submission $(git -C "$W" rev-parse HEAD) ($(git -C "$W" rev-parse --abbrev-ref HEAD)), dirty $(git -C "$W" -c core.autocrlf=false status --short | grep -vc '^??' || true)"
-  echo "libs/pe 43e8fb541edc6d0c0d533a49ce4246786b36ff18 (rsync of the FeatFloWer-perkernel submodule tree)"
+  echo "libs/pe of the worktree at submission: $(cat "$W/libs/pe/.pin" 2>/dev/null || echo '43e8fb541edc6d0c0d533a49ce4246786b36ff18 (rsync of the FeatFloWer-perkernel submodule tree)'); the pe of the BINARY is in its source line above"
   echo "binary $BIN md5 $(md5sum "$BIN" | cut -c1-32) built on $(cat "$BIN.host" 2>/dev/null || echo ?)"
   echo "bed md5 $(md5sum "$R/particles.xyz" | cut -c1-12), $(wc -l < "$R/particles.xyz") particles"
   echo "deck keys: $(grep -hE '^SimPar@(TimeStep|MaxNumStep|ELDragModel|ELMomentumModel|ELMMPressureOperator|ELInletVelocityTable|ELBedAuditFreq|ELDragImplicitWeights|ELVelocityAuditFreq|ELParticleLogFreq|PeriodicAxis|PeriodicLength|NoOutflow)|^Pres@MGCrsSolverType' "$R/_data/q2p1_param.dat" | tr '\n' ';')"
