@@ -1,9 +1,10 @@
 MODULE EL_FORCES
 
+  USE MPI, ONLY: MPI_COMM_WORLD
   USE EL_CONFIG, ONLY: el_fluid_visc_dynamic, el_drag_model, el_eps_f_min, el_pressure_force, &
-                       EL_DRAG_LOOKUP, EL_DRAG_DIFELICE, EL_DRAG_DIFELICE_STD, &
-                       EL_DRAG_SCHILLER_NAUMANN, EL_DRAG_GIDASPOW, EL_DRAG_WENYU, &
-                       EL_DRAG_ERGUN, &
+                       el_drag_closure_id, EL_DRAG_DIFELICE, EL_DRAG_DIFELICE_STD, &
+                       EL_DRAG_STOKES, EL_DRAG_SCHILLER_NAUMANN, EL_DRAG_GIDASPOW, &
+                       EL_DRAG_WENYU, EL_DRAG_ERGUN, &
                        el_pressure_feedback, &
                        el_lift_model, el_inertial_lift, &
                        el_inertial_lift_umax, el_prescribed_umax, &
@@ -144,7 +145,7 @@ CONTAINS
 
     REAL*8 :: diameter, slip(3), slip_norm, reynolds, reynolds_raw
     REAL*8 :: dynamic_viscosity, eps
-    INTEGER :: closure
+    INTEGER :: closure, ierr
 
     force = 0.0d0
     drag_B = 0.0d0
@@ -161,7 +162,10 @@ CONTAINS
     ! Closure table: EL_CONFIG el_drag_names. Every closure returns the per-particle
     ! coefficient drag_B of the model-A form (F_d = drag_B (u_f - v), see the header of
     ! EL_DRAG_B_GIDASPOW); model B divides it by eps afterwards (EL_COMPUTE_PARTICLE_FORCES).
-    closure = EL_DRAG_LOOKUP(el_drag_model)
+    ! The id is resolved once from the deck name (EL_CONFIG:EL_RESOLVE_DRAG_CLOSURE); every
+    ! registered closure has its CASE, an id without one stops the run (a closure added to
+    ! the table but not here can never fall back to another law).
+    closure = el_drag_closure_id
     SELECT CASE (closure)
     CASE (EL_DRAG_DIFELICE, EL_DRAG_DIFELICE_STD)
       drag_B = EL_DRAG_B_DIFELICE(density, dynamic_viscosity, diameter, slip_norm, eps, &
@@ -172,9 +176,13 @@ CONTAINS
       drag_B = EL_DRAG_B_WENYU(density, dynamic_viscosity, diameter, slip_norm, eps)
     CASE (EL_DRAG_ERGUN)
       drag_B = EL_DRAG_B_ERGUN(density, dynamic_viscosity, diameter, slip_norm, eps)
-    CASE DEFAULT
+    CASE (EL_DRAG_STOKES, EL_DRAG_SCHILLER_NAUMANN)
       drag_B = EL_DRAG_B_SINGLE_SPHERE(dynamic_viscosity, diameter, reynolds, &
                                        closure.EQ.EL_DRAG_SCHILLER_NAUMANN)
+    CASE DEFAULT
+      WRITE(*,'(A,I0,A,A,A)') 'Fatal: EL_DRAG_CLOSURE: closure id ', closure, ' (ELDragModel = ', &
+        TRIM(el_drag_model), ') has no dispatch case (unresolved or not implemented).'
+      CALL MPI_Abort(MPI_COMM_WORLD, 915, ierr)
     END SELECT
 
     force = drag_B*slip

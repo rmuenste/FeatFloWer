@@ -14,13 +14,15 @@
 !          superficial velocity U (model-A drag + pressure-gradient force = model-B drag)
 !   50-52  U_mf from weight gradient = drag, gidaspow at eps 0.40 (spec 11 table, column
 !          Ergun: 0.210 m/s) and wenyu (column Wen-Yu: 0.170 m/s)
-!   60-61  closure table: lookup and validation of the new names
+!   60-61  closure table: lookup and validation of the new names, id resolved at validation
+!   62     every registered closure has a dispatch case (finite positive coefficient)
 !=========================================================================
 PROGRAM TEST_EL_DRAG_CLOSURES
 
   USE EL_CONFIG, ONLY: el_drag_model, el_drag_coupling, el_apply_fluid_feedback, &
                        EL_DRAG_LOOKUP, el_drag_names, EL_DRAG_GIDASPOW, EL_DRAG_WENYU, &
-                       EL_DRAG_ERGUN, EL_VALIDATE_CONFIG
+                       EL_DRAG_ERGUN, EL_VALIDATE_CONFIG, EL_RESOLVE_DRAG_CLOSURE, &
+                       el_drag_closure_id
   USE EL_FORCES, ONLY: EL_DRAG_CLOSURE
 
   IMPLICIT NONE
@@ -100,10 +102,21 @@ PROGRAM TEST_EL_DRAG_CLOSURES
   DO i=LBOUND(el_drag_names,1),UBOUND(el_drag_names,1)
     el_drag_model = el_drag_names(i)
     CALL EL_VALIDATE_CONFIG()          ! stops with 1 on an invalid name
+    ! the validation resolves the id once (review finding 14)
+    IF (el_drag_closure_id.NE.i) STOP 61
   END DO
   el_drag_model = 'GIDASPOW'
   CALL EL_VALIDATE_CONFIG()
-  IF (TRIM(el_drag_model).NE.'gidaspow') STOP 61
+  IF (TRIM(el_drag_model).NE.'gidaspow' .OR. el_drag_closure_id.NE.EL_DRAG_GIDASPOW) STOP 61
+
+  ! ---- 62: every registered closure has a dispatch case --------------------------------------
+  ! EL_DRAG_CLOSURE stops the run (MPI_Abort) on an id without a CASE, so a closure added to the
+  ! table but not to the dispatcher fails here instead of falling back to another law: every
+  ! table entry gives a finite positive coefficient at eps 0.5, slip 0.1 m/s.
+  DO i=LBOUND(el_drag_names,1),UBOUND(el_drag_names,1)
+    b = DRAG_B(TRIM(el_drag_names(i)), 0.5d0, 0.1d0)
+    IF (.NOT.(b.GT.0.0d0 .AND. b.LT.HUGE(1.0d0))) STOP 62
+  END DO
 
   WRITE(*,'(A)') 'test_el_drag_closures: all checks passed'
 
@@ -118,6 +131,7 @@ CONTAINS
     state(7) = 0.5d0*D
     state(8) = RHOP
     el_drag_model = name
+    CALL EL_RESOLVE_DRAG_CLOSURE()
     CALL EL_DRAG_CLOSURE(state, (/0.0d0, 0.0d0, slip/), RHO, NU, eps, force, DRAG_B)
     IF (ABS(force(3) - DRAG_B*slip).GT.1.0d-15*ABS(DRAG_B*slip)) STOP 9
   END FUNCTION DRAG_B

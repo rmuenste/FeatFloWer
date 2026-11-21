@@ -31,6 +31,10 @@ MODULE EL_CONFIG
   ! assume (refused under a model otherwise); the single-sphere laws carry no porosity at all
   LOGICAL, PARAMETER :: el_drag_standard_form(0:6) = (/ .FALSE., .TRUE., .TRUE., .TRUE., &
     .TRUE., .TRUE., .TRUE. /)
+  ! Id of the selected closure, resolved once from el_drag_model by EL_RESOLVE_DRAG_CLOSURE
+  ! (EL_VALIDATE_CONFIG; a unit test that sets el_drag_model directly calls it as well). -1:
+  ! not resolved; EL_FORCES:EL_DRAG_CLOSURE stops the run on an id it does not dispatch.
+  INTEGER :: el_drag_closure_id = -1
   CHARACTER(LEN=32) :: el_drag_coupling = 'explicit'
   ! SimPar@ELDragImplicitWeights = rowsum | hrz
   !   Nodal weights of the implicit part of the semi-implicit drag (the coefficient B_i on the
@@ -406,7 +410,8 @@ CONTAINS
       STOP 1
     END SELECT
 
-    IF (EL_DRAG_LOOKUP(el_drag_model).LT.0) THEN
+    CALL EL_RESOLVE_DRAG_CLOSURE()
+    IF (el_drag_closure_id.LT.0) THEN
       WRITE(*,'(A,A)') 'Invalid ELDragModel: ', TRIM(el_drag_model)
       STOP 1
     END IF
@@ -1057,8 +1062,6 @@ CONTAINS
   END FUNCTION EL_MM_LOOKUP
 
   ! Id of a (lower-case) drag closure name in the drag table, -1 if it is not a closure name.
-  ! Called per particle by EL_DRAG_CLOSURE (no validation needed before: the unit tests set
-  ! el_drag_model directly).
   PURE INTEGER FUNCTION EL_DRAG_LOOKUP(name)
     CHARACTER(LEN=*), INTENT(IN) :: name
     INTEGER :: i
@@ -1070,6 +1073,12 @@ CONTAINS
       END IF
     END DO
   END FUNCTION EL_DRAG_LOOKUP
+
+  ! Resolve the closure id of el_drag_model once (EL_VALIDATE_CONFIG refuses -1); the per-particle
+  ! dispatch reads el_drag_closure_id, never the name.
+  SUBROUTINE EL_RESOLVE_DRAG_CLOSURE()
+    el_drag_closure_id = EL_DRAG_LOOKUP(el_drag_model)
+  END SUBROUTINE EL_RESOLVE_DRAG_CLOSURE
 
   ! Record that the parameter file set the SimPar@EL* key `name` (called by the parser for
   ! every such key, before EL_VALIDATE_CONFIG).
