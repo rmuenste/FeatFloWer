@@ -48,3 +48,26 @@ job     run                      binary     result
 164670  R_smoke_r1_oldhrz (same deck)   c8541cfc   max |u| 1.00 m/s; dp* 1.366, floor_bal/W 0.643 at step 400
 164671  R_smoke_r1_rowsum (same deck, rowsum)  627caf47  max |u| 1.09 m/s; dp* 1.364, floor_bal/W 0.746 at step 400
 164673  R_smoke_r1_2000 (R_smoke_r1 for 2000 steps)  627caf47  completed; max |u| 1.57 m/s over steps 1000-2000 (R_hrz, former hrz: 0.87); dp* 0.96-1.02 (R_hrz 0.96-1.00); first 400 steps bitwise with R_smoke_r1
+
+Restitution in the EL contact solver (2026-11-21): pe feature/el-restitution 1d030e71 (base origin/master 6003b00, worktree
+pe-worktrees/el-restitution, NOT pushed) rsynced into libs/pe (git archive of the commit; libs/pe/.pin), Fortran = f088032c
+(= 627caf47 sources). json keys restitutionEnabled_ / restitutionThreshold_ / restitutionScheme_ / restitutionIterations_
+(absent = inelastic, bit for bit); start-up line EL_CONTACT_PARAMS (pair friction and restitution as the contacts use them).
+binary                                md5                               source
+q2p1_el_pipeflow.f088032c-pe1d030e7   b482c4aa874e50db9ef4089606e91072  f088032c + pe 1d030e7; build-fluid11 on Slurm node nx-04 (job 164692,
+                                                                         runs/fluid11/pe_restitution/build_ff.sbatch = build_r1.sbatch recipe,
+                                                                         build id epycmilan-linux-gcc-release pinned, target q2p1_el_pipeflow only)
+
+job     run                      binary     result
+164679  pe presets serial + mpi, origin/master 6003b00 export (baseline)  -  serial 46/46, mpi 19/19
+164689  pe presets serial + mpi, pe 1d030e7 tree  -  serial 48/48, mpi 20/20 (new: pe-el-restitution, -config, -mpi); outputs of all common tests as baseline
+164690  pe-el-restitution source against origin/master  -  FAILS 23 checks (inelastic); resting-pile state hash = the 1d030e7 hash (switch off and on)
+164697/164698  debug preset 1d030e7 / baseline: 44/48 / 42/46, the same 4 pre-existing debug aborts; cgal preset: GMP link error in both trees (not run)
+164693  gate/{D_s6,G_tier2,E2w5,VB40}__f088032c-pe1d030e7 vs __base (163807); R_rest_off400 (clone of R_smoke_r1, 400 steps) vs R_smoke_r1
+                                 f088032c-pe1d030e7  all common EL streams + XxX bitwise, particle logs 27/27 identical (gate/pc_compare_f088032c-pe1d030e7.txt);
+                                 the only new line is EL_CONTACT_PARAMS (restitution=off)
+164694  R_rest_on2000 (stage_s11.sh const:0.30, 2000 steps; deck, bed, mesh, inlet identical to R_smoke_r1_2000; staged json + restitutionEnabled_ true,
+        threshold 0, post-pass, 4 sweeps)  f088032c-pe1d030e7  completed; e = 0.9 / mu = 0.3 per pair (echo); steps 1000-2000 against R_smoke_r1_2000 (e = 0):
+        dp* mean 0.975 (0.982), floor_bal/W mean 0.023 (0.021), max overlap 7.4e-6 (6.0e-6), Tgran mean 1.37e-3 (1.09e-3, +26 %), contacts 7.6e3 (14.7e3);
+        largest sampled overlap of the run 1.36e-5 at step 350 (collapse transient; e = 0: 1.02e-5 at step 280), both above the spec limit 8.7e-6 only then;
+        0.514 s/step on nx-05 (R_smoke_r1_2000: 0.576 s/step on nx-01)
