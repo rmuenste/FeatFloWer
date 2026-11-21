@@ -352,3 +352,36 @@ Peer values of 2026-11-21 [P, not recomputed]: CFDEM with a uniform inlet packs 
 U_mf 0.191 m/s (1.11 of the closure at whole-bed porosity) at 40 cell rows and 0.976 / 0.362 / 0.168
 (1.03) at 80 rows (not mesh-converged); MFiX (run F_none) 0.995 / 0.370 / 0.173 (1.02). The first CFDEM
 and DPMFoam runs (top-driven) are void.
+
+## 11. Reruns after the review: friction 0.3 per contact (2026-11-21/22)
+
+Same deck, bed, mesh, inlet table and partition as the protocol run of section 8 (dense output as in
+`R_proto_movie`), json friction 0.15 per material = 0.3 per contact, contacts still inelastic (e = 0).
+Evaluation `fl11_post.py` (rules of the amended spec), output in `post.txt` of each run directory [V].
+
+| run (job) | binary | drag split | F1 plateau | dp* + floor | U_mf (dp* = 1) | whole-bed porosity | F3 ratio | F2 worst | packed core porosity | F5 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `R_proto_movie` (164399), friction 0.6 | c8541cfc | first `hrz` | 0.981 PASS | 0.998 | 0.181 | 0.3761 | 1.042 PASS | 1.6 % PASS | 0.370 | PASS |
+| `R_r1_proto` (164674) | 627caf47 | consistent `hrz` | **0.9787 FAIL** | 0.9935 | 0.1770 | 0.3726 | 1.047 PASS | 3.5 % PASS | 0.366 | PASS |
+| `R_r1_oldsplit` (164675) | c8541cfc | first `hrz` | 0.9826 PASS | 0.9975 | 0.1764 | 0.3720 | 1.049 PASS | 2.4 % PASS | 0.365 | PASS |
+
+- **Friction** (0.6 -> 0.3, same split): the fixed bed packs denser (core 0.370 -> 0.365, bed top
+  24.07 -> 23.9 mm), U_mf falls from 0.181 to 0.176 m/s, the fluidised bed stands 0.1-0.5 mm higher.
+- **Drag split** (same friction): integral values agree to 0.004 in dp* and 0.0006 m/s in U_mf, but the
+  plateau of the consistent split is 0.9787, 0.001 outside the F1 gate (recorded as FAIL), and the
+  global balance dp* + floor force is 0.9935 on the plateau against 0.9975 (fixed bed: 1.0001 against
+  1.0005-1.0013, so the consistent split closes the fixed-bed balance better).
+- **Peak gas speed** (`EL_UMAX_AUDIT`, mean of the audited maximum per velocity step): consistent split
+  1.22 m/s at U = 0.30, 0.89 at 0.18, 0.23 at 0.04; first split 0.80 / 0.52 / 0.12. In the packed bed at
+  0.04 m/s the interstitial speed is 0.109 m/s: the first split shows it, the consistent split shows
+  twice that at single (Q2 vertex) dofs. The consistent split therefore carries a node-to-node
+  oscillation of the gas velocity inside the bed that the integrals do not see. Open: sample the gas
+  velocity with the same lumped weights, or filter; owner decision, not done here.
+- Overlap: 1.17 % of d at 0.07 s (collapse of the start bed), at most 0.75 % of d after 0.2 s
+  (`R_r1_oldsplit` 1.19 % / 0.81 %).
+- Cost 6 h 23 min each on 37 ranks.
+
+Restitution (e = 0.9) needs the pe change `feature/el-restitution` (external review rounds 1-4 on
+2026-11-21/22); runs with it are recorded below once the review has passed. `R_r1_rest` (164701, first
+version of the pass, no rest velocity) and `R_r2_rest` (164872, review round 2, budget 24) are
+development runs and not part of the record.
