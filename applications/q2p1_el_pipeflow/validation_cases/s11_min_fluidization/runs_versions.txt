@@ -32,3 +32,19 @@ job     run                      binary     result
 164004  R_proto_hrz              77ffd070   full protocol with hrz: COMPLETED in 6 h 10 min, max |u| 1.05 m/s (RUNBOOK section 8)
 164099  gate/{D_s6,G_tier2,E2w5}__c8541cfc + hrzliquid/D_s6_200_{rowsum,hrz} + R_static (attempt 1)  c8541cfc  gate bitwise; liquid hrz effect; R_static refused at the seed-gap check
 164100  R_static                 c8541cfc   settled bed at 0.04 m/s, 400 steps: dp* + floor_bal 1.0002-1.0011
+
+Fix round 1 after the external review (2026-11-21, Fortran findings 2, 4, 6, 7, 8, 10, 11, 12, 14):
+binary                         md5                               source
+q2p1_el_pipeflow.627caf47      3f0b648cc210bffba97f5f30d2742b56  627caf47 (hrz partner B_i u_i^n from the fluid, audit fixes, inlet reader, closure ids);
+                                                                 built by runs/fluid11/tools/build_r1.sbatch on Slurm node nx-01 (job 164666), NOT on
+                                                                 longhouse1a (no access): Q2P1_BUILD_ID=epycmilan-linux-gcc-release pinned in the
+                                                                 build-fluid11 cache, i.e. the longhouse1a flags (-march=znver1); gates below bitwise
+
+job     run                      binary     result
+164663  unit/red_hrz (test_el_transfer only)  parent tree d2743338  steady non-uniform-field impulse test FAILS on the former hrz partner: residual B (u_f - sum h u) = -1.85 % of F_z
+164667  unit (ctest, 14 tests incl. el-periodic-mpi-4/8)  627caf47 tree  14/14
+164668  gate/{D_s6,G_tier2,E2w5,VB40}__627caf47 vs __base (163807)  627caf47  all EL streams and XxX lines bitwise (pc_compare_627caf47.txt)
+164669  R_smoke_r1 (U 0.30 const, 400 steps, hrz, friction 0.15/material)  627caf47  completed; max |u| 2.21 m/s (step 390, bed top, B_i > 0); dp* 1.364, floor_bal/W 0.772 at step 400 (collapse transient)
+164670  R_smoke_r1_oldhrz (same deck)   c8541cfc   max |u| 1.00 m/s; dp* 1.366, floor_bal/W 0.643 at step 400
+164671  R_smoke_r1_rowsum (same deck, rowsum)  627caf47  max |u| 1.09 m/s; dp* 1.364, floor_bal/W 0.746 at step 400
+164673  R_smoke_r1_2000 (R_smoke_r1 for 2000 steps)  627caf47  completed; max |u| 1.57 m/s over steps 1000-2000 (R_hrz, former hrz: 0.87); dp* 0.96-1.02 (R_hrz 0.96-1.00); first 400 steps bitwise with R_smoke_r1

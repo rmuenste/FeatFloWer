@@ -11,10 +11,14 @@ Marks: **[V]** verified here (code read, unit test or run), **[I]** inferred, no
 ## 1. Drag closures: table, Gidaspow, Wen-Yu, Ergun
 
 `SimPar@ELDragModel` now has a table in `EL_CONFIG` (`el_drag_names`, ids `EL_DRAG_*`, column
-`el_drag_standard_form`). The validation accepts exactly the names of the table; the momentum-model
-refusal of the campaign closure `difelice` reads the column; `EL_FORCES:EL_DRAG_CLOSURE` looks the id up
-and dispatches to one function per closure family. A further closure is one table entry, one function and
-one CASE line. The existing closures were moved verbatim into `EL_DRAG_B_DIFELICE` and
+`el_drag_standard_form`). The validation accepts exactly the names of the table and resolves the id
+once (`el_drag_closure_id`, `EL_RESOLVE_DRAG_CLOSURE`; review r1 finding 14: no per-particle name lookup);
+the momentum-model refusal of the campaign closure `difelice` reads the column; `EL_FORCES:EL_DRAG_CLOSURE`
+dispatches on the id to one function per closure family, with an explicit CASE for every registered
+closure (Stokes and Schiller-Naumann included) and a fatal `CASE DEFAULT` (MPI_Abort 915), so a closure
+added to the table without its CASE stops the run instead of falling back to the single-sphere law (unit
+test 62 of `test_el_drag_closures` evaluates every table entry). A further closure is one table entry,
+one function and one CASE line. The existing closures were moved verbatim into `EL_DRAG_B_DIFELICE` and
 `EL_DRAG_B_SINGLE_SPHERE` (default path bitwise, section 5) [V].
 
 New closures [V, code and unit test]:
@@ -74,10 +78,18 @@ lines and lines starting with `#` or `!` skipped, blank or comma separated, text
 ignored. U(t) linear between rows, constant beyond the ends. Refused with a message and `STOP 1`: missing
 or unreadable file, a row without two numbers, a non-finite value, times not strictly increasing, no rows,
 and the table together with any of `ELInletVelocityStart / End / RampTime` (key registry of the parser).
-Module `EL_INLET_TABLE` (table code, no MPI); `EL_CONFIG:EL_VALIDATE_CONFIG` loads it. Every rank parses
-the deck itself, so every rank reads the same file and either holds the same rows or stops with the same
-message (agreed form instead of read-and-broadcast; a broadcast would add a collective to the deck parser,
-which is also entered on a deck reload) [V, code; unit test of the refusals]. The echo (`EL_PRINT_CONFIG`)
+Module `EL_INLET_TABLE`; `EL_CONFIG:EL_VALIDATE_CONFIG` loads it. Review r1 (finding 7) replaced the
+agreed form (every rank reading the file twice, list-directed) by: rank 0 of MPI_COMM_WORLD reads ONE
+snapshot (one open, every line into memory, then parsed), each row must start with two tokens that are
+decimal numbers (strict token check, so `0.5 /` is refused instead of being read list-directed with the
+velocity of the row before), the end of the file is distinguished from a read error, a line that does not
+fit the 1023-character buffer is refused; status, message and rows are broadcast
+(`EL_INLET_TABLE_LOAD_SHARED`, only on the table path: no collective without the key), and every rank
+stops with the same message on a refusal. An empty path (`SimPar@ELInletVelocityTable = ""`) is refused.
+Parsing, distribution and evaluation are separate routines [V, unit tests 36-46 of
+`test_el_inlet_table`]. The deck reload `Reload_SimPar` goes through the generic parser, which knows no EL
+key: the table (like every EL setting) is a start-up setting; the echo of the table says so in the
+protocol (finding 8; no atomic replacement implemented). The echo (`EL_PRINT_CONFIG`)
 names the file and prints every row as `EL_INLET_TABLE t U`. Without the key `EL_INLET_VELOCITY` evaluates
 the ramp expression unchanged [V, unit test 41 and gate E2w5]. The table counts as a configured inlet, so
 the superficial-to-interstitial conversion of the inlet value under the continuity stage applies to it
@@ -94,7 +106,7 @@ the step list; its rows equal the `csv` output of the spec's `inlet_table.py` [V
 
     EL_BED_AUDIT t= step= p_in_out= p_in p_out area_in_out= A_in A_out dp_hydro_dyn= dp dp_hydro dp_dyn
                  n= N weight_z_floor_z= W_z F_floor z50_95_99_max= z50 z95 z99 zmax eps_bed= e window= z_lo z_hi
-                 gradz_win= G
+                 gradz_win= G floor_bal_z= F eps_kern_slip_win= e s win_margin= m gradz_win_dyn= Gd
 
 - Plane pressures: the solver pressure is P1 discontinuous, per element p0 at the vertex mean c and the
   gradient; p(x) = p0 + grad p . (x - c), the form the EL sampler uses. Integrated over every element face
@@ -110,13 +122,33 @@ the step list; its rows equal the `csv` output of the spec's `inlet_table.py` [V
 - Floor contact: -(contact impulse of the pe bottom z wall in the last macro step)_z / dt.
 - Bed heights from a histogram of the particle centres (4000 bins over the column: 0.025 mm at 100 mm),
   linear inside a bin.
-- Porosity of the bed window [zmin + 2 d, z99 + r - 2 d] from the positions, exact sphere-slab overlap
-  (the spec's definition: bottom and top two diameters excluded) [V, unit test of the slab volume].
+- Porosity of the bed window [zmin + m, z99 + r - m] from the positions, exact sphere-slab overlap
+  [V, unit test of the slab volume]. Margin m = MAX(2 d, kernel support radius of the mean particle,
+  `EL_KERNEL_SUPPORT_RADIUS` as in the transfer), printed as `win_margin=` (review r1 finding 4, amended
+  spec: the window excludes two diameters and the mapping support; 2.5 d for the case-11 kernel). Before
+  round 1 the margin was 2 d (logs without `win_margin=`).
 - Pressure gradient of the bed window: -<dp/dz> over [z_lo, z_hi], the element-wise constant gradient of
-  the P1 pressure weighted with the element volume inside the window (exact for elements bounded by two
-  z planes, as here; an estimate otherwise) [V, unit test]. It is the gradient of the same bed core as
+  the P1 pressure weighted with the element volume inside the window, the part inside taken as the
+  height fraction of the element: EXACT ONLY for elements bounded by two z planes (the case-11 mesh); for
+  other elements, even a tapered hex with horizontal top and bottom faces, an estimate [V, unit test].
+  `gradz_win` is the total gradient; `gradz_win_dyn = gradz_win - dp_hydro/(zmax - zmin)` (appended in
+  round 1) is the dynamic one, the counterpart of dp_dyn (equal when the fluid carries no gravity, as in
+  every momentum model). It is the gradient of the same bed core as
   eps_bed and the gate value of F2 in the post tool (commit 87474a41, added after the first fixed-bed
   probe showed that dp over the whole bed carries the looser end layers: 0.918 against 0.962 in the core).
+- Geometry and unavailable values (review r1 finding 12): a positive `ELBedAuditFreq` needs
+  `ELDomainType = box` (refused at start-up on every rank otherwise). Unavailable quantities are printed
+  as NaN instead of 0, -1 or -HUGE: a plane without element faces (p_in / p_out, dp), no particle
+  (heights, window, eps_bed, gradz_win), an empty window, no particle centre in the window
+  (eps_kern_slip_win), and `floor_bal_z` outside its assumptions (below).
+- `floor_bal_z` (finding 6) is formed only when the CFD side armed pe with the forces
+  (`ELApplyParticleForces = Yes`; the expected impulse is then exactly the impulse of the armed drag,
+  pressure, lift and buoyant weight); with `No` nothing of the expected impulse acted and the line prints
+  NaN (before: an upward "floor force" equal to the computed weight). It is the force of ALL walls, and it
+  assumes that pe adds no force of its own (no pe gravity). The momentum balance is kept only with
+  `ELBedAuditFreq > 0` (default path stores nothing). Unit tests 80-89 of `test_el_bed_audit` (margin,
+  balance incl. the force-off contact-free fixture, kernel-sampled window sums with the bin-centre
+  selection at both ends).
 - The forces on the particles (drag, pressure force, buoyant weight) are already in `EL_FORCE_BUDGET`
   (every step, transfer pass with the fluid state before the solve of the step); the post tool joins the
   two lines by step.
@@ -175,8 +207,10 @@ from 1 to 3 iterations during the episodes. A local defect, not a global balance
 EL_VELOCITY_AUDIT, commit d3d23e4b) in a rerun of the first 4 800 steps (`R_diag`, job 163992, the EL
 streams bitwise with R_proto: same trajectory). Every maximum above 1.2 m/s sits at a Q2 vertex dof at
 z = 30.0 or 32.5 mm, i.e. at the bed surface (z99 about 29-30 mm), where the transport porosity is
-0.77-1.0 (a few particles); 95 % of them at a dof whose deposited implicit drag coefficient B_i is
-NEGATIVE (counts in the RUNBOOK). The velocity there grows by 1.5-3.6 % per step, which is
+0.77-1.0 (a few particles); 89.3 % of them (1 674 of 1 875; corrected in review r1, first written
+as 95 %) at a dof whose logged implicit drag coefficient B_i is NEGATIVE (counts in the RUNBOOK;
+the logged field is the post-advance diagnostic value of the owner rank, not the assembled
+coefficient the solver used, see 7.1). The velocity there grows by 1.5-3.6 % per step, which is
 thstep |B_i| divided by the lumped (eps-weighted) fluid mass of a vertex dof.
 
 **Cause.** The semi-implicit drag adds thstep B_i to the diagonal of the fluid matrix and +B u_f to the
@@ -232,6 +266,84 @@ with rowsum and with hrz: the total drag agrees to 8e-5 (it is fixed by the bed 
 particle velocity is 0.08 % lower with hrz at step 20, 0.24 % at 60, 0.33 % at 100 and 0.42 % at 200
 (slip alike), i.e. a small change that has not levelled off after 0.1 s; the long-run effect on the
 s10 numbers (core 1.047) is not measured.
+
+### 7.1 Momentum consistency of the hrz split (review r1, finding 2, 2026-11-21)
+
+**Defect [V, unit test, job 164663].** In the version above the explicit partner of the implicit
+drag was -B u_f, deposited with the HRZ weights h_i, while the particle samples
+u_f = sum_i w_i u_i^n with the row-sum weights w_i. With the theta scheme of `QuadSc_def`
+(matrix diagonal theta dt B_i, old-velocity defect -(1-theta) dt B_i u_i^n, B_i = B h_i) the
+drag terms of the fluid momentum balance of one step were
+
+    dt [ -w_i F_d + B h_i u_f - B h_i (theta u_i^{n+1} + (1-theta) u_i^n) ],
+
+and in a field that does not change over the step (u^{n+1} = u^n) their sum is
+-F_d + B (u_f - sum_i h_i u_i): a net fluid force without a particle counterpart whenever the
+field is not uniform, because sum_i h_i u_i != sum_i w_i u_i. Unit test
+`test_el_transfer` (steady non-uniform Q2 field, small kernel): residual -1.85 % of F_z.
+
+**Remedy.** Under `hrz` the partner is formed by the fluid from the OLD NODAL velocity with the
+same diagonal, `EL_FIELDS:EL_APPLY_DRAG_SPLIT_PARTNER` (called in `QuadSc_main` next to the
+explicit source, before the boundary values of the new step are imposed): + dt B_i u_i^n on
+every dof, B_i the captured coefficient `drag_B_source` (distributed form, like the explicit
+source). The deposit no longer carries a partner (`EL_DEPOSIT_PARTICLE` argument `hrz` instead
+of `split`; the transfer result rows are 5 again). The discrete fluid equation per dof i is
+
+    (M_i + theta dt (A + B_i)) u_i^{n+1} = (M_i - (1-theta) dt A) u_i^n + dt (-w_i F_d + f_i^other)
+                                           + theta dt B_i u_i^n,
+
+i.e. the drag terms are dt [ -w_i F_d - theta B_i (u_i^{n+1} - u_i^n) ] with B_i = sum_p B_p h_ip
+>= 0 (A the remaining operator, F_d the drag impulse per dt that pe applies over its sub-cycled
+semi-implicit steps with the frozen u_f, f^other the non-drag reactions; case 11 runs BE,
+theta = 1: -dt B_i (u_i^{n+1} - u_i^n)).
+
+What is and is not conserved:
+- A field that does not change over the step: the split correction vanishes node by node (not
+  only in the sum); the fluid receives exactly -F_d dt, the mirror of the particle drag impulse
+  [V, unit tests `test_el_transfer` on the regular mesh with a small and a wide kernel and on a
+  distorted mesh, `test_el_periodic_mpi` on 4 and 8 ranks with the periodic seam].
+- A field that changes within the step: the fluid receives in addition
+  -theta dt sum_i B_i (u_i^{n+1} - u_i^n), which the particle does not see (pe integrates with
+  the frozen u_f of the start of the step). It is a non-negative nodal damping of the velocity
+  increment (B_i >= 0), the stabilising part of the linearisation; it is NOT momentum exchange
+  and is not mirrored. The default `rowsum` has the corresponding term
+  B (u_f - sum_i w_i u_i^theta), which vanishes in the sum for a steady field (u_f is sampled with
+  the same w_i) but not node by node, and whose nodal coefficient can be negative.
+- `rowsum` (default) is unchanged bit for bit [V, gates D_s6, G_tier2, E2w5, VB40 of the round-1
+  binary 627caf47, job 164668, `s11_min_fluidization/runs_versions.txt`].
+
+**Consequence observed in the smoke runs [V, jobs 164669-164673, `runs/fluid11/R_smoke_r1*`].** The
+former partner -B h_i u_f together with the diagonal acted as a relaxation B h_i (u_f - u_i^{n+1}) of
+every nodal velocity towards the kernel average u_f: besides the net force above it damped the nodal
+velocity modes that the kernel average does not see (sum_i w_i u_i = 0), which feel no drag in the
+Euler-Lagrange coupling. The consistent split removes that damping (only the increment is damped).
+Case 11, bed R, constant U 0.30 from the rsa bed, same deck and json (friction 0.15 per material):
+
+| run | binary | max \|u\| steps 1-400 | max \|u\| steps 1000-2000 | dp* at 400 / 1000-2000 |
+|---|---|---|---|---|
+| R_smoke_r1(_2000), hrz consistent | 627caf47 | 2.21 m/s (step 390, bed top) | 1.57 m/s | 1.364 / 0.96-1.02 |
+| R_smoke_r1_oldhrz, former hrz | c8541cfc | 1.00 m/s | (R_hrz: 0.87) | 1.366 / (R_hrz 0.96-1.00) |
+| R_smoke_r1_rowsum | 627caf47 | 1.09 m/s | - | 1.364 / - |
+
+No exponential growth, no negative coefficient at the maxima (dragB_fsrc_solver > 0), the integral
+quantities agree to 0.2 %; but the largest nodal gas speed is about 1.6-2.2 times that of the former
+hrz and of rowsum. Whether these sub-kernel velocity modes need their own damping (e.g. a drag form
+that samples the implicit part with the same nodal weights for the particle, so that both sides see
+B h_i (u_i - v)) is open [I].
+
+Changed diagnostics under `hrz`: `EL_FLUID_SOURCE` / `EL_FEEDBACK_CONSERVATION` report the
+deposited explicit reaction only (the partner is no longer deposited), and `EL_FLUID_PAIR`
+compares the fluid momentum change with dt times the deposited source; the partner
++ theta-part of the diagonal belong to the implicit side there, as for `rowsum`.
+
+**Velocity audit (finding 10).** `EL_UMAX_AUDIT` appends `dragB_fsrc_solver= Bs fs`: the drag
+coefficient and the z component of the explicit source captured in the PRE-advance pass (the
+values the fluid solve of the step used), summed over all ranks that share the dof (one
+`E013Sum2` on copies, entered by every worker on every audit step). The older field
+`dragB_fsrc=` keeps its meaning (post-advance diagnostic pass, owner rank only) for the
+comparison with older logs; the counts in the RUNBOOK of negative coefficients at the spike
+locations (1 674 / 1 875 = 89.3 % of the logged maxima, not 95 % as written above) refer to that
+older field.
 
 ## 8. Floor force of the bed audit: the pe wall-contact impulse is the unrelaxed PGS impulse
 
