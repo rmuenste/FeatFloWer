@@ -42,11 +42,11 @@ import os
 import re
 import sys
 
-NUM = r'[-+]?[0-9.]+(?:[EeDd][-+]?[0-9]+)?'
+NUM = r'(?:[-+]?[0-9.]+(?:[EeDd][-+]?[0-9]+)?|[-+]?NaN)'     # NaN: a value the audit marks unavailable
 
 
 def f(x):
-    return float(x.replace('D', 'E').replace('d', 'e'))
+    return float('nan') if 'NaN' in x else float(x.replace('D', 'E').replace('d', 'e'))
 
 
 def parse(rundir):
@@ -55,7 +55,8 @@ def parse(rundir):
                        r' dp_hydro_dyn=\s*(%s)\s+(%s)\s+(%s) n=\s*(\d+) weight_z_floor_z=\s*(%s)\s+(%s)'
                        r' z50_95_99_max=\s*(%s)\s+(%s)\s+(%s)\s+(%s) eps_bed=\s*(%s) window=\s*(%s)\s+(%s)'
                        r'(?: gradz_win=\s*(%s))?(?: floor_bal_z=\s*(%s))?(?: eps_kern_slip_win=\s*(%s)\s+(%s))?'
-                       % ((NUM,) + (NUM,) * 7 + (NUM,) * 2 + (NUM,) * 4 + (NUM,) * 3 + (NUM,) * 4))
+                       r'(?: win_margin=\s*(%s))?(?: gradz_win_dyn=\s*(%s))?'
+                       % ((NUM,) + (NUM,) * 7 + (NUM,) * 2 + (NUM,) * 4 + (NUM,) * 3 + (NUM,) * 4 + (NUM,) * 2))
     pat_b = re.compile(r'^EL_FORCE_BUDGET step=\s*(\d+) drag=\s*(%s)\s+(%s)\s+(%s) pressure=\s*(%s)\s+(%s)\s+(%s)'
                        r' lift=.* grav_buoy=\s*(%s)\s+(%s)\s+(%s)' % ((NUM,) * 9))
     for line in open(os.path.join(rundir, 'run_slurm.log'), errors='replace'):
@@ -71,7 +72,9 @@ def parse(rundir):
                               gw=f(g[19]) if g[19] else float('nan'),
                               fbal=f(g[20]) if g[20] else None,
                               ekern=f(g[21]) if g[21] else float('nan'),
-                              skern=f(g[22]) if g[22] else float('nan')))
+                              skern=f(g[22]) if g[22] else float('nan'),
+                              margin=f(g[23]) if g[23] else None,          # window margin (from 627caf47 on)
+                              gw_dyn=f(g[24]) if g[24] else float('nan')))
         elif line.startswith('EL_FORCE_BUDGET'):
             m = pat_b.match(line)
             if m:
@@ -332,7 +335,7 @@ def main():
         print(f"   reported, not gated: worst |ratio_w - 1| at the geometric window porosity (rule before 2026-11-20) {worst_w:.4f}")
     mg = {row['margin'] for row in audit if row.get('margin') is not None}
     print('   audit window: ' + (f"margin {sorted(mg)[-1]/a.d:.2f} d at both ends" if mg else
-          'margin 2 d at both ends (not in the log); a mapping support wider than 2 d is not excluded'))
+          'margin 2 d at both ends (binaries before 627caf47; not in the log): a mapping support wider than 2 d is not excluded'))
     nset = {row['n'] for row in audit}
     lowest = min(res, key=lambda x: x['U'])       # lowest velocity of the protocol, complete or not
     if not lowest['complete']:
