@@ -141,3 +141,18 @@ job     run                      binary     result
         0.580 nx-06; R_q3_e0 (keys absent) 0.9824 0.50793 0.568 nx-02 (audit lines identical to R_smoke_r1_2000)
 164886/887  R_static_r3on / r3off (R_static deck, friction 0.15): steps 300-400 dp* 0.2010 / 0.2010, floor/W 0.7991 / 0.7991;
         on: 19 rebounds in 400 steps (2 in 300-400), pair trace PE_RESTITUTION_PAIRS=0.005; off audit lines identical to R_static_r2off
+
+Restitution fix round 4 (external review, 2026-11-22): pe feature/el-restitution b047e41 (5 commits on 10aaf83, NOT pushed;
+libs/pe/.pin): full withdrawal decided in the projection (exact release, immediate demotion, scalar normal ledger), idempotent
+global-body registry erasure (EL, HCSITS), trace settings per PE communicator lifetime, test and record corrections.
+binary                                md5                               source
+q2p1_el_pipeflow.43e7360e-peb047e41   24caa28b7038ea0c9c2f053d2d4e0d6d  43e7360e (Fortran = 627caf47) + pe b047e41; build-fluid11 on nx-01 (job 164916)
+
+job     run                      binary     result
+164915  pe presets serial + mpi on clean HEAD b047e41  -  serial 61/61, mpi 37/37; common tests vs origin/master 6003b00: serial 46/46
+        identical output, mpi 17/19 identical + 2 identical up to rank line order
+164912  assertion-enabled (Debug) MPI build of the registry test, b047e41  -  12/12; on 10aaf83 (164914) fixstepunfix[-iter] abort
+164913  round-4 tests on the 10aaf83 library  -  pass-unit cases 6, 7 fail; trace-comm hangs (timeout) in both solvers
+164917  gate/{D_s6,G_tier2,E2w5,VB40}__43e7360e-peb047e41 vs __base; R_rest5_off400 vs R_smoke_r1  -  all common streams + XxX
+        bitwise, particle logs 27/27 (gate/pc_compare_43e7360e-peb047e41.txt)
+164918  R_q4_max48 (deck of R_q3_max48) on nx-03  -  submitted, result not recorded here
