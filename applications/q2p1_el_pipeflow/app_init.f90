@@ -1111,10 +1111,10 @@ END SUBROUTINE get_global_domain_extents
        WRITE(*,'(A,A)') 'Invalid PeriodicAxis: ', TRIM(ADJUSTL(cPeriodicAxis))
        STOP 1
      END SELECT
-     ! A periodic box is closed unless the deck says otherwise: an explicit SimPar@NoOutflow = No
-     ! (a periodic column with an outlet, case 11) is kept; without the key, or with Yes, the box
-     ! is closed as before.
-     IF (.NOT.(bNoOutflowSet .AND. .NOT.bNoOutflow)) bNoOutflow = .TRUE.
+     ! A periodic box is closed unless the deck says otherwise: an explicit SimPar@NoOutflow
+     ! (Yes, or No for a periodic column with an outlet, case 11) is kept; without the key the
+     ! box is closed as before (bNoOutflow is not read on that path: it has no initial value).
+     IF (.NOT.bNoOutflowSet) bNoOutflow = .TRUE.
    END IF
 
    CALL EL_VALIDATE_CONFIG()
