@@ -77,12 +77,14 @@ VLIM = 0.10                                # m/s
 SURF, INK, INK2, GRID = '#1a1a19', '#f0efec', '#c3c2b7', '#3a3a37'
 C_FF, C_TOP = '#199e70', '#c98500'         # categorical: FeatFloWer pressure drop, bed top
 LABEL = 'FeatFloWer + pe, Gidaspow, 9 789 particles, bed 15 x 15 mm periodic'
-# peer-reported per-step means of dp* (messages of 2026-11-20; not recomputed here), U 0.30 ... 0.04 m/s
+# peer-reported per-step means of dp* (not recomputed here), U 0.30 ... 0.04 m/s. MFiX: message of
+# 2026-11-20. CFDEM: run fluid_C_gid_inlet2 with the uniform inlet (peer RUNBOOK, 2026-11-20/21); the
+# earlier top-driven CFDEM run (0.948 ... 0.159) is void (gas entered as jets) and is not shown.
 PEER_U = [0.30 - 0.02 * k for k in range(14)]
 PEER = (('MFiX-DEM (run F_none)', 'o', [0.989, 0.999, 0.993, 0.988, 1.005, 0.997, 0.993,
                                         0.917, 0.790, 0.667, 0.547, 0.430, 0.318, 0.208]),
-        ('CFDEM', 's', [0.948, 0.942, 0.932, 0.935, 0.952,
-                        0.899, 0.799, 0.700, 0.603, 0.509, 0.417, 0.328, 0.243, 0.159]))
+        ('CFDEM (run fluid_C_gid_inlet2)', 's', [0.964, 0.959, 0.950, 0.956, 0.948, 0.953, 0.936,
+                                                 0.821, 0.709, 0.599, 0.492, 0.388, 0.286, 0.188]))
 CACHE = os.path.join(out, 'fl11_movie_cache.npz')
 
 

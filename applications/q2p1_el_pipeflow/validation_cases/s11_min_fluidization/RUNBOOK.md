@@ -295,11 +295,12 @@ interior is 1-2 % above the closure. Bed A not run.
 digits [V]. One image per logged particle frame, no interpolation (1 501 frames); largest displacement
 of a particle between two frames 1.37 d after t = 0.2 s, 3.2 d during the collapse of the loose start
 bed (`movie/check_R_proto_movie.log`) [V]. Tool `tools/fl11_movie.py` (`--check`, `--stats`,
-`--frames`), render job `tools/fl11_movie_render.sbatch` (job 164533, 8 min 37 s, Slurm).
+`--frames`), render job `tools/fl11_movie_render.sbatch` (final render job 164578, 5 min 45 s, Slurm; the first render, job
+164533, carried the CFDEM markers of the peer's void top-driven run and was replaced).
 Content: x-z and y-z cuts and a top-down slab (1 d thick, discs = largest section of the sphere in
 the slab, colour = vertical particle velocity, +-0.10 m/s), solid fraction in 1 mm bins, traces of
-U, dp*, dp* + floor / W and the bed top with a time cursor; MFiX and CFDEM step means as
-peer-reported markers [P]. What it shows: in this 17 d wide periodic box the fluidised bed slugs
+U, dp*, dp* + floor / W and the bed top with a time cursor; MFiX (run F_none) and CFDEM (run fluid_C_gid_inlet2,
+uniform inlet) step means as peer-reported markers [P]. What it shows: in this 17 d wide periodic box the fluidised bed slugs
 (a plug rises, particles rain through a void band below it, about ten cycles per second), it does
 not bubble; the regime label follows the F1 rule, so the 0.18 m/s step reads "fluidised" with the
 particles at rest.
