@@ -31,14 +31,14 @@
  "boxWallsEnabled_": false,
  "lubricationEnabled_": false,
  "restitution_": 0.9,
- "staticFriction_": 0.3,
- "dynamicFriction_": 0.3,
+ "staticFriction_": 0.15,
+ "dynamicFriction_": 0.15,
  "initialParticleVelocity_": [
   0.0,
   0.0,
   0.0
  ],
- "config_string": "min_fluidization: spec 11 (MFiX PIC07 / NETL), laterally periodic column 15 x 15 x 100 mm (bed R; 25 x 25 for bed A), d 0.87 mm, rho_p 860, gas rho 1.0 mu 1.8e-5; floor = z wall of pe with uniform gas inflow through it (Inflow975), top z wall at the column top (fluid outlet there, never reached by particles); periodic x/y; restitution 0.9, friction 0.3",
+ "config_string": "min_fluidization: spec 11 (MFiX PIC07 / NETL), laterally periodic column 15 x 15 x 100 mm (bed R; 25 x 25 for bed A), d 0.87 mm, rho_p 860, gas rho 1.0 mu 1.8e-5; floor = z wall of pe with uniform gas inflow through it (Inflow975), top z wall at the column top (fluid outlet there, never reached by particles); periodic x/y; restitution 0.9 in the json but not used (the hard-contact EL solver is inelastic), friction 0.15 per material = 0.3 per contact (pe adds the coefficients of the two materials in contact)",
  "zWallsEnabled_": true,
  "zWallVelocityTop_": 0.0,
  "zWallVelocityBottom_": 0.0

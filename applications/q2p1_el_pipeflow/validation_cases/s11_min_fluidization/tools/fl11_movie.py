@@ -370,12 +370,12 @@ if T_FIX is not None:                            # regimes by the F1 rule of the
     ax_u.text(T_FIX + 0.08, 0.305, 'fixed bed', color=INK, fontsize=14, ha='left', va='top')
 handles = []
 if len(TA):
-    handles.append(ax_s.plot(TA, AUD[:, 1], color=C_FF, lw=1, alpha=0.40, zorder=3, label='dp*, every audit line (2.5 ms)')[0])
+    handles.append(ax_s.plot(TA, AUD[:, 1], color=C_FF, lw=1, alpha=0.40, zorder=3, label='FeatFloWer: pressure drop dp*, every 2.5 ms')[0])
     tm, ym = runmean(AUD[:, 1])
-    handles.append(ax_s.plot(tm, ym, color=C_FF, lw=2.5, zorder=5, label='dp*, running mean over %g s' % RUNMEAN)[0])
+    handles.append(ax_s.plot(tm, ym, color=C_FF, lw=2.5, zorder=5, label='FeatFloWer: dp* averaged over %g s' % RUNMEAN)[0])
     tm, ym = runmean(AUD[:, 1] + AUD[:, 2])
-    handles.append(ax_s.plot(tm, ym, color=INK, lw=1.6, zorder=4, label='dp* + floor force / W, running mean')[0])
-    handles.append(ax_h.plot(TA, AUD[:, 3], color=C_TOP, lw=2, zorder=4, label='bed top z99 + r (right axis)')[0])
+    handles.append(ax_s.plot(tm, ym, color=INK, lw=1.6, zorder=4, label='FeatFloWer: dp* + force on the floor / W, averaged over %g s' % RUNMEAN)[0])
+    handles.append(ax_h.plot(TA, AUD[:, 3], color=C_TOP, lw=2, zorder=4, label='FeatFloWer: bed top (right axis)')[0])
 if not A.no_peer and len(SROW):
     for name, mk, val in PEER:
         xs, ys = [], []
