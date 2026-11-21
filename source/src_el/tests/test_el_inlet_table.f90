@@ -8,21 +8,36 @@
 !   20-27  interpolation: rows exact, midpoints, constant beyond both ends, one-row table
 !   30-35  refusals (ierr, no stop): missing file, malformed row, non-finite value, equal and
 !          decreasing times, empty file
+!   36-39  refusals of the strict row parser (review finding 7): "0.5 /" (a list-directed read
+!          would accept it with the velocity of the row before), a non-numeric token, an
+!          overflowing value, a row too long for the buffer; accepted: comma, exponent letters
+!          e/d, text after the two numbers
 !   40-42  EL_INLET_VELOCITY: ramp unchanged without a table (same expression), table with one
+!   43-44  number tokens: accepted and refused spellings
+!   45-46  EL_INLET_TABLE_LOAD_SHARED (rank 0 reads, broadcast): the rows on every rank; a
+!          refusal reaches every rank with its message
 !=========================================================================
 PROGRAM TEST_EL_INLET_TABLE
 
+  USE MPI
   USE EL_INLET_TABLE, ONLY: tElInletTable, EL_INLET_TABLE_READ, EL_INLET_TABLE_VALUE, &
-                            EL_INLET_TABLE_PATH
+                            EL_INLET_TABLE_PATH, EL_INLET_TABLE_IS_NUMBER, &
+                            EL_INLET_TABLE_LOAD_SHARED
   USE EL_CONFIG, ONLY: el_inlet_u0, el_inlet_u1, el_inlet_tramp, el_inlet_table, &
                        el_inlet_table_file, EL_INLET_VELOCITY, EL_INLET_CONFIGURED
 
   IMPLICIT NONE
 
   TYPE(tElInletTable) :: tab
-  INTEGER :: ierr, i
+  INTEGER :: ierr, i, mpierr, rank, nfail, nfail_all
   CHARACTER(LEN=320) :: msg
+  CHARACTER(LEN=1100) :: longrow
   REAL*8 :: v
+
+  CALL MPI_Init(mpierr)
+  CALL MPI_Comm_rank(MPI_COMM_WORLD, rank, mpierr)
+  ! the file checks write the tables: rank 0 only, the others wait
+  IF (rank.NE.0) GOTO 100
 
   ! ---- 10-16: reading --------------------------------------------------------------------
   CALL WRITE_FILE('tab_ok.txt', [CHARACTER(LEN=40) :: '# t U (protocol)', '', &
@@ -71,6 +86,30 @@ PROGRAM TEST_EL_INLET_TABLE
   CALL EL_INLET_TABLE_READ('tab_empty.txt', tab, ierr, msg)
   CALL EXPECT_REFUSAL(ierr, tab, msg, 35)
 
+  ! ---- 36-39: strict row parser --------------------------------------------------------------
+  CALL WRITE_FILE('tab_slash.txt', [CHARACTER(LEN=40) :: '0.0 0.3', '0.5 /'])
+  CALL EL_INLET_TABLE_READ('tab_slash.txt', tab, ierr, msg)
+  CALL EXPECT_REFUSAL(ierr, tab, msg, 36)
+  CALL WRITE_FILE('tab_word.txt', [CHARACTER(LEN=40) :: '0.0 0.3', '0.5 fast'])
+  CALL EL_INLET_TABLE_READ('tab_word.txt', tab, ierr, msg)
+  CALL EXPECT_REFUSAL(ierr, tab, msg, 37)
+  CALL WRITE_FILE('tab_huge.txt', [CHARACTER(LEN=40) :: '0.0 0.3', '0.5 1e999'])
+  CALL EL_INLET_TABLE_READ('tab_huge.txt', tab, ierr, msg)
+  CALL EXPECT_REFUSAL(ierr, tab, msg, 38)
+  longrow = '0.5 0.3'
+  longrow(1090:1093) = '! x'
+  CALL WRITE_FILE('tab_long.txt', [CHARACTER(LEN=1100) :: '0.0 0.3', longrow])
+  CALL EL_INLET_TABLE_READ('tab_long.txt', tab, ierr, msg)
+  CALL EXPECT_REFUSAL(ierr, tab, msg, 39)
+  CALL WRITE_FILE('tab_forms.txt', [CHARACTER(LEN=40) :: '0.1, 0.2 extra words', &
+    '1.5d0 2.E-1', '+2 .25 ! comment'])
+  CALL EL_INLET_TABLE_READ('tab_forms.txt', tab, ierr, msg)
+  IF (ierr.NE.0 .OR. tab%n.NE.3) THEN
+    WRITE(*,*) TRIM(msg)
+    STOP 39
+  END IF
+  IF (ANY(tab%t.NE.(/0.1d0, 1.5d0, 2.0d0/)) .OR. ANY(tab%u.NE.(/0.2d0, 0.2d0, 0.25d0/))) STOP 39
+
   ! ---- 40-42: EL_INLET_VELOCITY -------------------------------------------------------------
   el_inlet_u0 = 0.002d0
   el_inlet_u1 = 0.02d0
@@ -89,7 +128,33 @@ PROGRAM TEST_EL_INLET_TABLE
   IF (ierr.NE.0) STOP 42
   IF (ABS(EL_INLET_VELOCITY(0.51d0) - 0.29d0).GT.1.0d-15) STOP 42
 
-  WRITE(*,'(A)') 'test_el_inlet_table: all checks passed'
+  ! ---- 43-44: number tokens ------------------------------------------------------------------
+  IF (.NOT.(EL_INLET_TABLE_IS_NUMBER('1.') .AND. EL_INLET_TABLE_IS_NUMBER('.5') .AND. &
+            EL_INLET_TABLE_IS_NUMBER('-1e+3') .AND. EL_INLET_TABLE_IS_NUMBER('7') .AND. &
+            EL_INLET_TABLE_IS_NUMBER('2.5D-4'))) STOP 43
+  IF (EL_INLET_TABLE_IS_NUMBER('.') .OR. EL_INLET_TABLE_IS_NUMBER('e5') .OR. &
+      EL_INLET_TABLE_IS_NUMBER('1e') .OR. EL_INLET_TABLE_IS_NUMBER('1/2') .OR. &
+      EL_INLET_TABLE_IS_NUMBER('NaN') .OR. EL_INLET_TABLE_IS_NUMBER('inf') .OR. &
+      EL_INLET_TABLE_IS_NUMBER('/') .OR. EL_INLET_TABLE_IS_NUMBER('1.2.3') .OR. &
+      EL_INLET_TABLE_IS_NUMBER('')) STOP 44
+
+100 CONTINUE
+  CALL MPI_Barrier(MPI_COMM_WORLD, mpierr)
+  ! ---- 45-46: shared load (every rank) -------------------------------------------------------
+  nfail = 0
+  CALL EL_INLET_TABLE_LOAD_SHARED('tab_ok.txt', tab, ierr, msg, MPI_COMM_WORLD)
+  IF (ierr.NE.0 .OR. tab%n.NE.4) nfail = 45
+  IF (nfail.EQ.0) THEN
+    IF (ANY(tab%t.NE.(/0.0d0, 0.5d0, 0.52d0, 1.0d0/)) .OR. &
+        ANY(tab%u.NE.(/0.30d0, 0.30d0, 0.28d0, 0.28d0/))) nfail = 45
+  END IF
+  CALL EL_INLET_TABLE_LOAD_SHARED('tab_slash.txt', tab, ierr, msg, MPI_COMM_WORLD)
+  IF (ierr.EQ.0 .OR. tab%n.NE.0 .OR. INDEX(msg, 'tab_slash.txt').EQ.0) nfail = 46
+  CALL MPI_Allreduce(nfail, nfail_all, 1, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, mpierr)
+  CALL MPI_Finalize(mpierr)
+  IF (nfail_all.NE.0) STOP 45
+
+  IF (rank.EQ.0) WRITE(*,'(A)') 'test_el_inlet_table: all checks passed'
 
 CONTAINS
 

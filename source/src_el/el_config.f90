@@ -1,6 +1,7 @@
 MODULE EL_CONFIG
 
-  USE EL_INLET_TABLE, ONLY: tElInletTable, EL_INLET_TABLE_READ, EL_INLET_TABLE_VALUE
+  USE MPI, ONLY: MPI_COMM_WORLD
+  USE EL_INLET_TABLE, ONLY: tElInletTable, EL_INLET_TABLE_LOAD_SHARED, EL_INLET_TABLE_VALUE
 
   IMPLICIT NONE
 
@@ -324,9 +325,10 @@ MODULE EL_CONFIG
   REAL*8 :: el_inlet_tramp = 1.0d0
   ! SimPar@ELInletVelocityTable = "<file>": piecewise-linear U(t) instead of the ramp (rows
   ! "t U", superficial velocity; format and refusals in EL_INLET_TABLE). Mutually exclusive
-  ! with the three ramp keys (a deck that sets both is refused). Loaded by EL_VALIDATE_CONFIG
-  ! on every rank from the same file; echoed by EL_PRINT_CONFIG. Unset (default): the ramp,
-  ! bitwise as before.
+  ! with the three ramp keys (a deck that sets both is refused), an empty path is refused.
+  ! Loaded once by EL_VALIDATE_CONFIG (rank 0 reads, every rank receives the rows; a start-up
+  ! setting, not touched by Reload_SimPar); echoed by EL_PRINT_CONFIG. Unset (default): the
+  ! ramp, bitwise as before.
   CHARACTER(LEN=256) :: el_inlet_table_file = ' '
   TYPE(tElInletTable) :: el_inlet_table
   ! SimPar@ELBedAuditFreq = N (default 0 = off): every N steps the EL_BED_AUDIT line (EL_BED_AUDIT
@@ -798,21 +800,30 @@ CONTAINS
                           (LEN_TRIM(el_inlet_table_file).GT.0)
   END FUNCTION EL_INLET_CONFIGURED
 
-  ! SimPar@ELInletVelocityTable: refuse it together with a ramp key, then read and check the
-  ! file (EL_INLET_TABLE_READ). Every rank reads the same file and stops with the same message
-  ! on a missing, malformed, non-finite or unsorted table. Nothing happens without the key.
+  ! SimPar@ELInletVelocityTable: refuse an empty path and the table together with a ramp key
+  ! (deck-only, every rank alike), then load the file: rank 0 of MPI_COMM_WORLD reads one
+  ! snapshot, status and rows are broadcast (EL_INLET_TABLE_LOAD_SHARED; every rank parses the
+  ! deck, so every rank is here). A missing, unreadable, malformed, non-finite or unsorted table
+  ! stops every rank with the same message. Without the key nothing happens (no collective).
   SUBROUTINE EL_LOAD_INLET_TABLE()
     INTEGER :: ierr
     CHARACTER(LEN=320) :: message
 
-    IF (LEN_TRIM(el_inlet_table_file).EQ.0) RETURN
+    IF (LEN_TRIM(el_inlet_table_file).EQ.0) THEN
+      IF (EL_KEY_SET('ELInletVelocityTable')) THEN
+        WRITE(*,'(A)') 'ELInletVelocityTable: empty file name (remove the key for the ramp).'
+        STOP 1
+      END IF
+      RETURN
+    END IF
     IF (EL_KEY_SET('ELInletVelocityStart') .OR. EL_KEY_SET('ELInletVelocityEnd') .OR. &
         EL_KEY_SET('ELInletRampTime')) THEN
       WRITE(*,'(A)') 'ELInletVelocityTable cannot be combined with ELInletVelocityStart / '// &
         'ELInletVelocityEnd / ELInletRampTime (one inlet definition only).'
       STOP 1
     END IF
-    CALL EL_INLET_TABLE_READ(el_inlet_table_file, el_inlet_table, ierr, message)
+    CALL EL_INLET_TABLE_LOAD_SHARED(el_inlet_table_file, el_inlet_table, ierr, message, &
+                                    MPI_COMM_WORLD)
     IF (ierr.NE.0) THEN
       WRITE(*,'(A)') TRIM(message)
       STOP 1
@@ -826,6 +837,8 @@ CONTAINS
     IF (el_inlet_table%n.LE.0) RETURN
     WRITE(unit,'(A,A,A,I0,A)') 'EL inlet velocity table   = ', TRIM(el_inlet_table_file), &
       ' (', el_inlet_table%n, ' rows t / U; linear, constant beyond the ends)'
+    WRITE(unit,'(A)') 'EL inlet velocity table: start-up setting, read once here; a reload of '// &
+      'the parameter file (Reload_SimPar) neither re-reads nor replaces it'
     DO i=1,el_inlet_table%n
       WRITE(unit,'(A,2ES16.8)') '  EL_INLET_TABLE ', el_inlet_table%t(i), el_inlet_table%u(i)
     END DO
