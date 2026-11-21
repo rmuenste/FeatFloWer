@@ -486,27 +486,29 @@ CONTAINS
 
   END SUBROUTINE EL_INTEGRATE_WALL_STRESS
 
-  ! split (optional, with drag_b): the explicit partner of the implicit drag (-B u_f of the
-  ! semi-implicit split). When present, drag_b and split are deposited with the HRZ weights
-  ! int K phi_i^2 * (sum_j int K phi_j)/(sum_j int K phi_j^2) of each element (non-negative, same
-  ! element total), everything else with the row-sum weights int K phi_i
-  ! (SimPar@ELDragImplicitWeights = hrz; without split the row-sum weights as before).
+  ! hrz (optional, with drag_b; SimPar@ELDragImplicitWeights = hrz when .TRUE.): drag_b is
+  ! deposited with the HRZ weights int K phi_i^2 * (sum_j int K phi_j)/(sum_j int K phi_j^2) of
+  ! each element (non-negative, same element total), everything else with the row-sum weights
+  ! int K phi_i. Absent or .FALSE.: the row-sum weights for drag_b as well (default, unchanged).
+  ! The explicit partner of the implicit drag is not deposited under hrz: the fluid forms it
+  ! from the nodal velocity (EL_FIELDS:EL_APPLY_DRAG_SPLIT_PARTNER, design note section 7.1).
   SUBROUTINE EL_DEPOSIT_PARTICLE(mesh, ilev, particle, normalization, force, fields, &
-      drag_b, split)
+      drag_b, hrz)
 
     TYPE(tMultiMesh), INTENT(IN) :: mesh
     INTEGER, INTENT(IN) :: ilev
     TYPE(tElParticleRecord), INTENT(IN) :: particle
     REAL*8, INTENT(IN) :: normalization, force(3)
     TYPE(tElFieldStorage), INTENT(INOUT) :: fields
-    REAL*8, INTENT(IN), OPTIONAL :: drag_b, split(3)
+    REAL*8, INTENT(IN), OPTIONAL :: drag_b
+    LOGICAL, INTENT(IN), OPTIONAL :: hrz
 
     INTEGER :: iel, icubp, i, ig
     INTEGER :: kdfl(NNBAS), kdfg(NNBAS), ieltyp, idfl
     REAL*8 :: xi(3), point(3), jac(3,3), detj, omega, kernel_weight
     REAL*8 :: width, particle_volume, element_integral, basis_integral(NNBAS)
     REAL*8 :: square_integral(NNBAS), hrz_weight(NNBAS), square_sum
-    LOGICAL :: hrz
+    LOGICAL :: use_hrz
     REAL*8 :: grad_integral(3), rvec(3), rlen, dwdr
     LOGICAL :: supported
 
@@ -534,7 +536,8 @@ CONTAINS
     IF (normalization.LE.0.0d0) RETURN
     width = EL_KERNEL_SUPPORT_RADIUS(particle%radius)
     particle_volume = 4.0d0*ACOS(-1.0d0)*particle%radius**3/3.0d0
-    hrz = PRESENT(split) .AND. PRESENT(drag_b)
+    use_hrz = .FALSE.
+    IF (PRESENT(hrz) .AND. PRESENT(drag_b)) use_hrz = hrz
 
     bder = .FALSE.
     bder(1) = .TRUE.
@@ -569,7 +572,7 @@ CONTAINS
       element_integral = 0.0d0
       basis_integral = 0.0d0
       grad_integral = 0.0d0
-      square_integral = 0.0d0
+      IF (use_hrz) square_integral = 0.0d0
       DO icubp=1,ncubp
         xi = dxi(icubp,:)
         CALL EL_Q1_MAP(dx,dy,dz,xi,point,jac,detj)
@@ -592,14 +595,14 @@ CONTAINS
           basis_integral(i) = basis_integral(i) + &
             dbas(1,kdfl(i),1)*kernel_weight*omega
         END DO
-        IF (hrz) THEN
+        IF (use_hrz) THEN
           DO i=1,idfl
             square_integral(i) = square_integral(i) + &
               dbas(1,kdfl(i),1)**2*kernel_weight*omega
           END DO
         END IF
       END DO
-      IF (hrz) THEN
+      IF (use_hrz) THEN
         square_sum = SUM(square_integral(1:idfl))
         hrz_weight = 0.0d0
         IF (square_sum.GT.0.0d0) hrz_weight(1:idfl) = square_integral(1:idfl)* &
@@ -616,9 +619,7 @@ CONTAINS
         ig = kdfg(i)
         fields%force_rhs(:,ig) = fields%force_rhs(:,ig) - &
           force*basis_integral(i)/normalization
-        IF (hrz) THEN
-          fields%force_rhs(:,ig) = fields%force_rhs(:,ig) - &
-            split*hrz_weight(i)/normalization
+        IF (use_hrz) THEN
           fields%drag_B_ml(ig) = fields%drag_B_ml(ig) + &
             drag_b*hrz_weight(i)/normalization
         ELSE IF (PRESENT(drag_b)) THEN

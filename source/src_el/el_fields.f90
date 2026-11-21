@@ -179,6 +179,37 @@ CONTAINS
 
   END SUBROUTINE EL_APPLY_FLUID_FEEDBACK_SOURCE
 
+  ! Explicit partner of the implicit drag under SimPar@ELDragImplicitWeights = hrz: adds
+  ! dt B_i u_i^n to the right-hand side of every dof i, with the captured nodal coefficient
+  ! B_i (drag_B_source, distributed form like the explicit source) and the fluid velocity at
+  ! the start of the step (val_*, the velocity the matrix-free old-velocity part of the
+  ! theta scheme uses). The theta scheme of QuadSc_def carries theta dt B_i u_i^{n+1} in the
+  ! matrix and -(1-theta) dt B_i u_i^n in the old-velocity defect, so the drag diagonal then
+  ! acts on the increment only: -theta dt B_i (u_i^{n+1} - u_i^n). It vanishes node by node
+  ! in a field that does not change over the step; the fluid then receives exactly the
+  ! deposited reaction of the drag impulse the particles get (design note section 7.1).
+  ! Caller (QuadSc_main): right after EL_APPLY_FLUID_FEEDBACK_SOURCE, before the boundary
+  ! values of the new step are imposed on val_*.
+  SUBROUTINE EL_APPLY_DRAG_SPLIT_PARTNER(def_u, def_v, def_w, val_u, val_v, val_w, dt)
+
+    REAL*8, INTENT(INOUT) :: def_u(:), def_v(:), def_w(:)
+    REAL*8, INTENT(IN) :: val_u(:), val_v(:), val_w(:)
+    REAL*8, INTENT(IN) :: dt
+    INTEGER :: ndof
+
+    IF (.NOT.ALLOCATED(el_field_data%drag_B_source)) RETURN
+    ndof = SIZE(el_field_data%drag_B_source)
+    IF (SIZE(def_u).LT.ndof .OR. SIZE(def_v).LT.ndof .OR. SIZE(def_w).LT.ndof .OR. &
+        SIZE(val_u).LT.ndof .OR. SIZE(val_v).LT.ndof .OR. SIZE(val_w).LT.ndof) THEN
+      ERROR STOP 'E-L drag split partner/velocity size mismatch.'
+    END IF
+
+    def_u(1:ndof) = def_u(1:ndof) + dt*el_field_data%drag_B_source*val_u(1:ndof)
+    def_v(1:ndof) = def_v(1:ndof) + dt*el_field_data%drag_B_source*val_v(1:ndof)
+    def_w(1:ndof) = def_w(1:ndof) + dt*el_field_data%drag_B_source*val_w(1:ndof)
+
+  END SUBROUTINE EL_APPLY_DRAG_SPLIT_PARTNER
+
   SUBROUTINE EL_RELEASE_FIELDS()
 
     IF (ALLOCATED(el_field_data%alpha_p)) DEALLOCATE(el_field_data%alpha_p)

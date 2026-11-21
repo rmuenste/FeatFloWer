@@ -27,6 +27,10 @@ PROGRAM TEST_EL_PERIODIC_MPI
   !   * a particle at a periodic corner, one exactly on a periodic plane, one whose position
   !     is outside the cell (not wrapped), one next to a wall
   !   * workers that own no particle
+  !   * SimPar@ELDragImplicitWeights = hrz (review finding 2): the HRZ drag coefficient of every
+  !     dof and the explicit partner B_i u_i^n (EL_FIELDS:EL_APPLY_DRAG_SPLIT_PARTNER, formed on
+  !     every rank from its partial B_i), gathered over the ranks, as on one rank, also at the
+  !     periodic seam; the fluid drag terms of a steady field sum to minus the particle drag
   !   * on eight ranks the kernel radius equals the gap between next-nearest blocks in x up
   !     to rounding (0.005 = L/4 written as 2 x 2.5 x 0.001), the tie on which two ranks must
   !     reach the same verdict: the neighbour lists of all ranks are gathered and must be
@@ -41,7 +45,8 @@ PROGRAM TEST_EL_PERIODIC_MPI
   USE PP3D_MPI, ONLY: myid, master, showid, MPI_COMM_SUBS
   USE DEM_QUERY, ONLY: tParticleData
   USE EL_CONFIG, ONLY: el_kernel, el_kernel_width_factor, EL_KERNEL_SUPPORT_RADIUS
-  USE EL_FIELDS, ONLY: el_field_data, EL_ENSURE_FIELDS, EL_BEGIN_FIELD_UPDATE, EL_FINALIZE
+  USE EL_FIELDS, ONLY: el_field_data, EL_ENSURE_FIELDS, EL_BEGIN_FIELD_UPDATE, EL_FINALIZE, &
+                       EL_CAPTURE_FLUID_FEEDBACK_SOURCE, EL_APPLY_DRAG_SPLIT_PARTNER
   USE EL_HALO, ONLY: tElParticleRecord, halo, EL_REFRESH_COUPLING_HALO, EL_REDUCE_TO_OWNERS, &
                      EL_BROADCAST_FROM_OWNERS, EL_HALO_LOCAL_BOX, EL_HALO_DOMAIN_BOX, &
                      EL_FINALIZE_HALO
@@ -76,6 +81,9 @@ PROGRAM TEST_EL_PERIODIC_MPI
   ! the reference: all particles coupled on one rank holding the whole cell
   REAL*8 :: ref_sample(EL_SAMPLE_SIZE,npart), ref_vis(EL_VIS_SIZE,npart)
   REAL*8, ALLOCATABLE :: ref_alpha(:), ref_grad(:,:), ref_force(:,:), ref_drag(:)
+  ! hrz: drag coefficient, and the drag forces F_p = B_p (u_f - v_p) with u_f of the one-rank sample
+  REAL*8, ALLOCATABLE :: ref_drag_hrz(:), ref_val(:,:)
+  REAL*8 :: drag_forces(3,npart)
   INTEGER :: nel_cell, ndof_cell
 
   CALL MPI_Init(ierr)
@@ -208,6 +216,23 @@ CONTAINS
     ref_grad = el_field_data%grad_alpha_p
     ref_force = el_field_data%force_rhs
     ref_drag = el_field_data%drag_B_ml
+    ! hrz coefficient on the undivided cell, the drag forces of the particles, the field
+    DO ip = 1, npart
+      p = record_of(ip)
+      drag_forces(:,ip) = drag_b(ip)*(ref_sample(2:4,ip)/ref_sample(EL_SAMPLE_NORMALIZATION,ip) - &
+                                      p%velocity)
+    END DO
+    CALL EL_BEGIN_FIELD_UPDATE(.TRUE.)
+    DO ip = 1, npart
+      CALL EL_DEPOSIT_RECORD(mesh, 1, record_of(ip), cell_box, &
+        ref_sample(EL_SAMPLE_NORMALIZATION,ip), drag_forces(:,ip), el_field_data, &
+        drag_b=drag_b(ip), hrz=.TRUE.)
+    END DO
+    ref_drag_hrz = el_field_data%drag_B_ml
+    ALLOCATE(ref_val(3,ndof))
+    ref_val(1,:) = val_u
+    ref_val(2,:) = val_v
+    ref_val(3,:) = val_w
   END SUBROUTINE compute_reference
 
   !----------------------------------------------------------------------
@@ -219,7 +244,7 @@ CONTAINS
     TYPE(tElParticleRecord), ALLOCATABLE :: records(:)
     REAL*8, ALLOCATABLE :: local_samples(:,:), owned_samples(:,:), local_vis(:,:), owned_vis(:,:)
     REAL*8, ALLOCATABLE :: owned_norm(:,:), record_norm(:,:)
-    REAL*8, ALLOCATABLE :: part(:), total(:)
+    REAL*8, ALLOCATABLE :: part(:), total(:), pu(:), pv(:), pw(:)
     INTEGER, ALLOCATABLE :: adj_local(:), adj(:)
     REAL*8 :: local_box(6), domain_box(6), err, err_all, scale, delta
     INTEGER :: ip, i, j, k, n_owned, n_records, count_local, count_all, min_owned, max_owned
@@ -422,6 +447,56 @@ CONTAINS
     err = ABS(SUM(total(3*ndof_cell+1:)) - SUM(drag_b))/SUM(drag_b)
     CALL EL_TEST_CHECK(err.LE.tol, 'deposit: the drag coefficients are conserved', nf, rank)
     DEALLOCATE(part, total)
+
+    ! --- ELDragImplicitWeights = hrz: drag forces, HRZ coefficient, explicit partner
+    CALL EL_BEGIN_FIELD_UPDATE(.TRUE.)
+    DO i = 1, n_records
+      ip = records(i)%system_id
+      CALL EL_DEPOSIT_RECORD(mesh, 1, records(i), local_box, record_norm(1,i), drag_forces(:,ip), &
+                             el_field_data, drag_b=drag_b(ip), hrz=.TRUE.)
+    END DO
+    CALL EL_CAPTURE_FLUID_FEEDBACK_SOURCE()
+    ALLOCATE(pu(ndof), pv(ndof), pw(ndof))
+    pu = 0.0d0
+    pv = 0.0d0
+    pw = 0.0d0
+    CALL EL_APPLY_DRAG_SPLIT_PARTNER(pu, pv, pw, val_u, val_v, val_w, 1.0d0)
+    ! per cell dof: 1 B_i, 2:4 partner, 5:7 source + partner - B_i u_i (steady field)
+    ALLOCATE(part(7*ndof_cell), total(7*ndof_cell))
+    part = 0.0d0
+    DO i = 1, ndof
+      ix = NINT(2.0d0*coor(:,i)/dh)
+      g = global_dof(ix(1),ix(2),ix(3))
+      part(g) = part(g) + el_field_data%drag_B_source(i)
+      part(ndof_cell+3*(g-1)+1:ndof_cell+3*g) = part(ndof_cell+3*(g-1)+1:ndof_cell+3*g) + &
+        (/ pu(i), pv(i), pw(i) /)
+      part(4*ndof_cell+3*(g-1)+1:4*ndof_cell+3*g) = part(4*ndof_cell+3*(g-1)+1:4*ndof_cell+3*g) + &
+        el_field_data%fluid_feedback_source(:,i) + (/ pu(i), pv(i), pw(i) /) - &
+        el_field_data%drag_B_source(i)*(/ val_u(i), val_v(i), val_w(i) /)
+    END DO
+    CALL MPI_Allreduce(part, total, 7*ndof_cell, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+    err = MAXVAL(ABS(total(1:ndof_cell) - ref_drag_hrz))/MAXVAL(ABS(ref_drag_hrz))
+    IF (rank.EQ.0) WRITE(*,'(A,ES10.2,A,ES10.2)') '    hrz coefficient per dof against one rank, largest rel. difference ', &
+      err, ', smallest B_i ', MINVAL(total(1:ndof_cell))
+    CALL EL_TEST_CHECK(err.LE.tol .AND. MINVAL(total(1:ndof_cell)).GE.0.0d0, &
+      'hrz: drag coefficient on every dof as on one rank, all >= 0', nf, rank)
+    err = 0.0d0
+    DO g = 1, ndof_cell
+      err = MAX(err, MAXVAL(ABS(total(ndof_cell+3*(g-1)+1:ndof_cell+3*g) - ref_drag_hrz(g)*ref_val(:,g))))
+    END DO
+    err = err/(MAXVAL(ABS(ref_drag_hrz))*MAXVAL(ABS(ref_val)))
+    IF (rank.EQ.0) WRITE(*,'(A,ES10.2)') '    hrz partner per dof against B_i u_i of one rank, largest rel. difference ', err
+    CALL EL_TEST_CHECK(err.LE.tol, 'hrz: partner B_i u_i^n on every dof as on one rank (seam included)', &
+      nf, rank)
+    err = 0.0d0
+    DO c = 1, 3
+      err = MAX(err, ABS(SUM(total(4*ndof_cell+c:7*ndof_cell:3)) + SUM(drag_forces(c,:))))
+    END DO
+    err = err/MAXVAL(ABS(drag_forces))
+    IF (rank.EQ.0) WRITE(*,'(A,ES10.2)') '    hrz steady field: |fluid drag force + particle drag| / max|F| ', err
+    CALL EL_TEST_CHECK(err.LE.tol, &
+      'hrz: steady non-uniform field, the fluid receives minus the particle drag', nf, rank)
+    DEALLOCATE(part, total, pu, pv, pw)
   END SUBROUTINE test_distributed
 
   ! gap between two boxes without the lattice (zero when they touch)
