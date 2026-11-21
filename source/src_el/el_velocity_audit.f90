@@ -6,6 +6,7 @@
 !
 !   EL_UMAX_AUDIT t= step= umax= |u| u v w at= x y z eps_h= e dragB_fsrc= B f
 !                 eps_min= e at= x y z inlet_eps_min= e inlet_wmax= w
+!                 dragB_fsrc_solver= Bs fs
 !
 !   umax      largest Euclidean norm of the Q2 velocity over all dofs of all ranks, its
 !             components and the coordinates of that dof
@@ -13,7 +14,14 @@
 !             field is not built (it is built under the conservative continuity form)
 !   dragB     lumped semi-implicit drag coefficient of the dof (drag_B_ml), fsrc the z
 !             component of the deposited explicit particle force at the dof (force_rhs); -1 / 0
-!             when the arrays do not have the dof layout
+!             when the arrays do not have the dof layout. Both from the POST-advance diagnostic
+!             pass, on the rank that holds the fastest dof only (kept for older logs; NOT the
+!             values the solver used)
+!   dragB_fsrc_solver  the values the fluid solve of this step used at the fastest dof: the
+!             drag coefficient and the z component of the explicit source captured in the
+!             PRE-advance pass (drag_B_source, fluid_feedback_source), summed over all ranks
+!             that share the dof (parallel dof sum, as the solver assembles them). Bs is the
+!             nodal coefficient whose theta dt multiple sits on the matrix diagonal
 !   eps_min   smallest element porosity epsilon_f and the centre of that element
 !   inlet_*   smallest transport porosity and largest w on the bottom plane z = zmin of the EL
 !             domain box (the inlet of case 11: w = U / eps_h there)
@@ -28,6 +36,8 @@ MODULE EL_VELOCITY_AUDIT
   USE EL_CONFIG, ONLY: el_velocity_audit_freq
   USE EL_GEOMETRY, ONLY: el_domain_box, el_domain_box_set
   USE EL_FIELDS, ONLY: el_field_data
+  ! global multigrid level (COMMON /MGPAR/): E013Sum2 picks its communication structure from it
+  USE def_FEAT, ONLY: va_mg_ilev => ILEV
 
   IMPLICIT NONE
   PRIVATE
@@ -42,8 +52,9 @@ CONTAINS
     TYPE(tMultiMesh), INTENT(IN) :: mesh
 
     REAL*8 :: pair(2), gpair(2), rec(10), grec(10), zmin, tol, s, emin_loc(2), emin(2)
-    REAL*8 :: erec(3), gerec(3), inl(2), ginl(2)
-    INTEGER :: i, imax, ierr, owner, nel, iemin
+    REAL*8 :: erec(3), gerec(3), inl(2), ginl(2), srec(2), gsrec(2)
+    REAL*8, ALLOCATABLE :: src_b(:), src_f(:)
+    INTEGER :: i, imax, ierr, owner, nel, iemin, saved_mg_ilev
 
     IF (el_velocity_audit_freq.LE.0) RETURN
     IF (MOD(ABS(istep), el_velocity_audit_freq).NE.0) RETURN
@@ -78,6 +89,28 @@ CONTAINS
       END IF
     END IF
     CALL MPI_Allreduce(rec, grec, 10, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
+
+    ! the captured pre-advance coefficient and source, summed over the ranks sharing a dof: copies
+    ! of the distributed arrays (zero where a rank does not hold them in the dof layout), one
+    ! parallel dof sum entered by every worker, then the value at the fastest dof
+    ALLOCATE(src_b(ndof), src_f(ndof))
+    src_b = 0.0d0
+    src_f = 0.0d0
+    IF (ALLOCATED(el_field_data%drag_B_source)) THEN
+      IF (SIZE(el_field_data%drag_B_source).EQ.ndof) src_b = el_field_data%drag_B_source
+    END IF
+    IF (ALLOCATED(el_field_data%fluid_feedback_source)) THEN
+      IF (SIZE(el_field_data%fluid_feedback_source,2).EQ.ndof) &
+        src_f = el_field_data%fluid_feedback_source(3,:)
+    END IF
+    saved_mg_ilev = va_mg_ilev
+    va_mg_ilev = ilev
+    CALL E013Sum2(src_b, src_f)
+    va_mg_ilev = saved_mg_ilev
+    srec = 0.0d0
+    IF (myid.EQ.owner .AND. imax.GT.0) srec = (/ src_b(imax), src_f(imax) /)
+    CALL MPI_Allreduce(srec, gsrec, 2, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
+    DEALLOCATE(src_b, src_f)
 
     ! smallest element porosity
     nel = mesh%level(ilev)%nel
@@ -125,10 +158,11 @@ CONTAINS
 
     SUBROUTINE WRITE_LINE(unit)
       INTEGER, INTENT(IN) :: unit
-      WRITE(unit,'(A,ES14.6,A,I0,A,4ES14.6,A,3ES14.6,A,ES14.6,A,2ES14.6,A,ES14.6,A,3ES14.6,A,ES14.6,A,ES14.6)') &
+      WRITE(unit,'(A,ES14.6,A,I0,A,4ES14.6,A,3ES14.6,A,ES14.6,A,2ES14.6,A,ES14.6,A,3ES14.6,A,ES14.6,A,ES14.6,'// &
+                 'A,2ES14.6)') &
         'EL_UMAX_AUDIT t= ', time, ' step= ', istep, ' umax= ', grec(1:4), ' at= ', grec(5:7), &
         ' eps_h= ', grec(8), ' dragB_fsrc= ', grec(9:10), ' eps_min= ', emin(1), ' at= ', gerec, &
-        ' inlet_eps_min= ', -ginl(1), ' inlet_wmax= ', ginl(2)
+        ' inlet_eps_min= ', -ginl(1), ' inlet_wmax= ', ginl(2), ' dragB_fsrc_solver= ', gsrec
     END SUBROUTINE WRITE_LINE
 
   END SUBROUTINE EL_WRITE_VELOCITY_AUDIT
