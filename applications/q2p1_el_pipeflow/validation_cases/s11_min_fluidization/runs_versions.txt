@@ -122,3 +122,22 @@ job     run                      binary     result
 164868  R_static_r2on (same + restitution on, threshold 0.01)  288aee16-pe45c9268  dp* 0.2010, floor/W 0.799 (300-400), max overlap 1.74e-7
         (1.13e-7 in 300-400), Tgran 1.6e-9; delivered 33 rebounds in 400 steps (5 in steps 300-400), approach max 0.024 m/s, support
         closing after the inelastic solve up to 0.025 m/s; 0.890 s/step
+
+Restitution fix round 3 (external review, 2026-11-21): pe feature/el-restitution e0a4c69 (4 commits on 45c9268 + doc 10aaf83,
+NOT pushed; libs/pe/.pin): global-body registry rebuilt from live storage (both solvers), support rows stay affected once visited,
+armed rows demoted when their compression is withdrawn (ceiling on every booking), tangential residual (contact response) in the
+stop decision, owner<->shadow impact-scale exchange, walls carry no scale, trace broadcast, pair trace PE_RESTITUTION_PAIRS.
+binary                                md5                               source
+q2p1_el_pipeflow.2f06b232-pee0a4c69   26510369279fe158f2c202b4b41bac9a  2f06b232 (Fortran = 627caf47) + pe e0a4c69; build-fluid11 on nx-02 (job 164884)
+
+job     run                      binary     result
+164880  pe presets serial + mpi on the round-3 tree  -  serial 61/61, mpi 29/29
+164883  round-3 tests on the 45c9268 library  -  pass-unit (cases 1-5) and global-registry unfix (both solvers) fail at runtime
+164882  pe presets on origin/master 6003b00  -  common tests: serial 46/46 identical output, mpi 17/19 identical + 2 up to rank line order
+164885  gate/{D_s6,G_tier2,E2w5,VB40}__2f06b232-pee0a4c69 vs __base; R_rest4_off400 vs R_smoke_r1  -  all common streams + XxX bitwise,
+        particle logs 27/27 (gate/pc_compare_2f06b232-pee0a4c69.txt)
+164888-891  qualification study, deck of R_rest3_on2000 (v_rest 0.01), steps 1000-2000: R_q3_max24 dp* 0.9745 eps_bed 0.52072
+        capped 4579/10000 0.562 s/step nx-06; R_q3_max48 0.9740 0.52160 capped 308 0.567 nx-02; R_q3_max96 0.9742 0.52159 capped 33
+        0.580 nx-06; R_q3_e0 (keys absent) 0.9824 0.50793 0.568 nx-02 (audit lines identical to R_smoke_r1_2000)
+164886/887  R_static_r3on / r3off (R_static deck, friction 0.15): steps 300-400 dp* 0.2010 / 0.2010, floor/W 0.7991 / 0.7991;
+        on: 19 rebounds in 400 steps (2 in 300-400), pair trace PE_RESTITUTION_PAIRS=0.005; off audit lines identical to R_static_r2off
