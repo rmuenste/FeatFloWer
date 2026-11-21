@@ -52,7 +52,7 @@ for. No reason against it was found. Bfull and B are available with the same dec
 
 ## 4. Staging and submission
 
-    T=applications/q2p1_el_pipeflow/validation_cases/s11_min_fluidization/tools
+    T=/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer-fluid11/applications/q2p1_el_pipeflow/validation_cases/s11_min_fluidization/tools   # absolute: the next line changes directory
     cd /data/warehouse17/rmuenste/runs/fluid11
     # protocol run of bed R (rsa bed = the peer's CFDEM bed, seed 1)
     $T/stage_s11.sh R_proto                                # S11_BED=A for bed A
@@ -115,8 +115,11 @@ probes; 1e-4 and 5e-5 were not needed and not run. A larger step (5e-4) was not 
 
 **Pressure drop and hydrostatics [V].** `dp_hydro = 0` in every line (the fluid carries no gravity under
 model A), and dp_dyn equals the force-based value (drag + pressure force summed over the particles,
-EL_FORCE_BUDGET) / A to 0.1-0.3 % at every audit step: the plane pressures close the momentum balance of
-the column. The 0.98 Pa of the gas column are not contained.
+EL_FORCE_BUDGET) / A to 0.2 % in the median over the audit steps after 0.1 s (R_P30L_dt25: 90 % of the
+steps within 1.0 %, largest 1.4 % at step 1770; R_proto_hrz: median 0.2 %, 90 % within 0.7 %, largest
+1.9 %, mean signed difference 0.00 %): the plane pressures close the momentum balance of the column in the
+mean, single steps of the slugging bed deviate by up to 2 %. (An earlier version of this paragraph said
+"0.1-0.3 % at every audit step"; corrected after the review of 2026-11-21.) The 0.98 Pa of the gas column are not contained.
 
 **Fluidised, 0.30 m/s (R_P30L) [V].** The loose bed collapses (z99 59 -> 26 mm in 0.1 s, window porosity
 0.75 -> 0.42), dp overshoots to 1.24 W/A at 0.1 s, the bed then lifts and bubbles: z50 oscillates between
@@ -219,6 +222,11 @@ R_proto_hrz/_data/steps.txt`.
 
 ## 8. Results of the protocol (bed R, 2026-11-19/20)
 
+**Status after the review of 2026-11-21 (section 10): the runs of this section used a contact friction
+of 0.6 (not the specified 0.3) and the first form of the hrz split. They are kept as the record of that
+configuration; the rerun with the corrected deck and binary is in section 11. The gate table below is
+the evaluation by the rules in force on 2026-11-20; the amended rules are applied in section 10.**
+
 Runs (`runs/fluid11`, details in runs_versions.txt) [V]:
 
 - `R_proto` (job 163872, binary 87474a41, deck before `hrz`): FAILED at step 11 315 (t 2.83 s, U 0.22 m/s):
@@ -251,7 +259,10 @@ section 8. The table uses the balance value.
 | F4 | U_mf / 0.182 | 0.996 / 0.980 | reported |
 | F5 | particle count, highest centre at 0.04 m/s | 9789 throughout; 24.0 mm < 50 mm | PASS |
 
-Other codes on the same bed and protocol [P, peer messages of 2026-11-20, not recomputed here]:
+Other codes on the same bed and protocol [P, peer messages of 2026-11-20, not recomputed here].
+**Historical: the CFDEM row is the top-driven run that the peer withdrew on 2026-11-21 (gas entered as
+jets) and the MFiX row is an interim run; the reading below that FeatFloWer packs denser no longer holds.
+Current peer values are in section 10.**
 
 | Code | plateau | fluidised steps | packed porosity | gradient / closure | U_mf / closure |
 |---|---|---|---|---|---|
@@ -304,3 +315,40 @@ uniform inlet) step means as peer-reported markers [P]. What it shows: in this 1
 (a plug rises, particles rain through a void band below it, about ten cycles per second), it does
 not bubble; the regime label follows the F1 rule, so the 0.18 m/s step reads "fluidised" with the
 particles at rest.
+
+## 10. External review of the branch (GPT-6.2 Astra, high; 2026-11-21) and what it changed
+
+Verdict CHANGES REQUIRED, 15 findings; brief and report in the session scratchpad
+(`review_brief_fluid11.md`, `codex_review_fluid11_r1.md`). Checked here against code and logs [V]:
+
+1. **Contact friction was 0.6, not 0.3.** pe adds the friction coefficients of the two materials of a
+   contact (`libs/pe/src/core/Materials.cpp`: `csfTable_(mat,mat) = csf + csf`, mixed pairs
+   `csf_i + csf_j`), and the EL setup passes the json value to every material. `staticFriction_ = 0.3`
+   therefore gave 0.6 for particle-particle and particle-floor contacts in every run of sections 5-8.
+   The json now carries 0.15 per material (commit d2743338). The convention is general in pe and applies
+   to every earlier case that set a friction value (not re-evaluated here; owner decision).
+2. **The restitution 0.9 of the spec is not used.** The hard-contact EL solver (`HardContactEulerLagrange`)
+   is inelastic; it never reads the material restitution. Deviation from the spec, stated to the peer.
+3. **`hrz` split not momentum-consistent** in a steady non-uniform field: the fluid received
+   `B (u_f - sum_i h_i u_i)` per particle beyond the drag reaction. Fixed in the fix round (design note
+   section 7); global balance of the recorded run: dp* + floor = 1.000-1.002 in the fixed bed.
+4. **Gates by the amended spec** (post tool of 2026-11-21): F3 against the whole-bed porosity 0.3761:
+   Gidaspow U_mf 0.1740 m/s, ratio **1.042, PASS** (at the plateau 1.025; at the core porosity 1.104 /
+   1.086 as before). F2 against the closure at the mapped gas fraction: **0.984-0.993, PASS** on
+   `R_proto_movie` (the log of `R_proto_hrz` has no mapped value: "unavailable"); at the geometric
+   porosity 0.946-0.954 as before. The audit window of these runs excludes 2 d, not the 2.5 d kernel
+   support the amended spec asks for; the fix round widens it.
+5. **Overlap limit of the spec (1 % of d) exceeded during preparation only**: `R_proto_hrz` 1.30 % of d
+   at 0.0825 s (four log lines above 1 %, 0.0775-0.09 s, landing of the loose start bed); after 0.2 s
+   the largest is 0.67 % of d, in the evaluation windows (after 0.7 s) 0.61 %.
+6. Post tool: step starts of the echo-only step list (were the transition ends), disjoint sub-windows,
+   F5 over the whole plateau of the lowest velocity and only for a complete protocol. The recorded F5
+   stands (largest centre height in that plateau 24.03 mm).
+7. Fortran findings (inlet-table reader and reload, `floor_bal_z` outside its assumptions, velocity audit
+   coefficient, bed-audit geometry, closure dispatch, undefined logical under `PeriodicAxis`): fix round,
+   listed with commits in the design note.
+
+Peer values of 2026-11-21 [P, not recomputed]: CFDEM with a uniform inlet packs to 0.3695, plateau 0.955,
+U_mf 0.191 m/s (1.11 of the closure at whole-bed porosity) at 40 cell rows and 0.976 / 0.362 / 0.168
+(1.03) at 80 rows (not mesh-converged); MFiX (run F_none) 0.995 / 0.370 / 0.173 (1.02). The first CFDEM
+and DPMFoam runs (top-driven) are void.

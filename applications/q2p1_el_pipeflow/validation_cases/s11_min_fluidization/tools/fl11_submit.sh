@@ -15,7 +15,7 @@ NP=$(( $(grep '^SimPar@SubMeshNumber' "$R/_data/q2p1_param.dat" | sed 's/.*= *//
   echo "libs/pe 43e8fb541edc6d0c0d533a49ce4246786b36ff18 (rsync of the FeatFloWer-perkernel submodule tree)"
   echo "binary $BIN md5 $(md5sum "$BIN" | cut -c1-32) built on $(cat "$BIN.host" 2>/dev/null || echo ?)"
   echo "bed md5 $(md5sum "$R/particles.xyz" | cut -c1-12), $(wc -l < "$R/particles.xyz") particles"
-  echo "deck keys: $(grep -hE '^SimPar@(TimeStep|MaxNumStep|ELDragModel|ELMomentumModel|ELMMPressureOperator|ELInletVelocityTable|ELBedAuditFreq|PeriodicAxis|PeriodicLength|NoOutflow)|^Pres@MGCrsSolverType' "$R/_data/q2p1_param.dat" | tr '\n' ';')"
+  echo "deck keys: $(grep -hE '^SimPar@(TimeStep|MaxNumStep|ELDragModel|ELMomentumModel|ELMMPressureOperator|ELInletVelocityTable|ELBedAuditFreq|ELDragImplicitWeights|ELVelocityAuditFreq|ELParticleLogFreq|PeriodicAxis|PeriodicLength|NoOutflow)|^Pres@MGCrsSolverType' "$R/_data/q2p1_param.dat" | tr '\n' ';')"
   echo "inlet table md5 $(md5sum "$R/_data/inlet_table.txt" | cut -c1-12)"
   echo "ranks $NP, partition $PART, time $TM; written $(date '+%F %T') by fl11_submit.sh"
 } > "$R/versions.txt"

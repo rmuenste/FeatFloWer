@@ -13,16 +13,21 @@ of the echoed table): mean and std of dp_dyn over the last 0.3 s and over the tw
 plateau), the force-based dp (drag + pressure force)/A, bed height H = z99 + r, porosity of the
 bed window.
 
-Gates of the spec (section 5):
-  F1  plateau dp A / buoyant weight, mean over the steps with U > 1.2 U_mf       (1 +- 0.02)
-  F2  fixed branch: measured dp/dz against the closure gradient at the measured porosity (+-5 %);
-      gate value: the window gradient -<dp/dz> of the audit against the closure at eps_bed (both
-      over the bed window); also printed: dp_dyn / H_eq (H_eq = n V_p / (A (1 - eps_bed))) and
-      dp_dyn / H (H = z99 + r) against the closure at 1 - n V_p / (A H)
-  F3  U_mf (intersection of the fixed-branch fit, steps below 0.8 of the plateau, with the
-      plateau) against the closure U_mf at the mean fixed-branch porosity               (+-5 %)
+Gates of the spec (section 5, as amended on 2026-11-20):
+  F1  plateau dp A / buoyant weight, mean over the steps with dp* > 0.95           (1 +- 0.02)
+  F2  fixed branch: window gradient -<dp/dz> of the audit (bed core) against the closure at the
+      code's own MAPPED gas fraction of the window particles (eps_kern of the audit line)  (+-5 %).
+      Not evaluated ("unavailable") when the log has no mapped value; the ratio at the geometric
+      window porosity (rule before the amendment), dp_dyn / H_eq and dp_dyn / H are printed as
+      ungated numbers. The spec also asks for a window that excludes the mapping support at both
+      ends: the margin of the audit window is printed when the log carries it.
+  F3  U_mf = where the fit dp* = a U + b U^2 of the fixed branch (through the origin; steps
+      below 0.8 of the plateau) meets dp* = 1, against the closure U_mf at the WHOLE-BED porosity
+      1 - N V_p / (A (z99 + r))                                                      (+-5 %);
+      the crossing with the measured plateau and the ratios at the core porosity are reported
   F4  U_mf against the measurement 0.182 m/s (reported)
-  F5  particle count constant; highest centre below mid-column at the lowest velocity
+  F5  particle count constant over the run; no centre above mid-column during the plateau of
+      the lowest protocol velocity (needs the complete protocol, otherwise not evaluated)
 The closure is selected with --closure (gidaspow default; ergun, wenyu): dp/dz(U, eps) =
 n F_d(U/eps) / eps with the per-particle forms of EL_FORCES (model A; identical to the spec's
 umf_reference.py for ergun and wenyu).
@@ -99,12 +104,15 @@ def u_of_t(table, t):
 
 
 def plateaus(table):
-    """steps from the echoed table: intervals of constant U (the preparation is merged with the
-    first plateau; the evaluation windows are taken from its end)"""
+    """steps from the echoed table: intervals of constant U. A step starts where the transition
+    into it starts (the convention of the steps file of make_inlet_table.py), so the sub-windows
+    0.2-0.35 s and 0.35-0.5 s do not depend on the source of the step list. The preparation is
+    merged with the first plateau; main() evaluates the last 0.5 s of it."""
     out = []
-    for (t0, u0), (t1, u1) in zip(table, table[1:]):
+    for i, ((t0, u0), (t1, u1)) in enumerate(zip(table, table[1:])):
         if u0 == u1 and t1 - t0 > 0.1:
-            out.append((t0, t1, u0))
+            ramp = i > 0 and table[i - 1][1] != u0
+            out.append((table[i - 1][0] if ramp else t0, t1, u0))
     return out
 
 
@@ -141,8 +149,10 @@ def closure_umf(eps, d, rhop, rhof, mu, g, closure):
     return 0.5 * (a + b)
 
 
-def stats(rows, key, t0, t1):
-    v = [r[key] for r in rows if t0 <= r['t'] <= t1]
+def stats(rows, key, t0, t1, open_end=False):
+    """mean, std, count of rows[key] over t0 <= t <= t1 (t < t1 with open_end: disjoint windows)"""
+    eps = 1e-9
+    v = [r[key] for r in rows if t0 - eps <= r['t'] and (r['t'] < t1 - eps if open_end else r['t'] <= t1 + eps)]
     if not v:
         return float('nan'), float('nan'), 0
     m = sum(v) / len(v)
@@ -215,7 +225,7 @@ def main():
     for k, (t0, t1, u) in enumerate(steps):
         complete = tend >= t1 - 1e-9
         m, s, cnt = stats(audit, 'dp_dyn', t1 - 0.3, t1)
-        m1, _, _ = stats(audit, 'dp_dyn', t0 + 0.2, t0 + 0.35)
+        m1, _, _ = stats(audit, 'dp_dyn', t0 + 0.2, t0 + 0.35, open_end=True)
         m2, _, _ = stats(audit, 'dp_dyn', t0 + 0.35, t0 + 0.5)
         mf, _, _ = stats(audit, 'dp_force', t1 - 0.3, t1)
         h, _, _ = stats(audit, 'H', t1 - 0.3, t1)
@@ -225,7 +235,8 @@ def main():
         gw, _, _ = stats(audit, 'gw', t1 - 0.3, t1)
         ek, _, _ = stats(audit, 'ekern', t1 - 0.3, t1)
         flag = abs(m1 - m2) > a.flag * wa
-        res.append(dict(k=k, U=u, dp=m, std=s, cnt=cnt, eps=e, H=h, gw=gw, ek=ek, fl=fl/W,
+        zm = max((row['zmax'] for row in audit if t0 - 1e-9 <= row['t'] <= t1 + 1e-9), default=float('nan'))
+        res.append(dict(k=k, U=u, dp=m, std=s, cnt=cnt, eps=e, H=h, gw=gw, ek=ek, fl=fl/W, zmax=zm,
                         complete=complete and cnt > 0))
         print(f" {k:3d}  {u:6.3f}  {t1-0.3:5.2f}-{t1:5.2f}  {m/wa:7.4f}  {s/wa:7.4f}  {m1/wa:6.3f}  {m2/wa:6.3f}  "
               f"{'DIFF' if flag else '    '}  {mf/wa:7.4f}  {h*1e3:6.2f}  {e:7.4f}  {fl/W:7.4f}  {m/wa + fl/W:8.4f}   ({flpe/W:.4f})"
@@ -252,6 +263,9 @@ def main():
         return
     efix = sum(x['eps'] for x in fixed) / len(fixed)
     uc = closure_umf(efix, a.d, a.rhop, a.rhof, a.mu, a.g, a.closure)
+    # whole-bed porosity 1 - N V_p / (A (z99 + r)): the reference porosity of F3 (spec, 2026-11-20)
+    ebed = sum(1 - n0 * vp / (area * x['H']) for x in fixed) / len(fixed)
+    ub = closure_umf(ebed, a.d, a.rhop, a.rhof, a.mu, a.g, a.closure)
     # ---- F3 (agreed with the peer): Ergun form dp* = a U + b U^2 through the origin over the fixed steps
     su2 = sum(x['U']**2 for x in fixed); su3 = sum(x['U']**3 for x in fixed); su4 = sum(x['U']**4 for x in fixed)
     sy1 = sum(x['U']*x['dp']/wa for x in fixed); sy2 = sum(x['U']**2*x['dp']/wa for x in fixed)
@@ -267,9 +281,10 @@ def main():
     u1 = cross(1.0); up = cross(plateau/wa)
     print(f"F3 fixed branch {len(fixed)} steps (U {min(x['U'] for x in fixed):.3f} .. {max(x['U'] for x in fixed):.3f}): "
           f"dp* = {ca:.4f} U + {cb:.4f} U^2 (through the origin)")
-    print(f"   U_mf at dp* = 1: {u1:.4f} m/s, at the measured plateau {plateau/wa:.4f}: {up:.4f} m/s; {a.closure} U_mf at the "
-          f"mean fixed-branch core porosity {efix:.4f}: {uc:.4f} m/s; ratios {u1/uc:.4f} / {up/uc:.4f}   (gate 0.05: "
-          f"{'PASS' if abs(u1/uc-1) <= 0.05 else 'FAIL'} / {'PASS' if abs(up/uc-1) <= 0.05 else 'FAIL'})")
+    print(f"   U_mf at dp* = 1: {u1:.4f} m/s; {a.closure} U_mf at the whole-bed porosity {ebed:.4f}: {ub:.4f} m/s; "
+          f"ratio {u1/ub:.4f}   (gate 0.05: {'PASS' if abs(u1/ub-1) <= 0.05 else 'FAIL'})")
+    print(f"   reported, not gated: U_mf at the measured plateau {plateau/wa:.4f}: {up:.4f} m/s = {up/ub:.4f} of the closure; "
+          f"at the core porosity {efix:.4f} the closure gives {uc:.4f} m/s: ratios {u1/uc:.4f} / {up/uc:.4f}")
     print(f"F4 U_mf / 0.182 (NETL measurement): {u1/0.182:.4f} (dp* = 1) / {up/0.182:.4f} (plateau) (reported, not gated)")
     # ---- secondary (rules before 2026-11-20): F1 over U > 1.2 U_mf of the linear fit, linear-fit U_mf
     pl2 = wa
@@ -291,8 +306,9 @@ def main():
     # uniform bed at eps_bed, (h) dp_dyn / H with H = z99 + r against the closure at the mean
     # porosity of that height (end layers included)
     print(' F2: step  U      eps_bed  window-grad  closure(eps_bed)  ratio_w | eps_kern ratio_k | dp/H_eq  ratio_e | eps_H   dp/H   closure(eps_H)  ratio_h')
-    worst = 0.0
-    use_w = all(not math.isnan(x['gw']) for x in fixed)
+    worst_k, worst_w = 0.0, 0.0
+    have_k = all(x['gw'] == x['gw'] and x['ek'] == x['ek'] and x['ek'] > 0 for x in fixed)
+    have_w = all(x['gw'] == x['gw'] for x in fixed)
     for x in fixed:
         heq = n0 * vp / (area * (1 - x['eps']))
         clo = closure_grad(x['U'], x['eps'], a.d, a.rhof, a.mu, a.closure)
@@ -302,18 +318,30 @@ def main():
         rk = x['gw'] / closure_grad(x['U'], x['ek'], a.d, a.rhof, a.mu, a.closure) if x['ek'] == x['ek'] and x['ek'] > 0 else float('nan')
         re_ = x['dp'] / heq / clo
         rh = x['dp'] / x['H'] / cloh
-        worst = max(worst, abs((rw if use_w else re_) - 1))
+        worst_k = max(worst_k, abs(rk - 1)) if have_k else float('nan')
+        worst_w = max(worst_w, abs(rw - 1)) if have_w else float('nan')
         print(f"     {x['k']:3d}  {x['U']:.3f}  {x['eps']:.4f}  {x['gw']:10.1f}  {clo:10.1f}  {rw:12.4f} | {x['ek']:.4f} {rk:7.4f} | {x['dp']/heq:8.1f} {re_:7.4f} | "
               f"{eh:.4f} {x['dp']/x['H']:8.1f} {cloh:10.1f}  {rh:9.4f}")
-    print(f"F2 worst |ratio - 1| ({'window gradient' if use_w else 'dp/H_eq'}) {worst:.4f}   (gate 0.05: {'PASS' if worst <= 0.05 else 'FAIL'})")
-    print('   ratio_k: the same gradient against the closure at the mean kernel-sampled porosity of the window '
-          'particles (the porosity the drag uses; like-for-like reference of an unresolved method)')
+    if have_k:
+        print(f"F2 worst |ratio_k - 1| (window gradient against the closure at the mapped gas fraction) {worst_k:.4f}   "
+              f"(gate 0.05: {'PASS' if worst_k <= 0.05 else 'FAIL'})")
+    else:
+        print('F2 unavailable: the log has no window gradient and mapped gas fraction on every fixed step '
+              '(EL_BED_AUDIT fields gradz_win, eps_kern_slip_win); no verdict')
+    if have_w:
+        print(f"   reported, not gated: worst |ratio_w - 1| at the geometric window porosity (rule before 2026-11-20) {worst_w:.4f}")
+    mg = {row['margin'] for row in audit if row.get('margin') is not None}
+    print('   audit window: ' + (f"margin {sorted(mg)[-1]/a.d:.2f} d at both ends" if mg else
+          'margin 2 d at both ends (not in the log); a mapping support wider than 2 d is not excluded'))
     nset = {row['n'] for row in audit}
-    lowest = min(use, key=lambda x: x['U'])
-    zlast = [row['zmax'] for row in audit if row['t'] >= tend - 1e-9][0]
-    print(f"F5 particle counts seen {sorted(nset)}; highest centre at the end {zlast*1e3:.2f} mm "
-          f"(mid-column {a.lz*500:.1f} mm; lowest velocity evaluated {lowest['U']:.3f} m/s): "
-          f"{'PASS' if len(nset) == 1 and zlast < a.lz / 2 else 'FAIL'}")
+    lowest = min(res, key=lambda x: x['U'])       # lowest velocity of the protocol, complete or not
+    if not lowest['complete']:
+        print(f"F5 not evaluated: the plateau of the lowest protocol velocity {lowest['U']:.3f} m/s is not complete "
+              f"(particle counts seen so far {sorted(nset)})")
+    else:
+        print(f"F5 particle counts seen {sorted(nset)}; highest centre during the plateau of the lowest velocity "
+              f"{lowest['U']:.3f} m/s: {lowest['zmax']*1e3:.2f} mm (mid-column {a.lz*500:.1f} mm): "
+              f"{'PASS' if len(nset) == 1 and lowest['zmax'] < a.lz / 2 else 'FAIL'}")
 
 
 if __name__ == '__main__':
