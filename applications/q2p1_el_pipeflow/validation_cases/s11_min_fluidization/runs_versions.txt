@@ -71,3 +71,26 @@ job     run                      binary     result
         dp* mean 0.975 (0.982), floor_bal/W mean 0.023 (0.021), max overlap 7.4e-6 (6.0e-6), Tgran mean 1.37e-3 (1.09e-3, +26 %), contacts 7.6e3 (14.7e3);
         largest sampled overlap of the run 1.36e-5 at step 350 (collapse transient; e = 0: 1.02e-5 at step 280), both above the spec limit 8.7e-6 only then;
         0.514 s/step on nx-05 (R_smoke_r1_2000: 0.576 s/step on nx-01)
+
+Restitution fix round 1 (external review, 2026-11-21): pe feature/el-restitution 97563ed6 (11 commits on 1d030e71, NOT pushed;
+libs/pe/.pin): support contacts kept in the post-pass, pass converged to a tolerance (at most 100 sweeps), no sweep in a step
+without impacts, unloaded contacts lose their tangential impulse, mobile global bodies refused, in-solve keeps a positive gap,
+per-deck restitution keys, setups without support refuse restitutionEnabled_, EL_RESTITUTION_STATS per CFD step (switch on only).
+binary                                md5                               source
+q2p1_el_pipeflow.7670fa50-pe97563ed   071a9875bcf9ab0e578fb44b906067fc  7670fa50 (Fortran = 627caf47) + pe 97563ed; build-fluid11 on nx-05 (job 164712,
+                                                                         runs/fluid11/pe_restitution/build_ff.sbatch, build id epycmilan-linux-gcc-release pinned)
+
+job     run                      binary     result
+164703  pe presets with the new tests on the 1d030e7 library (failing-before)  -  serial 9 tests fail, mpi 1 fails
+164709  serial preset of every intermediate commit c4dcfdd..70018a1  -  all pass (50/50 .. 55/55)
+164710  pe presets serial + mpi, pe 97563ed  -  serial 55/55, mpi 20/20; common tests with origin/master print the same output
+        except pe-hcsits-restitution (flat landing 0.7998/0.0024 rad/s -> 0.8000/0.0000, restitution on) and tmp-path noise
+164707  alternate solver (HardContactAndFluid via CMAKE_CXX_FLAGS): pe-el-restitution-mpi compiles and skips (1d030e7: compile error);
+        PE_USE_JSON=OFF: deck tests not registered
+164713  gate/{D_s6,G_tier2,E2w5,VB40}__7670fa50-pe97563ed vs __base; R_rest2_off400 vs R_smoke_r1  7670fa50-pe97563ed  all common EL
+        streams + XxX bitwise, particle logs 27/27 (gate/pc_compare_7670fa50-pe97563ed.txt); no EL_RESTITUTION_STATS with the keys absent
+164714  R_rest2_on2000 (deck = R_rest_on2000 = R_smoke_r1_2000 + restitutionEnabled_)  7670fa50-pe97563ed  completed on nx-05;
+        steps 1000-2000 (R_rest_on2000 / R_smoke_r1_2000 e=0): dp* mean 0.974 (0.975 / 0.982), floor/W 0.023 (0.023 / 0.021),
+        max overlap 7.4e-6 (7.4e-6 / 6.0e-6), Tgran 1.41e-3 (1.37e-3 / 1.09e-3), contacts 6.9e3 (7.6e3 / 14.7e3); overall max
+        overlap 1.33e-5 at step 390 (collapse); 0.634 s/step (R_rest_on2000 0.514 on nx-05, R_smoke_r1_2000 0.576 on nx-01);
+        EL_RESTITUTION_STATS steps 1000-2000 per CFD step: impacting 8434, support 49304, sweeps_max 100 (the cap) in every step
