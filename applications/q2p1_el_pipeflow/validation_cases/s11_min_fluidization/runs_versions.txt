@@ -156,3 +156,10 @@ job     run                      binary     result
 164917  gate/{D_s6,G_tier2,E2w5,VB40}__43e7360e-peb047e41 vs __base; R_rest5_off400 vs R_smoke_r1  -  all common streams + XxX
         bitwise, particle logs 27/27 (gate/pc_compare_43e7360e-peb047e41.txt)
 164918  R_q4_max48 (deck of R_q3_max48) on nx-03  -  submitted, result not recorded here
+
+Restitution fix round 5 (external review, 2026-11-22): pe feature/el-restitution 4e4ad17 (4 commits on b047e41, NOT pushed;
+libs/pe/.pin): Coulomb radius from the post-visit load computed once (round-4 binary 43e7360e-peb047e41 used mu (lambda + 2d) in
+the sweep; R_q4_max48 carries that defect), clamp tally, integer trace range, registry test skip on other solvers.
+binary                                md5                               source
+q2p1_el_pipeflow.3dc21409-pe4e4ad17   49f3614a43223b375ce455b68bebefa4  3dc21409 (Fortran = 627caf47) + pe 4e4ad17; build-fluid11 on nx-06 (job 164924)
+jobs 164923 (presets, clean HEAD), 164925 (Debug suites), 164926 (gate), 164927 (R_q5_max48 smoke): submitted, results not recorded here
