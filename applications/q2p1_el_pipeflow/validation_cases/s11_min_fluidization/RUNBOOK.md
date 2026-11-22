@@ -444,3 +444,36 @@ is what will let the record run of section 13 (Fortran sources 627caf47) stand f
 The reviewer's judgement of the gas-velocity oscillation is in section 11. Still explicit after both
 reviews: F1 of `R_r1_proto` fails by 0.001, the overlap limit is exceeded during the preparation, and
 the friction-only runs are inelastic.
+
+### Review rounds 3 to 5 (2026-11-22): the post tool
+
+Rounds 3, 4 and 5 (same reviewer; reports in the session record) found no further defect in the solver
+after one regression of fix round 2 (the `hrz` refusal also rejected a prescribed-field run, which never
+executes the momentum solve; narrowed in 46d06ce6, the reload backstop now aborts every rank). All other
+findings concerned `tools/fl11_post.py`: on variants of the real log (a duplicated or missing row of a
+`--steps` file, a redundant knot of the inlet table, one missing or non-finite audit row, a run stopped
+early, a log segment starting at 1.0 s, a reload that resets the time) the tool issued a different
+official verdict, e.g. F1 0.9807 PASS for `R_r1_proto` (0.9787 FAIL). None of these conditions exists
+in a recorded log; every recorded gate number was reproduced by the reviewer in each round.
+
+The tool was therefore rebuilt (design note section 7.4), not patched:
+
+- it certifies one thing, a complete uninterrupted run of an echoed inlet protocol. One precondition
+  check runs before any gate (complete table echo, one constant-step clock from the protocol start, run
+  finished at the last knot, physical inputs resolved from the run with their provenance printed);
+  outside that domain every official gate is `unavailable` with the reasons and all numbers are printed
+  as measurements. A PASS never comes out of such a run; a witnessed violation (count change, centre
+  above mid-height in the lowest hold) is still a FAIL;
+- one record reader, intended holds from the echoed table alone (maximal constant-velocity intervals),
+  one validated sequence of expected audit rows, per-step state `measured` / `unmeasurable` with its
+  reason, verdicts PASS / FAIL / unavailable; a `--steps` file is a cross-check only;
+- F2 and F3 use the closure, properties and mapping support of the run; a differing command-line value
+  gives a labelled comparison;
+- `fl11_movie.py` takes steps, states and the trace end from the same evaluation; the render job and
+  `fl11_submit.sh` refuse a run directory with particle logs of an earlier invocation.
+
+Tests of the tool [V]: `--self-test` (synthetic logs, every counterexample of the five reviews) and
+`--self-test-real <rundir>` (seeded variants of a real log: equivalent rewrites must give byte-identical
+output, degrading and run-history transforms have an expected verdict per gate); counts and job ids in
+`runs_versions.txt` and `runs/fluid11/unit/post_r3 .. post_r5`. The evaluations `post_r5.txt` of
+`R_r1_proto`, `R_r1_oldsplit`, `R_proto_movie` keep every gate number and verdict of section 11.
