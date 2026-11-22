@@ -619,6 +619,28 @@ marker removed) without a flipped verdict, 170 of them with at least one verdict
 `post_r4.txt` of R_r1_proto, R_r1_oldsplit, R_proto_movie and R_r2_rest: every gate number and verdict
 of `post_r3.txt`. `fl11_movie.py --stats` on R_id400_new: both round-3 caches rebuilt, a fresh cache reused.
 
+Evidence of round 5 (commits 788ffbaf post tool, 14874b5b movie / render job / submit script): [V, jobs
+164979 and 164981; `runs/fluid11/unit/post_r5/`] `--self-test` 66/66 (the r5 counterexamples are cases
+51-65; `old_vs_new5.txt` runs them and six real-log variants of R_r1_proto through the tool of 49e99566:
+the clean stop at 1.090 s gave F5 height FAIL there on the 59.5 mm preparation centre, the 7.110 s stop
+official F1 FAIL / F2 PASS / F3 PASS / F5 PASS, the suffix from 1.000 s F1 0.980269 PASS with five PASSes,
+`--mu 1.9e-5` official F2 / F3 FAIL, the +200 Pa dp_dyn row F1 0.980600 PASS, counts -1 F5 count PASS; now
+every one of them is outside the supported domain or unavailable with its reason, and `--mu` is a labelled
+comparison). `--self-test-real`, 300 seeded variants each: R_r1_proto (every transform applicable) and
+R_id400_new (constant inlet; knot, ramp, witness, early-stop, repeated-velocity and no-ramp transforms
+reported as skipped), 0 failures; equivalence outputs byte-identical (exact duplicates included),
+degrading transforms against the expected verdict per gate (a hole in a step window makes F1-F3
+unavailable, in the lowest hold F5 height, anywhere F5 count; a witnessed F5 height FAIL survives the
+deletion of unrelated rows), run-history transforms (clean early stop, suffix with renumbered steps, time
+reset with unchanged dt, dt changed, repeated fixed velocity, table without ramps) with every official
+gate unavailable and the expected reason (F3 rank-deficient for the repeated velocity). `post_r5.txt` of
+R_r1_proto, R_r1_oldsplit, R_proto_movie and R_r2_rest: every gate number and verdict of `post_r4.txt`
+(only the provenance line and two header texts added); every run dir with a recorded post*.txt (those
+four and R_r1_rest) keeps its verdict line under the new tool. Movie: a rank log with an appended first
+frame (the reviewer's resubmission) is refused, a start-up-only log with a '!' comment in the inlet file
+runs (inlet pending), the render job refuses frames beyond the solver end (exit 3) and an unknown end,
+renders the intact copy; `fl11_submit.sh` refuses a dir with rank logs (exit 6).
+
 ## 8. Floor force of the bed audit: the pe wall-contact impulse is the unrelaxed PGS impulse
 
 **Finding [V].** In the fixed branch of the protocol run (R_proto_hrz, job 164004) dp* + floor/W with the
