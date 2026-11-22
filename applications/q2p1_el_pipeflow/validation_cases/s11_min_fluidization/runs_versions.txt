@@ -172,3 +172,21 @@ R_q5_max48 (job 164927, binary 3dc21409-pe4e4ad17, nx-03): steps 1000-2000 dp* 0
         wall/W 0.0259, Tgran 1.348e-3, contacts 11020, delivered 1265.3/step, demoted 356, converged/capped 9634/366, 0.575 s/step
 jobs 164936 (presets), 164937 (Debug suites), 164938 (alternate solvers), 164940 (gate), 164941/164942 (restitution-on identity
         R_id400_old on 3dc21409-pe4e4ad17 vs R_id400_new on 20867701-pece2a7f7): submitted, results not recorded here
+
+Fix round 2 (external review r2, 2026-11-22): FeatFloWer commits c0d71b65 (inlet reader tabs), 95e5923a (reload notice),
+729f77c9 (hrz refused on the non-Newtonian S0 defect), 3e801eab (velocity audit guards), d27a74fb (comment); pe unchanged
+(libs/pe ce2a7f7). Post tool 1fbb28e4, movie job 2cfeb048, design note section 7.2.
+binary                                md5                               source
+q2p1_el_pipeflow.d27a74fb-pece2a7f7   aa9b50dadff1582c96b6497799a6441a  d27a74fb + pe ce2a7f7; build-fluid11 on nx-06 (job 164949)
+job     run                      binary     result
+164948  failing before, finding 7 (check 47 against the unchanged module)  -  STOP 47
+164950  unit tests, ctest el-* / pco-* 1-15  d27a74fb  15/15 passed (checks 47-51, 90-92 new)
+164951  gate/{D_s6,G_tier2,E2w5,VB40}__d27a74fb-pece2a7f7 vs __base; R_fix2_off400 vs R_smoke_r1; R_fix2_id400 vs R_id400_new
+        -  all common streams + XxX bitwise, particle logs 27/27, every EL_ line bitwise against 20867701-pece2a7f7 and
+        R_id400_new (gate/pc_compare_d27a74fb-pece2a7f7.txt)
+164952  failing before / after, findings 4-6 (fb_r2/: old binary 20867701-pece2a7f7 vs d27a74fb-pece2a7f7)  -  hrz non-Newtonian
+        S0 accepted / refused; audit B with explicit drag 1.81e-3 / NaN, feedback off B fs printed / NaN NaN; reload of a table
+        deck over a ramp silent / WARNING
+164957-164959  movie render job: happy path on R_id400_new; injected worker failure stops the encode (exit 5)
+164960  fl11_post --self-test 12/12, closure identity, post_r2.txt of R_r1_proto (F1 0.978732 FAIL, F3 1.0474 PASS, F2 3.49 %
+        PASS, F5 PASS), R_r1_oldsplit and R_proto_movie (F2 unavailable: 2 d window inside the 2.5 d support)
