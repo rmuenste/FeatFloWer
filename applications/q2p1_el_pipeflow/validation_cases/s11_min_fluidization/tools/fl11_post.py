@@ -1,78 +1,72 @@
 #!/usr/bin/env python3
 """Case 11 (minimum fluidisation) evaluation of a q2p1_el_pipeflow run.
 
-Reads run_slurm.log of RUNDIR:
-  EL_BED_AUDIT       (SimPar@ELBedAuditFreq > 0; EL_BED_AUDIT module): t, step, plane pressures,
-                     dp, its hydrostatic part, buoyant weight, floor contact, bed heights,
-                     window porosity
-  EL_FORCE_BUDGET    (every step): drag, pressure force, grav_buoy summed over the particles
-  EL_INLET_TABLE     (echo of SimPar@ELInletVelocityTable): U(t), THE protocol of the run
-  start-up echo      'EL kernel width factor' (mapping support = factor x d), 'EL fluid gravity',
-                     'Global CFD domain extents' (z of the inlet plane and of the top: column
-                     height); the deck _data/q2p1_param.dat when the echo lacks the width factor
-  time lines         'time: t / t_end | ... | dt: dt' of the first step: start of the run and the
-                     evaluation horizon (the deck TimeStep, MaxNumStep, StartSimTime otherwise)
-
-The protocol. The official gates F1-F5 always come from the ECHOED table, each plateau exactly
-once, with the interpolation rule of the solver (EL_INLET_TABLE_VALUE: linear between the rows,
-the first and the last value held beyond the ends): the inlet history is the table extended by
-the hold of its last value up to the evaluation horizon (and of its first value back to the start
-of the run). A plateau is an interval of constant U longer than 0.1 s; a step starts where the
-transition into it starts (the convention of make_inlet_table.py --steps); the first plateau
-(preparation + step 0) is evaluated over its last 0.5 s. Without a horizon a terminal hold has
-no known end: F5 is withheld when the lowest velocity is that hold.
-A --steps file (make_inlet_table.py --steps) is validated against the echoed protocol in all
-three columns and for multiplicity; it never feeds a gate. When it differs it gives a separately
-labelled steps-file summary (not gated). Only a log WITHOUT a table echo is evaluated from the
-steps file, and then every verdict carries '[protocol from the steps file, not from the echo]'.
-
-Per step: mean and std of dp_dyn over the last 0.3 s and over the two sub-windows 0.2-0.35 s and
-0.35-0.5 s of the step (flagged when they differ by more than --flag of the plateau), the
-force-based dp (drag + pressure force)/A, bed height H = z99 + r - zmin, porosity of the bed
-window. A step is complete when (1) the run reached the end of the step (an audit line at its end
-time, within the print precision of the time) and (2) the audit samples the evaluation window at
-its own cadence (cadence at most a tenth of the window, no gap wider than one cadence, at least
-one distinct sample per cadence interval; tolerance: print precision of the time).
+The tool is built from five pieces, each defined once (design note section 7.4):
+  A  record reader   one tokenizer for every EL_ record the tool reads (EL_BED_AUDIT, EL_FORCE_BUDGET,
+                     EL_NEWTON_PAIR, EL_INLET_TABLE): a record is complete or it is nothing; an unfinished
+                     trailing record (after the last complete one, or a last line without its line end)
+                     is ignored with a note on stderr, a malformed interior record is diagnosed. The
+                     start-up echo (kernel width factor, drag model, fluid gravity, bed audit frequency,
+                     table row count, domain extents), the time lines and the finish marker are read in
+                     the same pass; the deck (_data/q2p1_param.dat) with the application's syntax
+                     (SimPar@Key = value: last '@', last '=', first list-directed token of the value).
+  B  protocol        the solver's rule U(t) (EL_INLET_TABLE_VALUE: linear between the rows, first and last
+                     value held beyond the ends) on the echoed table, reduced to maximal constant-velocity
+                     holds (adjacent equal-valued segments merged BEFORE the 0.1 s threshold), the terminal
+                     hold up to the end of the run. Every gate and the movie use these holds; equivalent
+                     tables give identical output.
+  C  clock / audit   the expected audit steps (multiples of the echoed audit frequency up to the last
+                     completed step) and their times t0 + k dt where a constant time step is established
+                     (one printed dt on every time line; the exact deck value when it agrees). Observed
+                     rows are validated against them (step id vs time, count vs weight), identical
+                     duplicates collapsed, conflicting duplicates rejected; a missing expected row is a
+                     coverage hole. The end of the run is the last step the solver completed (its loop
+                     finishes the step that crosses MaxSimTime; a reload may move MaxSimTime); without the
+                     finish marker the terminal hold is open.
+  D  per step        the evaluation window (last 0.3 s of the step) must lie inside the hold; statistics,
+                     coverage and extrema use the same validated rows; buoyant weight, area and particle
+                     count must be constant in the window (they normalise that step). A step is
+                     'measured' or 'unmeasurable' with the reason.
+  E  verdicts        PASS / FAIL / unavailable (reason). A gate is unavailable whenever a protocol step that
+                     could belong to its set is unmeasurable (the subset value is printed as a measurement,
+                     not as a verdict). F5 height and F5 count are independent of F1-F3 and of each other.
 
 Gates of the spec (section 5, as amended on 2026-11-20):
   F1  plateau dp A / buoyant weight, mean over the steps with dp* > 0.95           (1 +- 0.02)
-  F2  fixed branch: dynamic window gradient -<dp/dz> of the audit (bed core; gradz_win_dyn, or
-      for older logs gradz_win when the hydrostatic part is zero: dp_hydro = 0 on every audit
-      line used) against the closure at the code's own MAPPED gas fraction (eps_kern)  (+-5 %).
-      Gated only when every contributing audit window excludes max(2 d, mapping support) at both
-      ends (measured on every contributing line: lower end - inlet plane, z99 + r - upper end,
-      and win_margin, 2 d for binaries before 627caf47; all three must be finite), every mapped
-      sample is valid (finite, 0 < eps < 1: the old -1 sentinel and an unclipped 1 are refused),
-      and the closure is positive and the ratio finite on EVERY fixed step. Otherwise the ratios
-      are printed as a measurement and the verdict is 'unavailable' with the reason. The ratio at
-      the geometric window porosity, dp_dyn / H_eq and dp_dyn / H are ungated.
-  F3  U_mf = where the fit dp* = a U + b U^2 of the fixed branch (through the origin; steps
-      below 0.8 of the plateau) meets dp* = 1, against the closure U_mf at the WHOLE-BED porosity
-      1 - N V_p / (A (z99 + r - zmin))                                               (+-5 %);
-      the crossing with the measured plateau and the ratios at the core porosity are reported
+  F2  fixed branch: dynamic window gradient -<dp/dz> (gradz_win_dyn; gradz_win for older logs when
+      dp_hydro = 0 on every contributing line) against the closure at the MAPPED gas fraction (+-5 %),
+      when every contributing window excludes max(2 d, mapping support) at both ends (lower end - inlet
+      plane, z99 + r - upper end, win_margin or 2 d before 627caf47; tolerance from the print precision
+      of the coordinates), every mapped sample is valid (finite, 0 < eps < 1), and the closure is positive
+      and the ratio finite on every fixed step.
+  F3  U_mf where the fit dp* = a U + b U^2 of the fixed branch (through the origin) meets dp* = 1, against
+      the closure U_mf at the whole-bed porosity 1 - N V_p / (A (z99 + r - zmin))      (+-5 %)
   F4  U_mf against the measurement 0.182 m/s (reported)
-  F5  (a) particle count constant over the run: the audit covers the run from its start to the
-      horizon at its cadence; (b) no centre above the physical mid-column zmin + Lz/2 (both from
-      the echoed extents) during the plateau of the lowest velocity of the protocol (the constant
-      part, audit coverage required; the 20 ms transition into it is reported separately and
-      labelled). Evaluated independently of F1-F3.
-Every ratio needs a positive finite denominator (area of the inlet plane, buoyant weight,
-closure value); otherwise the quantity is printed as nan and the gates that need it are
-'unavailable' instead of an exception.
-The closures come from fl11_closures.py (shared with core_deficit.py); --closure gidaspow
-(default), ergun, wenyu: dp/dz(U, eps) = n F_d(U/eps) / eps with the per-particle forms of
-EL_FORCES (model A; identical to the spec's umf_reference.py for ergun and wenyu).
-fl11_movie.py takes its step table from prepare() and step_table() of this module.
+  F5  count: particle count constant over the run (every expected audit row validated, run finished);
+      height: no centre above the mid-column zmin + Lz/2 (echoed extents) during the lowest-velocity
+      hold(s) of the protocol (all tied holds; a centre at mid-height is not above; tolerance: print
+      precision of the coordinates). An observed exceedance or count change is a FAIL even when the
+      coverage is incomplete.
+The closure of F2 / F3 is the drag model of the start-up echo (deck otherwise); a --closure that differs
+gives a labelled comparison, not a verdict.
+A --steps file never feeds the official gates of a log with a table echo: it is validated (three
+columns, multiplicity) and gives a separately labelled summary when it differs. A log without an echo
+is evaluated from a valid steps file (no duplicate or overlapping rows), every verdict labelled.
 
 usage: fl11_post.py RUNDIR [--steps FILE] [--d 0.87e-3] [--rhop 860] [--rhof 1.0] [--mu 1.8e-5]
-                    [--g 9.81] [--lz LZ] [--closure gidaspow] [--flag 0.02] [--series OUT.csv]
-       fl11_post.py --self-test       synthetic logs (the counterexamples of reviews r2 and r3)
---lz is only checked against the column height of the echoed extents (which F5 uses)."""
+                    [--g 9.81] [--lz LZ] [--closure NAME] [--flag 0.02] [--series OUT.csv]
+       fl11_post.py --self-test                synthetic logs (the counterexamples of reviews r2-r4)
+       fl11_post.py --self-test-real RUNDIR [--variants N] [--seed S]
+                                               metamorphic tests on a real log: equivalence transforms
+                                               give identical output, degrading transforms leave every
+                                               verdict equal to the intact one or unavailable
+fl11_movie.py uses evaluate() of this module."""
 import argparse
 import contextlib
 import io
 import math
 import os
+import random
 import re
 import sys
 import tempfile
@@ -80,14 +74,16 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from fl11_closures import CLOSURES, closure_grad, closure_umf   # noqa: E402  (re-exported)
 
-NUM = r'(?:[-+]?[0-9.]+(?:[EeDd][-+]?[0-9]+)?|[-+]?NaN)'     # NaN: a value the audit marks unavailable
+EVAL_VERSION = 'fl11_post r4 2026-11-22'   # part of the movie cache signature
 NAN = float('nan')
-TOL_Z = 2e-8          # height comparisons (m): print precision of the ES14.6 heights of the audit line
+INF = float('inf')
 FROM_STEPS = ' [protocol from the steps file, not from the echo]'
-
-
-def f(x):
-    return NAN if 'NaN' in x else float(x.replace('D', 'E').replace('d', 'e'))
+GATES = ('F1', 'F2', 'F3', 'F5 height', 'F5 count')
+HOLD_MIN = 0.1           # s: a hold of this length or less is part of a transition, not a step
+EVAL_LEN = 0.3           # s: evaluation window at the end of a step
+FIRST_LEN = 0.5          # s: the first hold (preparation + step 0) is evaluated over its last 0.5 s
+MIN_SAMPLES = 10         # expected audit rows in a window used for statistics or extrema
+TOL_D4 = 5e-4            # relative print precision of the 4-digit D format of the time line
 
 
 def finite(x):
@@ -105,156 +101,216 @@ def div(a, b):
     return a / b if finite(b) and finite(a) else NAN
 
 
-def tol_t(t):
-    """print precision of a time of the audit line (ES14.6: 7 significant digits)"""
-    return 1e-6 * max(1.0, abs(t)) if finite(t) else 1e-6
+def es_prec(x, digits=6):
+    """half the spacing of the ES(w).digits print of x (0 for an exact zero)"""
+    if not finite(x) or x == 0:
+        return 0.0
+    return 0.5 * 10.0 ** (math.floor(math.log10(abs(x))) - digits)
 
 
-# ---------------------------------------------------------------------------------------------------
-# reading
-# ---------------------------------------------------------------------------------------------------
-# time line of a step: 'time: t / t_max | itns: istep / nsteps | dt: dt' (D format with 4 digits)
-PAT_TIME = re.compile(r'^\s*time:\s*(%s)\s*/\s*(%s)\s*\|\s*itns:\s*(\d+)\s*/\s*(\d+)\s*\|\s*dt:\s*(%s)' % (NUM, NUM, NUM))
-TOL_D4 = 5e-4          # relative print precision of the 4-digit D format of the time line
+def mean(v):
+    return sum(v) / len(v) if v else NAN
 
 
-def parse(rundir):
-    audit, budget, table, pairs = [], {}, [], {}
-    dt_log = NAN
-    pat_a = re.compile(r'^EL_BED_AUDIT t=\s*(%s) step=\s*(\d+) p_in_out=\s*(%s)\s+(%s) area_in_out=\s*(%s)\s+(%s)'
-                       r' dp_hydro_dyn=\s*(%s)\s+(%s)\s+(%s) n=\s*(\d+) weight_z_floor_z=\s*(%s)\s+(%s)'
-                       r' z50_95_99_max=\s*(%s)\s+(%s)\s+(%s)\s+(%s) eps_bed=\s*(%s) window=\s*(%s)\s+(%s)'
-                       r'(?: gradz_win=\s*(%s))?(?: floor_bal_z=\s*(%s))?(?: eps_kern_slip_win=\s*(%s)\s+(%s))?'
-                       r'(?: win_margin=\s*(%s))?(?: gradz_win_dyn=\s*(%s))?'
-                       % ((NUM,) + (NUM,) * 7 + (NUM,) * 2 + (NUM,) * 4 + (NUM,) * 3 + (NUM,) * 4 + (NUM,) * 2))
-    pat_b = re.compile(r'^EL_FORCE_BUDGET step=\s*(\d+) drag=\s*(%s)\s+(%s)\s+(%s) pressure=\s*(%s)\s+(%s)\s+(%s)'
-                       r' lift=.* grav_buoy=\s*(%s)\s+(%s)\s+(%s)' % ((NUM,) * 9))
-    for line in open(os.path.join(rundir, 'run_slurm.log'), errors='replace'):
-        if line.startswith('EL_BED_AUDIT'):
-            m = pat_a.match(line)
-            if not m:
-                continue
-            g = m.groups()
-            audit.append(dict(t=f(g[0]), step=int(g[1]), p_in=f(g[2]), p_out=f(g[3]), a_in=f(g[4]),
-                              a_out=f(g[5]), dp=f(g[6]), dp_h=f(g[7]), dp_dyn=f(g[8]), n=int(g[9]),
-                              wz=f(g[10]), floor=f(g[11]), z50=f(g[12]), z95=f(g[13]), z99=f(g[14]),
-                              zmax=f(g[15]), eps=f(g[16]), zlo=f(g[17]), zhi=f(g[18]),
-                              gw=f(g[19]) if g[19] else NAN,
-                              fbal=f(g[20]) if g[20] else NAN,
-                              has_fbal=bool(g[20]),
-                              ekern=f(g[21]) if g[21] else NAN,
-                              skern=f(g[22]) if g[22] else NAN,
-                              margin=f(g[23]) if g[23] else None,          # window margin (from 627caf47 on)
-                              gw_dyn=f(g[24]) if g[24] else NAN,
-                              has_gw_dyn=bool(g[24])))                      # field written (from 627caf47 on)
-        elif line.startswith('EL_FORCE_BUDGET'):
-            m = pat_b.match(line)
-            if m:
-                g = m.groups()
-                budget[int(g[0])] = (f(g[3]), f(g[6]), f(g[9]))
-        elif line.startswith('EL_NEWTON_PAIR'):
-            c = line.split()
-            pairs[int(c[4])] = (f(c[8]), f(c[12]))       # dp_z, expected_z of the particle momentum
-        elif line.lstrip().startswith('EL_INLET_TABLE'):
-            c = line.split()
-            table.append((f(c[1]), f(c[2])))
-        elif not finite(dt_log) and line.lstrip().startswith('time:'):
-            m = PAT_TIME.match(line)
-            if m:
-                dt_log = f(m.group(5))
-    # floor force from the particle momentum balance: EL_BED_AUDIT floor_bal_z; an older log without
-    # the field: from the EL_NEWTON_PAIR line of the same step (the same two numbers), only with that
-    # line and a positive finite time step (the log's dt, else the audit spacing); nan otherwise
-    dt = dt_log
-    if not finite(pos(dt)) and len(audit) > 1 and audit[1]['step'] != audit[0]['step']:
-        dt = (audit[1]['t'] - audit[0]['t']) / (audit[1]['step'] - audit[0]['step'])
-    for row in audit:
-        if not row['has_fbal']:
-            pr = pairs.get(row['step'])
-            row['fbal'] = (pr[0] - pr[1]) / dt if pr and finite(pos(dt)) else NAN
-    return audit, budget, table
+def _fmin(v):
+    v = [x for x in v if finite(x)]
+    return min(v) if v else NAN
 
 
-def parse_setup(rundir):
-    """kernel width factor (and where it came from), fluid gravity, extents of the column (z), start
-    of the run, evaluation horizon (and where it came from) and the time the run reached.
-    Time: the solver stops at min(MaxSimTime, start + MaxNumStep dt). The time lines of the first and
-    the last step of the log give start, t_max, step counts and dt with 4 digits; the deck gives
-    StartSimTime, MaxSimTime, TimeStep, MaxNumStep exactly. The deck values are used when they agree
-    with the log within its print precision (or the log has no time line), the log values otherwise
-    (they are what ran). t_run = start + (steps of the last time line) x dt."""
-    setup = dict(width=None, width_src=None, fluid_gravity=None, zmin=None, zmax=None,
-                 t_start=NAN, horizon=NAN, horizon_src=None, t_run=NAN)
-    pat_w = re.compile(r'^EL kernel width factor\s*=\s*(%s)' % NUM)
-    pat_g = re.compile(r'^EL fluid gravity\s*=\s*([TF])')
-    pat_x = re.compile(r'^Global CFD domain extents:\s*(%s)\s+(%s)\s+(%s)\s+(%s)\s+(%s)\s+(%s)' % ((NUM,) * 6))
-    first = last = None
-    for line in open(os.path.join(rundir, 'run_slurm.log'), errors='replace'):
-        if line.lstrip().startswith('time:'):
-            m = PAT_TIME.match(line)
-            if m:
-                first = (f(m.group(1)), f(m.group(2)), int(m.group(3)), int(m.group(4)), f(m.group(5)))
-                break                                     # the first time line follows the start-up echo
-        m = pat_w.match(line)
-        if m and setup['width'] is None:
-            setup['width'], setup['width_src'] = f(m.group(1)), 'log echo'
-        m = pat_g.match(line)
-        if m and setup['fluid_gravity'] is None:
-            setup['fluid_gravity'] = (m.group(1) == 'T')
-        m = pat_x.match(line)
-        if m and setup['zmin'] is None:
-            setup['zmin'], setup['zmax'] = f(m.group(5)), f(m.group(6))
-    with open(os.path.join(rundir, 'run_slurm.log'), 'rb') as fh:        # the last time line: the tail
-        fh.seek(0, 2)
-        fh.seek(max(0, fh.tell() - 4000000))
-        tail = fh.read().decode(errors='replace').splitlines()
-    for line in reversed(tail):
-        if line.lstrip().startswith('time:'):
-            m = PAT_TIME.match(line)
-            if m:
-                last = (f(m.group(1)), f(m.group(2)), int(m.group(3)), int(m.group(4)), f(m.group(5)))
-                break
-    deck = os.path.join(rundir, '_data', 'q2p1_param.dat')
-    keys = {}
-    if os.path.exists(deck):
-        for line in open(deck, errors='replace'):
-            m = re.match(r'^\s*SimPar@(\w+)\s*=\s*(%s)\s*$' % NUM, line.strip())
-            if m:
-                keys[m.group(1)] = f(m.group(2))
-    if setup['width'] is None:
-        if 'ELKernelWidthFactor' in keys:
-            setup['width'], setup['width_src'] = keys['ELKernelWidthFactor'], 'deck'
+def _fmax(v):
+    v = [x for x in v if finite(x)]
+    return max(v) if v else NAN
+
+
+# ===================================================================================================
+# A. record reader
+# ===================================================================================================
+NUMG = r'[-+]?(?:\d+\.?\d*|\.\d+)(?:[EeDd][-+]?\d+)?'
+NUM_RE = re.compile('^' + NUMG + '$')
+
+
+def num(tok):
+    u = tok.upper()
+    if u in ('NAN', '+NAN', '-NAN'):
+        return NAN
+    if u in ('INF', '+INF', 'INFINITY', '+INFINITY'):
+        return INF
+    if u in ('-INF', '-INFINITY'):
+        return -INF
+    if re.fullmatch(r'\*+', tok):
+        return NAN                                    # Fortran overflow field: no value
+    if not NUM_RE.match(tok):
+        raise ValueError(tok)
+    return float(tok.replace('D', 'E').replace('d', 'e'))
+
+
+def integer(tok):
+    if not re.fullmatch(r'[-+]?\d+', tok):
+        raise ValueError(tok)
+    return int(tok)
+
+
+# tag: (required [(key, count, converter)], optional [...]); other keys are ignored
+SPECS = {
+    'EL_BED_AUDIT': ([('t', 1, num), ('step', 1, integer), ('p_in_out', 2, num), ('area_in_out', 2, num),
+                      ('dp_hydro_dyn', 3, num), ('n', 1, integer), ('weight_z_floor_z', 2, num),
+                      ('z50_95_99_max', 4, num), ('eps_bed', 1, num), ('window', 2, num)],
+                     [('gradz_win', 1, num), ('floor_bal_z', 1, num), ('eps_kern_slip_win', 2, num),
+                      ('win_margin', 1, num), ('gradz_win_dyn', 1, num)]),
+    'EL_FORCE_BUDGET': ([('step', 1, integer), ('drag', 3, num), ('pressure', 3, num), ('lift', 3, num),
+                         ('grav_buoy', 3, num)], [('total', 3, num)]),
+    'EL_NEWTON_PAIR': ([('t', 1, num), ('step', 1, integer), ('dp', 3, num), ('expected', 3, num)],
+                       [('mismatch', 3, num)]),
+}
+KEY_TOK = re.compile(r'^[A-Za-z_0-9]+=$')
+
+
+def parse_keyed(tokens, spec):
+    """(record, '') for a complete record, (None, reason) otherwise"""
+    req, opt = spec
+    groups, cur = {}, None
+    for tok in tokens:
+        if KEY_TOK.match(tok):
+            cur = tok[:-1]
+            if cur in groups:
+                return None, 'key %s= twice' % cur
+            groups[cur] = []
+        elif cur is None:
+            return None, 'value before the first key'
         else:
-            setup['width'], setup['width_src'] = 2.5, 'EL_CONFIG default'
-
-    def agree(a, b):
-        return finite(a) and finite(b) and abs(a - b) <= TOL_D4 * max(abs(a), abs(b), 1.0 if b == 0 else 0.0)
-    log_ok = first is not None and all(finite(x) for x in (first[0], first[1], first[4])) and first[4] > 0
-    deck_ok = all(k in keys for k in ('TimeStep', 'MaxNumStep')) and finite(pos(keys['TimeStep']))
-    dt = keys['TimeStep'] if deck_ok and (not log_ok or agree(keys['TimeStep'], first[4])) else (first[4] if log_ok else NAN)
-    t_log = first[0] - first[2] * dt if log_ok else NAN
-    h_log = min(first[1], t_log + first[3] * dt) if log_ok else NAN
-    if deck_ok:
-        t_deck = keys.get('StartSimTime', 0.0)
-        h_deck = min(keys.get('MaxSimTime', math.inf), t_deck + keys['TimeStep'] * keys['MaxNumStep'])
-    if deck_ok and (not log_ok or (agree(t_deck, t_log) or abs(t_deck - t_log) <= TOL_D4) and agree(h_deck, h_log)):
-        setup['t_start'], setup['horizon'] = t_deck, h_deck
-        setup['horizon_src'] = 'deck: min(MaxSimTime, StartSimTime + TimeStep x MaxNumStep)' + (', the log agrees' if log_ok else '')
-    elif log_ok:
-        setup['t_start'], setup['horizon'] = t_log, h_log
-        setup['horizon_src'] = 'log: min(t_max, start + nsteps x dt) of the first time line' + (' (the deck disagrees)' if deck_ok else '')
-    if last is not None and finite(setup['t_start']) and finite(dt):
-        setup['t_run'] = setup['t_start'] + last[2] * dt
-    for k in ('zmin', 'zmax'):
-        if setup[k] is not None and not finite(setup[k]):
-            setup[k] = None
-    return setup
+            groups[cur].append(tok)
+    rec = {}
+    for i, (key, cnt, conv) in enumerate(req + opt):
+        if key not in groups:
+            if i < len(req):
+                return None, 'key %s= missing' % key
+            continue
+        vals = groups[key]
+        if len(vals) != cnt:
+            return None, '%s= has %d value(s), %d expected' % (key, len(vals), cnt)
+        try:
+            rec[key] = [conv(v) for v in vals]
+        except ValueError:
+            return None, '%s= value not readable' % key
+    return rec, ''
 
 
-# ---------------------------------------------------------------------------------------------------
-# protocol
-# ---------------------------------------------------------------------------------------------------
+PAT_TIME = re.compile(r'^\s*time:\s*(%s)\s*/\s*(%s)\s*\|\s*itns:\s*(\d+)\s*/\s*(\d+)\s*\|\s*dt:\s*(%s)'
+                      % (NUMG, NUMG, NUMG))
+ECHO = {
+    'width': re.compile(r'^EL kernel width factor\s*=\s*(\S+)\s*$'),
+    'drag': re.compile(r'^EL drag model\s*=\s*(\S+)\s*$'),
+    'fluid_gravity': re.compile(r'^EL fluid gravity\s*=\s*(\S+)\s*$'),
+    'audit_freq': re.compile(r'^EL bed audit freq\s*=\s*(\S+)\s*$'),
+    'table_rows': re.compile(r'^EL inlet velocity table\s*=.*\((\d+) rows'),
+    'extents': re.compile(r'^Global CFD domain extents:\s*(.*)$'),
+}
+FINISH = 'PP3D_LES has successfully finished'
+
+
+class Log:
+    """everything the tool reads from run_slurm.log, from one pass over its lines"""
+
+    def __init__(self, lines, last_complete=True):
+        self.echo = {}
+        self.table = []                  # (t, u)
+        self.audit = []                  # (line number, record, raw text)
+        self.budget = {}                 # step -> record (None: conflicting copies)
+        self.pairs = {}                  # step -> record (None: conflicting copies)
+        self.times = []                  # (t, t_max, step, nsteps, dt)
+        self.finished = False
+        bad = []                         # (line number, tag, reason)
+        good_last = -1
+        n = len(lines)
+        for i, line in enumerate(lines):
+            unfinished = (i == n - 1 and not last_complete)
+            s = line.rstrip('\r\n')
+            st = s.lstrip()
+            if st.startswith('EL_INLET_TABLE'):
+                tok = st.split()
+                try:
+                    if unfinished or len(tok) != 3:
+                        raise ValueError
+                    self.table.append((num(tok[1]), num(tok[2])))
+                    good_last = i
+                except ValueError:
+                    bad.append((i, 'EL_INLET_TABLE', 'no line end' if unfinished else 'not two numbers t U'))
+                continue
+            tag = s.split(' ', 1)[0]
+            if tag in SPECS:
+                rec, why = (None, 'no line end') if unfinished else parse_keyed(s.split()[1:], SPECS[tag])
+                if rec is None:
+                    bad.append((i, tag, why))
+                    continue
+                good_last = i
+                if tag == 'EL_BED_AUDIT':
+                    self.audit.append((i, rec, ' '.join(s.split()[1:])))
+                else:
+                    store = self.budget if tag == 'EL_FORCE_BUDGET' else self.pairs
+                    k = rec['step'][0]
+                    if k not in store:
+                        store[k] = rec
+                    elif store[k] is not None and store[k] != rec:
+                        store[k] = None
+                continue
+            if st.startswith('time:'):
+                m = PAT_TIME.match(s)
+                if m and not unfinished:
+                    self.times.append((num(m.group(1)), num(m.group(2)), int(m.group(3)), int(m.group(4)),
+                                       num(m.group(5))))
+                    good_last = i
+                else:
+                    bad.append((i, 'time line', 'no line end' if unfinished else 'not readable'))
+                continue
+            if FINISH in s and not unfinished:
+                self.finished = True
+                good_last = i
+                continue
+            if s.startswith(('EL ', 'Global CFD')):
+                for key, pat in ECHO.items():
+                    if key not in self.echo:
+                        m = pat.match(s)
+                        if m:
+                            self.echo[key] = m.group(1).strip()
+        self.trailing = [b for b in bad if b[0] > good_last]
+        self.malformed = [b for b in bad if b[0] <= good_last]
+
+
+def read_deck(text):
+    """SimPar keys of a deck with the application's syntax: 'SimPar@Key = value', the last '@' and the
+    last '=' of the line, the first list-directed token of the value (blank, comma or '/' ends it, so a
+    trailing '! comment' is not part of it), a later line overrides an earlier one. Values stay text."""
+    keys = {}
+    for line in text.splitlines():
+        if '@' not in line or '=' not in line:
+            continue
+        iat, ieq = line.rfind('@'), line.rfind('=')
+        if ieq < iat:
+            continue
+        sec = line[:iat].split()
+        key = line[iat + 1:ieq].split()
+        if not sec or sec[-1] != 'SimPar' or len(sec) != 1 or not key:
+            continue
+        val = re.split(r'[\s,/]+', line[ieq + 1:].strip())
+        keys[key[0]] = val[0] if val and val[0] else ''
+    return keys
+
+
+def read_deck_num(keys, key):
+    """(value, status): status 'deck', 'absent' or 'unreadable'"""
+    if key not in keys:
+        return NAN, 'absent'
+    try:
+        return num(keys[key].strip('"\'')), 'deck'
+    except ValueError:
+        return NAN, 'unreadable'
+
+
+# ===================================================================================================
+# B. protocol
+# ===================================================================================================
 def u_of_t(table, t):
+    """the solver's rule: linear between the rows, constant beyond the ends"""
     if t <= table[0][0]:
         return table[0][1]
     for (t0, u0), (t1, u1) in zip(table, table[1:]):
@@ -263,58 +319,379 @@ def u_of_t(table, t):
     return table[-1][1]
 
 
-def inlet_history(table, t_start=NAN, horizon=NAN):
-    """the rows of U(t) as the solver applies them between the start of the run and the horizon:
-    the table, its first value held back to t_start, its last value held up to the horizon (cut at
-    the horizon when the table is longer). Second value: True when the last value is held beyond the
-    table with no known end (no horizon)."""
+def holds_of(table, t_start, t_end):
+    """maximal constant-velocity intervals of U(t) from t_start to t_end (None: the run has no known end,
+    the last hold is open): equal-valued adjacent segments merged first, then holds of HOLD_MIN or less
+    dropped. Each hold: dict(u, a, b, open)."""
     if not table:
-        return [], False
-    knots = list(table)
-    if finite(t_start) and t_start < knots[0][0] - tol_t(knots[0][0]):
-        knots.insert(0, (t_start, knots[0][1]))
-    if not finite(horizon):
-        return knots, True
-    if horizon > knots[-1][0] + tol_t(horizon):
-        knots.append((horizon, knots[-1][1]))
-    elif horizon < knots[-1][0] - tol_t(horizon):
-        u_h = u_of_t(knots, horizon)
-        knots = [k for k in knots if k[0] < horizon] + [(horizon, u_h)]
-    return knots, False
-
-
-def plateaus(table):
-    """steps from the rows of U(t): intervals of constant U longer than 0.1 s. A step starts where the
-    transition into it starts (the convention of the steps file of make_inlet_table.py), so the
-    sub-windows 0.2-0.35 s and 0.35-0.5 s do not depend on the source of the step list. The
-    preparation is merged with the first plateau; protocol_steps() evaluates the last 0.5 s of it."""
+        return []
+    segs = [(-INF, table[0][0], table[0][1], table[0][1])]
+    segs += [(p[0], q[0], p[1], q[1]) for p, q in zip(table, table[1:])]
+    segs.append((table[-1][0], INF, table[-1][1], table[-1][1]))
+    merged = []
+    for a, b, ua, ub in segs:
+        if ua != ub:
+            merged.append(None)                         # a ramp separates two holds
+        elif merged and merged[-1] is not None and merged[-1][2] == ua and merged[-1][1] == a:
+            merged[-1] = (merged[-1][0], b, ua)
+        else:
+            merged.append((a, b, ua))
+    lo = t_start if finite(t_start) else table[0][0]
     out = []
-    for i, ((t0, u0), (t1, u1)) in enumerate(zip(table, table[1:])):
-        if u0 == u1 and t1 - t0 > 0.1:
-            ramp = i > 0 and table[i - 1][1] != u0
-            out.append((table[i - 1][0] if ramp else t0, t1, u0))
+    for h in merged:
+        if h is None:
+            continue
+        a, b, u = max(h[0], lo), h[1], h[2]
+        is_open = t_end is None and b == INF
+        if t_end is not None:
+            b = min(b, t_end)
+        if is_open or b - a > HOLD_MIN:
+            out.append(dict(u=u, a=a, b=b, open=is_open))
     return out
 
 
-def protocol_steps(knots):
-    steps = plateaus(knots)
-    if steps and steps[0][1] - steps[0][0] > 0.6:
-        # the first plateau of the protocol holds preparation + step 0: evaluate its last 0.5 s
-        steps[0] = (steps[0][1] - 0.5, steps[0][1], steps[0][2])
+def steps_of(holds):
+    """protocol steps of the holds: t1 = end of the hold, t0 = end of the previous hold (the start of the
+    transition into it); the first hold is evaluated over its last FIRST_LEN s when longer than 0.6 s"""
+    steps = []
+    for i, h in enumerate(holds):
+        t1 = h['b']
+        t0 = holds[i - 1]['b'] if i > 0 else h['a']
+        if i == 0 and not h['open'] and t1 - t0 > 0.6:
+            t0 = t1 - FIRST_LEN
+        steps.append(dict(k=i, t0=t0, t1=t1, U=h['u'], hold=h))
     return steps
 
 
-def lowest_plateau(knots):
-    """(u, [(t_a, t_b)], [(t_transition_start, t_a)]): the lowest velocity held constant, its constant
-    intervals and the transitions into them; None without a plateau"""
-    held = []
-    for i, ((t0, u0), (t1, u1)) in enumerate(zip(knots, knots[1:])):
-        if u0 == u1 and t1 - t0 > 0.1:
-            held.append((u0, t0, t1, knots[i - 1][0] if i > 0 and knots[i - 1][1] != u0 else t0))
-    if not held:
-        return None
-    umin = min(h[0] for h in held)
-    return (umin, [(h[1], h[2]) for h in held if h[0] == umin], [(h[3], h[1]) for h in held if h[0] == umin])
+# ===================================================================================================
+# C. clock and audit sequence
+# ===================================================================================================
+class Clock:
+    """time step, start, completed steps and audit frequency of the run, and the validated audit rows"""
+
+    def __init__(self, log, deck):
+        self.notes = []
+        self.freq, self.freq_src = None, 'unknown'
+        f_echo = log.echo.get('audit_freq')
+        if f_echo is not None and re.fullmatch(r'\d+', f_echo) and int(f_echo) > 0:
+            self.freq, self.freq_src = int(f_echo), 'log echo'
+        else:
+            v, st = read_deck_num(deck, 'ELBedAuditFreq')
+            if st == 'deck' and finite(v) and v > 0 and v == int(v):
+                self.freq, self.freq_src = int(v), 'deck'
+        times = log.times
+        dts = sorted({x[4] for x in times})
+        self.const = len(dts) <= 1
+        dt_deck, _ = read_deck_num(deck, 'TimeStep')
+        dt_print = dts[0] if len(dts) == 1 else NAN
+        recs = sorted(((r['step'][0], r['t'][0]) for _, r, _ in log.audit if finite(r['t'][0])))
+        dt_audit = NAN
+        if len(recs) > 1 and recs[-1][0] > recs[0][0]:
+            dt_audit = (recs[-1][1] - recs[0][1]) / (recs[-1][0] - recs[0][0])
+
+        def agree(a, b):
+            return finite(a) and finite(b) and abs(a - b) <= TOL_D4 * max(abs(a), abs(b))
+        self.dt, self.dt_src = NAN, 'unknown'
+        if not self.const:
+            self.notes.append('time step not constant (printed dt %s): no step clock, step times from the audit '
+                              'rows only' % ', '.join('%.4g' % x for x in dts))
+        elif finite(pos(dt_deck)) and (not times or agree(dt_deck, dt_print)):
+            self.dt, self.dt_src = dt_deck, 'deck TimeStep' + (', time lines agree' if times else '')
+        elif finite(pos(dt_audit)) and (not times or agree(dt_audit, dt_print)):
+            self.dt, self.dt_src = dt_audit, 'audit rows' + (', time lines agree' if times else '')
+        elif finite(pos(dt_print)):
+            self.dt, self.dt_src = dt_print, 'time lines (4 digits)'
+        self.exact = finite(self.dt)
+        t_line = times[0][0] - times[0][2] * self.dt if times and self.exact else NAN
+        t_deck, _ = read_deck_num(deck, 'StartSimTime')
+        tol0 = TOL_D4 * abs(times[0][0]) + 1e-12 if times else 0.0
+        self.t0, self.t0_src = NAN, 'unknown'
+        if self.exact:
+            if finite(t_deck) and (not times or abs(t_deck - t_line) <= tol0):
+                self.t0, self.t0_src = t_deck, 'deck StartSimTime'
+            elif recs and (not times or abs(recs[0][1] - recs[0][0] * self.dt - t_line) <= tol0):
+                self.t0, self.t0_src = recs[0][1] - recs[0][0] * self.dt, 'first audit row'
+            elif times:
+                self.t0, self.t0_src = t_line, 'first time line (4 digits)'
+            else:
+                self.exact = False
+        self.K_time = max((x[2] for x in times), default=0)
+        self.finished = log.finished
+        self.validate(log)
+
+    def tk(self, k):
+        return self.t0 + k * self.dt if self.exact else self.row_t.get(k, NAN)
+
+    def validate(self, log):
+        """validated rows (step -> row), rejected (step, reason), the completed steps K"""
+        groups = {}
+        for ln, rec, raw in log.audit:
+            groups.setdefault(rec['step'][0], []).append((ln, rec, raw))
+        self.rejected = []
+        cand = {}
+        for k in sorted(groups):
+            g = groups[k]
+            if len({raw for _, _, raw in g}) > 1:
+                self.rejected.append((k, 'conflicting copies of the audit row'))
+                continue
+            rec = g[0][1]
+            if self.freq and k % self.freq:
+                self.rejected.append((k, 'step not a multiple of the audit frequency'))
+                continue
+            if k < 1:
+                self.rejected.append((k, 'step below 1'))
+                continue
+            t = rec['t'][0]
+            if self.exact:
+                tk = self.t0 + k * self.dt
+                if not (finite(t) and abs(t - tk) <= 2 * es_prec(tk) + 1e-3 * self.dt):
+                    self.rejected.append((k, 'time %s does not match the step clock %.6f s' % (t, tk)))
+                    continue
+            elif not finite(t):
+                self.rejected.append((k, 'time not finite'))
+                continue
+            cand[k] = row_of(rec)
+        rows, prev = {}, None
+        keys = sorted(cand)
+        for j, k in enumerate(keys):
+            r = cand[k]
+            if not self.exact and prev is not None and not r['t'] > rows[prev]['t']:
+                self.rejected.append((k, 'time not increasing with the step'))
+                continue
+            ref = rows[prev] if prev is not None else (cand[keys[j + 1]] if j + 1 < len(keys) else None)
+            if ref is not None and (r['n'] == ref['n']) != (r['wz'] == ref['wz']):
+                self.rejected.append((k, 'particle count and buoyant weight change inconsistently'))
+                continue
+            rows[k] = r
+            prev = k
+        self.rejected.sort()
+        self.rows = rows
+        self.row_t = {k: r['t'] for k, r in rows.items()}
+        for k, r in rows.items():
+            r['tk'] = self.tk(k)
+        self.sorted = [rows[k] for k in sorted(rows)]
+        self.K = max([self.K_time] + list(rows))
+        self.end = self.tk(self.K) if self.finished and self.K > 0 else None
+        if self.end is not None and not finite(self.end):
+            self.end = None
+        self.rej = dict(self.rejected)
+
+    def expected(self, a, b):
+        """expected audit steps with their time in [a, b] (None when not established)"""
+        if not (self.exact and self.freq) or not (finite(a) and finite(b)):
+            return None
+        tol = 1e-3 * self.dt
+        k0 = max(1, math.ceil((a - tol - self.t0) / self.dt))
+        k1 = math.floor((b + tol - self.t0) / self.dt)
+        j0 = -(-k0 // self.freq)
+        return [j * self.freq for j in range(j0, k1 // self.freq + 1)]
+
+    def coverage(self, a, b, min_samples=MIN_SAMPLES):
+        """(ok, reason): every expected audit step of [a, b] validated"""
+        if not self.freq:
+            return False, 'audit frequency unknown'
+        if not self.exact:
+            return False, 'no constant time step: the expected audit steps are unknown'
+        ks = self.expected(a, b)
+        if ks is None:
+            return False, 'window not finite'
+        if len(ks) < max(1, min_samples):
+            return False, 'audit too sparse for %.4f-%.4f s (%d expected rows)' % (a, b, len(ks))
+        late = [k for k in ks if k > self.K]
+        if late:
+            return False, 'the run has not reached %.4f s' % self.tk(late[0])
+        miss = [k for k in ks if k not in self.rows]
+        if miss:
+            return False, '%d of %d expected audit rows missing or rejected (first at %.4f s: %s)' % (
+                len(miss), len(ks), self.tk(miss[0]), self.rej.get(miss[0], 'not in the log'))
+        return True, ''
+
+    def window(self, a, b, open_end=False):
+        """validated rows with their step time in [a, b] (b excluded with open_end), in step order"""
+        tol = 1e-3 * self.dt if self.exact else 1e-9
+        return [r for r in self.sorted if r['tk'] >= a - tol and (r['tk'] < b - tol if open_end else r['tk'] <= b + tol)]
+
+
+def row_of(rec):
+    def g(key, i=0):
+        v = rec.get(key)
+        return v[i] if v else NAN
+    return dict(t=g('t'), step=g('step'), p_in=g('p_in_out'), p_out=g('p_in_out', 1), a_in=g('area_in_out'),
+                a_out=g('area_in_out', 1), dp=g('dp_hydro_dyn'), dp_h=g('dp_hydro_dyn', 1), dp_dyn=g('dp_hydro_dyn', 2),
+                n=g('n'), wz=g('weight_z_floor_z'), floor=g('weight_z_floor_z', 1), z50=g('z50_95_99_max'),
+                z95=g('z50_95_99_max', 1), z99=g('z50_95_99_max', 2), zmax=g('z50_95_99_max', 3), eps=g('eps_bed'),
+                zlo=g('window'), zhi=g('window', 1), gw=g('gradz_win'), fbal=g('floor_bal_z'),
+                has_fbal='floor_bal_z' in rec, ekern=g('eps_kern_slip_win'), skern=g('eps_kern_slip_win', 1),
+                margin=g('win_margin') if 'win_margin' in rec else None, gw_dyn=g('gradz_win_dyn'),
+                has_gw_dyn='gradz_win_dyn' in rec)
+
+
+# ===================================================================================================
+# the evaluation (shared with fl11_movie.py)
+# ===================================================================================================
+def setup_of(log, deck):
+    """mapping support, drag model, fluid gravity, extents"""
+    s = dict(fluid_gravity=None, zmin=None, zmax=None, extents_prec=(0.0, 0.0))
+    w = log.echo.get('width')
+    if w is not None:
+        try:
+            s['width'], s['width_src'] = num(w), 'log echo'
+        except ValueError:
+            s['width'], s['width_src'] = NAN, 'log echo (unreadable)'
+    else:
+        v, st = read_deck_num(deck, 'ELKernelWidthFactor')
+        if st == 'deck':
+            s['width'], s['width_src'] = v, 'deck'
+        elif st == 'unreadable':
+            s['width'], s['width_src'] = NAN, 'deck (value unreadable)'
+        else:
+            s['width'], s['width_src'] = 2.5, 'EL_CONFIG default (key absent from echo and deck)'
+    dm = log.echo.get('drag')
+    if dm is not None:
+        s['drag'], s['drag_src'] = dm.lower(), 'log echo'
+    elif 'ELDragModel' in deck:
+        s['drag'], s['drag_src'] = deck['ELDragModel'].strip('"\'').lower(), 'deck'
+    else:
+        s['drag'], s['drag_src'] = None, 'unknown'
+    fg = log.echo.get('fluid_gravity')
+    if fg in ('T', 'F'):
+        s['fluid_gravity'] = (fg == 'T')
+    ex = log.echo.get('extents')
+    if ex is not None:
+        try:
+            v = [num(x) for x in ex.split()]
+            if len(v) == 6 and finite(v[4]) and finite(v[5]) and v[5] > v[4]:
+                s['zmin'], s['zmax'] = v[4], v[5]
+                s['extents_prec'] = (es_prec(v[4]), es_prec(v[5]))
+        except ValueError:
+            pass
+    return s
+
+
+def evaluate(rundir=None, d=0.87e-3, steps_path=None, lines=None, deck_text=None, last_complete=True, name=None,
+             flag=0.02):
+    """read (A), protocol (B), clock (C), per step (D); the verdicts (E) are report()"""
+    if lines is None:
+        with open(os.path.join(rundir, 'run_slurm.log'), errors='replace', newline='') as fh:
+            text = fh.read()
+        last_complete = text.endswith('\n')
+        lines = text.split('\n')
+        if lines and lines[-1] == '':
+            lines.pop()
+    if deck_text is None:
+        p = os.path.join(rundir, '_data', 'q2p1_param.dat') if rundir else ''
+        deck_text = open(p, errors='replace').read() if p and os.path.exists(p) else ''
+    log = Log(lines, last_complete)
+    deck = read_deck(deck_text)
+    clock = Clock(log, deck)
+    setup = setup_of(log, deck)
+    ev = dict(name=name or os.path.basename(os.path.abspath(rundir)), log=log, deck=deck, clock=clock, setup=setup,
+              d=d, r=d / 2, flag=flag, steps_path=steps_path, listed=None, listed_errors=[], listed_findings=[],
+              listed_ok=None, protocol_errors=[])
+    zmin = setup['zmin'] if setup['zmin'] is not None else NAN
+    for r in clock.sorted:
+        fb = log.budget.get(r['step'])
+        r['dp_force'] = div(fb['drag'][2] + fb['pressure'][2], r['a_in']) if fb else NAN
+        r['H'] = r['z99'] + ev['r'] - zmin
+        if not r['has_fbal']:
+            pr = log.pairs.get(r['step'])
+            r['fbal'] = (pr['dp'][2] - pr['expected'][2]) / clock.dt if pr and finite(pos(clock.dt)) else NAN
+    table = log.table
+    declared = log.echo.get('table_rows')
+    if table:
+        if declared is not None and int(declared) != len(table):
+            ev['protocol_errors'].append('table echo incomplete: %d of %s rows readable' % (len(table), declared))
+        if any(not q[0] > p[0] for p, q in zip(table, table[1:])) or not all(finite(t) and finite(u) for t, u in table):
+            ev['protocol_errors'].append('table echo not strictly increasing and finite')
+        if declared is None and any(b[1] == 'EL_INLET_TABLE' for b in log.malformed):
+            ev['protocol_errors'].append('a table echo row is malformed')
+    if steps_path:
+        ev['listed'], ev['listed_errors'] = read_steps(steps_path)
+    if table:
+        ev['source'] = 'echo'
+        ev['holds'] = holds_of(table, clock.t0, clock.end)
+        ev['protocol'] = steps_of(ev['holds'])
+        if ev['listed'] is not None:
+            ev['listed_ok'], ev['listed_findings'] = compare_steps(ev['listed'], ev['protocol'])
+            if ev['listed_errors']:
+                ev['listed_ok'] = False
+    elif ev['listed'] is not None:
+        ev['source'] = 'steps file'
+        rows = sorted(ev['listed'])
+        errs = list(ev['listed_errors'])
+        for p, q in zip(rows, rows[1:]):
+            if q[0] < p[1] - 1e-9:
+                errs.append('rows %s and %s overlap or repeat' % (_fs(p), _fs(q)))
+        ev['protocol_errors'] += errs
+        ev['holds'] = [dict(u=u, a=t0, b=t1, open=False) for t0, t1, u in rows]
+        ev['protocol'] = [dict(k=i, t0=t0, t1=t1, U=u, hold=ev['holds'][i]) for i, (t0, t1, u) in enumerate(rows)]
+    else:
+        ev['source'] = None
+        ev['holds'], ev['protocol'] = [], []
+    ev['knots'] = table
+    for r in clock.sorted:
+        r['U'] = u_of_t(table, r['t']) if table and finite(r['t']) else NAN
+    ev['steps'] = [eval_step(ev, s) for s in ev['protocol']]
+    last = clock.sorted[-1] if clock.sorted else None
+    ev['area'] = pos(last['a_in']) if last else NAN
+    ev['W'] = pos(-last['wz']) if last else NAN
+    return ev
+
+
+def eval_step(ev, s, hold_check=True):
+    """D: one step; status 'measured' or the reason it is unmeasurable"""
+    clock, flag = ev['clock'], ev['flag']
+    h = s['hold']
+    x = dict(s)
+    x.update(status='measured', why='')
+
+    def fail(why):
+        if x['status'] == 'measured':
+            x['status'], x['why'] = 'unmeasurable', why
+    if h['open'] or not finite(s['t1']):
+        fail('the run has not finished: the end of this hold is unknown')
+        x['t1'] = clock.tk(clock.K) if clock.K > 0 and finite(clock.tk(clock.K)) else h['a']
+    t0, t1 = x['t0'], x['t1']
+    a = t1 - EVAL_LEN
+    if hold_check and a < h['a'] - 1e-9:
+        fail('hold %.4f-%.4f s shorter than the evaluation window %.4f-%.4f s' % (h['a'], h['b'], a, t1))
+    ok, why = clock.coverage(a, t1)
+    if not ok:
+        fail(why)
+    rows = clock.window(a, t1)
+    x['rows'] = rows
+    if rows and not all(finite(r['dp_dyn']) for r in rows):
+        fail('non-finite dp_dyn in the window')
+    W = {-r['wz'] for r in rows}
+    A = {r['a_in'] for r in rows}
+    N = {r['n'] for r in rows}
+    if len(W) > 1 or len(A) > 1 or len(N) > 1:
+        fail('buoyant weight, area or particle count not constant in the window')
+    Wk = pos(next(iter(W))) if len(W) == 1 else NAN
+    Ak = pos(next(iter(A))) if len(A) == 1 else NAN
+    if rows and not (finite(Wk) and finite(Ak)):
+        fail('no positive finite buoyant weight and inlet area in the window')
+    wa = div(Wk, Ak)
+    x['W'], x['A'], x['n'], x['wa'] = Wk, Ak, (next(iter(N)) if len(N) == 1 else NAN), wa
+
+    def st(key, lo, hi, open_end=False):
+        v = [r[key] for r in clock.window(lo, hi, open_end)]
+        if not v:
+            return NAN, NAN
+        m = sum(v) / len(v)
+        return m, math.sqrt(sum((y - m) ** 2 for y in v) / len(v))
+    x['dp'], x['std'] = st('dp_dyn', a, t1)
+    m1, _ = st('dp_dyn', t0 + 0.2, t0 + 0.35, True)
+    m2, _ = st('dp_dyn', t0 + 0.35, t0 + 0.5)
+    x['mf'], _ = st('dp_force', a, t1)
+    x['H'], _ = st('H', a, t1)
+    x['eps'], _ = st('eps', a, t1)
+    fl, _ = st('fbal', a, t1)
+    flpe, _ = st('floor', a, t1)
+    x.update(dps=div(x['dp'], wa), stds=div(x['std'], wa), m1s=div(m1, wa), m2s=div(m2, wa), mfs=div(x['mf'], wa),
+             fl=div(fl, Wk), flpe=div(flpe, Wk), flag=finite(wa) and abs(m1 - m2) > flag * wa)
+    x['measured'] = x['status'] == 'measured'
+    return x
 
 
 def read_steps(path):
@@ -339,20 +716,24 @@ def read_steps(path):
 
 
 def compare_steps(listed, protocol):
-    """a steps file against the protocol, all three columns (time within the print precision %.6g
-    of the steps file, U relative 1e-6) and multiplicity: (exact one-to-one match, findings)"""
+    """a steps file against the protocol, all three columns (time within the %.6g print precision of the
+    steps file, U relative 1e-6) and multiplicity: (exact one-to-one match, findings)"""
+    prot = [(p['t0'], p['t1'], p['U']) for p in protocol]
+
+    def close(a, b, rel):
+        return abs(a - b) <= rel * max(1.0, abs(b))
+
     def same(a, b):
-        return (abs(a[0] - b[0]) <= 1e-5 * max(1.0, abs(b[0])) and abs(a[1] - b[1]) <= 1e-5 * max(1.0, abs(b[1]))
-                and abs(a[2] - b[2]) <= 1e-6 * max(1.0, abs(b[2])))
-    hits = [[i for i, p in enumerate(protocol) if same(s, p)] for s in listed]
-    count = [sum(1 for h in hits if i in h) for i in range(len(protocol))]
+        return close(a[0], b[0], 1e-5) and close(a[1], b[1], 1e-5) and close(a[2], b[2], 1e-6)
+    hits = [[i for i, p in enumerate(prot) if same(s, p)] for s in listed]
+    count = [sum(1 for h in hits if i in h) for i in range(len(prot))]
     findings = []
     for s, h in zip(listed, hits):
         if not h:
-            near = [p for p in protocol if abs(s[1] - p[1]) <= 1e-5 * max(1.0, abs(p[1])) and abs(s[2] - p[2]) <= 1e-6 * max(1.0, abs(p[2]))]
+            near = [p for p in prot if close(s[1], p[1], 1e-5) and close(s[2], p[2], 1e-6)]
             findings.append('listed %s %s' % (_fs(s), 'differs from the plateau %s in the start time' % _fs(near[0])
                                                 if near else 'is no plateau of the protocol'))
-    for p, c in zip(protocol, count):
+    for p, c in zip(prot, count):
         if c == 0:
             findings.append('plateau %s missing from the list' % _fs(p))
         elif c > 1:
@@ -361,72 +742,7 @@ def compare_steps(listed, protocol):
 
 
 def _fs(s):
-    return '(%.4f, %.4f, %.4f)' % s
-
-
-# ---------------------------------------------------------------------------------------------------
-# sampling
-# ---------------------------------------------------------------------------------------------------
-def cadence(rows):
-    """the audit cadence: median spacing of the distinct audit times; nan below two"""
-    ts = sorted({r['t'] for r in rows if finite(r['t'])})
-    d = sorted(b - a for a, b in zip(ts, ts[1:]))
-    return d[len(d) // 2] if d else NAN
-
-
-audit_interval = cadence              # name of round 2
-
-
-def reached(rows, t_end, t_run=NAN):
-    """the run reached t_end (print precision of the time): an audit line at t_end or later, or the time
-    line of the last step of the log (t_run) at t_end or later. Whether the audit SAMPLED the interval
-    up to there is a separate question (sampled())."""
-    if not finite(t_end):
-        return False
-    tol = tol_t(t_end)
-    return (bool(rows) and max(r['t'] for r in rows) >= t_end - tol) or (finite(t_run) and t_run >= t_end - tol)
-
-
-def sampled(rows, t0, t1, cad):
-    """(ok, reason): the audit samples [t0, t1] at its cadence: cadence at most a tenth of the window,
-    the first sample within one cadence of t0 and the last within one cadence of t1, no gap wider than
-    one cadence, n - 1 distinct samples for n cadence intervals (tolerance: print precision of the
-    time)"""
-    if not (finite(cad) and cad > 0):
-        return False, 'no audit cadence'
-    tol = 2 * tol_t(max(abs(t0), abs(t1)))
-    if t1 <= t0 or cad > (t1 - t0) / 10 + tol:
-        return False, 'audit cadence %.6g s wider than a tenth of the window' % cad
-    ts = sorted({r['t'] for r in rows if t0 - tol <= r['t'] <= t1 + tol})
-    if not ts:
-        return False, 'no audit line in the window'
-    if ts[0] - t0 > cad + tol or t1 - ts[-1] > cad + tol:
-        return False, 'window %.4f-%.4f s sampled %.4f-%.4f s only' % (t0, t1, ts[0], ts[-1])
-    gap = max((b - a for a, b in zip(ts, ts[1:])), default=0.0)
-    if gap > cad + tol:
-        return False, 'gap of %.6g s in the window (cadence %.6g s)' % (gap, cad)
-    # n cadence intervals in the window hold at least n - 1 distinct samples (both ends may fall between
-    # two audit lines); repeated time stamps count once
-    need = max(1, int(math.floor((t1 - t0) / cad + 1e-6)) - 1)
-    if len(ts) < need:
-        return False, '%d distinct samples, %d needed' % (len(ts), need)
-    return True, ''
-
-
-def window(rows, t0, t1):
-    tol = tol_t(max(abs(t0), abs(t1)))
-    return [r for r in rows if t0 - tol <= r['t'] <= t1 + tol]
-
-
-def stats(rows, key, t0, t1, open_end=False):
-    """mean, std, count of rows[key] over t0 <= t <= t1 (t < t1 with open_end: disjoint windows)"""
-    eps = 1e-9
-    v = [r[key] for r in rows if t0 - eps <= r['t'] and (r['t'] < t1 - eps if open_end else r['t'] <= t1 + eps)]
-    if not v:
-        return NAN, NAN, 0
-    m = sum(v) / len(v)
-    s = math.sqrt(sum((x - m) ** 2 for x in v) / len(v))
-    return m, s, len(v)
+    return '(%.4f, %.4f, %.4f)' % tuple(s)
 
 
 def linfit(x, y):
@@ -441,247 +757,184 @@ def linfit(x, y):
     return s, my - s * mx
 
 
-# ---------------------------------------------------------------------------------------------------
-# the evaluation shared with fl11_movie.py
-# ---------------------------------------------------------------------------------------------------
-def prepare(rundir, d=0.87e-3, steps_path=None):
-    """everything the step table needs: audit rows with U, H (= z99 + r - zmin), dp_force; area,
-    buoyant weight W, W/A (nan when not positive finite), cadence, setup, the inlet history, the
-    official protocol and how it was obtained ('echo' or 'steps file')"""
-    audit, budget, table = parse(rundir)
-    setup = parse_setup(rundir)
-    ev = dict(audit=audit, budget=budget, table=table, setup=setup, d=d, r=d / 2, steps_path=steps_path,
-              listed=None, listed_errors=[], listed_ok=None, listed_findings=[])
-    if steps_path:
-        ev['listed'], ev['listed_errors'] = read_steps(steps_path)
-    knots, open_hold = inlet_history(table, setup['t_start'], setup['horizon'])
-    ev['knots'], ev['open_hold'] = knots, open_hold
-    if table:
-        ev['source'] = 'echo'
-        ev['protocol'] = protocol_steps(knots)
-        if ev['listed'] is not None:
-            ev['listed_ok'], ev['listed_findings'] = compare_steps(ev['listed'], ev['protocol'])
-            if ev['listed_errors']:
-                ev['listed_ok'] = False
-    elif ev['listed'] is not None and not ev['listed_errors']:
-        ev['source'] = 'steps file'
-        ev['protocol'] = sorted(ev['listed'])
-    else:
-        ev['source'] = None
-        ev['protocol'] = []
-    zmin = setup['zmin'] if setup['zmin'] is not None else NAN
-    area = pos(audit[-1]['a_in']) if audit else NAN    # nan without an inlet plane (no element face at zmin)
-    for row in audit:
-        row['U'] = u_of_t(knots, row['t']) if knots else NAN
-        fb = budget.get(row['step'])
-        row['dp_force'] = div(fb[0] + fb[1], area) if fb else NAN
-        row['dp_drag'] = div(fb[0], area) if fb else NAN
-        row['H'] = row['z99'] + ev['r'] - zmin                  # height of the bed above the inlet plane
-    ev['area'] = area
-    ev['W'] = pos(-audit[-1]['wz']) if audit else NAN       # nan for an empty bed
-    ev['wa'] = div(ev['W'], area)
-    ev['cad'] = cadence(audit)
-    return ev
-
-
-def step_table(ev, steps, flag=0.02):
-    """per step: dp_dyn statistics (dp, std, sub-windows), dp_force, H, eps_bed, floor balance and the
-    two completeness criteria (reached, sampled); guarded ratios dps (dp*), stds, m1s, m2s, mfs, fls"""
-    audit, wa, W, cad = ev['audit'], ev['wa'], ev['W'], ev['cad']
-    res = []
-    for k, (t0, t1, u) in enumerate(steps):
-        lo = min(t1 - 0.3, t0 + 0.2)
-        got = reached(audit, t1, ev['setup']['t_run'])
-        ok, why = sampled(audit, lo, t1, cad) if got else (False, 'the run did not reach %.4f s' % t1)
-        m, s, cnt = stats(audit, 'dp_dyn', t1 - 0.3, t1)
-        m1, _, _ = stats(audit, 'dp_dyn', t0 + 0.2, t0 + 0.35, open_end=True)
-        m2, _, _ = stats(audit, 'dp_dyn', t0 + 0.35, t0 + 0.5)
-        mf, _, _ = stats(audit, 'dp_force', t1 - 0.3, t1)
-        h, _, _ = stats(audit, 'H', t1 - 0.3, t1)
-        e, _, _ = stats(audit, 'eps', t1 - 0.3, t1)
-        fl, _, _ = stats(audit, 'fbal', t1 - 0.3, t1)
-        flpe, _, _ = stats(audit, 'floor', t1 - 0.3, t1)
-        res.append(dict(k=k, t0=t0, t1=t1, U=u, dp=m, std=s, cnt=cnt, eps=e, H=h, fl=div(fl, W), flpe=div(flpe, W),
-                        dps=div(m, wa), stds=div(s, wa), m1s=div(m1, wa), m2s=div(m2, wa), mfs=div(mf, wa),
-                        flag=finite(wa) and abs(m1 - m2) > flag * wa, reached=got,
-                        complete=ok and cnt > 0, why=why))
-    return res
-
-
+# ===================================================================================================
+# E. report and verdicts
+# ===================================================================================================
 def print_step_table(res, title):
     print(f'\n{title}')
     print(' step  U [m/s]  window      dp*      std     sub1    sub2   flag  F/(W/A)  H [mm]  eps_bed  floor/W  dp*+floor  (floor_pe/W)')
     for x in res:
-        print(f" {x['k']:3d}  {x['U']:6.3f}  {x['t1']-0.3:5.2f}-{x['t1']:5.2f}  {x['dps']:7.4f}  {x['stds']:7.4f}  {x['m1s']:6.3f}  {x['m2s']:6.3f}  "
+        print(f" {x['k']:3d}  {x['U']:6.3f}  {x['t1']-EVAL_LEN:5.2f}-{x['t1']:5.2f}  {x['dps']:7.4f}  {x['stds']:7.4f}  {x['m1s']:6.3f}  {x['m2s']:6.3f}  "
               f"{'DIFF' if x['flag'] else '    '}  {x['mfs']:7.4f}  {x['H']*1e3:6.2f}  {x['eps']:7.4f}  {x['fl']:7.4f}  {x['dps'] + x['fl']:8.4f}   ({x['flpe']:.4f})"
-              f"{'' if x['complete'] else '  (incomplete: ' + x['why'] + ')'}")
-    print('  dp* = dp_dyn A / W over 0.2-0.5 s of the step; floor from the particle momentum balance; floor_pe = the pe '
-          'wall-contact impulse (unrelaxed PGS impulse, 1/0.9 of the applied one)')
+              f"{'' if x['measured'] else '  (unmeasurable: ' + x['why'] + ')'}")
+    print('  dp* = dp_dyn A / W over 0.2-0.5 s of the step (W, A of that step); floor from the particle momentum '
+          'balance; floor_pe = the pe wall-contact impulse (unrelaxed PGS impulse, 1/0.9 of the applied one)')
 
 
-# ---------------------------------------------------------------------------------------------------
-# main
-# ---------------------------------------------------------------------------------------------------
-def main(argv=None):
-    ap = argparse.ArgumentParser()
-    ap.add_argument('rundir', nargs='?')
-    ap.add_argument('--steps', default=None)
-    ap.add_argument('--d', type=float, default=0.87e-3)
-    ap.add_argument('--rhop', type=float, default=860.0)
-    ap.add_argument('--rhof', type=float, default=1.0)
-    ap.add_argument('--mu', type=float, default=1.8e-5)
-    ap.add_argument('--g', type=float, default=9.81)
-    ap.add_argument('--lz', type=float, default=None)
-    ap.add_argument('--closure', default='gidaspow', choices=CLOSURES)
-    ap.add_argument('--flag', type=float, default=0.02)
-    ap.add_argument('--series', default=None)
-    ap.add_argument('--self-test', action='store_true')
-    a = ap.parse_args(argv)
-    if a.self_test:
-        return self_test()
-    if not a.rundir:
-        ap.error('RUNDIR is required')
-
-    ev = prepare(a.rundir, a.d, a.steps)
-    audit, setup = ev['audit'], ev['setup']
-    if not audit:
-        sys.exit('no EL_BED_AUDIT lines (SimPar@ELBedAuditFreq not set?)')
-    if ev['source'] is None:
-        sys.exit('no EL_INLET_TABLE echo (SimPar@ELInletVelocityTable not set?) and no valid --steps file'
-                 + (': ' + '; '.join(ev['listed_errors']) if ev['listed_errors'] else ''))
+def report(ev, a):
+    """prints the evaluation, returns the verdicts {gate: PASS | FAIL | unavailable}"""
+    log, clock, setup = ev['log'], ev['clock'], ev['setup']
+    rows = clock.sorted
     label = '' if ev['source'] == 'echo' else FROM_STEPS
-    area, W, wa = ev['area'], ev['W'], ev['wa']
-    vp = math.pi * a.d ** 3 / 6
-    n0 = audit[0]['n']
-    tend = audit[-1]['t']
-    print(f"{os.path.basename(os.path.abspath(a.rundir))}: {len(audit)} audit lines, t {audit[0]['t']:.4f} .. {tend:.4f} s, "
-          f"N {n0}, A {area:.6e} m2, buoyant weight {W:.6e} N, W/A {wa:.3f} Pa, "
-          f"hydrostatic part in dp {audit[-1]['dp_h']:.4f} Pa (subtracted: dp_dyn)")
-    if not finite(wa):
-        print('  W/A unavailable (' + ', '.join(x for x, ok in (('no inlet plane: area_in not positive', finite(area)),
-                                                                ('empty bed: no buoyant weight', finite(W))) if not ok)
-              + '): dp*, F1, F2, F3 unavailable')
+    V = {g: 'unavailable' for g in GATES}
+    for b in log.trailing:
+        print(f"note: unfinished trailing {b[1]} record at line {b[0] + 1} ignored ({b[2]})", file=sys.stderr)
+    if rows:
+        last = rows[-1]
+        print(f"{ev['name']}: {len(rows)} audit lines, t {rows[0]['t']:.4f} .. {last['t']:.4f} s, "
+              f"N {rows[0]['n']}, A {ev['area']:.6e} m2, buoyant weight {ev['W']:.6e} N, W/A {div(ev['W'], ev['area']):.3f} Pa, "
+              f"hydrostatic part in dp {last['dp_h']:.4f} Pa (subtracted: dp_dyn)")
+    else:
+        print(f"{ev['name']}: no validated EL_BED_AUDIT line (SimPar@ELBedAuditFreq not set, or every row rejected)")
+    if log.malformed:
+        ex = '; '.join(f"{t} line {i + 1}: {w}" for i, t, w in log.malformed[:3])
+        print(f"  note: {len(log.malformed)} malformed record(s) ignored ({ex}{' ...' if len(log.malformed) > 3 else ''})")
     if setup['zmin'] is None:
-        print('  column extents not in the log (Global CFD domain extents): bed height, F3 and F5 unavailable')
+        print('  column extents not in the log (Global CFD domain extents): bed height, F3 and F5 height unavailable')
+    ks = clock.expected(clock.t0, clock.tk(clock.K)) if clock.K > 0 else None
+    print(f"clock: dt {clock.dt:.6g} s [{clock.dt_src}], start {clock.t0:.4f} s [{clock.t0_src}], {clock.K} steps completed "
+          f"({'run finished' if clock.finished else 'no finish marker: the run has not finished'}), audit every "
+          f"{clock.freq if clock.freq else '?'} steps [{clock.freq_src}]: {len(ks) if ks is not None else '?'} expected rows, "
+          f"{len(rows)} validated, {len(clock.rejected)} rejected")
+    for n_ in clock.notes:
+        print('  note: ' + n_)
+    if clock.rejected:
+        print('  rejected audit rows: ' + '; '.join(f"step {k}: {w}" for k, w in clock.rejected[:3])
+              + (' ...' if len(clock.rejected) > 3 else ''))
     if a.series:
         with open(a.series, 'w') as fh:
-            fh.write('t,step,U,dp,dp_hydro,dp_dyn,dp_force,dp_drag,floor_z,z50,z95,z99,zmax,eps_bed,n\n')
-            for row in audit:
-                fh.write(','.join(str(row[k]) for k in ('t', 'step', 'U', 'dp', 'dp_h', 'dp_dyn', 'dp_force',
-                                                        'dp_drag', 'floor', 'z50', 'z95', 'z99', 'zmax', 'eps', 'n')) + '\n')
-
-    protocol = ev['protocol']
+            fh.write('t,step,U,dp,dp_hydro,dp_dyn,dp_force,floor_z,z50,z95,z99,zmax,eps_bed,n\n')
+            for r in rows:
+                fh.write(','.join(str(r[k]) for k in ('t', 'step', 'U', 'dp', 'dp_h', 'dp_dyn', 'dp_force', 'floor',
+                                                      'z50', 'z95', 'z99', 'zmax', 'eps', 'n')) + '\n')
     if ev['source'] == 'echo':
-        print(f"\nprotocol: the {len(protocol)} plateaus of the echoed table (each once); horizon "
-              + (f"{setup['horizon']:.4f} s [{setup['horizon_src']}]" if finite(setup['horizon']) else
-                 'unknown (no time line, no deck): the hold of the last table value has no known end'))
+        tend = 'open (no finish marker)' if clock.end is None else f'{clock.end:.4f} s'
+        print(f"protocol: {len(ev['protocol'])} holds of the echoed table (maximal constant-velocity intervals of the "
+              f"solver's U(t)), terminal hold to the end of the run {tend}")
     else:
-        print(f"\nprotocol: {len(protocol)} steps of the steps file {a.steps}{FROM_STEPS}")
-    proto_end = max((p[1] for p in protocol), default=NAN)
-    print(f"protocol end {proto_end:.4f} s, audit to {tend:.4f} s, audit cadence {ev['cad']:.6f} s"
-          + ('' if reached(audit, proto_end, setup['t_run']) else ': the run has not reached the protocol end'))
-    res = step_table(ev, protocol, a.flag)
-    print_step_table(res, 'steps of the protocol' + label)
-
+        print(f"protocol: {len(ev['protocol'])} steps of the steps file {a.steps}{FROM_STEPS}")
+    for e in ev['protocol_errors']:
+        print('  protocol NOT usable: ' + e)
+    print_step_table(ev['steps'], 'steps of the protocol' + label)
     if ev['source'] == 'echo' and ev['listed'] is not None:
         if ev['listed_ok']:
             print(f"steps file {a.steps}: identical to the echoed protocol (all three columns, each plateau once)")
         else:
             print(f"steps file {a.steps}: NOT the echoed protocol: " + '; '.join(ev['listed_errors'] + ev['listed_findings']))
-            print_step_table(step_table(ev, ev['listed'], a.flag),
+            listed = [dict(k=i, t0=t0, t1=t1, U=u, hold=dict(u=u, a=t0, b=t1, open=False))
+                      for i, (t0, t1, u) in enumerate(ev['listed'])]
+            print_step_table([eval_step(ev, s, hold_check=False) for s in listed],
                              'steps-file summary, NOT gated (the gates below use the echoed protocol)')
-
-    gates_f1_f3(a, res, ev, n0, vp, label)
-    gate_f5(a, ev, label)
-
-
-def gates_f1_f3(a, res, ev, n0, vp, label=''):
-    """F1, F3, F4 and F2 (each 'unavailable' with the reason when its inputs are not there)"""
-    audit, setup, wa, area, r = ev['audit'], ev['setup'], ev['wa'], ev['area'], ev['r']
-    use = [x for x in res if x['complete'] and finite(x['dp'])]
-    if not finite(wa):
-        print('\nF1, F2, F3 unavailable: W/A has no positive finite value' + label)
-        return
-    if len(use) < 3:
-        print(f'\nF1, F2, F3 unavailable: {len(use)} complete step(s) with a measured dp, three needed' + label)
-        return
-    # ---- F1 (spec rule of 2026-11-20): mean dp* over all steps with dp* > 0.95 ------------------
-    flu = [x for x in use if x['dp'] > 0.95 * wa]
-    if flu:
-        plateau = sum(x['dp'] for x in flu) / len(flu)
-        print(f"\nF1 plateau: mean dp* over {len(flu)} steps with dp* > 0.95 (U {min(x['U'] for x in flu):.2f} .. "
-              f"{max(x['U'] for x in flu):.2f}): {plateau / wa:.6f}   (gate 1 +- 0.02: {'PASS' if abs(plateau / wa - 1) <= 0.02 else 'FAIL'}){label}; "
-              f"dp* + floor/W over these {sum(x['dp']/wa + x['fl'] for x in flu)/len(flu):.4f}")
+    if ev['protocol_errors']:
+        print(f"\nF1, F2, F3, F5 height unavailable (protocol not usable: {'; '.join(ev['protocol_errors'])}){label}")
     else:
-        plateau = wa
-        print('\nF1 not evaluated: no step with dp* > 0.95; plateau taken as W/A' + label)
-    fixed = [x for x in use if x['dp'] < 0.8 * plateau]
+        V.update(gates_f1_f3(a, ev, label))
+        V['F5 height'] = gate_f5_height(a, ev, label)
+    V['F5 count'] = gate_f5_count(ev, label)
+    print('verdicts: ' + ' | '.join(f"{g} {V[g]}" for g in GATES) + label)
+    return V
+
+
+def gates_f1_f3(a, ev, label):
+    res = ev['steps']
+    V = dict(F1='unavailable', F2='unavailable', F3='unavailable')
+    bad = [x for x in res if not x['measured']]
+    if len(res) < 3:
+        print(f'\nF1, F2, F3 unavailable: {len(res)} protocol step(s), three needed' + label)
+        return V
+    if bad:
+        why = '; '.join(f"step {x['k']} (U {x['U']:.3f}): {x['why']}" for x in bad[:3]) + (' ...' if len(bad) > 3 else '')
+        flu = [x for x in res if x['measured'] and x['dps'] > 0.95]
+        sub = (f"mean dp* over the {len(flu)} measured steps with dp* > 0.95: {mean([x['dps'] for x in flu]):.6f}"
+               if flu else 'no measured step with dp* > 0.95')
+        print(f"\nF1, F2, F3 unavailable ({len(bad)} protocol step(s) unmeasurable, each could belong to the set of a "
+              f"gate: {why}){label}")
+        print(f"   measured, not a verdict: {sub}")
+        return V
+    # ---- F1 (spec rule of 2026-11-20): mean dp* over all steps with dp* > 0.95 ------------------
+    flu = [x for x in res if x['dps'] > 0.95]
+    if flu:
+        plateau = sum(x['dps'] for x in flu) / len(flu)
+        V['F1'] = 'PASS' if abs(plateau - 1) <= 0.02 else 'FAIL'
+        print(f"\nF1 plateau: mean dp* over {len(flu)} steps with dp* > 0.95 (U {min(x['U'] for x in flu):.2f} .. "
+              f"{max(x['U'] for x in flu):.2f}): {plateau:.6f}   (gate 1 +- 0.02: {V['F1']}){label}; "
+              f"dp* + floor/W over these {sum(x['dps'] + x['fl'] for x in flu)/len(flu):.4f}")
+    else:
+        plateau = 1.0
+        print('\nF1 unavailable: no step with dp* > 0.95; plateau taken as W/A for the fixed branch' + label)
+    fixed = [x for x in res if x['dps'] < 0.8 * plateau]
     if len(fixed) < 2:
         print(f'F2, F3 unavailable: {len(fixed)} fixed-branch step(s) (dp* < 0.8 of the plateau), two needed' + label)
-        return
-    efix = sum(x['eps'] for x in fixed) / len(fixed)
-    uc = closure_umf(efix, a.d, a.rhop, a.rhof, a.mu, a.g, a.closure)
-    # whole-bed porosity 1 - N V_p / (A H), H = z99 + r - zmin: the reference porosity of F3 (spec, 2026-11-20)
-    ebed = sum(1 - div(n0 * vp, area * x['H']) for x in fixed) / len(fixed)
-    ub = closure_umf(ebed, a.d, a.rhop, a.rhof, a.mu, a.g, a.closure)
-    # ---- F3 (agreed with the peer): Ergun form dp* = a U + b U^2 through the origin over the fixed steps
+        return V
+    vp = math.pi * a.d ** 3 / 6
+    clo_name = ev['setup']['drag']
+    official = clo_name if clo_name in CLOSURES else None
+    runs = [(official, True)] if official else []
+    if not official:
+        print(f"F2, F3 unavailable: the drag model of the run [{ev['setup']['drag_src']}] is "
+              f"{clo_name if clo_name else 'unknown'}, not one of {', '.join(CLOSURES)}{label}")
+    if a.closure and a.closure != official:
+        runs.append((a.closure, False))
+    for clo, gated in runs:
+        tag = label if gated else f' [comparison with --closure {clo}, not gated; the run used {clo_name}]'
+        if not gated:
+            print(f"\n--- comparison with --closure {clo} (not gated) ---")
+        v3 = f3_block(a, fixed, plateau, clo, vp, tag, gated)
+        v2 = gate_f2(a, ev, fixed, clo, vp, tag, gated)
+        if gated:
+            V['F3'], V['F2'] = v3, v2
+    return V
+
+
+def f3_block(a, fixed, plateau, clo, vp, tag, gated):
+    if not all(finite(x['H']) and finite(pos(x['A'])) and finite(x['n']) for x in fixed):
+        print(f"F3 unavailable: bed height, area or particle count not finite on every fixed step{tag}")
+        return 'unavailable'
+    efix = mean([x['eps'] for x in fixed])
+    uc = closure_umf(efix, a.d, a.rhop, a.rhof, a.mu, a.g, clo)
+    ebed = sum(1 - div(x['n'] * vp, x['A'] * x['H']) for x in fixed) / len(fixed)
+    ub = closure_umf(ebed, a.d, a.rhop, a.rhof, a.mu, a.g, clo)
     su2 = sum(x['U']**2 for x in fixed); su3 = sum(x['U']**3 for x in fixed); su4 = sum(x['U']**4 for x in fixed)
-    sy1 = sum(x['U']*x['dp']/wa for x in fixed); sy2 = sum(x['U']**2*x['dp']/wa for x in fixed)
+    sy1 = sum(x['U']*x['dps'] for x in fixed); sy2 = sum(x['U']**2*x['dps'] for x in fixed)
     det = su2*su4 - su3*su3
     ca = (sy1*su4 - sy2*su3)/det if det != 0 else NAN
     cb = (su2*sy2 - su3*sy1)/det if det != 0 else NAN
 
     def cross(level):
-        # positive root of b U^2 + a U = level; nan when the fit has no positive crossing
+        # smallest positive root of b U^2 + a U = level (the cancellation-free pair of roots q / b and
+        # -level / q); nan when the fit has no positive crossing
         if not (finite(ca) and finite(cb)): return NAN
-        if abs(cb) < 1e-14: return level/ca if ca > 0 else NAN
+        if cb == 0: return level/ca if ca > 0 else NAN
         disc = ca*ca + 4*cb*level
         if disc < 0: return NAN
-        roots = [x for x in ((-ca + math.sqrt(disc))/(2*cb), (-ca - math.sqrt(disc))/(2*cb)) if x > 0]
+        q = -0.5 * (ca + math.copysign(math.sqrt(disc), ca))
+        roots = [x for x in ((q / cb) if q != 0 else NAN, (-level / q) if q != 0 else NAN) if finite(x) and x > 0]
         return min(roots) if roots else NAN
-    u1 = cross(1.0); up = cross(plateau/wa)
+    u1 = cross(1.0); up = cross(plateau)
     r3 = div(u1, ub)
+    v = ('PASS' if abs(r3 - 1) <= 0.05 else 'FAIL') if finite(r3) else 'unavailable'
     print(f"F3 fixed branch {len(fixed)} steps (U {min(x['U'] for x in fixed):.3f} .. {max(x['U'] for x in fixed):.3f}): "
           f"dp* = {ca:.4f} U + {cb:.4f} U^2 (through the origin)")
-    print(f"   U_mf at dp* = 1: {u1:.4f} m/s; {a.closure} U_mf at the whole-bed porosity {ebed:.4f}: {ub:.4f} m/s; "
-          f"ratio {r3:.4f}   (gate 0.05: {('PASS' if abs(r3-1) <= 0.05 else 'FAIL') if finite(r3) else 'unavailable'}){label}")
-    print(f"   reported, not gated: U_mf at the measured plateau {plateau/wa:.4f}: {up:.4f} m/s = {div(up, ub):.4f} of the closure; "
+    print(f"   U_mf at dp* = 1: {u1:.4f} m/s; {clo} U_mf at the whole-bed porosity {ebed:.4f}: {ub:.4f} m/s; "
+          f"ratio {r3:.4f}   (gate 0.05: {v if gated else 'comparison, not gated'}){tag}")
+    print(f"   reported, not gated: U_mf at the measured plateau {plateau:.4f}: {up:.4f} m/s = {div(up, ub):.4f} of the closure; "
           f"at the core porosity {efix:.4f} the closure gives {uc:.4f} m/s: ratios {div(u1, uc):.4f} / {div(up, uc):.4f}")
-    print(f"F4 U_mf / 0.182 (NETL measurement): {u1/0.182:.4f} (dp* = 1) / {up/0.182:.4f} (plateau) (reported, not gated)")
-    # ---- secondary (rules before 2026-11-20): F1 over U > 1.2 U_mf of the linear fit, linear-fit U_mf
-    pl2 = wa
-    umf2 = NAN
-    fl2 = []
-    for _ in range(3):
-        fx2 = [x for x in use if x['dp'] < 0.8 * pl2]
-        if len(fx2) >= 2:
-            s2, i2 = linfit([x['U'] for x in fx2], [x['dp'] for x in fx2])
-            umf2 = (pl2 - i2) / s2 if finite(s2) and s2 else NAN
-        fl2 = [x for x in use if (not math.isnan(umf2)) and x['U'] > 1.2 * umf2] or \
-              [x for x in use if x['dp'] >= 0.8 * pl2]
-        if fl2:
-            pl2 = sum(x['dp'] for x in fl2) / len(fl2)
-    s, i = linfit([x['U'] for x in fixed], [x['dp'] for x in fixed])
-    print(f"   secondary: F1 over the {len(fl2)} steps with U > 1.2 U_mf(linear) {pl2/wa:.4f}; linear fit slope {s:.1f} Pa s/m "
-          f"(intercept {i:.2f} Pa), U_mf(linear) {umf2:.4f} m/s = {div(umf2, uc):.4f} of the closure")
-    gate_f2(a, fixed, ev, n0, vp, label)
+    if gated:
+        print(f"F4 U_mf / 0.182 (NETL measurement): {u1/0.182:.4f} (dp* = 1) / {up/0.182:.4f} (plateau) (reported, not gated)")
+        s, i = linfit([x['U'] for x in fixed], [x['dp'] for x in fixed])
+        print(f"   secondary (rule before 2026-11-20): linear fit of the fixed branch, slope {s:.1f} Pa s/m (intercept {i:.2f} Pa)")
+    return v if gated else 'unavailable'
 
 
 def valid_eps(e):
-    """a mapped porosity the closure can be evaluated at: finite and 0 < eps < 1 (the -1 sentinel of
-    old binaries and an unclipped 1 are not)"""
+    """a mapped porosity the closure can be evaluated at: finite and 0 < eps < 1"""
     return finite(e) and 0 < e < 1
 
 
-def gate_f2(a, fixed, ev, n0, vp, label=''):
-    """F2 in readings: (k) the dynamic window gradient of the audit against the closure at the mapped
-    gas fraction (the gate), (w) the same gradient at the geometric window porosity, (e) dp_dyn / H_eq
-    with H_eq the height of a uniform bed at eps_bed, (h) dp_dyn / H with H = z99 + r - zmin against the
-    closure at the mean porosity of that height (end layers included)"""
-    audit, setup, area, r = ev['audit'], ev['setup'], ev['area'], ev['r']
+def gate_f2(a, ev, fixed, clo, vp, tag, gated):
+    setup, r = ev['setup'], ev['r']
     reasons = []
-    # -- which gradient: the dynamic one, or the total one where the hydrostatic part is zero
-    rows_all = [row for x in fixed for row in window(audit, x['t1'] - 0.3, x['t1'])]
+    rows_all = [row for x in fixed for row in x['rows']]
     if rows_all and all(row['has_gw_dyn'] for row in rows_all):
         gkey, gtext = 'gw_dyn', 'gradz_win_dyn (dynamic window gradient)'
     elif rows_all and all(row['dp_h'] == 0.0 for row in rows_all):
@@ -692,13 +945,27 @@ def gate_f2(a, fixed, ev, n0, vp, label=''):
     else:
         gkey, gtext = 'gw', 'gradz_win (total gradient)'
         reasons.append('no dynamic window gradient (gradz_win_dyn absent) and a nonzero hydrostatic part (dp_hydro)')
-    # -- the window margins: a finite lower, upper and reported-or-legacy margin on every contributing line
-    required = max(2 * a.d, setup['width'] * a.d)
-    tol = max(1e-6 * required, TOL_Z)
-    zmin = setup['zmin']
-    lows = [row['zlo'] - zmin if zmin is not None else NAN for row in rows_all]
-    highs = [row['z99'] + r - row['zhi'] for row in rows_all]
-    fields = [row['margin'] if row['margin'] is not None else 2 * a.d for row in rows_all]   # before 627caf47: 2 d
+    width, zmin = setup['width'], setup['zmin']
+    if not finite(pos(width)):
+        required = NAN
+        reasons.append(f"mapping support not known as a positive finite number (kernel width factor {width} "
+                       f"[{setup['width_src']}])")
+    else:
+        required = max(2 * a.d, width * a.d)
+    lows, highs, fields, short, undecided = [], [], [], 0, 0
+    for row in rows_all:
+        lo = row['zlo'] - zmin if zmin is not None else NAN
+        hi = row['z99'] + r - row['zhi']
+        fm = row['margin'] if row['margin'] is not None else 2 * a.d
+        lows.append(lo); highs.append(hi); fields.append(fm)
+        if not (all(finite(x) for x in (lo, hi, fm)) and finite(required)):
+            continue
+        for m, tol in ((lo, es_prec(row['zlo']) + setup['extents_prec'][0]),
+                       (hi, es_prec(row['z99']) + es_prec(row['zhi'])), (fm, es_prec(fm))):
+            if tol > 0.05 * required:
+                undecided += 1
+            elif m < required - tol:
+                short += 1
     if zmin is None:
         margin_ok = False
         reasons.append('missing geometry: no inlet-plane elevation in the log (Global CFD domain extents), '
@@ -706,18 +973,22 @@ def gate_f2(a, fixed, ev, n0, vp, label=''):
     elif not rows_all or not all(finite(x) for x in lows + highs + fields):
         margin_ok = False
         reasons.append('window bounds not finite on every contributing audit line')
+    elif not finite(required):
+        margin_ok = False
+    elif undecided:
+        margin_ok = False
+        reasons.append('window margin undecidable: the coordinates are printed too coarsely for the margin')
     else:
-        margin_ok = min(lows + highs + fields) >= required - tol
-        if not margin_ok:
+        margin_ok = not short
+        if short:
             reasons.append('window inside the mapping support')
     fin = [x for x in lows + highs + fields if finite(x)]
     print(f" F2: gradient {gtext}")
     print(f"     audit window margin over {len(rows_all)} lines: min {div(min(fin), a.d) if fin else NAN:.3f} d "
           f"(lower end - inlet plane min {_fmin(lows)/a.d:.3f} d, z99 + r - upper end min {_fmin(highs)/a.d:.3f} d, "
           f"{'win_margin field' if all(row['margin'] is not None for row in rows_all) else 'margin 2 d (binary before 627caf47)'} "
-          f"min {_fmin(fields)/a.d:.3f} d); required max(2 d, mapping support {setup['width']:g} d "
-          f"[{setup['width_src']}]) = {required/a.d:.3f} d: {'met' if margin_ok else 'NOT met'}")
-    # -- the mapped samples, each validated before the mean
+          f"min {_fmin(fields)/a.d:.3f} d); required max(2 d, mapping support {width:g} d "
+          f"[{setup['width_src']}]) = {div(required, a.d):.3f} d: {'met' if margin_ok else 'NOT met'}")
     bad_e = [row for row in rows_all if not valid_eps(row['ekern'])]
     bad_g = [row for row in rows_all if not finite(row[gkey])]
     if bad_e:
@@ -726,121 +997,210 @@ def gate_f2(a, fixed, ev, n0, vp, label=''):
     if bad_g:
         reasons.append(f'{len(bad_g)} window-gradient sample(s) not finite')
     print(' F2: step  U      eps_bed  window-grad  closure(eps_bed)  ratio_w | eps_kern ratio_k | dp/H_eq  ratio_e | eps_H   dp/H   closure(eps_H)  ratio_h')
-    for x in fixed:
-        x['g'], _, _ = stats(audit, gkey, x['t1'] - 0.3, x['t1'])
-        x['ek'], _, _ = stats(audit, 'ekern', x['t1'] - 0.3, x['t1'])
     rks, rws, undefined = [], [], []
     for x in fixed:
-        heq = div(n0 * vp, area * (1 - x['eps']))
-        clo = closure_grad(x['U'], x['eps'], a.d, a.rhof, a.mu, a.closure)
-        eh = 1 - div(n0 * vp, area * x['H'])
-        cloh = closure_grad(x['U'], eh, a.d, a.rhof, a.mu, a.closure)
-        clok = closure_grad(x['U'], x['ek'], a.d, a.rhof, a.mu, a.closure) if valid_eps(x['ek']) else NAN
-        rw = div(x['g'], clo)
-        rk = div(x['g'], clok)
-        re_ = div(div(x['dp'], heq), clo)
-        rh = div(div(x['dp'], x['H']), cloh)
+        g = mean([row[gkey] for row in x['rows']])
+        ek = mean([row['ekern'] for row in x['rows']])
+        heq = div(x['n'] * vp, x['A'] * (1 - x['eps']))
+        clo_b = closure_grad(x['U'], x['eps'], a.d, a.rhof, a.mu, clo)
+        eh = 1 - div(x['n'] * vp, x['A'] * x['H'])
+        cloh = closure_grad(x['U'], eh, a.d, a.rhof, a.mu, clo)
+        clok = closure_grad(x['U'], ek, a.d, a.rhof, a.mu, clo) if valid_eps(ek) else NAN
+        rw, rk = div(g, clo_b), div(g, clok)
+        re_, rh = div(div(x['dp'], heq), clo_b), div(div(x['dp'], x['H']), cloh)
         if not (finite(pos(clok)) and finite(rk)):
             undefined.append(f"step {x['k']} (U {x['U']:.3f}): closure {clok:.4g}, ratio {rk:.4g}")
-        rks.append(rk)
-        rws.append(rw)
-        print(f"     {x['k']:3d}  {x['U']:.3f}  {x['eps']:.4f}  {x['g']:10.1f}  {clo:10.1f}  {rw:12.4f} | {x['ek']:.4f} {rk:7.4f} | {div(x['dp'], heq):8.1f} {re_:7.4f} | "
+        rks.append(rk); rws.append(rw)
+        print(f"     {x['k']:3d}  {x['U']:.3f}  {x['eps']:.4f}  {g:10.1f}  {clo_b:10.1f}  {rw:12.4f} | {ek:.4f} {rk:7.4f} | {div(x['dp'], heq):8.1f} {re_:7.4f} | "
               f"{eh:.4f} {div(x['dp'], x['H']):8.1f} {cloh:10.1f}  {rh:9.4f}")
     if undefined:
         reasons.append('no positive closure and finite ratio_k on every fixed step: ' + '; '.join(undefined))
     worst_k = max(abs(x - 1) for x in rks) if all(finite(x) for x in rks) else NAN
     worst_w = max(abs(x - 1) for x in rws) if all(finite(x) for x in rws) else NAN
-    if not reasons:
+    if not reasons and gated:
+        v = 'PASS' if worst_k <= 0.05 else 'FAIL'
         print(f"F2 worst |ratio_k - 1| (window gradient against the closure at the mapped gas fraction) {worst_k:.4f}   "
-              f"(gate 0.05: {'PASS' if worst_k <= 0.05 else 'FAIL'}){label}")
+              f"(gate 0.05: {v}){tag}")
     else:
+        v = 'unavailable'
         print(f"F2 measured, not gated: worst |ratio_k - 1| {worst_k:.4f}")
-        print(f"F2 verdict unavailable ({'; '.join(reasons)}){label}")
+        if reasons:
+            print(f"F2 verdict unavailable ({'; '.join(reasons)}){tag}")
     if finite(worst_w):
         print(f"   reported, not gated: worst |ratio_w - 1| at the geometric window porosity (rule before 2026-11-20) {worst_w:.4f}")
+    return v
 
 
-def _fmin(v):
-    v = [x for x in v if finite(x)]
-    return min(v) if v else NAN
-
-
-def gate_f5(a, ev, label=''):
-    """F5: (a) the particle count over the whole run, (b) the containment on the lowest plateau of the
-    protocol; independent of the other gates"""
-    audit, setup, cad = ev['audit'], ev['setup'], ev['cad']
-    nset = sorted({row['n'] for row in audit})
-    # (a) count coverage over the run: from its start to the horizon at the audit cadence
-    t_a, t_b = setup['t_start'], setup['horizon']
-    if not (finite(t_a) and finite(t_b)):
-        count_ok, count_txt = False, 'start / end of the run unknown (no time line, no deck)'
+def gate_f5_count(ev, label):
+    clock = ev['clock']
+    ns = sorted({r['n'] for r in clock.sorted})
+    if len(ns) > 1:
+        print(f"F5 count: particle counts {ns} among the validated audit rows: FAIL{label}")
+        return 'FAIL'
+    if not clock.finished:
+        why = 'the run has not finished (no finish marker)'
+    elif not clock.sorted:
+        why = 'no validated audit row'
+    elif ns == [0]:
+        why = 'no particle'
     else:
-        ok, why = sampled(audit, t_a, t_b, cad) if reached(audit, t_b, setup['t_run']) else (False, f'the run did not reach {t_b:.4f} s')
-        count_ok = ok and len(nset) == 1 and nset[0] > 0
-        count_txt = (f"counts seen {nset} on {len(audit)} audit lines, run {t_a:.4f}-{t_b:.4f} s "
-                     + ('covered' if ok else f'NOT covered ({why})'))
-    print(f"F5 (a) particle count over the run: {count_txt}")
-    # (b) the lowest plateau
-    if ev['source'] == 'echo':
-        low = lowest_plateau(ev['knots'])
-        u_last = ev['knots'][-1][1] if ev['knots'] else NAN
-        if ev['open_hold'] and (low is None or u_last <= low[0]):
-            # the last value is held from the last row on, for as long as the run lasted: a plateau of
-            # unknown end that is (or may be) the lowest one
-            print(f"F5 withheld: the lowest velocity {u_last:.3f} m/s is the hold of the last table value, whose end "
-                  f"is unknown (no evaluation horizon in the log or the deck){label}")
-            return
-        trans_txt = 'transition'
-    else:
-        lo = min(ev['protocol'], key=lambda s: s[2]) if ev['protocol'] else None
-        low = (lo[2], [(lo[0], lo[1])], []) if lo else None
-        trans_txt = None
-    if low is None:
-        print(f"F5 not evaluated: the protocol holds no velocity plateau{label}")
-        return
-    u, held, trans = low
-    span = ', '.join(f'{ta:.3f}-{tb:.3f} s' for ta, tb in held)
-    cover = [(sampled(audit, ta, tb, cad) if reached(audit, tb, setup['t_run']) else (False, f'the run did not reach {tb:.4f} s'))
-             for ta, tb in held]
-    if not all(c[0] for c in cover):
-        have = window(audit, held[0][0], held[-1][1])
-        print(f"F5 not evaluated: the audit does not cover the plateau of the lowest protocol velocity {u:.3f} m/s "
-              f"({span}; {len(have)} audit lines in it: {'; '.join(c[1] for c in cover if not c[0])}){label}")
-        return
+        ok, why = clock.coverage(clock.t0, clock.tk(clock.K), min_samples=1)
+        if ok:
+            print(f"F5 count: counts seen {ns} on {len(clock.sorted)} audit lines, run {clock.t0:.4f}-{clock.tk(clock.K):.4f} s "
+                  f"covered: PASS{label}")
+            return 'PASS'
+    print(f"F5 count: counts seen {ns}; count over the run not established ({why}): unavailable{label}")
+    return 'unavailable'
+
+
+def gate_f5_height(a, ev, label):
+    clock, setup, holds = ev['clock'], ev['setup'], ev['holds']
+    if not holds:
+        print(f"F5 height unavailable: the protocol holds no velocity plateau{label}")
+        return 'unavailable'
+    u = min(h['u'] for h in holds)
+    low = [h for h in holds if h['u'] == u]
+    span = ', '.join(f"{h['a']:.3f}-{h['b']:.3f} s" if not h['open'] else f"{h['a']:.3f} s - open" for h in low)
+    reasons, rows = [], []
+    for h in low:
+        b = h['b'] if not h['open'] else clock.tk(clock.K)
+        if finite(b):
+            rows += clock.window(h['a'], b)
+        if h['open']:
+            reasons.append('the lowest hold is the terminal hold of a run that has not finished')
+        else:
+            ok, why = clock.coverage(h['a'], h['b'])
+            if not ok:
+                reasons.append(why)
     if setup['zmin'] is None or setup['zmax'] is None:
-        print(f"F5 unavailable: no column extents in the log (Global CFD domain extents): mid-column unknown{label}")
-        return
+        print(f"F5 height unavailable: no column extents in the log (Global CFD domain extents): mid-column unknown{label}")
+        return 'unavailable'
     zmin, lz = setup['zmin'], setup['zmax'] - setup['zmin']
     if a.lz is not None and abs(a.lz - lz) > 1e-9 * max(1.0, lz):
         print(f"   note: --lz {a.lz:g} differs from the column height {lz:g} m of the echoed extents (the extents are used)")
     mid = zmin + lz / 2
-    rows = [row for ta, tb in held for row in window(audit, ta, tb)]
-    zs = [row['zmax'] for row in rows]
-    if not all(finite(z) for z in zs) or nset == [0]:
-        print(f"F5 unavailable: no particle centre height on every audit line of the lowest plateau (particle counts {nset}){label}")
-        return
-    zm = max(zs)
-    ok = count_ok and zm < mid
-    verdict = 'PASS' if ok else ('FAIL' if zm >= mid or (len(nset) > 1) else 'unavailable (count over the run not established)')
-    print(f"F5 (b) highest centre during the plateau of the lowest velocity {u:.3f} m/s ({span}, {len(rows)} audit lines): "
-          f"{(zm - zmin)*1e3:.2f} mm above the inlet plane (mid-column {lz*500:.1f} mm)")
-    print(f"F5 particle counts seen {nset}; containment {'met' if zm < mid else 'NOT met'}: {verdict}{label}")
-    if trans_txt and trans:
-        rows_t = [row for ta, tb in trans for row in window(audit, ta, tb)]
-        zt = max((row['zmax'] for row in rows_t if finite(row['zmax'])), default=NAN)
-        print(f"   stricter, reported: including the {1e3*sum(tb - ta for ta, tb in trans):.0f} ms transition into it "
-              f"({', '.join(f'{ta:.3f}-{tb:.3f} s' for ta, tb in trans)}): highest centre {(max(zm, zt) - zmin)*1e3:.2f} mm")
+    pmid = 0.5 * (setup['extents_prec'][0] + setup['extents_prec'][1])
+    zs = [r['zmax'] for r in rows]
+    fin = [z for z in zs if finite(z)]
+    if len(fin) < len(zs):
+        reasons.append(f'{len(zs) - len(fin)} audit line(s) without a centre height')
+    above = [z for z in fin if z > mid + pmid + es_prec(z)]
+    zm = max(fin) if fin else NAN
+    if fin:
+        print(f"F5 (b) highest centre during the plateau of the lowest velocity {u:.3f} m/s ({span}, {len(rows)} audit lines): "
+              f"{(zm - zmin)*1e3:.2f} mm above the inlet plane (mid-column {lz*500:.1f} mm)")
+    if above:
+        v = 'FAIL'
+        print(f"F5 height: a centre above mid-column observed: FAIL{label}")
+    elif reasons or not fin:
+        v = 'unavailable'
+        print(f"F5 height unavailable ({'; '.join(reasons) if reasons else 'no observation'}){label}")
+    else:
+        v = 'PASS'
+        print(f"F5 height: no centre above mid-column (a centre at mid-height is not above): PASS{label}")
+    if ev['source'] == 'echo' and fin:
+        trans = []
+        for h in low:
+            prev = [g for g in holds if g['b'] <= h['a'] + 1e-9]
+            if prev and prev[-1]['b'] < h['a']:
+                trans.append((prev[-1]['b'], h['a']))
+        if trans:
+            zt = _fmax([r['zmax'] for ta, tb in trans for r in clock.window(ta, tb)])
+            print(f"   stricter, reported: including the {1e3*sum(tb - ta for ta, tb in trans):.0f} ms transition into it "
+                  f"({', '.join(f'{ta:.3f}-{tb:.3f} s' for ta, tb in trans)}): highest centre "
+                  f"{(_fmax([zm, zt]) - zmin)*1e3:.2f} mm")
+    return v
 
 
-# ---------------------------------------------------------------------------------------------------
+# ===================================================================================================
+# command line
+# ===================================================================================================
+def positive(name):
+    def conv(s):
+        try:
+            v = float(s)
+        except ValueError:
+            raise argparse.ArgumentTypeError(f'{name} must be a number, got {s!r}')
+        if not (math.isfinite(v) and v > 0):
+            raise argparse.ArgumentTypeError(f'{name} must be finite and positive, got {s!r}')
+        return v
+    return conv
+
+
+def nonneg(name):
+    def conv(s):
+        try:
+            v = float(s)
+        except ValueError:
+            raise argparse.ArgumentTypeError(f'{name} must be a number, got {s!r}')
+        if not (math.isfinite(v) and v >= 0):
+            raise argparse.ArgumentTypeError(f'{name} must be finite and not negative, got {s!r}')
+        return v
+    return conv
+
+
+def parser():
+    ap = argparse.ArgumentParser(description='case 11 evaluation of a q2p1_el_pipeflow run')
+    ap.add_argument('rundir', nargs='?')
+    ap.add_argument('--steps', default=None)
+    ap.add_argument('--d', type=positive('--d'), default=0.87e-3)
+    ap.add_argument('--rhop', type=positive('--rhop'), default=860.0)
+    ap.add_argument('--rhof', type=positive('--rhof'), default=1.0)
+    ap.add_argument('--mu', type=positive('--mu'), default=1.8e-5)
+    ap.add_argument('--g', type=positive('--g'), default=9.81)
+    ap.add_argument('--lz', type=positive('--lz'), default=None)
+    ap.add_argument('--closure', default=None, choices=CLOSURES)
+    ap.add_argument('--flag', type=nonneg('--flag'), default=0.02)
+    ap.add_argument('--series', default=None)
+    ap.add_argument('--self-test', action='store_true')
+    ap.add_argument('--self-test-real', default=None, metavar='RUNDIR')
+    ap.add_argument('--variants', type=int, default=300)
+    ap.add_argument('--seed', type=int, default=20261122)
+    return ap
+
+
+def main(argv=None):
+    ap = parser()
+    a = ap.parse_args(argv)
+    if a.self_test:
+        return self_test()
+    if a.self_test_real:
+        return self_test_real(a.self_test_real, a.variants, a.seed)
+    if not a.rundir:
+        ap.error('RUNDIR is required')
+    ev = evaluate(a.rundir, a.d, a.steps, flag=a.flag)
+    if ev['source'] is None:
+        sys.exit('no EL_INLET_TABLE echo (SimPar@ELInletVelocityTable not set?) and no --steps file'
+                 + (': ' + '; '.join(ev['listed_errors']) if ev['listed_errors'] else ''))
+    report(ev, a)
+    return 0
+
+
+def run_lines(lines, deck_text, argv=(), last_complete=True, name='run'):
+    """the report of an in-memory log (the metamorphic tests): (stdout, verdicts)"""
+    a = parser().parse_args(list(argv) + ['x'])
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+        ev = evaluate(None, a.d, a.steps, lines=lines, deck_text=deck_text, last_complete=last_complete, name=name,
+                      flag=a.flag)
+        V = report(ev, a) if ev['source'] else {g: 'unavailable' for g in GATES}
+    return out.getvalue(), V
+
+
+# ===================================================================================================
 # self-test: synthetic logs
-# ---------------------------------------------------------------------------------------------------
+# ===================================================================================================
 def _e(x, w=14, p=6):
     return ('%*s' % (w, 'NaN')) if x != x else '%*.*E' % (w, p, x)
 
 
+def _d(x):
+    return ('%12.4E' % x).replace('E', 'D')
+
+
 PROTO = [(0.5, 0.30), (1.0, 0.20), (1.5, 0.10), (2.0, 0.05)]          # (start of step, U); end 2.5 s
 FULL_STEPS = [(0.5, 1.0, 0.30), (1.0, 1.5, 0.20), (1.5, 2.0, 0.10), (2.0, 2.5, 0.05)]
+DT = 2.5e-4
 
 
 def _dps(u):
@@ -848,195 +1208,316 @@ def _dps(u):
     return min(1.0, u / 0.18) * ((1.0 - 0.1 * (u - 0.2)) if u > 0.18 else 1.0)
 
 
-def _write_run(path, protocol=PROTO, cad=0.01, times=None, t_from=None, t_end=None, area=2.25e-4, n=9789,
-               width=2.5, margin_d=2.5, zlo_d=None, dyn=True, dp_hydro=0.0, d=0.87e-3, steps_file=None,
-               ekern=0.37, ekern_fn=None, extents=True, z0=0.0, drop_last_knot=False, horizon='log',
-               zmax_fn=None, legacy=False, tstep=0.5, t_run=None, planned=None):
-    """a synthetic run directory: start-up echo, table echo, the time line of the first step (or the
-    deck), EL_BED_AUDIT and EL_FORCE_BUDGET lines. Heights above the inlet plane z0: bed top 24 mm
-    (zmax_fn(t) for the highest centre), mapped porosity ekern (or ekern_fn(t)); legacy = a binary before
-    c8541cfc (no floor_bal_z, eps_kern, win_margin, gradz_win_dyn)."""
-    os.makedirs(os.path.join(path, '_data'), exist_ok=True)
-    rhop, rhof, g, dt_sim = 860.0, 1.0, 9.81, 2.5e-4
-    vp = math.pi * d ** 3 / 6
-    W = n * (rhop - rhof) * vp * g
+def _table(protocol, tstep=0.5):
     tab = [(0.0, protocol[0][1])]
     for (t, u) in protocol[1:]:
         tab += [(t, tab[-1][1]), (t + 0.02, u)]
     t_proto = protocol[-1][0] + tstep
     tab.append((t_proto, tab[-1][1]))
-    if drop_last_knot:
-        tab = tab[:-1]
+    return tab, t_proto
+
+
+def _write_run(path, protocol=PROTO, cad=0.01, t_end=None, area=2.25e-4, n=9789, width=2.5, margin_d=2.5, zlo_d=None,
+               dyn=True, dp_hydro=0.0, d=0.87e-3, steps_file=None, ekern=0.37, ekern_fn=None, extents=True, z0=0.0,
+               table=None, echo_table=True, zmax_fn=None, legacy=False, finished=True, time_lines=True, deck=None,
+               drag='gidaspow', width_echo=True, mutate=None, tmax=None, n_fn=None, grad_fn=None, last_complete=True):
+    """a synthetic run directory: start-up echo, table echo, time lines, EL_FORCE_BUDGET and EL_BED_AUDIT lines.
+    Heights above the inlet plane z0: bed top 24 mm (zmax_fn(t): highest centre), mapped porosity ekern;
+    legacy = a binary before c8541cfc (no floor_bal_z, eps_kern, win_margin, gradz_win_dyn); mutate(lines)
+    edits the lines before they are written"""
+    os.makedirs(os.path.join(path, '_data'), exist_ok=True)
+    rhop, rhof, g = 860.0, 1.0, 9.81
+    vp = math.pi * d ** 3 / 6
+    tab, t_proto = _table(protocol)
+    if table is not None:
+        tab = table
     t_end = t_proto if t_end is None else t_end
-    t_run = t_end if t_run is None else t_run
-    lines = ['EL kernel                 = deen_poly', 'EL kernel width factor    = ' + _e(width),
-             'EL fluid gravity          = ' + ('T' if dp_hydro else 'F')]
-    lines += ['  EL_INLET_TABLE %s %s' % (_e(t, 16, 8), _e(u, 16, 8)) for t, u in tab]
+    freq = int(round(cad / DT))
+    nsteps = int(round(t_end / DT))
+    lines = ['EL kernel                 = deen_poly']
+    if width_echo:
+        lines.append('EL kernel width factor    = ' + (_e(width) if not isinstance(width, str) else width))
+    if drag:
+        lines.append('EL drag model             = ' + drag)
+    lines.append('EL fluid gravity          = ' + ('T' if dp_hydro else 'F'))
+    if echo_table:
+        lines.append('EL inlet velocity table   = _data/inlet_table.txt (%d rows t / U; linear, constant beyond the ends)' % len(tab))
+        lines += ['  EL_INLET_TABLE %s %s' % (_e(t, 16, 8), _e(u, 16, 8)) for t, u in tab]
+    lines.append('EL bed audit freq         = %d' % freq)
     if extents:
-        lines += ['Global CFD domain extents: ' + ' '.join(_e(x) for x in (0.0, 0.015, 0.0, 0.015, z0, z0 + 0.1))]
-    nplan = int(round((t_proto if planned is None else planned) / dt_sim))
-    if horizon == 'log':
-        lines.append('time:  %s/  %s | itns:       1/  %d  | dt:  %s' % (
-            _e(dt_sim, 10, 4).replace('E', 'D'), _e(t_proto, 10, 4).replace('E', 'D'), nplan,
-            _e(dt_sim, 10, 4).replace('E', 'D')))
-    if horizon == 'deck':
-        with open(os.path.join(path, '_data', 'q2p1_param.dat'), 'w') as fh:
-            fh.write('SimPar@TimeStep = %gd0\nSimPar@MaxNumStep = %d\nSimPar@StartSimTime = 0d0\n'
-                     % (dt_sim, nplan))
-    if times is None:
-        times, k = [], 1
-        while k * cad <= t_end + 1e-12:
-            times.append(k * cad)
-            k += 1
-    times = [t for t in times if (t_from is None or t >= t_from - 1e-12) and t <= t_end + 1e-12]
-    for t in times:
+        lines.append('Global CFD domain extents: ' + ' '.join(_e(x) for x in (0.0, 0.015, 0.0, 0.015, z0, z0 + 0.1)))
+    tmx = t_end if tmax is None else tmax
+    if time_lines:
+        lines.append('time:%s/%s | itns:%8d/%8d | dt:%s%s%s' % (_d(DT), _d(tmx), 1, nsteps, _d(DT), _d(DT), _d(DT)))
+    for k in range(freq, nsteps + 1, freq):
+        t = k * DT
         u = u_of_t(tab, t)
         dps = _dps(u)
-        dp = dps * div(W, area) + dp_hydro if (area > 0 and n > 0) else NAN
-        z99 = z0 + 0.024 if n > 0 else NAN
+        nn = n_fn(t) if n_fn else n
+        W = nn * (rhop - rhof) * vp * g
+        dp = dps * div(W, area) + dp_hydro if (area > 0 and nn > 0) else NAN
+        z99 = z0 + 0.024 if nn > 0 else NAN
         m = margin_d * d
-        zlo = z0 + (zlo_d if zlo_d is not None else margin_d) * d if n > 0 else NAN
-        zhi = z99 + d / 2 - m if n > 0 else NAN
-        zmx = (z0 + (zmax_fn(t) if zmax_fn else 0.0241)) if n > 0 else NAN
-        grad = dp / 0.1 if dp == dp else NAN
+        zlo = z0 + (zlo_d if zlo_d is not None else margin_d) * d if nn > 0 else NAN
+        zhi = z99 + d / 2 - m if nn > 0 else NAN
+        zmx = (z0 + (zmax_fn(t) if zmax_fn else 0.0241)) if nn > 0 else NAN
+        grad = (grad_fn(t, dp) if grad_fn else dp / 0.1) if dp == dp else NAN
         gdyn = grad - dp_hydro / 0.1 if dp == dp else NAN
-        ek = (ekern_fn(t) if ekern_fn else ekern) if n > 0 else NAN
+        ek = (ekern_fn(t) if ekern_fn else ekern) if nn > 0 else NAN
         line = ('EL_BED_AUDIT t= %s step= %d p_in_out= %s %s area_in_out= %s %s dp_hydro_dyn= %s %s %s n= %d '
                 'weight_z_floor_z= %s %s z50_95_99_max= %s %s %s %s eps_bed= %s window= %s %s gradz_win= %s' % (
-                    _e(t), int(round(t / dt_sim)), _e(dp, 16, 8), _e(0.0, 16, 8), _e(area), _e(area), _e(dp, 16, 8),
-                    _e(dp_hydro, 16, 8), _e(dp - dp_hydro if dp == dp else NAN, 16, 8), n,
-                    _e(-W if n > 0 else 0.0), _e(0.0), _e(z99 - 0.012), _e(z99 - 0.001), _e(z99), _e(zmx),
-                    _e(0.37 if n > 0 else NAN), _e(zlo), _e(zhi), _e(grad, 16, 8)))
+                    _e(t), k, _e(dp, 16, 8), _e(0.0, 16, 8), _e(area), _e(area), _e(dp, 16, 8),
+                    _e(dp_hydro, 16, 8), _e(dp - dp_hydro if dp == dp else NAN, 16, 8), nn,
+                    _e(-W if nn > 0 else 0.0), _e(0.0), _e(z99 - 0.012), _e(z99 - 0.001), _e(z99), _e(zmx),
+                    _e(0.37 if nn > 0 else NAN), _e(zlo), _e(zhi), _e(grad, 16, 8)))
         if not legacy:
             line += ' floor_bal_z= %s eps_kern_slip_win= %s %s' % (_e((1 - dps) * W, 16, 8), _e(ek, 16, 8),
-                                                                  _e(0.1 if n > 0 else NAN, 16, 8))
+                                                                  _e(0.1 if nn > 0 else NAN, 16, 8))
             if dyn:
-                line += ' win_margin= %s gradz_win_dyn= %s' % (_e(m if n > 0 else NAN), _e(gdyn, 16, 8))
-        lines.append(line)
+                line += ' win_margin= %s gradz_win_dyn= %s' % (_e(m if nn > 0 else NAN), _e(gdyn, 16, 8))
         lines.append('EL_FORCE_BUDGET step= %d drag= %s %s %s pressure= %s %s %s lift= 0 0 0 grav_buoy= %s %s %s' % (
-            int(round(t / dt_sim)), _e(0.0), _e(0.0), _e(dps * W * 0.9), _e(0.0), _e(0.0), _e(dps * W * 0.1),
-            _e(0.0), _e(0.0), _e(-W)))
-    if horizon == 'log':
-        lines.append('time:  %s/  %s | itns:  %d/  %d  | dt:  %s' % (
-            _e(t_run, 10, 4).replace('E', 'D'), _e(t_proto, 10, 4).replace('E', 'D'), int(round(t_run / dt_sim)),
-            nplan, _e(dt_sim, 10, 4).replace('E', 'D')))
+            k, _e(0.0), _e(0.0), _e(dps * W * 0.9), _e(0.0), _e(0.0), _e(dps * W * 0.1), _e(0.0), _e(0.0), _e(-W)))
+        lines.append(line)
+        if time_lines:
+            lines.append('time:%s/%s | itns:%8d/%8d | dt:%s%s%s' % (_d(t), _d(tmx), k, nsteps, _d(DT), _d(DT), _d(DT)))
+    if finished:
+        lines.append(' PP3D_LES has successfully finished. ')
+    if mutate:
+        lines = mutate(lines)
     with open(os.path.join(path, 'run_slurm.log'), 'w') as fh:
-        fh.write('\n'.join(lines) + '\n')
+        fh.write('\n'.join(lines) + ('\n' if last_complete else ''))
+    if deck is not None:
+        with open(os.path.join(path, '_data', 'q2p1_param.dat'), 'w') as fh:
+            fh.write(deck)
     if steps_file is not None:
         with open(os.path.join(path, '_data', 'steps.txt'), 'w') as fh:
             fh.write('# t_start t_end U\n' + ''.join('%.6g %.6g %.6g\n' % s for s in steps_file))
     return path
 
 
-GATE_LINE = re.compile(r'^(F1 plateau|F2 worst|F2 verdict|   U_mf at dp\* = 1|F5 particle counts)')
+def _audit_at(lines, t):
+    """index of the EL_BED_AUDIT line at time t"""
+    for i, l in enumerate(lines):
+        if l.startswith('EL_BED_AUDIT') and abs(float(l.split()[2]) - t) < 1e-9:
+            return i
+    raise KeyError(t)
 
 
-def _gates(text):
-    return [l for l in text.splitlines() if GATE_LINE.match(l)]
+def _drop(*ts):
+    return lambda L: [l for i, l in enumerate(L) if i not in {_audit_at(L, t) for t in ts}]
+
+
+def _nan_field(t, key, idx=0):
+    def m(L):
+        i = _audit_at(L, t)
+        tok = L[i].split()
+        tok[tok.index(key + '=') + 1 + idx] = 'NaN'
+        L = list(L)
+        L[i] = ' '.join(tok)
+        return L
+    return m
+
+
+def _dup(t, copies):
+    def m(L):
+        i = _audit_at(L, t)
+        return L[:i + 1] + [L[i]] * copies + L[i + 1:]
+    return m
+
+
+def _conflict(t):
+    def m(L):
+        i = _audit_at(L, t)
+        tok = L[i].split()
+        j = tok.index('dp_hydro_dyn=') + 3
+        tok[j] = _e(num(tok[j]) * 1.001, 16, 8)
+        return L[:i + 1] + [' '.join(tok)] + L[i + 1:]
+    return m
+
+
+def _thin(keep_every):
+    def m(L):
+        out, j = [], 0
+        for l in L:
+            if l.startswith('EL_BED_AUDIT'):
+                j += 1
+                if j % keep_every:
+                    continue
+            out.append(l)
+        return out
+    return m
+
+
+def _append(text):
+    return lambda L: L + [text]
+
+
+def _reload_extension(t_first_max, until):
+    """a Reload_SimPar extension: the time lines up to 'until' show the earlier MaxSimTime"""
+    def m(L):
+        out = []
+        for l in L:
+            mm = PAT_TIME.match(l)
+            if mm and num(mm.group(1)) <= until + 1e-9:
+                l = l.replace('/' + _d(num(mm.group(2))), '/' + _d(t_first_max), 1)
+            out.append(l)
+        return out
+    return m
 
 
 def self_test_cases():
-    """(name, generator keywords, extra arguments, strings that must appear, strings that must not,
-    True when the gate lines must equal those of the reference case). The cases marked r3 are the
-    counterexamples of the third review."""
+    """(name, generator keywords, extra arguments, expected verdicts, strings that must appear, strings
+    that must not, the answer of the tool before this round where it differed)"""
     S = '{run}/_data/steps.txt'
-    hi_after = lambda t: 0.060 if t > 2.3 else 0.0241       # noqa: E731  a centre at 60 mm late in the lowest plateau
+    hi_after = lambda t: 0.060 if t > 2.3 else 0.0241       # noqa: E731
+    REF = {'F1': 'PASS', 'F2': 'FAIL', 'F3': 'PASS', 'F5 height': 'PASS', 'F5 count': 'PASS'}
+    U = 'unavailable'
+    base_tab = _table(PROTO)[0]
+    tab_sub = base_tab[:-1] + [(2.1, 0.05), (2.18, 0.05), (2.26, 0.05), (2.34, 0.05), (2.42, 0.05), (2.5, 0.05)]
+    tab_knot = sorted(base_tab + [(1.3, 0.20)])
+    deck_full = 'SimPar@TimeStep = 0.00025d0\nSimPar@StartSimTime = 0d0\nSimPar@MaxNumStep = 10000\n'
     return [
-        ('reference (all gates measurable)', dict(), [], ['F1 plateau', 'F3 fixed branch', 'F2 worst |ratio_k - 1|',
-                                                          'F5 particle counts seen [9789]', 'PASS', 'stricter, reported',
-                                                          '(a) particle count over the run: counts seen [9789] on 250 audit lines, run 0.0000-2.5000 s covered'],
-         ['unavailable', 'Traceback', 'incomplete'], False),
-        ('missing inlet plane (area_in = 0)', dict(area=0.0), [], ['W/A unavailable (no inlet plane', 'F1, F2, F3 unavailable',
-                                                                   'F5 particle counts seen'], ['Traceback'], False),
-        ('empty bed (n = 0)', dict(n=0), [], ['empty bed', 'F1, F2, F3 unavailable', 'F5 unavailable'], ['Traceback', 'PASS'], False),
-        ('r2: steps file without the lowest step', dict(steps_file=FULL_STEPS[:3]), ['--steps', S],
-         ['plateau (2.0000, 2.5000, 0.0500) missing from the list', 'steps-file summary, NOT gated',
-          'lowest velocity 0.050 m/s'], ['Traceback'], True),
-        ('r2: foreign step in the steps file', dict(steps_file=FULL_STEPS + [(2.5, 3.0, 0.01)]), ['--steps', S],
-         ['(2.5000, 3.0000, 0.0100) is no plateau of the protocol', 'lowest velocity 0.050 m/s'], ['Traceback', '0.010 m/s'], True),
-        ('r3: steps file with a duplicated row', dict(steps_file=FULL_STEPS + [FULL_STEPS[0]]), ['--steps', S],
-         ['listed 2 times', 'steps-file summary, NOT gated'], ['Traceback'], True),
-        ('r3: steps file with an omitted row', dict(steps_file=FULL_STEPS[1:]), ['--steps', S],
-         ['plateau (0.5000, 1.0000, 0.3000) missing from the list', 'steps-file summary, NOT gated'], ['Traceback'], True),
+        ('reference (all gates measurable)', dict(), [], REF, ['stricter, reported'], ['Traceback'], ''),
+        ('missing inlet plane (area_in = 0)', dict(area=0.0), [], {'F1': U, 'F2': U, 'F3': U, 'F5 height': 'PASS'},
+         [], ['Traceback'], ''),
+        ('empty bed (n = 0)', dict(n=0), [], {'F1': U, 'F5 height': U, 'F5 count': U}, [], ['Traceback'], ''),
+        ('r2: steps file without the lowest step', dict(steps_file=FULL_STEPS[:3]), ['--steps', S], REF,
+         ['plateau (2.0000, 2.5000, 0.0500) missing from the list', 'steps-file summary, NOT gated'], [], ''),
+        ('r2: foreign step in the steps file', dict(steps_file=FULL_STEPS + [(2.5, 3.0, 0.01)]), ['--steps', S], REF,
+         ['is no plateau of the protocol'], [], ''),
+        ('r3: steps file with a duplicated row', dict(steps_file=FULL_STEPS + [FULL_STEPS[0]]), ['--steps', S], REF,
+         ['listed 2 times'], [], ''),
+        ('r3: steps file with an omitted row', dict(steps_file=FULL_STEPS[1:]), ['--steps', S], REF, ['missing from the list'], [], ''),
         ('r3: steps file with a shifted start', dict(steps_file=[FULL_STEPS[0], (1.2, 1.5, 0.20)] + FULL_STEPS[2:]),
-         ['--steps', S], ['differs from the plateau (1.0000, 1.5000, 0.2000) in the start time', 'steps-file summary, NOT gated'],
-         ['Traceback'], True),
-        ('steps file identical to the protocol', dict(steps_file=FULL_STEPS), ['--steps', S],
-         ['identical to the echoed protocol'], ['NOT gated', 'Traceback'], True),
-        ('short window (run ends inside the lowest plateau)', dict(t_end=2.3), [],
-         ['has not reached the protocol end', 'incomplete: the run did not reach 2.5000 s', 'F5 not evaluated: the audit does not cover'],
-         ['Traceback', 'PASS (', 'containment met: PASS'], False),
-        ('sparse audit (cadence wider than a tenth of the window)', dict(cad=0.4), [], ['F1, F2, F3 unavailable', 'F5 not evaluated'],
-         ['Traceback'], False),
-        ('window margin 2 d with a 2.5 d support', dict(margin_d=2.0), [], ['NOT met', 'F2 verdict unavailable (window inside the mapping support)',
-                                                                            'F5 particle counts seen'], ['Traceback'], False),
-        ('lower window end at 2 d, field says 2.5 d', dict(zlo_d=2.0), [], ['F2 verdict unavailable (window inside the mapping support)'],
-         ['Traceback'], False),
-        ('old log: no win_margin / gradz_win_dyn, zero hydrostatic part', dict(margin_d=2.0, dyn=False), [],
-         ['hydrostatic part zero', 'margin 2 d (binary before 627caf47)', 'F2 verdict unavailable (window inside the mapping support)'],
-         ['Traceback'], False),
+         ['--steps', S], REF, ['differs from the plateau (1.0000, 1.5000, 0.2000) in the start time'], [], ''),
+        ('steps file identical to the protocol', dict(steps_file=FULL_STEPS), ['--steps', S], REF,
+         ['identical to the echoed protocol'], ['NOT gated'], ''),
+        ('short run (ends inside the lowest hold, no finish marker)', dict(t_end=2.3, finished=False), [],
+         {'F1': U, 'F2': U, 'F3': U, 'F5 height': U, 'F5 count': U}, ['has not finished'], [], ''),
+        ('sparse audit (cadence 0.4 s)', dict(cad=0.4), [], {'F1': U, 'F5 height': U}, ['audit too sparse'], [], ''),
+        ('window margin 2 d with a 2.5 d support', dict(margin_d=2.0), [], {'F2': U, 'F1': 'PASS'},
+         ['window inside the mapping support'], [], ''),
+        ('lower window end at 2 d, field says 2.5 d', dict(zlo_d=2.0), [], {'F2': U}, ['window inside the mapping support'], [], ''),
+        ('old log: no win_margin / gradz_win_dyn, zero hydrostatic part', dict(margin_d=2.0, dyn=False), [], {'F2': U},
+         ['hydrostatic part zero', 'margin 2 d (binary before 627caf47)'], [], ''),
         ('old log with a 2 d support: margin met, total gradient admitted', dict(margin_d=2.0, dyn=False, width=2.0), [],
-         ['hydrostatic part zero', 'F2 worst |ratio_k - 1|'], ['F2 verdict unavailable', 'Traceback'], False),
-        ('old log with a hydrostatic part', dict(margin_d=2.0, dyn=False, width=2.0, dp_hydro=0.981), [],
-         ['nonzero hydrostatic part', 'F2 verdict unavailable'], ['Traceback'], False),
-        ('r3: mapped porosity 1.0 on the fixed steps (closure zero)', dict(ekern=1.0), [],
-         ['mapped gas-fraction sample(s)', 'no positive closure and finite ratio_k', 'F2 verdict unavailable'],
-         ['F2 worst', 'Traceback'], False),
-        ('r3: the -1 sentinel of an old binary in the mapped samples', dict(ekern_fn=lambda t: -1.0 if 2.3 < t < 2.4 else 0.37), [],
-         ['mapped gas-fraction sample(s)', 'F2 verdict unavailable'], ['F2 worst', 'Traceback'], False),
-        ('r3: zero-velocity fixed plateau', dict(protocol=PROTO + [(2.5, 0.0)]), [],
-         ['no positive closure and finite ratio_k on every fixed step: step 4 (U 0.000)', 'F2 verdict unavailable'],
-         ['F2 worst', 'Traceback'], False),
-        ('r3: terminal hold without its last knot, centre at 60 mm late in the hold', dict(drop_last_knot=True, zmax_fn=hi_after), [],
-         ['lowest velocity 0.050 m/s (2.020-2.500 s', 'containment NOT met: FAIL'], ['0.100 m/s (', 'Traceback'], False),
-        ('r3: the same table, horizon from the deck', dict(drop_last_knot=True, zmax_fn=hi_after, horizon='deck'), [],
-         ['[deck: min(MaxSimTime', 'lowest velocity 0.050 m/s (2.020-2.500 s', 'containment NOT met: FAIL'], ['Traceback'], False),
-        ('r3: the same table without a horizon', dict(drop_last_knot=True, zmax_fn=hi_after, horizon=None), [],
-         ['F5 withheld: the lowest velocity 0.050 m/s is the hold of the last table value'], ['containment', 'Traceback'], False),
-        ('MaxNumStep ends the run before the table (horizon from the step count)', dict(planned=2.3, t_end=2.3), [],
-         ['horizon 2.3000 s', 'lowest velocity 0.050 m/s (2.020-2.300 s', 'containment met: PASS'], ['Traceback', 'incomplete'], False),
-        ('r3: one audit line of a binary without floor_bal_z', dict(legacy=True, times=[0.75]), [],
-         ['1 audit lines', 'F1, F2, F3 unavailable', 'F5'], ['Traceback'], False),
-        ('r3: no column extents, lower window end at 1 d', dict(zlo_d=1.0, extents=False), [],
-         ['missing geometry: no inlet-plane elevation', 'F2 verdict unavailable', 'F5 unavailable: no column extents'],
-         ['F2 worst', 'Traceback', 'met: PASS'], False),
-        ('r3: the last audit line dropped (the run reached the end)', dict(t_end=2.49, t_run=2.5), [],
-         ['containment met: PASS', 'F1 plateau'], ['has not reached', 'not evaluated', 'incomplete', 'Traceback'], False),
-        ('r3: 40 ms samples in one window of a 30 ms audit', dict(cad=0.03, times=sorted(
-            [0.03 * k for k in range(1, 84) if not 1.68 < 0.03 * k < 2.0 + 1e-9] + [1.72 + 0.04 * k for k in range(8)]), t_run=2.5), [],
-         ['incomplete: gap of'], ['Traceback'], False),
-        ('r3: uniform 30 ms audit (every window qualifies)', dict(cad=0.03, t_run=2.5), [],
-         ['F1 plateau', 'F2 worst'], ['incomplete', 'Traceback'], False),
-        ('r3: only the last 0.48 s of the run in the log', dict(t_from=2.02), [],
-         ['NOT covered', 'unavailable (count over the run not established)'], ['containment met: PASS', 'Traceback'], False),
-        ('r3: column translated down by 20 mm, centre 60 mm above the floor late', dict(z0=-0.020, zmax_fn=hi_after), [],
-         ['60.00 mm above the inlet plane', 'containment NOT met: FAIL', 'whole-bed porosity 0.3'], ['Traceback'], False),
+         {'F2': 'FAIL'}, ['hydrostatic part zero'], [], ''),
+        ('old log with a hydrostatic part', dict(margin_d=2.0, dyn=False, width=2.0, dp_hydro=0.981), [], {'F2': U},
+         ['nonzero hydrostatic part'], [], ''),
+        ('r3: mapped porosity 1.0 (closure zero)', dict(ekern=1.0), [], {'F2': U}, ['no positive closure'], [], ''),
+        ('r3: the -1 sentinel in the mapped samples', dict(ekern_fn=lambda t: -1.0 if 2.3 < t < 2.4 else 0.37), [], {'F2': U},
+         ['mapped gas-fraction sample(s)'], [], ''),
+        ('r3: zero-velocity fixed plateau', dict(protocol=PROTO + [(2.5, 0.0)]), [], {'F2': U}, ['step 4 (U 0.000)'], [], ''),
+        ('r3: terminal hold without its last knot, 60 mm late in the hold', dict(table=base_tab[:-1], zmax_fn=hi_after), [],
+         {'F5 height': 'FAIL', 'F1': 'PASS'}, ['lowest velocity 0.050 m/s (2.020-2.500 s'], [], ''),
+        ('r3: the same without time lines and finish marker (end of the run unknown)',
+         dict(table=base_tab[:-1], time_lines=False, finished=False), [],
+         {'F5 height': U, 'F5 count': U}, ['terminal hold of a run that has not finished'], [], ''),
+        ('r3: one audit line of a binary without floor_bal_z', dict(legacy=True, cad=2.5), [],
+         {'F1': U, 'F5 height': U}, [], ['Traceback'], ''),
+        ('r3: no column extents, lower window end at 1 d', dict(zlo_d=1.0, extents=False), [], {'F2': U, 'F5 height': U, 'F3': U},
+         ['missing geometry'], [], ''),
+        ('r3: 30 ms audit (every window qualifies)', dict(cad=0.03, t_end=2.49), [], {'F1': 'PASS', 'F2': 'FAIL'}, [], ['unmeasurable'], ''),
+        ('r3: only the final rows in the log', dict(mutate=lambda L: [l for l in L if not l.startswith('EL_BED_AUDIT')
+                                                                     or float(l.split()[2]) > 2.0]), [],
+         {'F1': U, 'F5 count': U, 'F5 height': 'PASS'}, [], [], ''),
+        ('r3: column translated down by 20 mm, 60 mm late', dict(z0=-0.020, zmax_fn=hi_after), [], {'F5 height': 'FAIL', 'F3': 'PASS'},
+         ['60.00 mm above the inlet plane'], [], ''),
+        # ---- review r4 -------------------------------------------------------------------------------
+        ('r4: redundant knot inside the 0.20 m/s hold (equivalent table)', dict(table=tab_knot), [], REF, [], [], 'same'),
+        ('r4: lowest hold subdivided into 80 ms pieces, 60 mm in it', dict(table=tab_sub, zmax_fn=hi_after), [],
+         {'F5 height': 'FAIL'}, ['lowest velocity 0.050 m/s (2.020-2.500 s'], [], ''),
+        ('r4: one audit row of a fluidised window removed', dict(mutate=_drop(0.85)), [], {'F1': U, 'F2': U, 'F3': U, 'F5 count': U},
+         ['missing or rejected'], [], ''),
+        ('r4: dp_dyn NaN on one fluidised row', dict(mutate=_nan_field(0.85, 'dp_hydro_dyn', 2)), [], {'F1': U, 'F5 count': 'PASS'},
+         ['non-finite dp_dyn'], [], ''),
+        ('r4: one fixed step with a raised gradient, one of its rows removed',
+         dict(grad_fn=lambda t, dp: dp / 0.1 * (1.5 if 1.5 < t <= 2.0 else 1.0), mutate=_drop(1.8)), [], {'F2': U}, [], [], ''),
+        ('r4: run stopped at 2.15 s inside the lowest hold (MaxNumStep)', dict(t_end=2.15), [],
+         {'F1': U, 'F2': U, 'F3': U, 'F5 height': 'PASS'}, ['shorter than the evaluation window'], [], ''),
+        ('r4: every other audit row removed, 60 mm on a removed row',
+         dict(zmax_fn=lambda t: 0.060 if abs(t - 2.41) < 1e-9 else 0.0241, mutate=_thin(2)), [], {'F5 height': U, 'F1': U}, [], [], ''),
+        ('r4: seven identical copies of one audit row', dict(mutate=_dup(0.79, 7)), [], REF, [], [], ''),
+        ('r4: conflicting copy of one audit row', dict(mutate=_conflict(0.79)), [], {'F1': U}, ['conflicting copies'], [], ''),
+        ('r4: MaxSimTime 2.4999, the solver completes 2.5 s, 60 mm on the last row',
+         dict(tmax=2.4999, zmax_fn=lambda t: 0.060 if t > 2.499 else 0.0241), [], {'F5 height': 'FAIL'}, [], [], ''),
+        ('r4: Reload_SimPar extends MaxSimTime from 2.3 to 2.5 s, 60 mm at 2.4 s',
+         dict(mutate=_reload_extension(2.3, 2.3), zmax_fn=lambda t: 0.060 if abs(t - 2.4) < 1e-9 else 0.0241), [],
+         {'F5 height': 'FAIL'}, [], [], ''),
+        ('r4: unfinished trailing EL_NEWTON_PAIR', dict(mutate=_append('EL_NEWTON_PAIR t= 2.5 step=')), [], REF, [], ['Traceback'], ''),
+        ('r4: last line without its line end', dict(mutate=_append('EL_BED_AUDIT t=   2.502500E+00 step= 10010 p_in_out='),
+                                                    last_complete=False), [], REF, [], ['Traceback'], ''),
+        ('r4: malformed interior table row', dict(mutate=lambda L: [l.replace('3.00000000E-01', '3.0000000xE-01', 1)
+                                                                    if l.lstrip().startswith('EL_INLET_TABLE') and ' 1.00000000E+00' in l else l for l in L]), [],
+         {'F1': U, 'F5 height': U}, ['table echo incomplete'], ['Traceback'], ''),
+        ('r4: particles lost on the last audit row (count and weight)', dict(n_fn=lambda t: 9789 if t < 2.495 else 9691), [],
+         {'F1': U, 'F5 count': 'FAIL'}, [], [], ''),
+        ('r4: wenyu echo, default invocation', dict(drag='wenyu'), [], {'F1': 'PASS'}, ['wenyu U_mf at the whole-bed'], [], ''),
+        ('r4: explicit --closure that differs from the echo', dict(), ['--closure', 'ergun'], REF,
+         ['comparison with --closure ergun, not gated'], [], ''),
+        ('r4: no width echo, deck 3.0d0 with a comment', dict(width_echo=False, deck=deck_full + 'SimPar@ELKernelWidthFactor = 3.0d0 ! mapping width in diameters\n'),
+         [], {'F2': U}, ['mapping support 3 d [deck]'], [], ''),
+        ('r4: no width echo, unreadable deck value', dict(width_echo=False, deck=deck_full + 'SimPar@ELKernelWidthFactor = wide\n'),
+         [], {'F2': U}, ['value unreadable'], [], ''),
+        ('r4: NaN width echo', dict(width='NaN'), [], {'F2': U}, ['mapping support not known'], [], ''),
+        ('r4: centre exactly at mid-height', dict(zmax_fn=lambda t: 0.050 if t > 2.3 else 0.0241), [], {'F5 height': 'PASS'},
+         ['50.00 mm above the inlet plane', 'not above'], [], ''),
+        ('r4: no echo, steps file with two 0.05 m/s rows, 60 mm in the second',
+         dict(echo_table=False, protocol=[(0.5, 0.3), (1.0, 0.2), (1.5, 0.05), (2.0, 0.1), (2.5, 0.05)],
+              steps_file=[(0.5, 1.0, 0.3), (1.0, 1.5, 0.2), (1.5, 2.0, 0.05), (2.0, 2.5, 0.1), (2.5, 3.0, 0.05)],
+              zmax_fn=lambda t: 0.060 if t > 2.8 else 0.0241), ['--steps', S], {'F5 height': 'FAIL'},
+         ['[protocol from the steps file, not from the echo]'], [], ''),
+        ('r4: no echo, overlapping steps-file rows', dict(echo_table=False, steps_file=FULL_STEPS + [(2.2, 2.4, 0.05)]),
+         ['--steps', S], {'F1': U, 'F5 height': U}, ['overlap or repeat'], [], ''),
+        ('r4: column translated by +10 m (7-digit coordinates)', dict(z0=10.0), [], REF, [], [], ''),
+        ('r4: --d 0 refused at parsing', dict(), ['--d', '0'], {}, ['--d must be finite and positive'], ['ZeroDivision'], ''),
+        ('r4: --mu 0 refused at parsing', dict(), ['--closure', 'wenyu', '--mu', '0'], {}, ['--mu must be finite and positive'],
+         ['ZeroDivision'], ''),
     ]
 
 
+def _run_case(run, extra):
+    out, err = io.StringIO(), io.StringIO()
+    try:
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            main([run] + [x.format(run=run) for x in extra])
+    except SystemExit:
+        pass
+    except BaseException:                            # noqa: BLE001  (a crash is a failed check)
+        import traceback
+        out.write('Traceback\n' + traceback.format_exc())
+    return out.getvalue(), err.getvalue()
+
+
+def verdicts_of(text):
+    m = re.search(r'^verdicts: (.*)$', text, re.M)
+    if not m:
+        return {}
+    V = {}
+    for part in m.group(1).replace(FROM_STEPS, '').split(' | '):
+        g, v = part.rsplit(' ', 1)
+        V[g] = v
+    return V
+
+
 def self_test(keep=None):
-    """runs every case; keep = a directory that receives the synthetic runs (for a comparison with
-    another version of the tool), else a temporary directory"""
     cases = self_test_cases()
     nfail = 0
-    ref_gates = None
+    ref_out = None
     ctx = tempfile.TemporaryDirectory(prefix='fl11_post_selftest_') if keep is None else contextlib.nullcontext(keep)
     with ctx as tmp:
-        for i, (name, kw, extra, must, mustnot, same_gates) in enumerate(cases):
+        for i, (name, kw, extra, expect, must, mustnot, note) in enumerate(cases):
             run = _write_run(os.path.join(tmp, 'run%02d' % i), **kw)
-            out = io.StringIO()
-            try:
-                with contextlib.redirect_stdout(out):
-                    main([run] + [x.format(run=run) for x in extra])
-            except BaseException as exc:                 # noqa: BLE001  (a crash is a failed check)
-                import traceback
-                out.write('Traceback\n' + traceback.format_exc())
-            text = out.getvalue()
+            out, err = _run_case(run, extra)
+            text = out + err
+            V = verdicts_of(out)
+            body = out.split('\n', 1)[1] if '\n' in out else out
             if i == 0:
-                ref_gates = _gates(text)
-            bad = [m for m in must if m not in text] + [m for m in mustnot if m in text]
-            if same_gates and _gates(text) != ref_gates:
-                bad.append('gate lines differ from the reference case: %s' % _gates(text))
+                ref_out = body
+            bad = [f'{g}: {V.get(g)} instead of {v}' for g, v in expect.items() if V.get(g) != v]
+            bad += [f'missing {m!r}' for m in must if m not in text] + [f'unexpected {m!r}' for m in mustnot if m in text]
+            if note == 'same' and body != ref_out:
+                bad.append('output differs from the reference case')
             print(f"self-test {i:2d} {'ok  ' if not bad else 'FAIL'} {name}" + ('' if not bad else f": {bad}"))
             if bad:
                 nfail += 1
@@ -1044,6 +1525,157 @@ def self_test(keep=None):
             with open(os.path.join(run, 'case.txt'), 'w') as fh:
                 fh.write('%s\n%s\n' % (name, ' '.join(x.format(run=run) for x in extra)))
     print(f"fl11_post self-test: {len(cases) - nfail}/{len(cases)} passed")
+    return 1 if nfail else 0
+
+
+# ===================================================================================================
+# metamorphic tests on a real log
+# ===================================================================================================
+KEEP_PREFIX = ('EL_BED_AUDIT', 'EL_FORCE_BUDGET', 'EL_NEWTON_PAIR', 'EL_INLET_TABLE', 'EL ', 'Global CFD domain extents',
+               'time:')
+
+
+def _filtered(lines):
+    """the lines the tool reads (the rest of the log does not change its output; checked once)"""
+    return [l for l in lines if l.lstrip().startswith(KEEP_PREFIX) or FINISH in l]
+
+
+def _table_edit(lines, new_rows):
+    """replace the echoed table rows (and the row count of the echo)"""
+    out, done = [], False
+    for l in lines:
+        if l.lstrip().startswith('EL_INLET_TABLE'):
+            if not done:
+                out += ['  EL_INLET_TABLE %s %s' % (_e(t, 16, 8), _e(u, 16, 8)) for t, u in new_rows]
+                done = True
+            continue
+        m = ECHO['table_rows'].match(l)
+        if m:
+            l = l.replace('(%s rows' % m.group(1), '(%d rows' % len(new_rows))
+        out.append(l)
+    return out
+
+
+def self_test_real(rundir, nvar=300, seed=20261122):
+    rnd = random.Random(seed)
+    with open(os.path.join(rundir, 'run_slurm.log'), errors='replace') as fh:
+        full = fh.read().split('\n')
+    if full and full[-1] == '':
+        full.pop()
+    deck = open(os.path.join(rundir, '_data', 'q2p1_param.dat'), errors='replace').read()
+    base = _filtered(full)
+    ref_text, ref_V = run_lines(base, deck)
+    full_text, _ = run_lines(full, deck)
+    print(f"real log {rundir}: {len(full)} lines, {len(base)} read by the tool; intact verdicts: "
+          + ' | '.join(f'{g} {ref_V[g]}' for g in GATES))
+    nfail = 0
+    if full_text != ref_text:
+        nfail += 1
+        print('FAIL: the full log and the lines the tool reads give different output')
+    table = Log(base).table
+    inner = [h for h in holds_of(table, 0.0, None) if not h['open']]
+    audit_idx = [i for i, l in enumerate(base) if l.startswith('EL_BED_AUDIT')]
+
+    def equiv():
+        kind = rnd.choice(['knot in a hold', 'subdivided hold', 'last knot removed', 'knot in a ramp', 'trailing record'])
+        if kind == 'knot in a hold':
+            h = rnd.choice(inner)
+            t = round(rnd.uniform(h['a'] + 0.001, h['b'] - 0.001), 6)
+            return kind, _table_edit(base, sorted(table + [(t, h['u'])])), True
+        if kind == 'subdivided hold':
+            h = rnd.choice(inner)
+            k = rnd.randint(2, 6)
+            extra = [(round(h['a'] + (h['b'] - h['a']) * j / k, 6), h['u']) for j in range(1, k)]
+            return kind, _table_edit(base, sorted(table + extra)), True
+        if kind == 'last knot removed':
+            return kind, (_table_edit(base, table[:-1]) if len(table) > 1 and table[-1][1] == table[-2][1] else base), True
+        if kind == 'knot in a ramp':
+            (ta, ua), (tb, ub) = rnd.choice([(p, q) for p, q in zip(table, table[1:]) if p[1] != q[1]])
+            t = 0.5 * (ta + tb)
+            return kind, _table_edit(base, sorted(table + [(t, ua + (ub - ua) * (t - ta) / (tb - ta))])), True
+        tail = rnd.choice(['EL_NEWTON_PAIR t= 7.5 step=', 'EL_BED_AUDIT t=   7.502500E+00 step= 30010 p_in_out=',
+                           'EL_FORCE_BUDGET step= 30001 drag=', 'time:  0.7500D+01/', '  EL_INLET_TABLE   7.6'])
+        return kind, base + [tail], rnd.random() < 0.5
+
+    def degrade():
+        kind = rnd.choice(['one row deleted', 'rows deleted', 'row duplicated', 'conflicting copy', 'field NaN',
+                           'log truncated', 'audit thinned', 'count perturbed', 'weight perturbed', 'finish marker removed'])
+        L = list(base)
+        if kind == 'one row deleted':
+            del L[rnd.choice(audit_idx)]
+        elif kind == 'rows deleted':
+            for i in sorted(rnd.sample(audit_idx, rnd.randint(2, 20)), reverse=True):
+                del L[i]
+        elif kind == 'row duplicated':
+            i = rnd.choice(audit_idx)
+            L.insert(i + 1, L[i])
+        elif kind == 'conflicting copy':
+            i = rnd.choice(audit_idx)
+            tok = L[i].split()
+            j = rnd.choice([k for k, x in enumerate(tok) if k > 4 and NUM_RE.match(x)])
+            tok[j] = _e(num(tok[j]) * 1.001 + 1e-9)
+            L.insert(i + 1, ' '.join(tok))
+        elif kind == 'field NaN':
+            i = rnd.choice(audit_idx)
+            tok = L[i].split()
+            tok[rnd.choice([k for k, x in enumerate(tok) if k > 0 and not KEY_TOK.match(x)])] = 'NaN'
+            L[i] = ' '.join(tok)
+        elif kind == 'log truncated':
+            L = L[:rnd.randrange(len(L)) + 1]
+            if rnd.random() < 0.5 and L[-1]:
+                L[-1] = L[-1][:rnd.randrange(len(L[-1]))]
+                return kind, L, False
+        elif kind == 'audit thinned':
+            m = rnd.randint(2, 5)
+            drop = set(audit_idx[rnd.randrange(m)::m])
+            L = [l for i, l in enumerate(L) if i not in drop]
+        elif kind in ('count perturbed', 'weight perturbed'):
+            i = rnd.choice(audit_idx)
+            tok = L[i].split()
+            if kind == 'count perturbed':
+                j = tok.index('n=') + 1
+                tok[j] = str(int(tok[j]) + rnd.choice([-1, 1]) * rnd.randint(1, 100))
+            else:
+                j = tok.index('weight_z_floor_z=') + 1
+                tok[j] = _e(num(tok[j]) * (1 + rnd.choice([-1, 1]) * rnd.uniform(1e-4, 1e-2)))
+            L[i] = ' '.join(tok)
+        else:
+            L = [l for l in L if FINISH not in l]
+        return kind, L, True
+
+    stats = {}
+    n_any = 0
+    for v in range(nvar):
+        is_eq = v % 3 == 0
+        kind, L, complete = equiv() if is_eq else degrade()
+        try:
+            text, V = run_lines(L, deck, last_complete=complete)
+        except BaseException as exc:                 # noqa: BLE001
+            text, V = 'Traceback ' + repr(exc), {}
+        key = ('equivalence: ' if is_eq else 'degrading: ') + kind
+        st = stats.setdefault(key, [0, 0, 0])
+        st[0] += 1
+        if is_eq:
+            ok = text == ref_text
+        else:
+            ok = bool(V) and all(V.get(g) in (ref_V[g], 'unavailable') for g in GATES)
+            if any(V.get(g) == 'unavailable' for g in GATES):
+                st[2] += 1
+                n_any += 1
+        if not ok:
+            st[1] += 1
+            nfail += 1
+            if st[1] <= 2:
+                print(f"FAIL variant {v} ({key}): verdicts {V}")
+                if is_eq:
+                    import difflib
+                    print('\n'.join(list(difflib.unified_diff(ref_text.splitlines(), text.splitlines(), lineterm=''))[:20]))
+    neq = sum(s[0] for k, s in stats.items() if k.startswith('equivalence'))
+    print(f"{nvar} variants ({neq} equivalence, {nvar - neq} degrading); degrading variants with at least one verdict "
+          f"unavailable: {n_any}; failures: {nfail}")
+    for k in sorted(stats):
+        print(f"   {k:42s} {stats[k][0]:4d} run, {stats[k][1]:3d} failed"
+              + (f", {stats[k][2]:3d} with a verdict unavailable" if k.startswith('degrading') else ''))
     return 1 if nfail else 0
 
 
