@@ -14,28 +14,40 @@
 #   T_END   the last particle frame must reach this time (default 7.5 s: refuses a run in progress)
 #   STRIDE  every STRIDE-th log frame (default 1 = one image per logged frame, no interpolation)
 # for another run also pass --output=.../movie/render_<RUN>.log on the sbatch command line
+# Every render writes into a fresh frame directory frames_<RUN>.<job id> (never into the frames of an
+# earlier render), waits for each worker and stops on the first failed one, and encodes only after
+# all n frames of this render exist (frame_00000 .. frame_<n-1>); the mp4 is written to a temporary
+# name and moved into place on success, so a failed render leaves the previous movie as it was.
 RUN=${1:-R_proto_movie}; TEND=${2:-7.5}; STRIDE=${3:-1}
 F=/data/warehouse17/rmuenste/runs/fluid11
-FR=$F/movie/frames_$RUN
+FR=$F/movie/frames_$RUN.${SLURM_JOB_ID:-$$}
 MP4=$F/movie/fluid11_${RUN}_particles.mp4
 TOOL="python3 /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer-fluid11/applications/q2p1_el_pipeflow/validation_cases/s11_min_fluidization/tools/fl11_movie.py $F/$RUN $FR --stride $STRIDE"
 FFMPEG=/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/blender_viz/fac3d_movie/tools_bin/ffmpeg-static
 hostname; export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
-mkdir -p $FR
+[ -e $FR ] && { echo "frame directory $FR exists: not rendered"; exit 4; }
+mkdir -p $FR; echo "frames into $FR"
 # the check reads the logs once and writes the cache that the workers reuse
 $TOOL --check > $F/movie/check_$RUN.log || exit 1
 cat $F/movie/check_$RUN.log
 read n tlast <<< "$(awk '/^check: frames/{print $3, $7}' $F/movie/check_$RUN.log)"
 echo "images $n, last frame t = $tlast s (required $TEND)"
 awk -v a="$tlast" -v b="$TEND" 'BEGIN{exit !(a >= b - 1e-6)}' || { echo "run $RUN has not reached $TEND s: not rendered"; exit 3; }
-old=$(/bin/ls $FR | grep -c '^frame_.*\.png$')
-[ "$old" -le "$n" ] || { echo "$old png frames in $FR, more than the $n of this render: move them away first"; exit 4; }
-W=4; q=$(( (n + W - 1) / W ))
+W=4; q=$(( (n + W - 1) / W )); pids=()
 for w in $(seq 0 $((W - 1))); do
-  $TOOL --frames $((w * q)) $(( (w + 1) * q - 1 )) &
+  $TOOL --frames $((w * q)) $(( (w + 1) * q - 1 )) > $FR/worker_$w.log 2>&1 &
+  pids+=($!)
 done
-wait
-m=$(/bin/ls $FR/frame_*.png | wc -l); echo "png frames $m"
-[ "$m" = "$n" ] || exit 2
-$FFMPEG -y -loglevel error -framerate 30 -i $FR/frame_%05d.png -vf "tpad=stop_mode=clone:stop_duration=2" -c:v libx264 -crf 18 -profile:v high -pix_fmt yuv420p -movflags +faststart $MP4
-status=$?; echo "ffmpeg exit=$status $MP4"; exit $status
+fail=0
+for w in "${!pids[@]}"; do
+  if wait "${pids[$w]}"; then echo "worker $w ok"; else rc=$?; echo "worker $w (pid ${pids[$w]}) FAILED, exit $rc:"; tail -5 $FR/worker_$w.log; fail=1; fi
+done
+[ $fail = 0 ] || { echo "a worker failed: not encoded"; exit 5; }
+m=$(/bin/ls $FR | grep -c '^frame_.*\.png$'); echo "png frames $m (expected $n)"
+for ((i = 0; i < n; i++)); do [ -s $(printf "$FR/frame_%05d.png" $i) ] || { echo "frame $i missing or empty: not encoded"; exit 2; }; done
+[ "$m" = "$n" ] || { echo "$m frames in $FR, expected $n: not encoded"; exit 2; }
+TMP=${MP4%.mp4}.part.mp4
+$FFMPEG -y -loglevel error -framerate 30 -i $FR/frame_%05d.png -vf "tpad=stop_mode=clone:stop_duration=2" -c:v libx264 -crf 18 -profile:v high -pix_fmt yuv420p -movflags +faststart $TMP
+status=$?; echo "ffmpeg exit=$status"
+[ $status = 0 ] && mv -f $TMP $MP4 && echo "movie $MP4 (frames $FR)"
+exit $status
