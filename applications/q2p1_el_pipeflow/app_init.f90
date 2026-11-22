@@ -720,6 +720,7 @@ END SUBROUTINE get_global_domain_extents
                         EL_INLET_SUPERFICIAL, &
                         el_momentum_model, el_mm_pressure_operator, el_fluid_viscosity, &
                         el_periodic_kernel, el_periodic_wrap, &
+                        el_drag_hrz, EL_DRAG_HRZ_DEFECT_SUPPORTED, &
                         EL_NOTE_KEY_SET, &
                         EL_VALIDATE_CONFIG, &
                         EL_PRINT_CONFIG
@@ -1146,6 +1147,16 @@ END SUBROUTINE get_global_domain_extents
    IF (EL_VA_CONSERVATIVE_FORM() .AND. iCommSwitch.NE.3 .AND. iCommSwitch.NE.4) THEN
      WRITE(*,'(A,I0)') 'ELVAContinuityForm = conservative needs communication scheme 3 or 4, got ', &
        iCommSwitch
+     STOP 1
+   END IF
+   ! ELDragImplicitWeights = hrz needs the drag diagonal in the nonlinear momentum defect; the
+   ! hand-built defect of the non-Newtonian path with MatrixRenewal S = 0 has none (EL_CONFIG:
+   ! EL_DRAG_HRZ_DEFECT_SUPPORTED). Deck-only, every rank alike.
+   IF (el_drag_hrz .AND. .NOT.EL_DRAG_HRZ_DEFECT_SUPPORTED(bNonNewtonian, myMatrixRenewal%S)) THEN
+     WRITE(*,'(A)') 'ELDragImplicitWeights = hrz is not available with SimPar@FlowType = non-Newtonian '// &
+       'and SimPar@MatrixRenewal S = 0: that momentum defect has no drag diagonal, the explicit '// &
+       'partner dt B u^n would stay in the residual. Use FlowType = Newtonian, MatrixRenewal S >= 1 '// &
+       'or ELDragImplicitWeights = rowsum.'
      STOP 1
    END IF
    ! the superficial inlet sums its nodal porosity with the same routine

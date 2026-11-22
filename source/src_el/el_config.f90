@@ -52,7 +52,8 @@ MODULE EL_CONFIG
   !            w_i = int K phi_i^2 * (sum_j int K phi_j) / (sum_j int K phi_j^2) / norm >= 0, the
   !            same total per particle and element as 'rowsum'. Needs ELDragCoupling =
   !            semi_implicit (refused otherwise). docs/md_docs/el_min_fluidization_prep_2026-11-19.md
-  !            section 7.
+  !            section 7. Also needs a momentum defect that carries the drag diagonal
+  !            (EL_DRAG_HRZ_DEFECT_SUPPORTED; refused at start-up by the application otherwise).
   CHARACTER(LEN=32) :: el_drag_implicit_weights = 'rowsum'
   CHARACTER(LEN=6), PARAMETER :: el_drag_iw_names(0:1) = (/ 'rowsum', 'hrz   ' /)
   ! Resolved by EL_VALIDATE_CONFIG (deck-only, the same on every rank): 'hrz' selected.
@@ -803,6 +804,20 @@ CONTAINS
     EL_KERNEL_SUPPORT_RADIUS = 2.0d0*el_kernel_width_factor*particle_radius
   END FUNCTION EL_KERNEL_SUPPORT_RADIUS
 
+  ! ELDragImplicitWeights = hrz puts the explicit partner dt B_i u_i^n of the drag diagonal on
+  ! the right-hand side of the momentum equation (EL_FIELDS:EL_APPLY_DRAG_SPLIT_PARTNER); the
+  ! nonlinear defect of the momentum solve must then subtract the matching theta dt B_i u_i, or
+  ! the partner stays in the residual of an unchanged field. The defects built from the
+  ! assembled matrix (Newtonian path; non-Newtonian path with SimPar@MatrixRenewal S >= 1)
+  ! carry it through the matrix diagonal (QuadSc_def: drag_B_source). The hand-built
+  ! non-Newtonian defect of S = 0 (mass, convection, STRESS; QuadSc_def Matdef idef = -1) has no
+  ! drag term: that combination is not supported (review r2 finding 4; the missing defect term
+  ! is a follow-up, no test case exists).
+  PURE LOGICAL FUNCTION EL_DRAG_HRZ_DEFECT_SUPPORTED(non_newtonian, matrix_renewal_s)
+    LOGICAL, INTENT(IN) :: non_newtonian
+    INTEGER, INTENT(IN) :: matrix_renewal_s
+    EL_DRAG_HRZ_DEFECT_SUPPORTED = .NOT.(non_newtonian .AND. matrix_renewal_s.EQ.0)
+  END FUNCTION EL_DRAG_HRZ_DEFECT_SUPPORTED
 
   ! Inlet velocity of boundary type Inflow975 at time t (end-of-step time of the caller): the
   ! table when the deck names one, else the linear ramp (arithmetic unchanged).

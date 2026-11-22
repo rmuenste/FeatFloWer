@@ -27,7 +27,8 @@ use EL_CONFIG, only: el_apply_fluid_feedback, el_prescribed_field, el_shear_rate
                      el_prescribed_umax, el_cylinder_center, el_cylinder_radius, &
                      el_cylinder_axis, el_initial_field
 use EL_CONFIG, only: el_write_diagnostics, el_fluid_gravity, el_meso_filter
-use EL_CONFIG, only: el_bed_audit_freq, el_velocity_audit_freq, el_drag_hrz
+use EL_CONFIG, only: el_bed_audit_freq, el_velocity_audit_freq, el_drag_hrz, &
+                     EL_DRAG_HRZ_DEFECT_SUPPORTED
 use EL_BED_AUDIT, only: EL_WRITE_BED_AUDIT
 use EL_VELOCITY_AUDIT, only: EL_WRITE_VELOCITY_AUDIT
 use EL_GEOMETRY, only: EL_DOMAIN_Z_CENTER
@@ -682,8 +683,14 @@ IF (myid.ne.master) THEN
    ! SimPar@ELDragImplicitWeights = hrz (implies semi-implicit drag): the explicit partner
    ! dt B_i u_i^n of the drag diagonal, with valU/V/W still the velocity of the start of the
    ! step (the boundary values of the new step are imposed below)
-   IF (el_drag_hrz) CALL EL_APPLY_DRAG_SPLIT_PARTNER(QuadSc%defU, QuadSc%defV, &
-     QuadSc%defW, QuadSc%valU, QuadSc%valV, QuadSc%valW, tstep)
+   ! The application refuses hrz at start-up on a defect without the drag diagonal; the check
+   ! here catches a FlowType / MatrixRenewal changed later by Reload_SimPar (generic parser).
+   IF (el_drag_hrz) THEN
+     IF (.NOT.EL_DRAG_HRZ_DEFECT_SUPPORTED(bNonNewtonian, myMatrixRenewal%S)) ERROR STOP &
+       'ELDragImplicitWeights = hrz: FlowType = non-Newtonian with MatrixRenewal S = 0 (after a reload?) has no drag diagonal in the momentum defect.'
+     CALL EL_APPLY_DRAG_SPLIT_PARTNER(QuadSc%defU, QuadSc%defV, &
+       QuadSc%defW, QuadSc%valU, QuadSc%valV, QuadSc%valW, tstep)
+   END IF
  END IF
  ! Euler-Lagrange momentum model A: -eps grad p and div(eps tau) as solid-fraction
  ! corrections of the unweighted terms above (deck-only guard, EL transport only)

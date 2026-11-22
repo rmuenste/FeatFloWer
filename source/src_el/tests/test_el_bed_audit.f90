@@ -15,6 +15,8 @@
 !          unavailable, not an upward floor force), balance of another step, dt = 0
 !   86-89  kernel-sampled window means: recorded samples, bin-centre selection at both window
 !          ends, sums; unavailable value is NaN
+!   92     ELDragImplicitWeights = hrz needs the drag diagonal in the momentum defect (review r2
+!          finding 4): refused for FlowType = non-Newtonian with MatrixRenewal S = 0 only
 !=========================================================================
 PROGRAM TEST_EL_BED_AUDIT
 
@@ -24,7 +26,7 @@ PROGRAM TEST_EL_BED_AUDIT
                           EL_WINDOW_GRADIENT_LOCAL, EL_BED_WINDOW_MARGIN, EL_BED_FLOOR_BALANCE, &
                           EL_BED_WINDOW_SAMPLE_SUMS, EL_BED_UNAVAILABLE, &
                           EL_BED_AUDIT_BEGIN_SAMPLES, EL_BED_AUDIT_RECORD_SAMPLE
-  USE EL_CONFIG, ONLY: el_kernel_width_factor
+  USE EL_CONFIG, ONLY: el_kernel_width_factor, EL_DRAG_HRZ_DEFECT_SUPPORTED
   USE EL_GEOMETRY, ONLY: EL_SET_DOMAIN_BOX
   USE EL_TEST_HELPERS, ONLY: EL_TEST_INIT, BUILD_STRUCTURED_MESH, EL_TEST_RELEASE_MESH
 
@@ -148,6 +150,12 @@ PROGRAM TEST_EL_BED_AUDIT
   CALL EL_BED_AUDIT_BEGIN_SAMPLES()
   CALL EL_BED_WINDOW_SAMPLE_SUMS(0.0d0, 1.0d0, 0.2d0, 0.8d0, sums)
   IF (ANY(sums.NE.0.0d0)) STOP 89
+
+  ! ---- 92: hrz and the momentum defect --------------------------------------------------------
+  IF (.NOT.EL_DRAG_HRZ_DEFECT_SUPPORTED(.FALSE., 0)) STOP 92
+  IF (.NOT.EL_DRAG_HRZ_DEFECT_SUPPORTED(.FALSE., 1)) STOP 92
+  IF (.NOT.EL_DRAG_HRZ_DEFECT_SUPPORTED(.TRUE., 1)) STOP 92
+  IF (EL_DRAG_HRZ_DEFECT_SUPPORTED(.TRUE., 0)) STOP 92
 
   WRITE(*,'(A)') 'test_el_bed_audit: all checks passed'
 
