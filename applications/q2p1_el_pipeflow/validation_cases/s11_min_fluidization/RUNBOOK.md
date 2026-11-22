@@ -531,8 +531,9 @@ Gates (amended spec):
 | F4 (reported) U_mf / 0.182 | 0.952 | - | 0.973 |
 | F5 height / count | 23.90 mm / 9789 on 3000 audit lines | PASS / PASS | 23.81 mm PASS |
 
-- **Effect of restitution** (against `R_r1_proto`, same friction and drag split, one realisation each):
-  the plateau moves by -0.001, U_mf falls by 0.0037 m/s, the fixed bed packs slightly denser (whole-bed
+- **Difference to the friction-only run** (`R_r1_proto`, same friction and drag split; one realisation
+  per setting, so the differences are not separated from the scatter between realisations and are not
+  attributed to restitution alone): the plateau moves by -0.001, U_mf falls by 0.0037 m/s, the fixed bed packs slightly denser (whole-bed
   porosity 0.3697 against 0.3726, core 0.364 against 0.366) and the fluidised bed stands 0.04-0.2 mm
   lower at 0.30-0.24 m/s (0.05 mm higher at 0.22 m/s). The fixed branch has five steps (0.12-0.04 m/s): at 0.14 m/s dp* = 0.7905 lies above 0.8 of
   the plateau, so that step belongs to neither branch.
@@ -544,6 +545,13 @@ Gates (amended spec):
 - **Cross-code** [P, peer values of 2026-11-21, not recomputed]: MFiX 0.995 / 0.370 / 0.173 m/s (1.02
   of the closure), CFDEM (uniform inlet, 40 rows) 0.955 / 0.3695 / 0.191 m/s. This run: 0.978 / 0.370
   whole bed / 0.173 m/s.
+- **Fit rule of F3 across the codes** [P, peer message of 2026-11-22, not recomputed]: U_mf with all
+  non-fluidised steps in the fit / with the spec rule (steps below 0.8 of the plateau) / ratio to the
+  closure with the spec rule: MFiX 0.1727 (7) / 0.1727 (6) / 1.015; CFDEM 80 rows 0.1675 (7) /
+  0.1672 (5) / 1.031; CFDEM 40 rows 0.1909 (8) / 0.1906 (6) / 1.108; DPMFoam 0.1978 (8) / 0.1941 (6) /
+  1.111 (its 0.18 m/s step still creeps); this run 0.1734 (7) / 0.1733 (5) / 1.050. The 0.14 m/s step
+  is cut differently per code (MFiX 0.7904 against 0.7958 = inside the fit; this run 0.7905 against
+  0.7822 = excluded), with an effect on U_mf of at most 0.0003 m/s outside DPMFoam.
 - **Restitution pass** (`EL_RESTITUTION_STATS`, one line per CFD step, 10 pe sub-steps each) [V]:
 
   | part of the run | active sub-steps | at the budget of 48 | armed contacts | residual median / p99 |
@@ -554,20 +562,29 @@ Gates (amended spec):
   | fixed bed 4.5-7.5 s | 16 070 of 120 000 | 56.6 % | 31 295 | 9.9e-5 / 5.7e-3 m/s |
 
   In the fluidised part the pass converges within the budget on 98 % of the active sub-steps. In the
-  fixed bed the activity grows as the gas velocity falls (armed contacts per 0.2 s: 100 at 4.4-4.6 s,
-  2 060 at 6.0-6.2 s, 4 783 at 7.2-7.4 s), more than half of the active sub-steps end at the budget,
+  fixed bed the activity grows as the gas velocity falls (armed contacts per 0.2 s, bins (a, b]: 103 in 4.4-4.6 s,
+  2 060 in 6.0-6.2 s, 4 783 in 7.2-7.4 s), more than half of the active sub-steps end at the budget,
   and single sub-steps show approach speeds up to 0.31 m/s and residuals up to 0.29 m/s (7.019 s).
-- **Rattlers in the loaded fixed bed, with and without restitution** [V, job 164994,
-  `runs/fluid11/analysis_r5`]: particle speeds from the particle logs at ten times between 4.4 and
-  7.5 s. Above 1 mm/s: 0 of 9789 at 4.4 s, then 1-12 with restitution and 1-22 without (`R_r1_proto`),
-  growing towards the lowest velocity; largest sampled speed 0.024 m/s with and 0.022 m/s without;
-  rms over all particles 2e-5 to 3e-4 m/s in both. With restitution they sit in the two layers on the
-  floor (z 0.43-1.14 mm), without it in a cluster at z about 11 mm and near 3 mm. The moving particles
-  are therefore not an effect of restitution; with the switch on their contacts are armed, which is
-  what the statistics above show. Bed height, porosity and the balance dp* + floor (1.0000-1.0002) are
-  steady over the fixed steps. Cause not established [I: position push-out of the hard-contact solver
-  under the growing contact load; the vertex oscillation of the gas velocity of section 11 is present
-  in both runs as well].
+- **Moving particles in the loaded fixed bed, with and without restitution** [V, job 164994,
+  `runs/fluid11/analysis_r5`]: particle speeds from the particle logs at ten sampled times between 4.4
+  and 7.5 s. Above 1 mm/s: 0 of 9789 at 4.4 s in both runs, then 1-12 with restitution and 1-22 without
+  (`R_r1_proto`); largest sampled speed 0.024 m/s with and 0.022 m/s without; rms over all particles
+  2e-5 to 3e-4 m/s in both. Where they sit, in these samples: with restitution spread over z 0.4-18 mm
+  up to 7.0 s (fastest at 7.0 s: z 6.27 mm) and from 7.2 s on the fastest ones at z 0.43-1.14 mm near
+  the floor; without restitution a recurring pair at z about 11 mm and, at 7.495 s, a group at z
+  2.5-4 mm. What this establishes: particles move in the loaded fixed bed under both settings, so
+  restitution is not needed for this motion. What it does not establish: how much restitution
+  contributes to the motion in the run with the switch on (the statistics of the pass aggregate over
+  all contacts and do not identify the contacts of these particles), the cause, and whether the motion
+  shifts a gate value. Observed alongside: bed height, porosity and the balance dp* + floor
+  (1.0000-1.0002) are steady over the five fixed steps of this run. Hypotheses, none tested [I]: position
+  push-out of the hard-contact solver under load, residual contact impulses of sub-steps that end at
+  the budget, the vertex oscillation of the gas velocity of section 11 (present in both runs). To
+  separate them: follow the same particle ids at the pe sub-step cadence (position correction, pre- and
+  post-contact velocity, normal and tangential impulse, arming and residual of the pass, local gas
+  velocity and drag), compare matched initial beds with the switch toggled, then vary the contact
+  convergence or push-out and the fluid coupling separately; paired repeats give the scatter of the
+  gate values between realisations.
 - **Set-up checks**: contact parameters as specified (echo above). Overlap: 1.26 % of d at 0.090 s
   (collapse of the start bed; limit 1 %), at most 0.79 % of d after 0.2 s and 0.76 % in the evaluation
   windows: exceeded during the preparation only, as in section 11.
