@@ -163,3 +163,12 @@ the sweep; R_q4_max48 carries that defect), clamp tally, integer trace range, re
 binary                                md5                               source
 q2p1_el_pipeflow.3dc21409-pe4e4ad17   49f3614a43223b375ce455b68bebefa4  3dc21409 (Fortran = 627caf47) + pe 4e4ad17; build-fluid11 on nx-06 (job 164924)
 jobs 164923 (presets, clean HEAD), 164925 (Debug suites), 164926 (gate), 164927 (R_q5_max48 smoke): submitted, results not recorded here
+
+Restitution fix round 6 (external review, 2026-11-22): pe feature/el-restitution ce2a7f7 (5 commits on 4e4ad17, NOT pushed;
+libs/pe/.pin): test infrastructure and the trace-range parser only (production diff to 4e4ad17: RestitutionPostPass.h parser).
+binary                                md5                               source
+q2p1_el_pipeflow.20867701-pece2a7f7   6f511ed551188a9fbfa440f590eaa0e3  20867701 (Fortran = 627caf47) + pe ce2a7f7; build-fluid11 on nx-04 (job 164939)
+R_q5_max48 (job 164927, binary 3dc21409-pe4e4ad17, nx-03): steps 1000-2000 dp* 0.9758, eps_bed 0.51952, floor/W 0.0233,
+        wall/W 0.0259, Tgran 1.348e-3, contacts 11020, delivered 1265.3/step, demoted 356, converged/capped 9634/366, 0.575 s/step
+jobs 164936 (presets), 164937 (Debug suites), 164938 (alternate solvers), 164940 (gate), 164941/164942 (restitution-on identity
+        R_id400_old on 3dc21409-pe4e4ad17 vs R_id400_new on 20867701-pece2a7f7): submitted, results not recorded here
