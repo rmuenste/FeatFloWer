@@ -60,7 +60,7 @@ for. No reason against it was found. Bfull and B are available with the same dec
     # constant-velocity probe
     S11_INLET=const:0.30 $T/stage_s11.sh R_P30 SimPar@MaxNumStep=400 SimPar@ELParticleLogFreq=100
     # evaluation
-    python3 $T/fl11_post.py R_proto --steps R_proto/_data/steps.txt
+    python3 $T/fl11_post.py R_proto          # gates of spec 11; the protocol is taken from the log echo
 
 `stage_s11.sh` writes the coarse mesh (`make_s11_mesh.py`), partitions it (`PyPartitioner.py 36
 axis_uniform x3-y3-z4 FL36P fl_box/file.prj`, copy of the pe_partpy branch
@@ -217,8 +217,8 @@ The trajectory differs from R_proto from step 2 on (different distribution of th
 Full protocol resubmitted: `runs/fluid11/R_proto_hrz`, job 164004 (partition long, 10 h limit, binary
 77ffd070, deck = R_proto + `ELDragImplicitWeights = hrz` + `ELVelocityAuditFreq = 10`; expected about
 4.7 h). What to look at: `python3 tools/umax_summary.py R_proto_hrz/run_slurm.log 1.5` (runs/fluid11/tools),
-`grep 'maximum norm of velocity'`, and the evaluation `fl11_post.py R_proto_hrz --steps
-R_proto_hrz/_data/steps.txt`.
+`grep 'maximum norm of velocity'`, and the evaluation `fl11_post.py R_proto_hrz` (then with a `--steps` file; the option was removed on
+2026-11-22, the protocol comes from the log echo).
 
 ## 8. Results of the protocol (bed R, 2026-11-19/20)
 
@@ -234,7 +234,7 @@ Runs (`runs/fluid11`, details in runs_versions.txt) [V]:
   solve diverged. No gate evaluated.
 - `R_proto_hrz` (job 164004, binary 77ffd070, deck = R_proto + `ELDragImplicitWeights = hrz` +
   velocity audit): COMPLETED in 6 h 10 min (0.74 s per step on this node; the probes gave 0.55-0.64),
-  largest velocity norm 1.05 m/s. Evaluation `fl11_post.py R_proto_hrz --steps R_proto_hrz/_data/steps.txt`
+  largest velocity norm 1.05 m/s. Evaluation `fl11_post.py R_proto_hrz` (then with `--steps`, removed 2026-11-22)
   (post tool of 2026-11-20: F1 and F3 by the agreed rules, floor force from the particle momentum balance).
 
 Per step (0.2-0.5 s of each step; dp* = dp_dyn A / W):
@@ -445,7 +445,7 @@ The reviewer's judgement of the gas-velocity oscillation is in section 11. Still
 reviews: F1 of `R_r1_proto` fails by 0.001, the overlap limit is exceeded during the preparation, and
 the friction-only runs are inelastic.
 
-### Review rounds 3 to 5 (2026-11-22): the post tool
+### Review rounds 3 to 6 (2026-11-22): the case tools
 
 Rounds 3 to 6 (same reviewer; reports in the session record) found no further defect in the solver
 after one regression of fix round 2 (the `hrz` refusal also rejected a prescribed-field run, which never
@@ -457,24 +457,125 @@ early, a log segment starting at 1.0 s, a reload that resets the time) the tool 
 official verdict, e.g. F1 0.9807 PASS for `R_r1_proto` (0.9787 FAIL). None of these conditions exists
 in a recorded log; every recorded gate number was reproduced by the reviewer in each round.
 
-The tool was therefore rebuilt (design note section 7.4), not patched:
+The tool was therefore rebuilt (design note section 7.4), not patched, and narrowed in two steps: first
+to a fail-closed precondition for "a complete uninterrupted run of an echoed protocol" (round 5), then,
+because the sixth review still found inputs that precondition accepted (a superseded `Prop@Density`
+line, a knot 2e-7 s after the end of the run, a property reload, a restart mode, two invocations in one
+log), to the recognition of a spec-11 run:
 
-- it certifies one thing, a complete uninterrupted run of an echoed inlet protocol. One precondition
-  check runs before any gate (complete table echo, one constant-step clock from the protocol start, run
-  finished at the last knot, physical inputs resolved from the run with their provenance printed);
-  outside that domain every official gate is `unavailable` with the reasons and all numbers are printed
-  as measurements. A PASS never comes out of such a run; a witnessed violation (count change, centre
-  above mid-height in the lowest hold) is still a FAIL;
-- one record reader, intended holds from the echoed table alone (maximal constant-velocity intervals),
-  one validated sequence of expected audit rows, per-step state `measured` / `unmeasurable` with its
-  reason, verdicts PASS / FAIL / unavailable; a `--steps` file is a cross-check only;
-- F2 and F3 use the closure, properties and mapping support of the run; a differing command-line value
-  gives a labelled comparison;
-- `fl11_movie.py` takes steps, states and the trace end from the same evaluation; the render job and
-  `fl11_submit.sh` refuse a run directory with particle logs of an earlier invocation.
+- `fl11_post.py` gates spec 11 and nothing else. A `Spec` object holds the inlet table (from the function
+  of `make_inlet_table.py` that writes the deck's table), the physical values, the mapping support, the
+  column and the gate constants. Official gates are issued only if the echoed table equals the spec
+  table, the effective inputs of the run (last start-up assignment, cross-checked against the conversion
+  echoes) equal the spec values, the run is a fresh start with one invocation and no reload line, the
+  clock is one constant-step sequence from the first knot (exact decimal arithmetic), and the run has
+  finished. Otherwise there is no official verdict and the numbers are printed as measurements; a
+  witnessed violation (count change, centre above mid-height in the lowest hold) is kept as FAIL only
+  for a genuine spec-11 run that has not finished;
+- one record reader, the intended holds of the spec table, one validated sequence of expected audit
+  rows, per-step state `measured` / `unmeasurable` with its reason, verdicts PASS / FAIL / unavailable
+  (F1-F3 unavailable as soon as one protocol step is unmeasurable);
+- set-up requirements of the spec that the gates do not cover (contact friction and restitution from
+  the start-up line `EL_CONTACT_PARAMS`, the overlap limit from `EL_CONTACT_STATS`) are printed as set-up
+  checks and qualify the verdict line; they do not withhold a verdict, so the friction-only runs of
+  section 11 keep their gate verdicts with the declared deviation;
+- the constant-inlet smokes and probes of this case are outside the domain by construction (no verdict);
+  bed A (25 x 25 mm) needs its own spec instance and has none yet;
+- `fl11_movie.py` takes steps, states and the trace end from the same evaluation; the render job refuses
+  an unfinished run and frames of an earlier invocation, `fl11_submit.sh` locks the run directory and
+  refuses one that already holds particle logs.
 
 Tests of the tool [V]: `--self-test` (synthetic logs, every counterexample of the five reviews) and
 `--self-test-real <rundir>` (seeded variants of a real log: equivalent rewrites must give byte-identical
 output, degrading and run-history transforms have an expected verdict per gate); counts and job ids in
-`runs_versions.txt` and `runs/fluid11/unit/post_r3 .. post_r5`. The evaluations `post_r5.txt` of
+`runs_versions.txt` and `runs/fluid11/unit/post_r3 .. post_r6`. The evaluations `post_r6.txt` of
 `R_r1_proto`, `R_r1_oldsplit`, `R_proto_movie` keep every gate number and verdict of section 11.
+
+## 13. Record run with restitution 0.9 and friction 0.3 per contact (2026-11-22)
+
+`R_r5_rest` (job 164928, 6 h 27 min on 37 ranks): the deck and bed of section 11 with the json keys
+`restitutionEnabled_ = true`, `restitutionScheme_ = post-pass`, `restitutionThreshold_ = 0.01` (rest
+velocity, m/s), `restitutionIterations_ = 4`, `restitutionMaxIterations_ = 48` (now in
+`example_s11.json`). Binary `3dc21409-pe4e4ad17`: Fortran sources 627caf47, pe `feature/el-restitution`
+at 4e4ad17 (pe pull request #59; its head differs from 4e4ad17 only in the trace parser, tests and
+documentation). The later Fortran of this branch is bitwise on this path (400 steps with restitution on,
+section 12). Start-up echo of the run [V]: `EL_CONTACT_PARAMS pair=particle-particle mu_static=0.3
+mu_dynamic=0.3 e=0.9 | pair=particle-wall wall=zwalls mu_static=0.3 mu_dynamic=0.3 e=0.9 | restitution=on
+threshold=0.01 scheme=post-pass iterations=4 max_iterations=48 ...`. Evaluation `fl11_post.py` (final
+tool of section 12), `post_r6.txt` in the run directory [V].
+
+| step | U [m/s] | dp* | bed top H [mm] | eps_bed | floor/W | dp* + floor |
+|---|---|---|---|---|---|---|
+| 0 | 0.30 | 0.9716 | 30.27 | 0.5145 | 0.0191 | 0.9908 |
+| 1 | 0.28 | 0.9677 | 28.86 | 0.4887 | 0.0198 | 0.9875 |
+| 2 | 0.26 | 0.9732 | 27.77 | 0.4667 | 0.0171 | 0.9902 |
+| 3 | 0.24 | 0.9746 | 26.68 | 0.4427 | 0.0188 | 0.9934 |
+| 4 | 0.22 | 0.9774 | 25.77 | 0.4201 | 0.0162 | 0.9936 |
+| 5 | 0.20 | 0.9861 | 24.74 | 0.3920 | 0.0169 | 1.0030 |
+| 6 | 0.18 | 0.9936 | 24.02 | 0.3708 | 0.0069 | 1.0005 |
+| 7 | 0.16 | 0.9147 | 23.82 | 0.3653 | 0.0853 | 0.9999 |
+| 8 | 0.14 | 0.7905 | 23.82 | 0.3650 | 0.2095 | 1.0000 |
+| 9 | 0.12 | 0.6688 | 23.81 | 0.3647 | 0.3312 | 1.0000 |
+| 10 | 0.10 | 0.5499 | 23.80 | 0.3645 | 0.4501 | 1.0000 |
+| 11 | 0.08 | 0.4338 | 23.80 | 0.3644 | 0.5664 | 1.0002 |
+| 12 | 0.06 | 0.3210 | 23.80 | 0.3643 | 0.6792 | 1.0002 |
+| 13 | 0.04 | 0.2115 | 23.79 | 0.3642 | 0.7885 | 1.0000 |
+
+Gates (amended spec):
+
+| gate | value | verdict | friction only, e = 0 (`R_r1_proto`) |
+|---|---|---|---|
+| F1 plateau, 7 steps 0.30-0.18 m/s | 0.977740 (dp* + floor 0.9941) | **FAIL** (0.0023 below the gate) | 0.978732 FAIL |
+| F2 core gradient at the mapped gas fraction, 5 fixed steps | ratios 0.9650-0.9737, worst 3.50 % | PASS | 3.49 % PASS |
+| F3 U_mf at dp* = 1 against Gidaspow at the whole-bed porosity 0.3697 (0.1650 m/s) | 0.1733 m/s, ratio 1.0504 | **FAIL** (0.0004 above the gate) | 0.1770 m/s, 1.0474 PASS |
+| F4 (reported) U_mf / 0.182 | 0.952 | - | 0.973 |
+| F5 height / count | 23.90 mm / 9789 on 3000 audit lines | PASS / PASS | 23.81 mm PASS |
+
+- **Effect of restitution** (against `R_r1_proto`, same friction and drag split, one realisation each):
+  the plateau moves by -0.001, U_mf falls by 0.0037 m/s, the fixed bed packs slightly denser (whole-bed
+  porosity 0.3697 against 0.3726, core 0.364 against 0.366) and the fluidised bed stands 0.04-0.2 mm
+  lower at 0.30-0.24 m/s (0.05 mm higher at 0.22 m/s). The fixed branch has five steps (0.12-0.04 m/s): at 0.14 m/s dp* = 0.7905 lies above 0.8 of
+  the plateau, so that step belongs to neither branch.
+- **F3 fails by 0.0004 in ratio.** The fit dp* = 5.1315 U + 3.6759 U^2 crosses 1 at 0.1733 m/s; the
+  closure at the whole-bed porosity gives 0.1650 m/s. At the measured plateau the crossing is
+  0.1699 m/s (1.029). The margin is far below what one realisation resolves (the two development
+  versions of the pass, `R_r2_rest` and `R_r3_rest`, give 1.0469 and 1.0488, both PASS, and F1 0.9781 /
+  0.9784); the verdict is recorded as it is.
+- **Cross-code** [P, peer values of 2026-11-21, not recomputed]: MFiX 0.995 / 0.370 / 0.173 m/s (1.02
+  of the closure), CFDEM (uniform inlet, 40 rows) 0.955 / 0.3695 / 0.191 m/s. This run: 0.978 / 0.370
+  whole bed / 0.173 m/s.
+- **Restitution pass** (`EL_RESTITUTION_STATS`, one line per CFD step, 10 pe sub-steps each) [V]:
+
+  | part of the run | active sub-steps | at the budget of 48 | armed contacts | residual median / p99 |
+  |---|---|---|---|---|
+  | preparation 0-0.5 s | 19 719 | 12.6 % | 2.79e6 | 1.0e-4 / 3.2e-3 m/s |
+  | fluidised 0.5-4.0 s | 127 853 | 2.1 % | 9.68e6 | 9.9e-5 / 4.3e-4 m/s |
+  | 0.16 m/s step, 4.0-4.5 s | 583 | 5.1 % | 1 248 | 8.5e-5 / 3.8e-4 m/s |
+  | fixed bed 4.5-7.5 s | 16 070 of 120 000 | 56.6 % | 31 295 | 9.9e-5 / 5.7e-3 m/s |
+
+  In the fluidised part the pass converges within the budget on 98 % of the active sub-steps. In the
+  fixed bed the activity grows as the gas velocity falls (armed contacts per 0.2 s: 100 at 4.4-4.6 s,
+  2 060 at 6.0-6.2 s, 4 783 at 7.2-7.4 s), more than half of the active sub-steps end at the budget,
+  and single sub-steps show approach speeds up to 0.31 m/s and residuals up to 0.29 m/s (7.019 s).
+- **Rattlers in the loaded fixed bed, with and without restitution** [V, job 164994,
+  `runs/fluid11/analysis_r5`]: particle speeds from the particle logs at ten times between 4.4 and
+  7.5 s. Above 1 mm/s: 0 of 9789 at 4.4 s, then 1-12 with restitution and 1-22 without (`R_r1_proto`),
+  growing towards the lowest velocity; largest sampled speed 0.024 m/s with and 0.022 m/s without;
+  rms over all particles 2e-5 to 3e-4 m/s in both. With restitution they sit in the two layers on the
+  floor (z 0.43-1.14 mm), without it in a cluster at z about 11 mm and near 3 mm. The moving particles
+  are therefore not an effect of restitution; with the switch on their contacts are armed, which is
+  what the statistics above show. Bed height, porosity and the balance dp* + floor (1.0000-1.0002) are
+  steady over the fixed steps. Cause not established [I: position push-out of the hard-contact solver
+  under the growing contact load; the vertex oscillation of the gas velocity of section 11 is present
+  in both runs as well].
+- **Set-up checks**: contact parameters as specified (echo above). Overlap: 1.26 % of d at 0.090 s
+  (collapse of the start bed; limit 1 %), at most 0.79 % of d after 0.2 s and 0.76 % in the evaluation
+  windows: exceeded during the preparation only, as in section 11.
+- Peak gas speed (`EL_UMAX_AUDIT`, mean audited maximum per step): 1.27 / 0.86 / 0.215 m/s at
+  U = 0.30 / 0.18 / 0.04 (largest single audit at 0.04: 0.305), as without restitution.
+
+Standing of case 11 on this branch after section 13: F2 and F5 pass; F1 fails by 0.002 and F3 by 0.0004
+with the specified contact model; the peak gas speed carries the vertex oscillation of the consistent
+`hrz` split; the pe pin of the branch is still master's (the restitution keys need pe pull request #59
+and the pin bump).
+

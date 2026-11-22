@@ -31,6 +31,11 @@
  "boxWallsEnabled_": false,
  "lubricationEnabled_": false,
  "restitution_": 0.9,
+ "restitutionEnabled_": true,
+ "restitutionScheme_": "post-pass",
+ "restitutionThreshold_": 0.01,
+ "restitutionIterations_": 4,
+ "restitutionMaxIterations_": 48,
  "staticFriction_": 0.15,
  "dynamicFriction_": 0.15,
  "initialParticleVelocity_": [
@@ -38,7 +43,7 @@
   0.0,
   0.0
  ],
- "config_string": "min_fluidization: spec 11 (MFiX PIC07 / NETL), laterally periodic column 15 x 15 x 100 mm (bed R; 25 x 25 for bed A), d 0.87 mm, rho_p 860, gas rho 1.0 mu 1.8e-5; floor = z wall of pe with uniform gas inflow through it (Inflow975), top z wall at the column top (fluid outlet there, never reached by particles); periodic x/y; restitution 0.9 is a material value only: contacts are inelastic unless restitutionEnabled_ is set, and the key exists only in pe from pull request #59 on (the pe pinned by this branch ignores it; record run with restitution: RUNBOOK section 13), friction 0.15 per material = 0.3 per contact (pe adds the coefficients of the two materials in contact)",
+ "config_string": "min_fluidization: spec 11 (MFiX PIC07 / NETL), laterally periodic column 15 x 15 x 100 mm (bed R; 25 x 25 for bed A), d 0.87 mm, rho_p 860, gas rho 1.0 mu 1.8e-5; floor = z wall of pe with uniform gas inflow through it (Inflow975), top z wall at the column top (fluid outlet there, never reached by particles); periodic x/y; restitution 0.9 applied through restitutionEnabled_ (post-pass scheme, rest velocity restitutionThreshold_ 0.01 m/s, sweep budget 48; keys of pe pull request #59: an older pe does not know them and runs inelastic, then the start-up line EL_CONTACT_PARAMS is missing and the post tool says so; record run RUNBOOK section 13), friction 0.15 per material = 0.3 per contact (pe adds the coefficients of the two materials in contact)",
  "zWallsEnabled_": true,
  "zWallVelocityTop_": 0.0,
  "zWallVelocityBottom_": 0.0

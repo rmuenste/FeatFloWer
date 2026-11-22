@@ -257,3 +257,8 @@ job     run                      binary     result
         verdict-line qualifier changed, every gate number and verdict as before. Contacts not echoed (pre-#59 binary):
         R_r1_proto, R_r1_oldsplit, R_proto_movie; met: R_r2_rest, R_r3_rest, R_r5_rest. Overlap exceeded during the
         preparation only on all six (largest 1.168 / 1.192 / 1.302 / 1.411 / 1.336 / 1.255 % of d)
+164872  R_r2_rest (protocol, friction 0.3, e 0.9, budget 24)  288aee16-pe45c9268 (pe restitution review round 2; development)  completed 6 h 16 min; F1 0.978097 FAIL, F2 3.48 % PASS, F3 1.0469 PASS, F5 PASS (unit/post_r6/R_r2_rest.post_r6.txt)
+164910  R_r3_rest (protocol, friction 0.3, e 0.9, v_rest 0.01, budget 48)  2f06b232-pee0a4c69 (round 3; development)  completed 6 h 27 min; F1 0.978418 FAIL, F2 3.40 % PASS, F3 1.0488 PASS, F5 PASS (unit/post_r6/R_r3_rest.post_r6.txt)
+164919  R_r4_rest  43e7360e-peb047e41 (round 4)  CANCELLED after 7 min: the binary doubled the normal increment in the friction limit of the pass (CANCELLED.txt in the run directory)
+164928  R_r5_rest (protocol, friction 0.3, e 0.9, v_rest 0.01, budget 48) = RECORD RUN of RUNBOOK section 13  3dc21409-pe4e4ad17 (Fortran 627caf47; pe 4e4ad17 = pull request #59 up to trace parser, tests, docs)  completed 6 h 27 min; F1 0.977740 FAIL, F2 3.50 % PASS, F3 1.0504 FAIL, F5 PASS / PASS; contacts met, overlap 1.255 % of d at 0.090 s (preparation only); post_r6.txt in the run directory
+164994  analysis_r5/fast_particles (particle speeds at ten times, R_r5_rest and R_r1_proto)  tool runs/fluid11/analysis_r5/fast_particles.py  1-12 (with restitution) and 1-22 (without) of 9789 particles above 1 mm/s in the fixed bed, largest 0.024 / 0.022 m/s

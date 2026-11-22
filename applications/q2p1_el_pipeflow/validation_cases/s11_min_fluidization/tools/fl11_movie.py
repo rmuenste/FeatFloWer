@@ -21,6 +21,7 @@ OUTDIR   frame_%05d.png (2560 x 1440) and the cache fl11_movie_cache.npz (positi
          diameter (minimum image in x and y), per velocity step, next to max |v| dt / d of the logged
          velocities (the minimum image is only a lower bound once |v| dt exceeds L / 2).
 --no-peer  leave the peer-reported per-step means (MFiX, CFDEM) out of the trace.
+environment FL11_MOVIE_NOTE: one more header line (e.g. the contact model of the run), passed on by sbatch.
 
 Definitions. Everything that is a number of the evaluation comes from fl11_post.py (imported: evaluate,
 u_of_t, div, finite), nothing is re-derived:
@@ -384,9 +385,12 @@ for r in FIXSET:                                 # the fixed set of fl11_post.br
     for ax in (ax_s, ax_u):
         ax.axvspan(r[0], r[1], color=INK, alpha=0.05, lw=0, zorder=0)
 if FIXSET and FLUSET and FLUSET[-1][1] <= FIXSET[0][0] + 1e-9:   # one transition: label both sides
-    t_fix = FIXSET[0][0]
-    for ax in (ax_s, ax_u): ax.axvline(t_fix, color=INK2, lw=1, zorder=1)
-    ax_u.text(t_fix - 0.08, 0.035, 'fluidised', color=INK, fontsize=14, ha='right', va='bottom')
+    t_fix, t_flu = FIXSET[0][0], FLUSET[-1][1]   # steps between the two sets belong to neither
+    for ax in (ax_s, ax_u):
+        for tb in {t_fix, t_flu}: ax.axvline(tb, color=INK2, lw=1, zorder=1)
+    ax_u.text(t_flu - 0.08, 0.035, 'fluidised', color=INK, fontsize=14, ha='right', va='bottom')
+    if t_fix - t_flu > 0.6:
+        ax_u.text(0.5 * (t_flu + t_fix), 0.035, 'transition', color=INK2, fontsize=12, ha='center', va='bottom')
     ax_u.text(t_fix + 0.08, 0.305, 'fixed bed', color=INK, fontsize=14, ha='left', va='top')
 if not table:
     ax_u.text(0.02, 0.5, 'inlet velocity: table echo pending', color=INK2, fontsize=14, transform=ax_u.transAxes, va='center')
@@ -397,7 +401,7 @@ if len(TA):
     handles.append(ax_s.plot(tm, ym, color=C_FF, lw=2.5, zorder=5, label='FeatFloWer: dp* averaged over %g s' % RUNMEAN)[0])
     tm, ym = runmean(AUD[:, 1] + AUD[:, 2])
     handles.append(ax_s.plot(tm, ym, color=INK, lw=1.6, zorder=4, label='FeatFloWer: dp* + force on the floor / W, averaged over %g s' % RUNMEAN)[0])
-    handles.append(ax_h.plot(TA, AUD[:, 3], color=C_TOP, lw=2, zorder=4, label='FeatFloWer: bed top (right axis)')[0])
+    handles.append(ax_h.plot(TA, AUD[:, 3], color=C_TOP, lw=2, zorder=4, label='FeatFloWer: bed top = height below which 99 % of the particles lie (right axis)')[0])
 if not A.no_peer and len(SROW):
     for name, mk, val in PEER:
         xs, ys = [], []
@@ -409,7 +413,7 @@ if not A.no_peer and len(SROW):
 leg = ax_s.legend(handles=handles, loc='lower left', bbox_to_anchor=(0.012, 0.025), fontsize=13, frameon=True,
                   facecolor=SURF, edgecolor='none', framealpha=1.0, labelcolor=INK, handlelength=2.2, borderpad=0.4, labelspacing=0.42)
 leg.set_zorder(9)                                # above the time cursor
-ax_s.text(TEND * 0.988, 1.0 + 0.025, 'dp* = 1: buoyant bed weight per area, W / A = %.2f Pa' % (W / AREA) if len(TA) else '', color=INK2, fontsize=13,
+ax_s.text(TEND * 0.988, 1.0 + 0.025, 'dp* = 1: the gas carries the whole bed (W / A = %.2f Pa)' % (W / AREA) if len(TA) else '', color=INK2, fontsize=13,
           va='bottom', ha='right', zorder=6)
 cur = [ax.axvline(0, color=INK, lw=1.3, zorder=8) for ax in (ax_s, ax_u)]
 
@@ -420,13 +424,14 @@ cad = np.median(np.diff(T[sel])) if nfr > 1 else 0.0
 for q, s in enumerate((LABEL[:LABEL.index(' bed 15')], LABEL[LABEL.index('bed 15'):],
                        'Inlet velocity lowered by 0.02 m/s every 0.5 s.',
                        'One image per logged particle frame (%g ms), no interpolation.' % (cad * 1e3),
-                       'Disc size: largest section of the sphere inside the cut slab.')):
+                       'Disc size: largest section of the sphere inside the cut slab.')
+                      + ((os.environ['FL11_MOVIE_NOTE'],) if os.environ.get('FL11_MOVIE_NOTE') else ())):
     fig.text(fx(XT), fy(YT - 63 - 26 * q), s, color=INK2, fontsize=13)
 tx_time = fig.text(fx(XT), fy(YT - 245), '', color=INK, fontsize=44, family='monospace')
 tx_reg = fig.text(fx(XT + 425), fy(YT - 238), '', color=INK2, fontsize=15)
 XV1, XV2, XUN = XT + 340, XT + 470, XT + 482
 fig.text(fx(XV1), fy(YT - 285), 'now', color=INK2, fontsize=13, ha='right'); fig.text(fx(XV2), fy(YT - 285), 'step mean', color=INK2, fontsize=13, ha='right')
-ROWS = (('inlet velocity U', 'm/s'), ('pressure drop dp*', ''), ('bed top z99 + r', 'mm'), ('bed porosity', ''))
+ROWS = (('inlet velocity U', 'm/s'), ('pressure drop dp*', ''), ('bed top (99 % below)', 'mm'), ('bed porosity', ''))
 tx_now, tx_mean = [], []
 for q, (name, unit) in enumerate(ROWS):
     y = fy(YT - 317 - 31 * q)
