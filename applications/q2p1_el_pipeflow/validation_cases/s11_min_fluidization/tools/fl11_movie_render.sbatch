@@ -16,8 +16,10 @@
 # for another run also pass --output=.../movie/render_<RUN>.log on the sbatch command line
 # Every render writes into a fresh frame directory frames_<RUN>.<job id> (never into the frames of an
 # earlier render), waits for each worker and stops on the first failed one, and encodes only after
-# all n frames of this render exist (frame_00000 .. frame_<n-1>); the mp4 is written to a temporary
-# name and moved into place on success, so a failed render leaves the previous movie as it was.
+# all n frames of this render exist (frame_00000 .. frame_<n-1>). The check log and the temporary mp4
+# live in the job-specific frame directory (the same filesystem as the movie, so the final mv is a
+# rename): concurrent renders of one run share no file but the final movie, which is replaced only by
+# a successful render; the status of that rename is the status of the job.
 RUN=${1:-R_proto_movie}; TEND=${2:-7.5}; STRIDE=${3:-1}
 F=/data/warehouse17/rmuenste/runs/fluid11
 FR=$F/movie/frames_$RUN.${SLURM_JOB_ID:-$$}
@@ -28,9 +30,10 @@ hostname; export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 [ -e $FR ] && { echo "frame directory $FR exists: not rendered"; exit 4; }
 mkdir -p $FR; echo "frames into $FR"
 # the check reads the logs once and writes the cache that the workers reuse
-$TOOL --check > $F/movie/check_$RUN.log || exit 1
-cat $F/movie/check_$RUN.log
-read n tlast <<< "$(awk '/^check: frames/{print $3, $7}' $F/movie/check_$RUN.log)"
+CHECK=$FR/check.log
+$TOOL --check > $CHECK || exit 1
+cat $CHECK
+read n tlast <<< "$(awk '/^check: frames/{print $3, $7}' $CHECK)"
 echo "images $n, last frame t = $tlast s (required $TEND)"
 awk -v a="$tlast" -v b="$TEND" 'BEGIN{exit !(a >= b - 1e-6)}' || { echo "run $RUN has not reached $TEND s: not rendered"; exit 3; }
 W=4; q=$(( (n + W - 1) / W )); pids=()
@@ -46,8 +49,10 @@ done
 m=$(/bin/ls $FR | grep -c '^frame_.*\.png$'); echo "png frames $m (expected $n)"
 for ((i = 0; i < n; i++)); do [ -s $(printf "$FR/frame_%05d.png" $i) ] || { echo "frame $i missing or empty: not encoded"; exit 2; }; done
 [ "$m" = "$n" ] || { echo "$m frames in $FR, expected $n: not encoded"; exit 2; }
-TMP=${MP4%.mp4}.part.mp4
+TMP=$FR/movie.part.mp4
 $FFMPEG -y -loglevel error -framerate 30 -i $FR/frame_%05d.png -vf "tpad=stop_mode=clone:stop_duration=2" -c:v libx264 -crf 18 -profile:v high -pix_fmt yuv420p -movflags +faststart $TMP
 status=$?; echo "ffmpeg exit=$status"
-[ $status = 0 ] && mv -f $TMP $MP4 && echo "movie $MP4 (frames $FR)"
+[ $status = 0 ] || exit $status
+mv -f $TMP $MP4; status=$?
+[ $status = 0 ] && echo "movie $MP4 (frames $FR)" || echo "rename of $TMP to $MP4 FAILED, exit $status"
 exit $status
