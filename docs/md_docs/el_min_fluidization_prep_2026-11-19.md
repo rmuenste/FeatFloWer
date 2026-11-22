@@ -262,7 +262,8 @@ the physical drag damps). `hrz` keeps the element totals and changes only the di
 implicit correction B (u_i - u_f) inside an element. Whether it should become the default is an owner
 decision. Its effect on a liquid gate [V, job 164099, `runs/fluid11/hrzliquid`]: the D_s6 deck (s10
 periodic settling bed, rho_f 1000, mu 0.05, model A weighted, 18 335 particles) run for 200 steps (0.1 s)
-with rowsum and with hrz: the total drag agrees to 8e-5 (it is fixed by the bed weight), the mean
+with rowsum and with hrz: the vertical drag per step (`EL_FORCE_BUDGET`, steps 1-200) agrees to 1.8e-4
+relative (largest at step 193; mean difference 4.9e-5; it is fixed by the bed weight), the mean
 particle velocity is 0.08 % lower with hrz at step 20, 0.24 % at 60, 0.33 % at 100 and 0.42 % at 200
 (slip alike), i.e. a small change that has not levelled off after 0.1 s; the long-run effect on the
 s10 numbers (core 1.047) is not measured.

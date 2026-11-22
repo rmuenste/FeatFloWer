@@ -281,7 +281,8 @@ interior is 1-2 % above the closure. Bed A not run.
 1. Protocol range: answered by the run - the defluidised bed packs at 0.369, U_mf about 0.18 m/s, seven
    fluidised steps (0.18-0.30 m/s) qualify for F1. (The probe-based worry of 2026-11-19 about 0.30 being
    too close to U_mf was based on the looser collapsed beds of the probes.)
-2. F2 definition and the window: with a 2.5 d kernel the 2 d exclusion of the spec leaves the kernel
+2. (Settled 2026-11-20, section 10: F2 is taken at the mapped gas fraction, and only from a window that
+   excludes the mapping support.) F2 definition and the window: with a 2.5 d kernel the 2 d exclusion of the spec leaves the kernel
    of the window-edge particles reaching the loose end layers; core 0.946-0.954, interior 1.014-1.024
    (design note section 9). A window of kernel radius + 1 d, or the like-for-like closure at the
    kernel-sampled porosity (ratio_k, audit field eps_kern_slip_win, from 2026-11-20 runs on), to be agreed
@@ -290,7 +291,8 @@ interior is 1-2 % above the closure. Bed A not run.
    applied one); fix needed in pe (design note section 8); the bed audit uses the momentum balance.
 4. `ELDragImplicitWeights = hrz` as default: owner decision; effect on the s10 liquid gate D_s6 over
    200 steps measured (design note section 7, RUNBOOK of this case section 7a).
-5. F3 FAIL (+8.6 / +10.4 %): dp* is the pressure drop of the whole bed, whose mean porosity over
+5. (Settled 2026-11-20, section 10: the F3 reference is the closure at the whole-bed porosity; this
+   run then gives 1.042, PASS.) F3 FAIL under the first rule (+8.6 / +10.4 %): dp* is the pressure drop of the whole bed, whose mean porosity over
    H = z99 + r is 0.376 against the core 0.369 (looser floor and top layers). Gidaspow U_mf at 0.376 is
    0.174 m/s, against which the measured 0.181 is +4 %, close to the whole-bed gradient ratio
    0.964-0.974. Which porosity the F3 reference takes is a definition to agree with the peer [I].
@@ -357,17 +359,25 @@ and DPMFoam runs (top-driven) are void.
 
 Same deck, bed, mesh, inlet table and partition as the protocol run of section 8 (dense output as in
 `R_proto_movie`), json friction 0.15 per material = 0.3 per contact, contacts still inelastic (e = 0).
-Evaluation `fl11_post.py` (rules of the amended spec), output in `post.txt` of each run directory [V].
+Evaluation `fl11_post.py` (rules of the amended spec), output in `post.txt` of each run directory [V];
+re-evaluated with the post tool of fix round 2 (section 12) in `post_r2.txt`, which is the source of
+the F2 column. The three runs have the same physical deck; the output settings differ (`R_r1_proto` and
+`R_proto_movie`: particle log every 20 steps, fields every 0.0249 s; `R_r1_oldsplit`: 400 steps, 0.5 s).
 
 | run (job) | binary | drag split | F1 plateau | dp* + floor | U_mf (dp* = 1) | whole-bed porosity | F3 ratio | F2 worst | packed core porosity | F5 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `R_proto_movie` (164399), friction 0.6 | c8541cfc | first `hrz` | 0.981 PASS | 0.998 | 0.181 | 0.3761 | 1.042 PASS | 1.6 % PASS | 0.370 | PASS |
+| `R_proto_movie` (164399), friction 0.6 | c8541cfc | first `hrz` | 0.981 PASS | 0.998 | 0.181 | 0.3761 | 1.042 PASS | 1.6 %, not gated (window inside the mapping support) | 0.370 | PASS |
 | `R_r1_proto` (164674) | 627caf47 | consistent `hrz` | **0.9787 FAIL** | 0.9935 | 0.1770 | 0.3726 | 1.047 PASS | 3.5 % PASS | 0.366 | PASS |
-| `R_r1_oldsplit` (164675) | c8541cfc | first `hrz` | 0.9826 PASS | 0.9975 | 0.1764 | 0.3720 | 1.049 PASS | 2.4 % PASS | 0.365 | PASS |
+| `R_r1_oldsplit` (164675) | c8541cfc | first `hrz` | 0.9826 PASS | 0.9975 | 0.1764 | 0.3720 | 1.049 PASS | 2.4 %, not gated (window inside the mapping support) | 0.365 | PASS |
 
 - **Friction** (0.6 -> 0.3, same split): the fixed bed packs denser (core 0.370 -> 0.365, bed top
   24.07 -> 23.9 mm), U_mf falls from 0.181 to 0.176 m/s, the fluidised bed stands 0.1-0.5 mm higher.
-- **Drag split** (same friction): integral values agree to 0.004 in dp* and 0.0006 m/s in U_mf, but the
+- **F2 of the two runs with the first split**: their binaries exclude 2 d (1.74 mm) at the window ends,
+  the mapping support is 2.5 d (2.175 mm), so under the amended spec F2 is unavailable for them; the
+  ratios are measurements. `R_r1_proto` excludes the support (binary 627caf47) and is gated. The 3.5 %
+  against 2.4 % therefore also compares two windows, not only two drag splits.
+- **Drag split** (same friction): the plateau means agree to 0.004 in dp* (single steps differ by up to
+  0.0064: 0.9769 against 0.9833 at 0.28 m/s) and U_mf to 0.0006 m/s, but the
   plateau of the consistent split is 0.9787, 0.001 outside the F1 gate (recorded as FAIL), and the
   global balance dp* + floor force is 0.9935 on the plateau against 0.9975 (fixed bed: 1.0001 against
   1.0005-1.0013, so the consistent split closes the fixed-bed balance better).
@@ -375,13 +385,60 @@ Evaluation `fl11_post.py` (rules of the amended spec), output in `post.txt` of e
   1.22 m/s at U = 0.30, 0.89 at 0.18, 0.23 at 0.04; first split 0.80 / 0.52 / 0.12. In the packed bed at
   0.04 m/s the interstitial speed is 0.109 m/s: the first split shows it, the consistent split shows
   twice that at single (Q2 vertex) dofs. The consistent split therefore carries a node-to-node
-  oscillation of the gas velocity inside the bed that the integrals do not see. Open: sample the gas
-  velocity with the same lumped weights, or filter; owner decision, not done here.
-- Overlap: 1.17 % of d at 0.07 s (collapse of the start bed), at most 0.75 % of d after 0.2 s
-  (`R_r1_oldsplit` 1.19 % / 0.81 %).
+  oscillation of the gas velocity inside the bed. Second review (section 12): the saved fields confirm
+  it (vertex values of w in the packed bed from -0.028 to 0.222 m/s, six of 288 vertices negative,
+  against 0.101 to 0.115 with the first split); the corrected diagonal acts on the velocity increment
+  and gives no restoring force for a stationary nodal pattern, while the first split damped the pattern
+  at the price of the steady force error of review round 1. The run is not a validation of local gas
+  velocities, and the oscillation can bias the gates (F1 moved by 0.004). Remedy (damping term or
+  sampling) is an owner decision, not done here.
+- Overlap: the 1 % limit of the spec is exceeded during the preparation, 1.17 % of d at 0.07 s (collapse
+  of the start bed); at most 0.75 % of d after 0.2 s (`R_r1_oldsplit` 1.19 % / 0.81 %).
 - Cost 6 h 23 min each on 37 ranks.
 
-Restitution (e = 0.9) needs the pe change `feature/el-restitution` (external review rounds 1-4 on
-2026-11-21/22); runs with it are recorded below once the review has passed. `R_r1_rest` (164701, first
-version of the pass, no rest velocity) and `R_r2_rest` (164872, review round 2, budget 24) are
-development runs and not part of the record.
+Restitution (e = 0.9) needs the pe change `feature/el-restitution` (pe pull request #59, seven external
+review rounds on 2026-11-21/22); the run with it is recorded in section 13. `R_r1_rest` (164701, first
+version of the pass, no rest velocity), `R_r2_rest` (164872, review round 2, budget 24) and `R_r3_rest`
+(164910, review round 3) are development runs and not part of the record; `R_r4_rest` (164919) was
+cancelled (its binary doubled the normal increment in the friction limit of the pass).
+
+## 12. Second external review of the branch (GPT-6.2 Astra, high; 2026-11-22) and fix round 2
+
+Reviewed head c430b4d2, verdict CHANGES REQUIRED. Report and brief are in the session record; the
+findings and what was done [V unless marked]:
+
+1. **Post tool awarded an amended F2 PASS to runs whose window lies inside the mapping support** (P0):
+   F2 is now gated only if every audit line of the fixed-step windows excludes max(2 d, mapping support)
+   at both ends; otherwise the ratios are printed as a measurement and the verdict is unavailable.
+   Section 11 corrected accordingly (1fbb28e4).
+2. F2 uses the dynamic window gradient (`gradz_win_dyn`); an older log falls back to the total gradient
+   only if its hydrostatic part is zero on every audit line used (true for all runs of this case).
+3. Post tool: unavailable audit states no longer stop the evaluation, F1-F3 and F5 are evaluated
+   independently, a step counts only with a densely sampled window, a `--steps` file is checked against
+   the echoed protocol, F5 covers the constant part of the lowest plateau (the 20 ms transition is
+   printed as a labelled stricter number). `fl11_post.py --self-test`: 12 synthetic logs.
+4. `ELDragImplicitWeights = hrz` is refused at start-up where the momentum defect is hand-built without
+   the drag diagonal (non-Newtonian flow with `MatrixRenewal` S = 0); case 11 takes the Newtonian
+   assembled-matrix branch (729f77c9). Follow-ups, not done: the missing defect term itself; the default
+   `rowsum` semi-implicit drag reaches the same branch and is still accepted (as before this branch).
+5. Velocity audit: a term the solve did not apply (explicit drag, feedback off, prescribed field) is
+   printed as NaN; the audit is refused for a communication scheme other than 3 or 4 (3e801eab).
+6. A reload reports a changed inlet definition (start-up-only stays the contract); a ramp-only deck gets
+   its start-up notice (95e5923a). Tab-only and tab-indented comment lines of the inlet table (c0d71b65).
+7. Render job: fresh frame directory per render, each worker waited for, no encode after a failed
+   worker, the old movie replaced only on success (2cfeb048).
+8. Record: this section, the corrections in sections 9 and 11, datasheet rows (superseded gate rules
+   labelled), design note 7.1 (the drag diagonal acts on the momentum predictor; the conservation
+   statement is limited to the given-field unit tests) and 7.2.
+
+Evidence of fix round 2 (binary d27a74fb-pece2a7f7, build job 164949): EL unit tests 15/15 (job 164950,
+`unit/unit_r2-164950.out`), failing-before runs of items 4-6 (job 164952, `fb_r2/`) and of the tab case
+(job 164948); gates (job 164951, `gate/pc_compare_d27a74fb-pece2a7f7.txt`): D_s6, G_tier2, E2w5, VB40 and
+400 steps of case 11 without restitution bitwise against the references (all common streams, particle
+logs 27/27), and 400 steps of case 11 WITH restitution bitwise against `R_id400_new` (13 077 `EL_` lines
+including the bed, velocity and restitution audits, 800 solver lines, 27/27 particle logs). The last gate
+is what lets the record run of section 13 (Fortran sources 627caf47) stand for this head.
+
+The reviewer's judgement of the gas-velocity oscillation is in section 11. Still explicit after both
+reviews: F1 of `R_r1_proto` fails by 0.001, the overlap limit is exceeded during the preparation, and
+the friction-only runs are inelastic.
