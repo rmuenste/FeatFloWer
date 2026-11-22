@@ -19,6 +19,12 @@
 !   47     horizontal whitespace (review r2 finding 7): a tab-only line and blanks + tabs are
 !          blank lines, a tab-indented '#' / '!' line is a comment, tab-indented and
 !          tab-separated rows are data
+!   48-51  inlet definition at a reload (review r2 finding 6; start-up-only contract): the
+!          definition a parameter file asks for (table, ramp, commented key, unreadable value,
+!          missing file), the difference to the run (same, changed path, table removed,
+!          table <-> ramp, ramp values changed / removed, both, unreadable), the notice of
+!          EL_INLET_RELOAD_NOTICE (written on a difference only, silent without tell or a
+!          validated configuration), the start-up notice of a ramp-only deck
 !=========================================================================
 PROGRAM TEST_EL_INLET_TABLE
 
@@ -27,11 +33,16 @@ PROGRAM TEST_EL_INLET_TABLE
                             EL_INLET_TABLE_PATH, EL_INLET_TABLE_IS_NUMBER, &
                             EL_INLET_TABLE_LOAD_SHARED
   USE EL_CONFIG, ONLY: el_inlet_u0, el_inlet_u1, el_inlet_tramp, el_inlet_table, &
-                       el_inlet_table_file, EL_INLET_VELOCITY, EL_INLET_CONFIGURED
+                       el_inlet_table_file, EL_INLET_VELOCITY, EL_INLET_CONFIGURED, &
+                       tElInletDefinition, EL_INLET_DEFINITION_OF_FILE, &
+                       EL_INLET_DEFINITION_CHANGE, EL_INLET_RELOAD_NOTICE, &
+                       EL_PRINT_INLET_DEFINITION, el_config_validated
 
   IMPLICIT NONE
 
   TYPE(tElInletTable) :: tab
+  TYPE(tElInletDefinition) :: def, run_t, run_r
+  INTEGER :: un
   INTEGER :: ierr, i, mpierr, rank, nfail, nfail_all
   CHARACTER(LEN=320) :: msg
   CHARACTER(LEN=1100) :: longrow
@@ -152,6 +163,72 @@ PROGRAM TEST_EL_INLET_TABLE
       EL_INLET_TABLE_IS_NUMBER('/') .OR. EL_INLET_TABLE_IS_NUMBER('1.2.3') .OR. &
       EL_INLET_TABLE_IS_NUMBER('')) STOP 44
 
+  ! ---- 48: the inlet definition a parameter file asks for --------------------------------------
+  CALL WRITE_FILE('deck_table.dat', [CHARACTER(LEN=60) :: 'SimPar@TimeStep = 0.00025d0', &
+    '# SimPar@ELInletVelocityStart = 9.0', 'SimPar@ELInletVelocityTable = "_data/inlet_table.txt"'])
+  CALL EL_INLET_DEFINITION_OF_FILE('deck_table.dat', def, ierr)
+  IF (ierr.NE.0 .OR. .NOT.def%table .OR. def%ramp_keys .OR. &
+      TRIM(def%path).NE.'_data/inlet_table.txt') STOP 48
+  CALL WRITE_FILE('deck_ramp.dat', [CHARACTER(LEN=60) :: 'SimPar@ELInletVelocityStart = 0.002d0', &
+    'SimPar@ELInletVelocityEnd = 0.02d0', 'SimPar@ELInletRampTime = 0.4d0'])
+  CALL EL_INLET_DEFINITION_OF_FILE('deck_ramp.dat', def, ierr)
+  IF (ierr.NE.0 .OR. def%table .OR. .NOT.def%ramp_keys .OR. .NOT.def%readable .OR. &
+      def%u0.NE.0.002d0 .OR. def%u1.NE.0.02d0 .OR. def%tramp.NE.0.4d0) STOP 48
+  CALL WRITE_FILE('deck_bad.dat', [CHARACTER(LEN=60) :: 'SimPar@ELInletVelocityEnd = fast'])
+  CALL EL_INLET_DEFINITION_OF_FILE('deck_bad.dat', def, ierr)
+  IF (ierr.NE.0 .OR. def%readable) STOP 48
+  CALL EL_INLET_DEFINITION_OF_FILE('no_such_deck.dat', def, ierr)
+  IF (ierr.EQ.0) STOP 48
+
+  ! ---- 49: the difference to the definition of the run ------------------------------------------
+  run_t = tElInletDefinition(table=.TRUE., path='a.txt')
+  run_r = tElInletDefinition(ramp_keys=.TRUE., u0=0.002d0, u1=0.02d0, tramp=0.4d0)
+  IF (LEN_TRIM(EL_INLET_DEFINITION_CHANGE(run_t, tElInletDefinition(table=.TRUE., path='a.txt'))).NE.0) STOP 49
+  IF (INDEX(EL_INLET_DEFINITION_CHANGE(run_t, tElInletDefinition(table=.TRUE., path='b.txt')), &
+            'a.txt -> table b.txt').EQ.0) STOP 49
+  IF (INDEX(EL_INLET_DEFINITION_CHANGE(run_t, tElInletDefinition()), 'removed').EQ.0) STOP 49
+  IF (INDEX(EL_INLET_DEFINITION_CHANGE(run_t, run_r), '-> ramp keys').EQ.0) STOP 49
+  IF (LEN_TRIM(EL_INLET_DEFINITION_CHANGE(run_r, run_r)).NE.0) STOP 49
+  IF (INDEX(EL_INLET_DEFINITION_CHANGE(run_r, tElInletDefinition(ramp_keys=.TRUE., u0=0.002d0, &
+            u1=0.03d0, tramp=0.4d0)), 'ramp values changed').EQ.0) STOP 49
+  IF (INDEX(EL_INLET_DEFINITION_CHANGE(run_r, run_t), 'ramp -> table a.txt').EQ.0) STOP 49
+  IF (INDEX(EL_INLET_DEFINITION_CHANGE(run_r, tElInletDefinition()), 'ramp keys removed').EQ.0) STOP 49
+  IF (INDEX(EL_INLET_DEFINITION_CHANGE(run_r, tElInletDefinition(table=.TRUE., path='a.txt', &
+            ramp_keys=.TRUE.)), 'together').EQ.0) STOP 49
+  IF (INDEX(EL_INLET_DEFINITION_CHANGE(run_r, tElInletDefinition(ramp_keys=.TRUE., &
+            readable=.FALSE.)), 'unreadable').EQ.0) STOP 49
+  IF (LEN_TRIM(EL_INLET_DEFINITION_CHANGE(tElInletDefinition(), tElInletDefinition())).NE.0) STOP 49
+
+  ! ---- 50: the notice (the run of checks 40-42: table tab_ok.txt) -------------------------------
+  CALL WRITE_FILE('deck_other.dat', [CHARACTER(LEN=60) :: 'SimPar@ELInletVelocityTable = other.txt'])
+  CALL WRITE_FILE('deck_same.dat', [CHARACTER(LEN=60) :: 'SimPar@ELInletVelocityTable = "tab_ok.txt"'])
+  el_config_validated = .FALSE.
+  CALL NOTICE_TO_FILE('deck_other.dat', .TRUE.)
+  IF (.NOT.FILE_EMPTY('notice.txt')) STOP 50
+  el_config_validated = .TRUE.
+  CALL NOTICE_TO_FILE('deck_other.dat', .FALSE.)
+  IF (.NOT.FILE_EMPTY('notice.txt')) STOP 50
+  CALL NOTICE_TO_FILE('deck_same.dat', .TRUE.)
+  IF (.NOT.FILE_EMPTY('notice.txt')) STOP 50
+  CALL NOTICE_TO_FILE('deck_other.dat', .TRUE.)
+  IF (.NOT.FILE_HAS('notice.txt', 'WARNING: EL inlet definition of the reload file deck_other.dat '// &
+      'ignored: table tab_ok.txt -> table other.txt')) STOP 50
+  IF (.NOT.FILE_HAS('notice.txt', 'the run keeps the table tab_ok.txt')) STOP 50
+
+  ! ---- 51: start-up notice of a ramp-only deck ---------------------------------------------------
+  el_inlet_table_file = ' '
+  el_inlet_table%n = 0
+  el_inlet_u1 = 0.02d0
+  OPEN(NEWUNIT=un, FILE='startup.txt', STATUS='REPLACE', ACTION='WRITE')
+  CALL EL_PRINT_INLET_DEFINITION(un)
+  CLOSE(un)
+  IF (.NOT.FILE_HAS('startup.txt', 'EL inlet velocity ramp: start-up setting')) STOP 51
+  el_inlet_u1 = 0.0d0
+  OPEN(NEWUNIT=un, FILE='startup.txt', STATUS='REPLACE', ACTION='WRITE')
+  CALL EL_PRINT_INLET_DEFINITION(un)
+  CLOSE(un)
+  IF (.NOT.FILE_EMPTY('startup.txt')) STOP 51
+
 100 CONTINUE
   CALL MPI_Barrier(MPI_COMM_WORLD, mpierr)
   ! ---- 45-46: shared load (every rank) -------------------------------------------------------
@@ -182,6 +259,39 @@ CONTAINS
     END DO
     CLOSE(u)
   END SUBROUTINE WRITE_FILE
+
+  SUBROUTINE NOTICE_TO_FILE(deck, tell)
+    CHARACTER(LEN=*), INTENT(IN) :: deck
+    LOGICAL, INTENT(IN) :: tell
+    INTEGER :: u
+    OPEN(NEWUNIT=u, FILE='notice.txt', STATUS='REPLACE', ACTION='WRITE')
+    CALL EL_INLET_RELOAD_NOTICE(deck, u, u, tell)
+    CLOSE(u)
+  END SUBROUTINE NOTICE_TO_FILE
+
+  LOGICAL FUNCTION FILE_HAS(name, text)
+    CHARACTER(LEN=*), INTENT(IN) :: name, text
+    CHARACTER(LEN=500) :: line
+    INTEGER :: u, ios
+    FILE_HAS = .FALSE.
+    OPEN(NEWUNIT=u, FILE=name, STATUS='OLD', ACTION='READ')
+    DO
+      READ(u, '(A)', IOSTAT=ios) line
+      IF (ios.NE.0) EXIT
+      IF (INDEX(line, text).GT.0) FILE_HAS = .TRUE.
+    END DO
+    CLOSE(u)
+  END FUNCTION FILE_HAS
+
+  LOGICAL FUNCTION FILE_EMPTY(name)
+    CHARACTER(LEN=*), INTENT(IN) :: name
+    CHARACTER(LEN=500) :: line
+    INTEGER :: u, ios
+    OPEN(NEWUNIT=u, FILE=name, STATUS='OLD', ACTION='READ')
+    READ(u, '(A)', IOSTAT=ios) line
+    FILE_EMPTY = (ios.NE.0)
+    CLOSE(u)
+  END FUNCTION FILE_EMPTY
 
   SUBROUTINE EXPECT_REFUSAL(ierr_in, table, message, code)
     INTEGER, INTENT(IN) :: ierr_in, code

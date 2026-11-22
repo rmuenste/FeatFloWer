@@ -1,7 +1,8 @@
 MODULE EL_CONFIG
 
   USE MPI, ONLY: MPI_COMM_WORLD
-  USE EL_INLET_TABLE, ONLY: tElInletTable, EL_INLET_TABLE_LOAD_SHARED, EL_INLET_TABLE_VALUE
+  USE EL_INLET_TABLE, ONLY: tElInletTable, EL_INLET_TABLE_LOAD_SHARED, EL_INLET_TABLE_VALUE, &
+                            EL_INLET_TABLE_PATH
 
   IMPLICIT NONE
 
@@ -335,6 +336,20 @@ MODULE EL_CONFIG
   ! ramp, bitwise as before.
   CHARACTER(LEN=256) :: el_inlet_table_file = ' '
   TYPE(tElInletTable) :: el_inlet_table
+  ! The inlet definition (ramp keys or table) is a start-up setting: Reload_SimPar runs the
+  ! generic parser, which reads no SimPar@EL* key. At a reload EL_INLET_RELOAD_NOTICE compares
+  ! the definition the reload file asks for with the one of the run and reports a difference
+  ! (changed table path, table removed, table <-> ramp, changed ramp values); nothing changes.
+  TYPE tElInletDefinition
+    LOGICAL :: table = .FALSE.         ! ELInletVelocityTable given
+    CHARACTER(LEN=256) :: path = ' '   ! its file name (EL_INLET_TABLE_PATH of the value)
+    LOGICAL :: ramp_keys = .FALSE.     ! one of the three ramp keys given
+    REAL*8 :: u0 = 0.0d0, u1 = 0.0d0, tramp = 1.0d0   ! ramp values (the defaults when unset)
+    LOGICAL :: readable = .TRUE.       ! every ramp value of the file could be read
+  END TYPE tElInletDefinition
+  ! EL_VALIDATE_CONFIG has run (the application parsed and checked the EL keys); the reload
+  ! notice is silent in applications that never validate an EL configuration
+  LOGICAL :: el_config_validated = .FALSE.
   ! SimPar@ELBedAuditFreq = N (default 0 = off): every N steps the EL_BED_AUDIT line (EL_BED_AUDIT
   ! module: area-mean pressure on the inlet and outlet planes, their difference with and
   ! without the hydrostatic part, buoyant bed weight, floor contact force, bed heights, porosity
@@ -640,6 +655,8 @@ CONTAINS
       STOP 1
     END IF
 
+    el_config_validated = .TRUE.
+
   END SUBROUTINE EL_VALIDATE_CONFIG
 
   SUBROUTINE EL_PRINT_CONFIG(mfile, mterm)
@@ -691,7 +708,7 @@ CONTAINS
     END DO
     WRITE(mfile,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
     WRITE(mfile,'(A,3ES14.6)') 'EL inlet u0 / u1 / ramp   = ', el_inlet_u0, el_inlet_u1, el_inlet_tramp
-    CALL EL_PRINT_INLET_TABLE(mfile)
+    CALL EL_PRINT_INLET_DEFINITION(mfile)
     IF (el_bed_audit_freq.GT.0) WRITE(mfile,'(A,I0)') 'EL bed audit freq         = ', &
       el_bed_audit_freq
     IF (el_velocity_audit_freq.GT.0) WRITE(mfile,'(A,I0)') 'EL velocity audit freq    = ', &
@@ -742,7 +759,7 @@ CONTAINS
       END DO
       WRITE(mterm,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
       WRITE(mterm,'(A,3ES14.6)') 'EL inlet u0 / u1 / ramp   = ', el_inlet_u0, el_inlet_u1, el_inlet_tramp
-      CALL EL_PRINT_INLET_TABLE(mterm)
+      CALL EL_PRINT_INLET_DEFINITION(mterm)
       IF (el_bed_audit_freq.GT.0) WRITE(mterm,'(A,I0)') 'EL bed audit freq         = ', &
         el_bed_audit_freq
       IF (el_velocity_audit_freq.GT.0) WRITE(mterm,'(A,I0)') 'EL velocity audit freq    = ', &
@@ -785,6 +802,7 @@ CONTAINS
     REAL*8, INTENT(IN) :: particle_radius
     EL_KERNEL_SUPPORT_RADIUS = 2.0d0*el_kernel_width_factor*particle_radius
   END FUNCTION EL_KERNEL_SUPPORT_RADIUS
+
 
   ! Inlet velocity of boundary type Inflow975 at time t (end-of-step time of the caller): the
   ! table when the deck names one, else the linear ramp (arithmetic unchanged).
@@ -835,11 +853,17 @@ CONTAINS
     END IF
   END SUBROUTINE EL_LOAD_INLET_TABLE
 
-  ! Echo of the inlet table (nothing without one): file, row count, every row.
-  SUBROUTINE EL_PRINT_INLET_TABLE(unit)
+  ! Echo of the inlet definition after the ramp line of EL_PRINT_CONFIG: for a table the file,
+  ! the row count, the start-up notice and every row; for a configured ramp its start-up
+  ! notice; nothing without an inlet.
+  SUBROUTINE EL_PRINT_INLET_DEFINITION(unit)
     INTEGER, INTENT(IN) :: unit
     INTEGER :: i
-    IF (el_inlet_table%n.LE.0) RETURN
+    IF (el_inlet_table%n.LE.0) THEN
+      IF (EL_INLET_CONFIGURED()) WRITE(unit,'(A)') 'EL inlet velocity ramp: start-up setting; '// &
+        'a reload of the parameter file (Reload_SimPar) does not change it'
+      RETURN
+    END IF
     WRITE(unit,'(A,A,A,I0,A)') 'EL inlet velocity table   = ', TRIM(el_inlet_table_file), &
       ' (', el_inlet_table%n, ' rows t / U; linear, constant beyond the ends)'
     WRITE(unit,'(A)') 'EL inlet velocity table: start-up setting, read once here; a reload of '// &
@@ -847,7 +871,136 @@ CONTAINS
     DO i=1,el_inlet_table%n
       WRITE(unit,'(A,2ES16.8)') '  EL_INLET_TABLE ', el_inlet_table%t(i), el_inlet_table%u(i)
     END DO
-  END SUBROUTINE EL_PRINT_INLET_TABLE
+  END SUBROUTINE EL_PRINT_INLET_DEFINITION
+
+  ! The inlet definition the run uses (start-up values of the EL keys).
+  FUNCTION EL_INLET_STARTUP_DEFINITION() RESULT(def)
+    TYPE(tElInletDefinition) :: def
+    def%table = (LEN_TRIM(el_inlet_table_file).GT.0)
+    def%path = el_inlet_table_file
+    def%ramp_keys = EL_KEY_SET('ELInletVelocityStart') .OR. EL_KEY_SET('ELInletVelocityEnd') .OR. &
+                    EL_KEY_SET('ELInletRampTime')
+    def%u0 = el_inlet_u0
+    def%u1 = el_inlet_u1
+    def%tramp = el_inlet_tramp
+  END FUNCTION EL_INLET_STARTUP_DEFINITION
+
+  ! The inlet definition a parameter file asks for, read the way the application's deck parser
+  ! reads it (myGDATNEW: a line 'SimPar@<key> = <value>' with the last '@' and the last '=';
+  ! a later line overrides an earlier one; the table value through EL_INLET_TABLE_PATH, the
+  ! ramp values list-directed). ierr /= 0: the file cannot be opened (def is the default).
+  SUBROUTINE EL_INLET_DEFINITION_OF_FILE(filename, def, ierr)
+    CHARACTER(LEN=*), INTENT(IN) :: filename
+    TYPE(tElInletDefinition), INTENT(OUT) :: def
+    INTEGER, INTENT(OUT) :: ierr
+    CHARACTER(LEN=500) :: string
+    CHARACTER(LEN=7) :: cvar
+    CHARACTER(LEN=32) :: cpar
+    INTEGER :: iunit, ios, iat, ieq, i
+    REAL*8 :: val
+
+    OPEN(NEWUNIT=iunit, FILE=TRIM(filename), STATUS='OLD', ACTION='READ', IOSTAT=ierr)
+    IF (ierr.NE.0) RETURN
+    DO
+      READ(iunit, '(A500)', IOSTAT=ios) string
+      IF (ios.NE.0) EXIT
+      iat = 0
+      ieq = 0
+      DO i = 1, LEN(string)
+        IF (string(i:i).EQ.'@') iat = i
+        IF (string(i:i).EQ.'=') ieq = i
+      END DO
+      IF (iat.LE.1 .OR. ieq.LE.iat + 1) CYCLE
+      cvar = ' '
+      cpar = ' '
+      READ(string(1:iat-1), *, IOSTAT=ios) cvar
+      IF (ios.NE.0 .OR. TRIM(ADJUSTL(cvar)).NE.'SimPar') CYCLE
+      READ(string(iat+1:ieq-1), *, IOSTAT=ios) cpar
+      IF (ios.NE.0) CYCLE
+      SELECT CASE (TRIM(ADJUSTL(cpar)))
+      CASE ('ELInletVelocityTable')
+        def%table = .TRUE.
+        def%path = EL_INLET_TABLE_PATH(string(ieq+1:))
+      CASE ('ELInletVelocityStart', 'ELInletVelocityEnd', 'ELInletRampTime')
+        def%ramp_keys = .TRUE.
+        READ(string(ieq+1:), *, IOSTAT=ios) val
+        IF (ios.NE.0) THEN
+          def%readable = .FALSE.
+        ELSE IF (TRIM(ADJUSTL(cpar)).EQ.'ELInletVelocityStart') THEN
+          def%u0 = val
+        ELSE IF (TRIM(ADJUSTL(cpar)).EQ.'ELInletVelocityEnd') THEN
+          def%u1 = val
+        ELSE
+          def%tramp = val
+        END IF
+      END SELECT
+    END DO
+    CLOSE(iunit)
+    ierr = 0
+  END SUBROUTINE EL_INLET_DEFINITION_OF_FILE
+
+  ! How the requested inlet definition differs from the one of the run; blank when it does not.
+  FUNCTION EL_INLET_DEFINITION_CHANGE(run, requested) RESULT(text)
+    TYPE(tElInletDefinition), INTENT(IN) :: run, requested
+    CHARACTER(LEN=400) :: text
+    text = ' '
+    IF (requested%table .AND. requested%ramp_keys) THEN
+      text = 'the reload file sets ELInletVelocityTable together with ramp keys (refused at start-up)'
+    ELSE IF (run%table .AND. requested%table) THEN
+      IF (TRIM(run%path).NE.TRIM(requested%path)) text = 'table '//TRIM(run%path)// &
+        ' -> table '//TRIM(requested%path)
+    ELSE IF (run%table) THEN
+      IF (requested%ramp_keys) THEN
+        text = 'table '//TRIM(run%path)//' -> ramp keys'
+      ELSE
+        text = 'table '//TRIM(run%path)//' removed'
+      END IF
+    ELSE IF (requested%table) THEN
+      text = 'ramp -> table '//TRIM(requested%path)
+    ELSE IF (run%ramp_keys .AND. .NOT.requested%ramp_keys) THEN
+      text = 'ramp keys removed'
+    ELSE IF (.NOT.requested%readable) THEN
+      text = 'ramp keys with an unreadable value'
+    ELSE IF (run%u0.NE.requested%u0 .OR. run%u1.NE.requested%u1 .OR. &
+             run%tramp.NE.requested%tramp) THEN
+      text = 'ramp values changed'
+    END IF
+  END FUNCTION EL_INLET_DEFINITION_CHANGE
+
+  ! Reload_SimPar of filename (ProcCtrl): report on unit mfile and mterm (when tell) an inlet
+  ! definition of the file that differs from the one of the run, which is kept. Rank-local
+  ! (only the telling rank reads the file), no collective; silent without a validated EL
+  ! configuration (other applications) and when the file cannot be opened.
+  SUBROUTINE EL_INLET_RELOAD_NOTICE(filename, mfile, mterm, tell)
+    CHARACTER(LEN=*), INTENT(IN) :: filename
+    INTEGER, INTENT(IN) :: mfile, mterm
+    LOGICAL, INTENT(IN) :: tell
+    TYPE(tElInletDefinition) :: run, requested
+    CHARACTER(LEN=400) :: change
+    CHARACTER(LEN=300) :: kept
+    INTEGER :: ierr
+
+    IF (.NOT.(tell .AND. el_config_validated)) RETURN
+    CALL EL_INLET_DEFINITION_OF_FILE(filename, requested, ierr)
+    IF (ierr.NE.0) RETURN
+    run = EL_INLET_STARTUP_DEFINITION()
+    change = EL_INLET_DEFINITION_CHANGE(run, requested)
+    IF (LEN_TRIM(change).EQ.0) RETURN
+    IF (run%table) THEN
+      kept = 'the table '//TRIM(run%path)//' as read at start-up'
+    ELSE
+      WRITE(kept,'(A,3ES14.6)') 'the ramp u0 / u1 / ramp time ', run%u0, run%u1, run%tramp
+    END IF
+    CALL TELL_UNIT(mfile)
+    IF (mterm.NE.mfile) CALL TELL_UNIT(mterm)
+  CONTAINS
+    SUBROUTINE TELL_UNIT(unit)
+      INTEGER, INTENT(IN) :: unit
+      WRITE(unit,'(A,A,A,A)') 'WARNING: EL inlet definition of the reload file ', TRIM(filename), &
+        ' ignored: ', TRIM(change)
+      WRITE(unit,'(A,A)') '  the inlet is a start-up setting; the run keeps ', TRIM(kept)
+    END SUBROUTINE TELL_UNIT
+  END SUBROUTINE EL_INLET_RELOAD_NOTICE
 
   ! True when the inlet value has to be converted from superficial to interstitial velocity
   ! (deck-only: the same on every rank; decides the nodal-porosity collective of the transfer
