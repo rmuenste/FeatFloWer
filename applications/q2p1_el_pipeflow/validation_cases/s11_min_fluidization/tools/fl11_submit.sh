@@ -7,12 +7,18 @@ set -eu
 R=$(cd "$1" && pwd); BIN=$2; TM=${3:-00:30:00}; PART=${4:-short}
 W=$(cd "$(dirname "$0")/../../../../.." && pwd)
 [ -x "$BIN" ] || { echo "no binary $BIN" >&2; exit 1; }
-# a second run in the same directory appends its particle frames to the rank logs of the first: refused
+# one run per directory: a second run appends its particle frames to the rank logs of the first. The lock
+# directory (mkdir is atomic) refuses a second submission even before the first job has written a log; the
+# generated job checks again before it truncates run_slurm.log (a requeue or a job started by hand).
 if compgen -G "$R/el_particles_rank*.log" > /dev/null; then
   echo "refused: $R already holds particle rank logs (el_particles_rank*.log) of an earlier run; a new run would" \
        "append to them and fl11_movie.py would refuse the mixed frames. Stage a fresh run directory, or move the" \
        "old rank logs (and run_slurm.log) out of $R, then submit again." >&2
   exit 6
+fi
+if [ "${FL11_NOSUBMIT:-0}" != 1 ] && ! mkdir "$R/.fl11_submit.lock" 2>/dev/null; then
+  echo "refused: $R/.fl11_submit.lock exists (a job was already submitted into this directory: $(cat "$R/.fl11_submit.lock/job" 2>/dev/null || echo unknown)). Stage a fresh run directory." >&2
+  exit 7
 fi
 NP=$(( $(grep '^SimPar@SubMeshNumber' "$R/_data/q2p1_param.dat" | sed 's/.*= *//') + 1 ))
 {
@@ -46,6 +52,10 @@ MPIPREFIX=\$(ldd "\$BIN" | grep -m1 'libmpi\.so' | awk '{print \$3}' | sed 's#/l
 export PATH="\$MPIPREFIX/bin:\$PATH"
 export LD_LIBRARY_PATH="\$MPIPREFIX/lib:\$LD_LIBRARY_PATH"
 cd $R
+if compgen -G "el_particles_rank*.log" > /dev/null; then
+  echo "refused: $R holds particle rank logs of an earlier run (requeue or second start): not run, run_slurm.log kept"
+  exit 6
+fi
 echo "host \$(hostname) job \$SLURM_JOB_ID start \$(date '+%F %T')"
 mpirun -np $NP "\$BIN" > run_slurm.log 2>&1
 status=\$?
@@ -53,4 +63,4 @@ echo "exit=\$status end \$(date '+%F %T')"
 exit "\$status"
 EOT
 [ "${FL11_NOSUBMIT:-0}" = 1 ] && { echo "staged, not submitted: $R/job.sbatch"; exit 0; }
-cd "$R" && sbatch job.sbatch
+cd "$R" && out=$(sbatch --no-requeue job.sbatch) && echo "$out" | tee "$R/.fl11_submit.lock/job"

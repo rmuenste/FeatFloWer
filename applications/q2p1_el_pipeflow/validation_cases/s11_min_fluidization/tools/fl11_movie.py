@@ -30,13 +30,13 @@ u_of_t, div, finite), nothing is re-derived:
   bed top        z99 + r of the audit line;   bed porosity  eps_bed of the audit line (bed window)
   U              fl11_post.u_of_t of the echoed inlet table; 'pending' until the echo is complete (no
                  other source: the file _data/inlet_table.txt is not read)
-  step mean      fl11_post.evaluate: the last 0.3 s of each intended hold of the echoed protocol,
-                 validated audit rows; shown for measured steps only
-  state          fl11_post.classify of every step: fluidised (dp* > 0.95), fixed (dp* < 0.8 of the
-                 measured plateau), intermediate (neither), not classified (no measured plateau),
-                 unmeasurable; only the fixed set is called 'fixed bed' and shaded in the trace
-  trace end      the protocol end of the evaluation (fl11_post: the last table row, or the end of a
-                 finished run when later)
+  step mean      fl11_post.evaluate: the last 0.3 s of each hold of the spec-11 protocol, validated
+                 audit rows; shown for measured steps only
+  state          the branch of fl11_post.branches for every step: fluidised (dp* > 0.95), fixed (dp* <
+                 0.8 of the measured plateau, never fluidised), intermediate, not classified (no measured
+                 plateau), unmeasurable; only the fixed set is called 'fixed bed' and shaded in the trace
+  trace end      the protocol end of the evaluation (the spec table end for a recognised table, else the
+                 last echoed row or the end of a finished run when later)
   running mean   centred mean over RUNMEAN = 0.1 s of the audit series (41 lines); display only
 Display only (not evaluation numbers):
   cuts           slab of SLAB mm; a sphere is drawn as a disc at true scale with the radius of its largest
@@ -93,7 +93,7 @@ PEER = (('MFiX-DEM (run F_none)', 'o', [0.989, 0.999, 0.993, 0.988, 1.005, 0.997
         ('CFDEM (run fluid_C_gid_inlet2)', 's', [0.964, 0.959, 0.950, 0.956, 0.948, 0.953, 0.936,
                                                  0.821, 0.709, 0.599, 0.492, 0.388, 0.286, 0.188]))
 CACHE = os.path.join(out, 'fl11_movie_cache.npz')
-CACHE_FORMAT = 'fl11_movie cache 3'          # with fl11_post.EVAL_VERSION and the deck part of the signature
+CACHE_FORMAT = 'fl11_movie cache 4'          # with fl11_post.EVAL_VERSION and the deck part of the signature
 
 
 # ---- data: read once, cache in OUTDIR
@@ -128,7 +128,7 @@ def read_log(f):
             (a[:, 2:5] * 1e3).astype(np.float32), a[:, 5:8].astype(np.float32))
 
 
-STATES = ('fluidised', 'fixed', 'intermediate', 'unclassified', 'unmeasurable')   # fl11_post.classify
+STATES = ('fluidised', 'fixed', 'intermediate', 'unclassified', 'unmeasurable')   # fl11_post.branches
 LABELS = {'fluidised': 'fluidised', 'fixed': 'fixed bed', 'intermediate': 'intermediate',
           'unclassified': 'not classified', 'unmeasurable': 'unmeasurable'}
 
@@ -165,12 +165,12 @@ def build_cache(sig):
     # audit series and step table: fl11_post.evaluate (validated audit rows, the holds of the echoed protocol,
     # the per-step evaluation with its guarded ratios and coverage; nothing re-derived here)
     W = area = float('nan'); aud = np.zeros((0, 8)); srow = np.zeros((0, 10)); table = []; echo = False
-    horizon = solver_end = float('nan')
+    horizon = solver_end = float('nan'); finished = False
     if os.path.exists(os.path.join(run, 'run_slurm.log')):
-        ev = post.evaluate(run, D * 1e-3)
-        echo = ev['source'] == 'echo' and not ev['protocol_errors']
-        table = list(ev['knots']) if echo else []       # the inlet display waits for the complete echo
-        horizon, solver_end = (ev['horizon'] if echo else float('nan')), ev['clock'].t_last
+        ev = post.evaluate(run)
+        table = list(ev['echo_table'])                  # the inlet display waits for the complete echo
+        echo = bool(table)
+        horizon, solver_end, finished = (ev['horizon'] if echo else float('nan')), ev['solver_end'], ev['finished']
         rows = ev['clock'].sorted
         area, W = ev['area'], ev['W']
         if rows:
@@ -179,12 +179,12 @@ def build_cache(sig):
             aud = np.array([(r['t'], post.div(r['dp_dyn'], post.div(-r['wz'], r['a_in'])), post.div(r['fbal'], -r['wz']),
                              (r['z99'] + R * 1e-3) * 1e3, r['eps'], r['zmax'] * 1e3, r['n'],
                              r['U'] if echo else float('nan')) for r in rows])
-        srow = np.array([(x['t0'], x['t1'], x['U'], x['dps'], x['stds'], x['H'] * 1e3, x['eps'], x['fl'],
+        srow = np.array([(float(x['t0']), float(x['t1']), x['U'], x['dps'], x['stds'], x['H'] * 1e3, x['eps'], x['fl'],
                           float(x['measured']), STATES.index(c)) for x, c in zip(ev['steps'], ev['classes'])]).reshape(-1, 10)
     os.makedirs(out, exist_ok=True)
     tmp = os.path.join(out, '.fl11_movie_cache.%d.npz' % os.getpid())
     np.savez(tmp, sig=sig, T=T, pos=pos, vel=vel, aud=aud, srow=srow, table=np.array(table).reshape(-1, 2),
-             W=W, area=area, echo=echo, horizon=horizon, solver_end=solver_end)
+             W=W, area=area, echo=echo, horizon=horizon, solver_end=solver_end, finished=finished)
     os.replace(tmp, CACHE)
 
 
@@ -201,14 +201,14 @@ if not fresh:
 with np.load(CACHE) as z:
     T, POS, VEL, AUD, SROW, TABLE = z['T'], z['pos'], z['vel'], z['aud'], z['srow'], z['table']
     W, AREA, ECHO = float(z['W']), float(z['area']), bool(z['echo'])
-    HORIZON, SOLVER_END = float(z['horizon']), float(z['solver_end'])
+    HORIZON, SOLVER_END, FINISHED = float(z['horizon']), float(z['solver_end']), bool(z['finished'])
 N = POS.shape[1]
 table = [tuple(r) for r in TABLE]
 TA = AUD[:, 0]                                         # audit columns: t dp* floor/W H eps zmax n U
 sel = np.arange(0, len(T), A.stride)                   # log frames of the rendered sequence
 nfr = len(sel)
 TEND = HORIZON if post.finite(HORIZON) else T[-1]     # protocol end of the evaluation (frames only without the echo)
-STATE = [STATES[int(r[9])] for r in SROW]              # display state of every step (fl11_post.classify)
+STATE = [STATES[int(r[9])] for r in SROW]              # display state of every step (fl11_post.branches)
 FIXSET = [r for r, c in zip(SROW, STATE) if c == 'fixed']
 FLUSET = [r for r, c in zip(SROW, STATE) if c == 'fluidised']
 
@@ -252,7 +252,7 @@ if A.stats:
         len(TA), (' (t %.4f .. %.4f s)' % (TA[0], TA[-1])) if len(TA) else '', W, AREA, post.div(W, AREA),
         'from the log echo' if ECHO else 'pending (echo absent or incomplete)', SOLVER_END,
         ('%.4f s' % HORIZON) if post.finite(HORIZON) else 'unknown'))
-    print('\nper step (fl11_post.evaluate over the last 0.3 s, state of fl11_post.classify):\n step  U [m/s]  window      dp*      std   H [mm]  eps_bed  floor/W  dp*+floor  state')
+    print('\nper step (fl11_post.evaluate over the last 0.3 s, branch of fl11_post.branches):\n step  U [m/s]  window      dp*      std   H [mm]  eps_bed  floor/W  dp*+floor  state')
     for k, r in enumerate(SROW):
         print(' %3d  %6.3f  %5.2f-%5.2f  %7.4f  %7.4f  %6.2f  %7.4f  %7.4f  %8.4f   %s' % (
             k, r[2], r[1] - 0.3, r[1], r[3], r[4], r[5], r[6], r[7], r[3] + r[7],
@@ -267,8 +267,11 @@ if A.stats:
     sys.exit(0)
 
 if A.check:
-    print('check: frames %d t_first %.4f t_last %.4f cadence %.4f stride %d solver_end %.4f protocol_end %.4f' % (
-        nfr, T[sel[0]], T[sel[-1]], np.median(np.diff(T[sel])) if nfr > 1 else 0.0, A.stride, SOLVER_END, HORIZON))
+    # the selected last frame (t_last), the raw last frame of the logs (t_last_raw) and the finish state: the
+    # render job's predicates use all three (a stride can hide frames beyond the solver end)
+    print('check: frames %d t_first %.4f t_last %.4f cadence %.4f stride %d solver_end %.4f protocol_end %.4f finished %d t_last_raw %.4f' % (
+        nfr, T[sel[0]], T[sel[-1]], np.median(np.diff(T[sel])) if nfr > 1 else 0.0, A.stride, SOLVER_END, HORIZON,
+        int(FINISHED), T[-1]))
     if nfr < 2: sys.exit(0)
     dmax = np.zeros(nfr - 1); d99 = np.zeros(nfr - 1); d50 = np.zeros(nfr - 1); vdt = np.zeros(nfr - 1); who = np.zeros(nfr - 1, int)
     for j in range(nfr - 1):
@@ -377,7 +380,7 @@ ax_h.set_xlim(0, TEND); ax_h.set_ylim(*YH); ax_h.set_yticks([24, 26, 28, 30, 32]
 ax_h.set_ylabel('bed top (mm)', color=C_TOP, fontsize=14); ax_h.yaxis.set_label_coords(1.045, (28 - YH[0]) / (YH[1] - YH[0]))
 ax_h.tick_params(axis='y', colors=C_TOP)
 ax_s.axhline(1.0, color=INK2, lw=1.5, ls=DASH, zorder=2)
-for r in FIXSET:                                 # the fixed set of fl11_post.classify, step by step
+for r in FIXSET:                                 # the fixed set of fl11_post.branches, step by step
     for ax in (ax_s, ax_u):
         ax.axvspan(r[0], r[1], color=INK, alpha=0.05, lw=0, zorder=0)
 if FIXSET and FLUSET and FLUSET[-1][1] <= FIXSET[0][0] + 1e-9:   # one transition: label both sides
