@@ -42,7 +42,7 @@ q2p1_el_pipeflow.627caf47      3f0b648cc210bffba97f5f30d2742b56  627caf47 (hrz p
 
 job     run                      binary     result
 164663  unit/red_hrz (test_el_transfer only)  parent tree d2743338  steady non-uniform-field impulse test FAILS on the former hrz partner: residual B (u_f - sum h u) = -1.85 % of F_z
-164667  unit (ctest, 14 tests incl. el-periodic-mpi-4/8)  627caf47 tree  14/14
+164667  unit (ctest, 14 tests incl. el-periodic-mpi-4/8)  working tree of fix round 1 before its commits (job 16:58, checkout HEAD 43bf372b in the job header; the six fix commits 25eae528..627caf47 followed at 17:00-17:02; attribution to the 627caf47 tree is by that sequence, the log carries no tree hash; repeated on the committed tree with tree hashes in fix round 2, job 164950, 15/15)  14/14
 164668  gate/{D_s6,G_tier2,E2w5,VB40}__627caf47 vs __base (163807)  627caf47  all EL streams and XxX lines bitwise (pc_compare_627caf47.txt)
 164669  R_smoke_r1 (U 0.30 const, 400 steps, hrz, friction 0.15/material)  627caf47  completed; max |u| 2.21 m/s (step 390, bed top, B_i > 0); dp* 1.364, floor_bal/W 0.772 at step 400 (collapse transient)
 164670  R_smoke_r1_oldhrz (same deck)   c8541cfc   max |u| 1.00 m/s; dp* 1.366, floor_bal/W 0.643 at step 400

@@ -285,8 +285,8 @@ interior is 1-2 % above the closure. Bed A not run.
    excludes the mapping support.) F2 definition and the window: with a 2.5 d kernel the 2 d exclusion of the spec leaves the kernel
    of the window-edge particles reaching the loose end layers; core 0.946-0.954, interior 1.014-1.024
    (design note section 9). A window of kernel radius + 1 d, or the like-for-like closure at the
-   kernel-sampled porosity (ratio_k, audit field eps_kern_slip_win, from 2026-11-20 runs on), to be agreed
-   with the peer.
+   kernel-sampled porosity (ratio_k, audit field eps_kern_slip_win, from 2026-11-20 runs on), was to be
+   agreed with the peer (wording of 2026-11-20, kept as history).
 3. pe: the wall-contact impulse and the contact virial report the unrelaxed PGS impulse (1/0.9 of the
    applied one); fix needed in pe (design note section 8); the bed audit uses the momentum balance.
 4. `ELDragImplicitWeights = hrz` as default: owner decision; effect on the s10 liquid gate D_s6 over
@@ -295,7 +295,8 @@ interior is 1-2 % above the closure. Bed A not run.
    run then gives 1.042, PASS.) F3 FAIL under the first rule (+8.6 / +10.4 %): dp* is the pressure drop of the whole bed, whose mean porosity over
    H = z99 + r is 0.376 against the core 0.369 (looser floor and top layers). Gidaspow U_mf at 0.376 is
    0.174 m/s, against which the measured 0.181 is +4 %, close to the whole-bed gradient ratio
-   0.964-0.974. Which porosity the F3 reference takes is a definition to agree with the peer [I].
+   0.964-0.974. Which porosity the F3 reference takes was a definition to agree with the peer [I]
+   (wording of 2026-11-20, kept as history).
 6. Bed A cost (section 7) and the missing particle-state restart; bed A not run.
 7. Not run: a step-size study, models B / Bfull, closures wenyu / ergun as controls.
 
@@ -336,10 +337,11 @@ Verdict CHANGES REQUIRED, 15 findings; brief and report in the session scratchpa
    section 7); global balance of the recorded run: dp* + floor = 1.000-1.002 in the fixed bed.
 4. **Gates by the amended spec** (post tool of 2026-11-21): F3 against the whole-bed porosity 0.3761:
    Gidaspow U_mf 0.1740 m/s, ratio **1.042, PASS** (at the plateau 1.025; at the core porosity 1.104 /
-   1.086 as before). F2 against the closure at the mapped gas fraction: **0.984-0.993, PASS** on
-   `R_proto_movie` (the log of `R_proto_hrz` has no mapped value: "unavailable"); at the geometric
-   porosity 0.946-0.954 as before. The audit window of these runs excludes 2 d, not the 2.5 d kernel
-   support the amended spec asks for; the fix round widens it.
+   1.086 as before). F2 against the closure at the mapped gas fraction: ratio 0.984-0.993 on
+   `R_proto_movie` (the log of `R_proto_hrz` has no mapped value), **not gated**: the audit window of
+   these runs excludes 2 d, not the 2.5 d kernel support the amended spec asks for, so the amended F2
+   is unavailable for them (corrected 2026-11-22 after the second review, section 12; this item first
+   called it a PASS). The fix round widens the window.
 5. **Overlap limit of the spec (1 % of d) exceeded during preparation only**: `R_proto_hrz` 1.30 % of d
    at 0.0825 s (four log lines above 1 %, 0.0775-0.09 s, landing of the loose start bed); after 0.2 s
    the largest is 0.67 % of d, in the evaluation windows (after 0.7 s) 0.61 %.
@@ -397,7 +399,7 @@ the F2 column. The three runs have the same physical deck; the output settings d
 - Cost 6 h 23 min each on 37 ranks.
 
 Restitution (e = 0.9) needs the pe change `feature/el-restitution` (pe pull request #59, seven external
-review rounds on 2026-11-21/22); the run with it is recorded in section 13. `R_r1_rest` (164701, first
+review rounds on 2026-11-21/22); the run with it will be recorded in section 13 (job 164928, not finished at this revision). `R_r1_rest` (164701, first
 version of the pass, no rest velocity), `R_r2_rest` (164872, review round 2, budget 24) and `R_r3_rest`
 (164910, review round 3) are development runs and not part of the record; `R_r4_rest` (164919) was
 cancelled (its binary doubled the normal increment in the friction limit of the pass).
@@ -437,7 +439,7 @@ Evidence of fix round 2 (binary d27a74fb-pece2a7f7, build job 164949): EL unit t
 400 steps of case 11 without restitution bitwise against the references (all common streams, particle
 logs 27/27), and 400 steps of case 11 WITH restitution bitwise against `R_id400_new` (13 077 `EL_` lines
 including the bed, velocity and restitution audits, 800 solver lines, 27/27 particle logs). The last gate
-is what lets the record run of section 13 (Fortran sources 627caf47) stand for this head.
+is what will let the record run of section 13 (Fortran sources 627caf47) stand for this head.
 
 The reviewer's judgement of the gas-velocity oscillation is in section 11. Still explicit after both
 reviews: F1 of `R_r1_proto` fails by 0.001, the overlap limit is exceeded during the preparation, and

@@ -155,8 +155,10 @@ the step list; its rows equal the `csv` output of the spec's `inlet_table.py` [V
 
 Post tool `s11_min_fluidization/tools/fl11_post.py`: per protocol step mean and std of dp_dyn over the last
 0.3 s and over 0.2-0.35 s / 0.35-0.5 s (flagged when they differ by more than 2 % of W/A), force-based dp,
-bed height, window porosity, floor share; gates F1-F5 of the spec (F2 with the measured dp/dz =
-dp_dyn / H_eq, H_eq = N V_p/(A (1 - eps_bed)), against the closure at eps_bed).
+bed height, window porosity, floor share; gates F1-F5 of the spec. (Wording of 2026-11-19, superseded:
+F2 was then dp_dyn / H_eq, H_eq = N V_p/(A (1 - eps_bed)), against the closure at eps_bed. Since the
+amendment of 2026-11-20 the tool gates F2 on the dynamic window gradient against the closure at the
+mapped gas fraction, and only for a window outside the mapping support; sections 7.2 and RUNBOOK 10-12.)
 
 ## 4. Viscosity convention
 
