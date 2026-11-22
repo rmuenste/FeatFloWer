@@ -6,9 +6,12 @@ logs at TIME (position, PE force = particle_total), the EL_BED_AUDIT line neares
 eps_bed, gradz_win). Replicates the kernel sample of the code: deen_poly kernel of radius 2.5 d, 27-point
 Gauss quadrature per element (the code's CB3H(9)), periodic images in x and y, eps_f piecewise constant
 per element (exact), velocity trilinear from the vertices (the code uses the Q2 field: approximation).
-Model A, particles at rest: F_tot = F_d + F_p, grad_meas = sum(frac F_tot)/V_win."""
-import sys, glob, math, re
+Model A, particles at rest: F_tot = F_d + F_p, grad_meas = sum(frac F_tot)/V_win.
+The Gidaspow closure comes from fl11_closures.py (shared with fl11_post.py)."""
+import sys, os, glob, math, re
 import xml.etree.ElementTree as ET
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from fl11_closures import drag_b, closure_grad
 R, FR, T, U = sys.argv[1], sys.argv[2], float(sys.argv[3]), float(sys.argv[4])
 d = 0.87e-3; r = d / 2; mu = 1.8e-5; rho = 1.0; rhop = 860.0; g = 9.81; L = 0.015
 vp = math.pi * d**3 / 6; width = 2.5 * d
@@ -80,15 +83,10 @@ def slab(zc, a, b):
     return 0.0 if hi <= lo else math.pi*(r*r*(hi-lo) - (hi**3-lo**3)/3)
 
 def drag_B(eps, s):
-    if eps <= 0.8:
-        return vp*(150*(1-eps)*mu/(eps*d*d) + 1.75*rho*s/d)
-    re_ = rho*eps*s*d/mu
-    cds = 24*mu/(rho*eps*d)*(1+0.15*re_**0.687) if re_ < 1000 else 0.44*s
-    return vp*0.75*cds*rho*eps*eps**-2.65/d
+    return drag_b(eps, s, d, rho, mu, 'gidaspow')
 
 def grad_cl(eps, Usup):
-    s = Usup/eps
-    return (1-eps)/vp*drag_B(eps, s)*s/eps
+    return closure_grad(Usup, eps, d, rho, mu, 'gidaspow')
 
 wbg = (rhop-rho)*vp*g
 rows = []
