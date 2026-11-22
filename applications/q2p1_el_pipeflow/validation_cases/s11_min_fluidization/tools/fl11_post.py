@@ -46,7 +46,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from fl11_closures import CLOSURES, closure_grad, closure_umf   # noqa: E402
 import make_inlet_table                                           # noqa: E402
 
-EVAL_VERSION = 'fl11_post r6b 2026-11-22'   # part of the movie cache signature
+EVAL_VERSION = 'fl11_post r7 2026-11-22'   # part of the movie cache signature
 NAN = float('nan')
 INF = float('inf')
 GATES = ('F1', 'F2', 'F3', 'F5 height', 'F5 count')
@@ -137,15 +137,27 @@ def half_ulp(s):
     return Fraction(1, 2) * Fraction(10) ** dec(s).as_tuple().exponent
 
 
+MIN_SIG = 4      # a printed token shorter than this many significant digits must be the reference exactly
+
+
 def print_equal(s, ref):
-    """the printed number s equals the decimal ref rounded to the digits of s"""
+    """the printed number s stands for the decimal ref: s is ref exactly as a decimal, or s carries at least MIN_SIG
+    significant digits and equals ref rounded to its digits (a coarse token such as '0' or '1' never stands for
+    0.3 or 0.9)"""
     try:
         p = dec(s)
     except ValueError:
         return False
+    if not p.is_finite():
+        return False
     with localcontext() as c:
         c.prec = 80
-        return Decimal(ref).quantize(Decimal(1).scaleb(p.as_tuple().exponent), rounding=ROUND_HALF_EVEN) == p
+        r = Decimal(ref)
+        if p == r:
+            return True
+        digits = p.as_tuple().digits
+        sig = len(digits) - next((i for i, x in enumerate(digits) if x), len(digits))
+        return sig >= MIN_SIG and r.quantize(Decimal(1).scaleb(p.as_tuple().exponent), rounding=ROUND_HALF_EVEN) == p
 
 
 # ===================================================================================================
@@ -169,8 +181,10 @@ class Spec:
     RESTITUTION = 'on'
     OVERLAP_MAX = Decimal('0.01')   # x d
 
-    def __init__(self, name, table, d, rhop, rhof, mu, g, drag, width, extents):
+    def __init__(self, name, table, d, rhop, rhof, mu, g, drag, width, extents, N=9789):
         self.name = name
+        self.N = int(N)                 # the bed-R population at start-up (the sphere-creation echo)
+        self.gravity = (Decimal(0), Decimal(0), -Decimal(g))
         self.table = [(Decimal(t), Decimal(u)) for t, u in table]
         self.knots = [(Fraction(t), float(u)) for t, u in self.table]
         self.decimal = dict(d=Decimal(d), rhop=Decimal(rhop), rhof=Decimal(rhof), mu=Decimal(mu), g=Decimal(g),
@@ -646,11 +660,17 @@ def recognise_inputs(log, deck, deck_ok, spec):
         out.append('property echo during the run (Prop - %s, line %d)' % (late[0][1], late[0][0] + 1))
     if log.after_finish:
         out.append('solver output after the finish marker (line %d, %s)' % (log.after_finish[0] + 1, log.after_finish[1]))
-    # particles
+    for what, store in (('sphere creation (EL terminal-velocity setup)', log.spheres), ('EL fluid viscosity', log.nu_el),
+                        ('Global CFD domain extents', log.extents)):
+        if len(store) > 1:
+            out.append('start-up echo %s appears %d times (one invocation echoes it once)' % (what, len(store)))
+    # particles: the population of the spec and its radius and density, from the sphere-creation echo
     sph = log.spheres[-1][1] if log.spheres else None
     if sph is None:
-        out.append('particle radius and density not echoed (EL terminal-velocity setup)')
+        out.append('particle population, radius and density not echoed (EL terminal-velocity setup)')
     else:
+        if int(sph[0]) != spec.N:
+            out.append('particle count of the sphere setup %s differs from the spec %d' % (sph[0], spec.N))
         against('particle radius r', sph[1], spec.decimal['d'] / 2)
         against('particle density rho_p', sph[2], spec.decimal['rhop'])
         prov.append('r %s rho_p %s N %s [sphere setup]' % (sph[1], sph[2], sph[0]))
@@ -661,8 +681,11 @@ def recognise_inputs(log, deck, deck_ok, spec):
     nu = effective('Calculated Kinematic Viscosity', 'kinematic viscosity conversion')
     if rho:
         against('fluid density rho_f', rho[0], spec.decimal['rhof'])
-    if g and len(g) == 3:
-        against('gravity g_z', g[2], -spec.decimal['g'])
+    if g and len(g) != 3:
+        out.append('gravity echo has %d component(s), three expected' % len(g))
+    elif g:
+        for i, (gs, gr) in enumerate(zip(g, spec.gravity)):
+            against('gravity component %s' % 'xyz'[i], gs, gr)
     if mu:
         against('dynamic viscosity mu', mu[0], spec.decimal['mu'])
     nu_spec = spec.decimal['mu'] / spec.decimal['rhof']
@@ -800,16 +823,20 @@ def evaluate(rundir=None, lines=None, deck_text_=None, last_complete=True, name=
         pre.append('no finish marker: the run has not finished')
     elif clock.t_end is None or clock.t_end < spec.t_last:
         pre.append('the run ended at %.4f s, before the last table row at %.4f s' % (clock.t_last, float(spec.t_last)))
-    ns = {row['n'] for row in clock.sorted}
+    # a positive contradiction of the step clock disqualifies the run (an absent row is a coverage hole)
+    off = [(k, w) for k, w in clock.rejected if 'does not match the step clock' in w or w.startswith('step not a multiple')]
+    if off:
+        pre.append('audit row at step %d contradicts the step clock (%s)' % off[0])
     sph = log.spheres[-1][1] if log.spheres else None
-    if not clock.sorted or min(ns) <= 0:
-        pre.append('particle count N not resolved (no validated audit row with N > 0)')
-    elif sph and int(sph[0]) != clock.sorted[0]['n']:
-        pre.append('particle count of the sphere setup %s differs from the first audit row %d' % (sph[0], clock.sorted[0]['n']))
+    ev['N0'] = int(sph[0]) if sph else None
     ev['precondition'] = pre
     ev['official'] = not pre
     ev['witness'] = all(p.startswith(FINISH_REASONS) for p in pre)
     ev['finished'] = clock.finished
+    # the finish of ONE invocation (the movie's render predicate): a finish marker, nothing read after it, one banner
+    ev['finished_single'] = clock.finished and log.after_finish is None and len(log.banners) <= 1
+    ev['table_ok'] = not tab
+    ev['t_end'] = clock.t_end
     ev['solver_end'] = clock.t_last
     if not tab:
         ev['horizon'] = float(spec.t_last)
@@ -1025,11 +1052,12 @@ def setup_checks(ev):
         else:
             print(f"   contacts: met ({pairs} pair kind(s): {text})")
     # overlap: the validated EL_CONTACT_STATS rows (their own cadence on the step clock)
-    rows = contact_rows(log, clock)
+    rows, expected = contact_rows(log, clock)
     if not rows:
         print('   overlap: not available (no validated EL_CONTACT_STATS row)')
         qual.append('overlap not available')
         return qual
+    complete = expected is not None and sum(1 for r in rows if r[0] <= clock.t_end) == expected
     lim = spec.OVERLAP_MAX * spec.decimal['d']
     prep_end = spec.steps[0]['t0']
     wins = [(x['t1'] - spec.EVAL_LEN, x['t1']) for x in ev['steps'] if x['measured']]
@@ -1041,11 +1069,15 @@ def setup_checks(ev):
     after = worst(r for r in rows if r[0] >= prep_end)
     inwin = worst(r for r in rows if any(a <= r[0] <= b for a, b in wins))
     pct = lambda r: 100 * float(r[1] / spec.decimal['d'])          # noqa: E731
-    desc = (f"largest {pct(allw):.3f} % of d at {float(allw[0]):.4f} s over {len(rows)} rows; after the preparation "
+    desc = (f"largest {pct(allw):.3f} % of d at {float(allw[0]):.4f} s over {len(rows)} rows"
+            + ('' if complete else f" ({expected if expected is not None else '?'} expected)") + "; after the preparation "
             f"(t >= {float(prep_end):.1f} s) " + (f"{pct(after):.3f} % at {float(after[0]):.4f} s" if after else 'no row')
             + '; inside the evaluation windows of the measured steps '
             + (f"{pct(inwin):.3f} % at {float(inwin[0]):.4f} s" if inwin else 'no row') + f"; limit {100 * spec.OVERLAP_MAX:g} % of d")
-    if allw[1] <= lim:
+    if allw[1] <= lim and not complete:
+        state = 'not available (coverage incomplete)'
+        qual.append('overlap not available (coverage incomplete)')
+    elif allw[1] <= lim:
         state = 'met'
     elif inwin and inwin[1] > lim:
         state = 'exceeded inside an evaluation window'
@@ -1056,6 +1088,9 @@ def setup_checks(ev):
     else:
         state = 'exceeded during the preparation only'
         qual.append(f"overlap {pct(allw):.2f} % of d at {float(allw[0]):.3f} s (preparation)")
+    if allw[1] > lim and not complete:
+        state += ' (observed; coverage incomplete)'
+        qual[-1] = qual[-1][:-1] + ', coverage incomplete)'
     print(f"   overlap: {desc}: {state}")
     return qual
 
@@ -1063,9 +1098,9 @@ def setup_checks(ev):
 def contact_rows(log, clock):
     """validated EL_CONTACT_STATS rows: (step time, max_overlap as a decimal); on the step clock at the stream's own
     cadence (EL momentum audit freq), identical copies collapsed, conflicting copies and non-finite or negative
-    overlaps dropped"""
+    overlaps dropped; and the number of rows that cadence expects over the completed steps (None: unknown)"""
     if not clock.exact:
-        return []
+        return [], None
     f = log.el_last('momentum audit freq')
     freq = int(f) if f is not None and re.fullmatch(r'\d+', f) and int(f) > 0 else None
     groups = {}
@@ -1084,7 +1119,7 @@ def contact_rows(log, clock):
                 or k in out:
             continue
         out[k] = (clock.t0 + k * clock.dt, ov)
-    return [out[k] for k in sorted(out)]
+    return [out[k] for k in sorted(out)], (clock.K // freq if freq else None)
 
 
 def rec_tok(raw, key):
@@ -1121,8 +1156,8 @@ def gates_f1_f3(ev, official):
           f"{max(x['U'] for x in flu):.2f}): {plateau:.6f}   (gate 1 +- 0.02: {word(v1, official)}); "
           f"dp* + floor/W over these {sum(x['dps'] + x['fl'] for x in flu)/len(flu):.4f}")
     fixed = [x for x in res if x['branch'] == 'fixed']
-    if len(fixed) < 2:
-        print(f'F2, F3 unavailable: {len(fixed)} fixed-branch step(s) (dp* < 0.8 of the plateau), two needed')
+    if not fixed:
+        print('F2, F3 unavailable: no fixed-branch step (dp* < 0.8 of the plateau)')
         return V
     v3 = f3_block(ev, fixed, plateau, official)
     v2 = gate_f2(ev, fixed, official)
@@ -1278,12 +1313,12 @@ def gate_f2(ev, fixed, official):
 
 def gate_f5_count(ev, official):
     clock = ev['clock']
-    ns = sorted({r['n'] for r in clock.sorted})
+    ns = sorted({r['n'] for r in clock.sorted} | ({ev['N0']} if ev['N0'] is not None else set()))
     if len(ns) > 1:
         if official or ev['witness']:
-            print(f"F5 count: particle counts {ns} among the validated audit rows (witnessed): FAIL")
+            print(f"F5 count: particle counts {ns} (start-up population and the validated audit rows, witnessed): FAIL")
             return 'FAIL'
-        print(f"F5 count: particle counts {ns} among the validated audit rows (measurement, not a verdict)")
+        print(f"F5 count: particle counts {ns} (start-up population and the validated audit rows; measurement, not a verdict)")
         return 'unavailable'
     if not official:
         print(f"F5 count: counts seen {ns}; no official verdict for this run: unavailable")
@@ -1437,7 +1472,7 @@ def _fixture_spec(kw, over=None):
     s = dict(table=[(repr(float(t)), repr(float(u))) for t, u in tab], d=repr(kw.get('d', 0.87e-3)),
              rhop=repr(kw.get('rhop', 860.0)), rhof=repr(kw.get('rhof', 1.0)), mu=repr(kw.get('mu', 1.8e-5)), g='9.81',
              drag=kw.get('drag', 'gidaspow') or 'gidaspow', width=repr(w) if isinstance(w, float) else '2.5',
-             extents=('0', '0.015', '0', '0.015', repr(z0), repr(z0 + 0.1)))
+             extents=('0', '0.015', '0', '0.015', repr(z0), repr(z0 + 0.1)), N=9789)
     s.update(over or {})
     return Spec('fixture spec', **s)
 
@@ -1446,7 +1481,8 @@ def _lines(protocol=PROTO, cad=0.01, t_end=None, area=2.25e-4, n=9789, width=2.5
            dyn=True, dp_hydro=0.0, d=0.87e-3, ekern=0.37, ekern_fn=None, extents=True, z0=0.0, table=None,
            echo_table=True, zmax_fn=None, legacy=False, finished=True, time_lines=True, drag='gidaspow',
            width_echo=True, tmax=None, n_fn=None, grad_fn=None, mu=1.8e-5, rhof=1.0, rhop=860.0, clock_fn=None,
-           dps_fn=None, densities=None, starting_proc='0', contact='met', overlap_fn=None, contact_stats=True):
+           dps_fn=None, densities=None, starting_proc='0', contact='met', overlap_fn=None, contact_stats=True,
+           gravity=(0.0, 0.0, -9.81), sph_r=None):
     """the lines of a synthetic run: start-up echo (EL configuration, banner, SimPar, sphere setup, Prop,
     viscosity), table echo, a time line per step, EL_FORCE_BUDGET and EL_BED_AUDIT lines, the finish marker"""
     g = 9.81
@@ -1478,9 +1514,9 @@ def _lines(protocol=PROTO, cad=0.01, t_end=None, area=2.25e-4, n=9789, width=2.5
                          'threshold=0.01 scheme=post-pass' % (pair, pair),
                   'off': 'EL_CONTACT_PARAMS pair=particle-particle %s | pair=particle-wall wall=zwalls %s | restitution=off '
                          'threshold=0 scheme=post-pass' % (pair, pair)}.get(contact, contact))
-    L.append('EL terminal-velocity setup: %d free sphere(s) created (r=%r, rho=%g, seedMode=file, seedDomain=box), '
-             'PE decomposition 3x3x4.' % (n, d / 2, rhop))
-    L.append('Prop    - Gravity =' + _fe(0.0) + _fe(0.0) + _fe(-g))
+    L.append('EL terminal-velocity setup: %d free sphere(s) created (r=%s, rho=%g, seedMode=file, seedDomain=box), '
+             'PE decomposition 3x3x4.' % (n, sph_r or repr(d / 2), rhop))
+    L.append('Prop    - Gravity =' + ''.join(_fe(x) for x in gravity))
     for rho in (densities or [rhof]):
         L.append('Prop    - Density =' + _fe(rho) + _fe(rho))
     L.append('Prop    - DynVisc =' + _fe(mu) + _fe(1.0))
@@ -1692,7 +1728,7 @@ def self_test_cases():
         ('reference (all gates measurable)', dict(), REF, ['stricter, reported', 'run inputs:', 'verdicts [set-up met]:'],
          ['Traceback', NO], ''),
         ('missing inlet plane (area_in = 0)', dict(area=0.0), {'F1': U, 'F2': U, 'F3': U, 'F5 height': 'PASS'}, [], ['Traceback'], ''),
-        ('empty bed (n = 0)', dict(n=0), ALLU, ['particle count N not resolved'], ['Traceback'], ''),
+        ('empty bed (n = 0)', dict(n=0), ALLU, ['particle count of the sphere setup 0 differs from the spec 9789'], ['Traceback'], ''),
         ('short run (2.3 s, no finish marker)', dict(t_end=2.3, finished=False), ALLU, ['no finish marker: the run has not finished'], [], ''),
         ('sparse audit (cadence 0.4 s)', dict(cad=0.4), {'F1': U, 'F5 height': U}, ['audit too sparse'], [], ''),
         ('window margin 2 d with a 2.5 d support', dict(margin_d=2.0), {'F2': U, 'F1': 'PASS'}, ['window inside the mapping support'], [], ''),
@@ -1779,11 +1815,11 @@ def self_test_cases():
         ('dp_dyn of one row +200 Pa, pressures unchanged', dict(mutate=_add_field(0.85, 'dp_hydro_dyn', 2, 200.0)),
          {'F1': U}, ['pressure identity dp_dyn = dp - dp_hydro violated'], [], 'r5: F1 PASS'),
         ('every count -1', dict(mutate=lambda L: [l.replace(' n= 9789 ', ' n= -1 ') for l in L]), ALLU,
-         ['particle count N not resolved'], [], 'r5: F5 count PASS'),
+         ['particle count -1 outside its domain'], [], 'r5: F5 count PASS'),
         ('0.20 m/s hold 1.02-1.40 s, sub-window 2 would cross into the next step', dict(table=sub_tab, t_end=2.4), {},
          ['   n/a  '], ['DIFF'], 'r5: sub2 0.740 DIFF'),
         ('no table echo, count change (ordinary report)', dict(echo_table=False, n_fn=lambda t: 9789 if t < 2.0 else 9788), ALLU,
-         ['no inlet table echo', 'F5 count: particle counts [9788, 9789] among the validated audit rows (measurement'], [],
+         ['no inlet table echo', 'F5 count: particle counts [9788, 9789] (start-up population and the validated audit rows; measurement'], [],
          'f8fb7fd8 (r6 P1-7): the CLI exited before F5 count'),
         ('constant inlet 0.05 m/s, start bed collapsing from 60 mm', dict(table=[(0.0, 0.05)], t_end=1.0,
                                                                         zmax_fn=lambda t: 0.060 if t < 0.2 else 0.0241, _spec='base'),
@@ -1836,6 +1872,43 @@ def self_test_cases():
          ['verdicts [set-up met]'], [], ''),
         ('set-up: no EL_CONTACT_STATS rows', dict(contact_stats=False), REF,
          ['overlap: not available', 'verdicts [set-up: overlap not available]'], [], ''),
+        # ---- review r7 ------------------------------------------------------------------------------------
+        ('r7: contacts mu 0 / e 1 for both pair kinds', dict(contact='EL_CONTACT_PARAMS pair=particle-particle mu_static=0 '
+                                                                     'mu_dynamic=0 e=1 | pair=particle-wall wall=zwalls mu_static=0 '
+                                                                     'mu_dynamic=0 e=1 | restitution=on threshold=0.01'), REF,
+         ['contacts deviate (particle-particle mu_static=0; particle-particle mu_dynamic=0; particle-particle e=1'], [],
+         '77914cfa: contacts met'),
+        ('r7: sphere radius printed r=0.0004', dict(sph_r='0.0004'), ALLU, ['particle radius r of the run 0.0004 differs'], [],
+         '77914cfa: recognised'),
+        ('r7: 4895 spheres with a consistent weight', dict(n=4895), ALLU,
+         ['particle count of the sphere setup 4895 differs from the spec 9789'], [], '77914cfa: official F1 and F5 PASS'),
+        ('r7: 9789 at start-up, 9788 at the first audit, 9787 later', dict(n_fn=lambda t: 9788 if t < 1.5 else 9787),
+         {'F5 count': 'FAIL'}, ['particle counts [9787, 9788, 9789] (start-up population'], [NO],
+         '77914cfa: every gate unavailable'),
+        ('r7: a positive count followed by zero', dict(n_fn=lambda t: 9789 if t < 2.0 else 0), {'F5 count': 'FAIL'},
+         ['particle counts [0, 9789]'], [NO], "77914cfa: 'no validated audit row with N > 0'"),
+        ('r7: gravity (1, 0, -9.81)', dict(gravity=(1.0, 0.0, -9.81)), ALLU, ['gravity component x of the run'], [],
+         '77914cfa: official verdicts'),
+        ('r7: one measured fixed step (F2 without the F3 fit)', dict(protocol=[(0.5, 0.30), (1.0, 0.25), (1.5, 0.20), (2.0, 0.10)]),
+         {'F2': 'FAIL', 'F3': U}, ['F2 worst |ratio_k - 1|', 'rank-deficient: 1 distinct nonzero fixed velocity'], [],
+         '77914cfa: F2 and F3 unavailable (two fixed steps needed)'),
+        ('r7: contact rows before 0.2 s missing, 1.2 % at 0.07 s unseen',
+         dict(overlap_fn=lambda t: 1.044e-5 if abs(t - 0.07) < 1e-9 else 3.8e-7,
+              mutate=lambda L: [l for l in L if not (l.startswith('EL_CONTACT_STATS') and float(l.split()[2]) < 0.2)]),
+         REF, ['overlap not available (coverage incomplete)]'], [], '77914cfa: overlap met'),
+        ('r7: contact rows before 0.2 s missing, 1.2 % at 2.4 s observed',
+         dict(overlap_fn=lambda t: 1.044e-5 if abs(t - 2.4) < 1e-9 else 3.8e-7,
+              mutate=lambda L: [l for l in L if not (l.startswith('EL_CONTACT_STATS') and float(l.split()[2]) < 0.2)]),
+         REF, ['exceeded inside an evaluation window (observed; coverage incomplete)', '(evaluation window, coverage incomplete)]'],
+         [], ''),
+        ('r7: one preparation audit row off the step clock', dict(mutate=_set_field(0.3, 't', 0, '3.001000E-01')), ALLU,
+         ['audit row at step 1200 contradicts the step clock'], [], '77914cfa: the row a hole, F2 and F5 height PASS'),
+        ('r7: sphere-creation echo twice', dict(mutate=lambda L: [l for x in L for l in ([x, x] if 'free sphere(s) created' in x else [x])]),
+         ALLU, ['start-up echo sphere creation (EL terminal-velocity setup) appears 2 times'], [], '77914cfa: recognised'),
+        ('r7: EL viscosity echo twice', dict(mutate=lambda L: [l for x in L for l in ([x, x] if 'diffusion operator rebuilt' in x else [x])]),
+         ALLU, ['start-up echo EL fluid viscosity appears 2 times'], [], ''),
+        ('r7: domain extents twice', dict(mutate=lambda L: [l for x in L for l in ([x, x] if 'Global CFD domain extents' in x else [x])]),
+         ALLU, ['start-up echo Global CFD domain extents appears 2 times'], [], ''),
     ]
 
 
@@ -1874,6 +1947,12 @@ def _unit_checks():
                 finite(u) and abs(g / target - 1) < 1e-9, f'U_mf {u:.6g} m/s, gradient {g:.6g} vs {target:.6g} Pa/m '
                 '(f8fb7fd8: the bracket end 1e-6)'))
     out.append(('no crossing for rho_p < rho_f: NaN', not finite(closure_umf(eps, 0.87e-3, 900.0, 1000.0, 0.01, 9.81)), ''))
+    pe = [('0', '0.3', False), ('1', '0.9', False), ('0.0004', '0.000435', False), ('0.3', '0.3', True),
+          ('0.2500D-03', '0.00025', True), ('0.10000000E+01', '1.0', True), ('2.50000020E+00', '2.5', False),
+          ('0.000000E+00', '0', True), ('1.0005', '1.00049', True), ('1.02000000E+00', '1.02', True)]
+    bad = [(a, b) for a, b, want in pe if print_equal(a, Decimal(b)) != want]
+    out.append(('print_equal: a coarse token never stands for a finer reference (%d pairs)' % len(pe), not bad,
+                ('wrong: %s' % bad) if bad else "('0', 0.3), ('1', 0.9), ('0.0004', 0.000435) refused (77914cfa: accepted)"))
     s = SPEC11
     out.append(('spec 11: 28 rows from make_inlet_table, 14 holds, lowest 7.02-7.5 s at 0.04 m/s',
                 len(s.table) == 28 and len(s.holds) == 14 and (s.lowest['a'], s.lowest['b']) == (Fraction('7.02'), Fraction('7.5'))
