@@ -12,8 +12,16 @@ usage: make_inlet_table.py OUT [--u0 0.30] [--du 0.02] [--umin 0.04] [--tprep 0.
                                [--trans 0.02] [--const U] [--steps STEPS_OUT]
   --const U   one row "0 U": constant inlet velocity (probes)
   --steps F   also write the step list "t_start t_end U" (the evaluation windows of the post tool)
-The rows equal the "csv" output of the spec's inlet_table.py to the printed digits (%.6g)."""
+The rows equal the "csv" output of the spec's inlet_table.py to the printed digits (%.6g).
+fl11_post.py imports protocol(), DEFAULTS and deck_rows(): its spec-11 table is this one."""
 import argparse
+
+DEFAULTS = dict(u0=0.30, du=0.02, umin=0.04, tprep=0.5, tstep=0.5, trans=0.02)   # the protocol of spec 11
+
+
+def deck_rows(pts):
+    """the rows "t U" as written to the deck's table file"""
+    return ['%.6g %.6g' % p for p in pts]
 
 
 def protocol(u0, du, umin, tprep, tstep, trans):
@@ -33,12 +41,8 @@ def protocol(u0, du, umin, tprep, tstep, trans):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('out')
-    ap.add_argument('--u0', type=float, default=0.30)
-    ap.add_argument('--du', type=float, default=0.02)
-    ap.add_argument('--umin', type=float, default=0.04)
-    ap.add_argument('--tprep', type=float, default=0.5)
-    ap.add_argument('--tstep', type=float, default=0.5)
-    ap.add_argument('--trans', type=float, default=0.02)
+    for k, v in DEFAULTS.items():
+        ap.add_argument('--' + k, type=float, default=v)
     ap.add_argument('--const', type=float, default=None)
     ap.add_argument('--steps', default=None)
     a = ap.parse_args()
@@ -51,8 +55,8 @@ def main():
                 f'TSTEP {a.tstep:g} TRANS {a.trans:g}; end {tend:g} s; t [s] U [m/s] (superficial)')
     with open(a.out, 'w') as f:
         f.write(head + '\n')
-        for t, u in pts:
-            f.write('%.6g %.6g\n' % (t, u))
+        for row in deck_rows(pts):
+            f.write(row + '\n')
     if a.steps:
         with open(a.steps, 'w') as f:
             f.write('# t_start t_end U\n')

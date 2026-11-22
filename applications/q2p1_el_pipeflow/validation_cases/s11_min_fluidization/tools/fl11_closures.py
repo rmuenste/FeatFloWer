@@ -12,7 +12,7 @@ one shared module instead of two copies).
   closure_grad(u, eps, d, rhof, mu, closure)    |dp/dz| of a fixed bed at superficial velocity u:
                                                  n F_d(u/eps) / eps (n = (1-eps)/V_p)
   closure_umf(eps, d, rhop, rhof, mu, g, closure)  u where closure_grad meets the buoyant weight
-                                                 per volume (1-eps)(rhop-rhof) g (bisection)
+                                                 per volume (1-eps)(rhop-rhof) g (bracket from 0, bisection)
 
 Outside 0 < eps <= 1 (and for a non-finite input) the gradient and U_mf are NaN, never an
 exception: the callers report such a value as unavailable."""
@@ -54,10 +54,24 @@ def closure_grad(u, eps, d, rhof, mu, closure='gidaspow'):
 
 
 def closure_umf(eps, d, rhop, rhof, mu, g, closure='gidaspow'):
+    """U where the fixed-bed gradient (increasing in U, zero at U = 0) meets the buoyant weight per volume:
+    bracketed from zero with an upper bound doubled from 1 m/s until the gradient exceeds the target (up to
+    2^40 m/s), then bisected; NaN when no crossing is established (target not positive, no bracket)"""
     if not _valid(eps):
         return float('nan')
     target = (1 - eps) * (rhop - rhof) * g
-    a, b = 1e-6, 10.0
+    if not (math.isfinite(target) and target > 0):
+        return float('nan')
+    a, b = 0.0, 1.0
+    for _ in range(41):
+        gb = closure_grad(b, eps, d, rhof, mu, closure)
+        if not math.isfinite(gb):
+            return float('nan')
+        if gb >= target:
+            break
+        a, b = b, 2 * b
+    else:
+        return float('nan')
     for _ in range(200):
         m = 0.5 * (a + b)
         if closure_grad(m, eps, d, rhof, mu, closure) < target:
