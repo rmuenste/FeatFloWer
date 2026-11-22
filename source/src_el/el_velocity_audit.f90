@@ -42,7 +42,7 @@ MODULE EL_VELOCITY_AUDIT
   USE PP3D_MPI, ONLY: myid, showid, MPI_COMM_SUBS
   USE TYPES, ONLY: tMultiMesh
   USE EL_CONFIG, ONLY: el_velocity_audit_freq, el_apply_fluid_feedback, el_drag_semi_implicit, &
-                       el_prescribed_field
+                       EL_FLUID_SOLVE_ACTIVE
   USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_VALUE, IEEE_QUIET_NAN
   USE EL_GEOMETRY, ONLY: el_domain_box, el_domain_box_set
   USE EL_FIELDS, ONLY: el_field_data
@@ -189,7 +189,7 @@ CONTAINS
   FUNCTION EL_AUDIT_SOLVE_APPLIES() RESULT(applied)
     LOGICAL :: applied(2)
     LOGICAL :: solved
-    solved = (TRIM(el_prescribed_field).EQ.'none')
+    solved = EL_FLUID_SOLVE_ACTIVE()
     applied(1) = solved .AND. el_apply_fluid_feedback .AND. el_drag_semi_implicit
     applied(2) = solved .AND. el_apply_fluid_feedback
   END FUNCTION EL_AUDIT_SOLVE_APPLIES

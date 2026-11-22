@@ -20,6 +20,8 @@
 !          for the source, nothing with a prescribed field)
 !   92     ELDragImplicitWeights = hrz needs the drag diagonal in the momentum defect (review r2
 !          finding 4): refused for FlowType = non-Newtonian with MatrixRenewal S = 0 only
+!   93     the fluid-solve predicate (review r3): active without a prescribed field, inactive with
+!          one (the start-up hrz refusal and the audit terms use it, as the transport does)
 !=========================================================================
 PROGRAM TEST_EL_BED_AUDIT
 
@@ -30,7 +32,7 @@ PROGRAM TEST_EL_BED_AUDIT
                           EL_BED_WINDOW_SAMPLE_SUMS, EL_BED_UNAVAILABLE, &
                           EL_BED_AUDIT_BEGIN_SAMPLES, EL_BED_AUDIT_RECORD_SAMPLE
   USE EL_CONFIG, ONLY: el_kernel_width_factor, el_apply_fluid_feedback, el_drag_semi_implicit, &
-                       el_prescribed_field, EL_DRAG_HRZ_DEFECT_SUPPORTED
+                       el_prescribed_field, EL_DRAG_HRZ_DEFECT_SUPPORTED, EL_FLUID_SOLVE_ACTIVE
   USE EL_VELOCITY_AUDIT, ONLY: EL_AUDIT_SOLVE_APPLIES
   USE EL_GEOMETRY, ONLY: EL_SET_DOMAIN_BOX
   USE EL_TEST_HELPERS, ONLY: EL_TEST_INIT, BUILD_STRUCTURED_MESH, EL_TEST_RELEASE_MESH
@@ -178,6 +180,13 @@ PROGRAM TEST_EL_BED_AUDIT
   IF (.NOT.EL_DRAG_HRZ_DEFECT_SUPPORTED(.FALSE., 1)) STOP 92
   IF (.NOT.EL_DRAG_HRZ_DEFECT_SUPPORTED(.TRUE., 1)) STOP 92
   IF (EL_DRAG_HRZ_DEFECT_SUPPORTED(.TRUE., 0)) STOP 92
+
+  ! ---- 93: the fluid-solve predicate -----------------------------------------------------------
+  el_prescribed_field = 'none'
+  IF (.NOT.EL_FLUID_SOLVE_ACTIVE()) STOP 93
+  el_prescribed_field = 'linear_shear'
+  IF (EL_FLUID_SOLVE_ACTIVE()) STOP 93
+  el_prescribed_field = 'none'
 
   WRITE(*,'(A)') 'test_el_bed_audit: all checks passed'
 

@@ -813,11 +813,35 @@ CONTAINS
   ! non-Newtonian defect of S = 0 (mass, convection, STRESS; QuadSc_def Matdef idef = -1) has no
   ! drag term: that combination is not supported (review r2 finding 4; the missing defect term
   ! is a follow-up, no test case exists).
+  ! The check concerns runs that execute the momentum solve: a prescribed field
+  ! (EL_FLUID_SOLVE_ACTIVE false) never reaches the defect, and the application accepts it.
   PURE LOGICAL FUNCTION EL_DRAG_HRZ_DEFECT_SUPPORTED(non_newtonian, matrix_renewal_s)
     LOGICAL, INTENT(IN) :: non_newtonian
     INTEGER, INTENT(IN) :: matrix_renewal_s
     EL_DRAG_HRZ_DEFECT_SUPPORTED = .NOT.(non_newtonian .AND. matrix_renewal_s.EQ.0)
   END FUNCTION EL_DRAG_HRZ_DEFECT_SUPPORTED
+
+  ! Backstop in the momentum assembly of an hrz run (Transport_Q2P1, workers only): a FlowType or
+  ! MatrixRenewal changed by Reload_SimPar (the generic parser reads both) after the start-up check.
+  ! An unsupported combination aborts MPI_COMM_WORLD, so every rank, the master included, stops at
+  ! once whichever worker detects it (a STOP inside the workers-only block would leave the master
+  ! waiting in its next collective).
+  SUBROUTINE EL_DRAG_HRZ_RUNTIME_CHECK(non_newtonian, matrix_renewal_s)
+    LOGICAL, INTENT(IN) :: non_newtonian
+    INTEGER, INTENT(IN) :: matrix_renewal_s
+    INTEGER :: ierr
+    IF (EL_DRAG_HRZ_DEFECT_SUPPORTED(non_newtonian, matrix_renewal_s)) RETURN
+    WRITE(*,'(A)') 'Fatal: ELDragImplicitWeights = hrz with FlowType = non-Newtonian and MatrixRenewal S = 0 '// &
+      '(changed by Reload_SimPar?): the momentum defect has no drag diagonal; aborting all ranks.'
+    CALL MPI_Abort(MPI_COMM_WORLD, 917, ierr)
+  END SUBROUTINE EL_DRAG_HRZ_RUNTIME_CHECK
+
+  ! The fluid momentum solve runs: Transport_q2p1_UxyzP_el skips it for a prescribed field
+  ! (SimPar@ELPrescribedField /= none). The one definition for the transport, the start-up checks
+  ! that concern the solve and the solver terms of the velocity audit.
+  PURE LOGICAL FUNCTION EL_FLUID_SOLVE_ACTIVE()
+    EL_FLUID_SOLVE_ACTIVE = (TRIM(el_prescribed_field).EQ.'none')
+  END FUNCTION EL_FLUID_SOLVE_ACTIVE
 
   ! Inlet velocity of boundary type Inflow975 at time t (end-of-step time of the caller): the
   ! table when the deck names one, else the linear ramp (arithmetic unchanged).

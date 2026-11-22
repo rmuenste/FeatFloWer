@@ -28,7 +28,7 @@ use EL_CONFIG, only: el_apply_fluid_feedback, el_prescribed_field, el_shear_rate
                      el_cylinder_axis, el_initial_field
 use EL_CONFIG, only: el_write_diagnostics, el_fluid_gravity, el_meso_filter
 use EL_CONFIG, only: el_bed_audit_freq, el_velocity_audit_freq, el_drag_hrz, &
-                     EL_DRAG_HRZ_DEFECT_SUPPORTED
+                     EL_DRAG_HRZ_RUNTIME_CHECK, EL_FLUID_SOLVE_ACTIVE
 use EL_BED_AUDIT, only: EL_WRITE_BED_AUDIT
 use EL_VELOCITY_AUDIT, only: EL_WRITE_VELOCITY_AUDIT
 use EL_GEOMETRY, only: EL_DOMAIN_Z_CENTER
@@ -369,7 +369,7 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
   ! Momentum models: solver-setting check, boundary-face mask and porosity priming before
   ! the first pass (collective, deck-only guard; never entered for 'none').
   IF (EL_MM_ACTIVE()) CALL EL_MM_Begin_Step(mfile)
-  prescribed_active = TRIM(el_prescribed_field).NE.'none'
+  prescribed_active = .NOT.EL_FLUID_SOLVE_ACTIVE()
 
   IF (ALLOCATED(FictKNPR)) FictKNPR = 0
   IF (myid.NE.master .AND. prescribed_active) CALL EL_IMPOSE_PRESCRIBED_FIELD()
@@ -684,10 +684,10 @@ IF (myid.ne.master) THEN
    ! dt B_i u_i^n of the drag diagonal, with valU/V/W still the velocity of the start of the
    ! step (the boundary values of the new step are imposed below)
    ! The application refuses hrz at start-up on a defect without the drag diagonal; the check
-   ! here catches a FlowType / MatrixRenewal changed later by Reload_SimPar (generic parser).
+   ! here catches a FlowType / MatrixRenewal changed later by Reload_SimPar (generic parser) and
+   ! aborts every rank (EL_CONFIG:EL_DRAG_HRZ_RUNTIME_CHECK).
    IF (el_drag_hrz) THEN
-     IF (.NOT.EL_DRAG_HRZ_DEFECT_SUPPORTED(bNonNewtonian, myMatrixRenewal%S)) ERROR STOP &
-       'ELDragImplicitWeights = hrz: FlowType = non-Newtonian with MatrixRenewal S = 0 (after a reload?) has no drag diagonal in the momentum defect.'
+     CALL EL_DRAG_HRZ_RUNTIME_CHECK(bNonNewtonian, myMatrixRenewal%S)
      CALL EL_APPLY_DRAG_SPLIT_PARTNER(QuadSc%defU, QuadSc%defV, &
        QuadSc%defW, QuadSc%valU, QuadSc%valV, QuadSc%valW, tstep)
    END IF
