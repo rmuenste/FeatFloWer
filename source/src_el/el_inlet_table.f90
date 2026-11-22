@@ -2,8 +2,9 @@
 ! EL_INLET_TABLE - piecewise-linear inlet velocity table U(t) of boundary type Inflow975
 !
 ! SimPar@ELInletVelocityTable = "<file>" (EL_CONFIG) names a text file of rows "t U"
-! (seconds, m/s; the SUPERFICIAL velocity like the ramp keys). Blank lines and lines starting
-! with '#' or '!' are skipped; the two numbers may be separated by blanks or a comma; anything
+! (seconds, m/s; the SUPERFICIAL velocity like the ramp keys). Blank lines (spaces and tabs
+! only) and lines whose first non-blank character is '#' or '!' are skipped (a tab is a blank
+! everywhere); the two numbers may be separated by blanks, tabs or a comma; anything
 ! after them on a row is ignored. Refused (ierr /= 0 with a message): a missing or unreadable
 ! file, a read error (distinguished from the end of the file), a row longer than MAX_LINE, a
 ! row whose first two tokens are not both numbers (a token is a number when it is an optional
@@ -301,12 +302,18 @@ CONTAINS
     data_row = .FALSE.
     tv = 0.0d0
     uv = 0.0d0
-    line = ADJUSTL(text)
+    ! horizontal whitespace first: a tab is a blank for the blank-line and comment tests too
+    ! (ADJUSTL and LEN_TRIM treat only the space as blank), the comma separator afterwards
+    line = text
+    DO i = 1, LEN_TRIM(line)
+      IF (line(i:i).EQ.CHAR(9)) line(i:i) = ' '
+    END DO
+    line = ADJUSTL(line)
     IF (LEN_TRIM(line).EQ.0) RETURN
     IF (line(1:1).EQ.'#' .OR. line(1:1).EQ.'!') RETURN
     data_row = .TRUE.
     DO i = 1, LEN_TRIM(line)
-      IF (line(i:i).EQ.',' .OR. line(i:i).EQ.CHAR(9)) line(i:i) = ' '
+      IF (line(i:i).EQ.',') line(i:i) = ' '
     END DO
     pos = 1
     DO k = 1, 2

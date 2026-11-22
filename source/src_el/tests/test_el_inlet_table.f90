@@ -16,6 +16,9 @@
 !   43-44  number tokens: accepted and refused spellings
 !   45-46  EL_INLET_TABLE_LOAD_SHARED (rank 0 reads, broadcast): the rows on every rank; a
 !          refusal reaches every rank with its message
+!   47     horizontal whitespace (review r2 finding 7): a tab-only line and blanks + tabs are
+!          blank lines, a tab-indented '#' / '!' line is a comment, tab-indented and
+!          tab-separated rows are data
 !=========================================================================
 PROGRAM TEST_EL_INLET_TABLE
 
@@ -109,6 +112,17 @@ PROGRAM TEST_EL_INLET_TABLE
     STOP 39
   END IF
   IF (ANY(tab%t.NE.(/0.1d0, 1.5d0, 2.0d0/)) .OR. ANY(tab%u.NE.(/0.2d0, 0.2d0, 0.25d0/))) STOP 39
+
+  ! ---- 47: tabs before the blank / comment test ----------------------------------------------
+  CALL WRITE_FILE('tab_tabs.txt', [CHARACTER(LEN=40) :: CHAR(9)//'# tab-indented comment', &
+    CHAR(9), CHAR(9)//CHAR(9)//'! tab-indented comment', '0.0'//CHAR(9)//'0.3', &
+    CHAR(9)//'0.5 0.3', ' '//CHAR(9)//' ', '1.0,'//CHAR(9)//'0.28'])
+  CALL EL_INLET_TABLE_READ('tab_tabs.txt', tab, ierr, msg)
+  IF (ierr.NE.0 .OR. tab%n.NE.3) THEN
+    WRITE(*,'(A,I0,A,A)') 'check 47: ierr ', ierr, ' ', TRIM(msg)
+    STOP 47
+  END IF
+  IF (ANY(tab%t.NE.(/0.0d0, 0.5d0, 1.0d0/)) .OR. ANY(tab%u.NE.(/0.3d0, 0.3d0, 0.28d0/))) STOP 47
 
   ! ---- 40-42: EL_INLET_VELOCITY -------------------------------------------------------------
   el_inlet_u0 = 0.002d0
