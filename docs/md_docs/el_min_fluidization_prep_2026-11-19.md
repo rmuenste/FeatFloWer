@@ -516,6 +516,74 @@ the round-2 binary d27a74fb-pece2a7f7 (against the older references one extra li
 against R_id400_new: every `EL_` line bitwise (13 077; EL_RESTITUTION_STATS 400, EL_BED_AUDIT 40,
 EL_UMAX_AUDIT 40), XxX 800/800, particle logs 27/27.
 
+### 7.4 Structure of the case-11 post tool (review r4, 2026-11-22)
+
+The fourth review showed verdict reversals on equivalent inputs (a redundant table knot moved F1 from
+0.978732 FAIL to PASS) and on degraded inputs (one dropped audit row: PASS from the remaining subset).
+The cause was structural: holds, coverage, statistics, branch membership and extrema came from
+different views of the input. `fl11_post.py` (commit d70850f8; `fl11_closures.py` unchanged) is now built
+from five pieces, each defined once; `fl11_movie.py` (616696cc) uses the same evaluation.
+
+**A. Record reader.** One tokenizer reads every `EL_` record the tool uses (EL_BED_AUDIT,
+EL_FORCE_BUDGET, EL_NEWTON_PAIR as `key= values` records with the required and optional keys and their
+value counts; EL_INLET_TABLE as exactly two numbers). A record is complete or it is nothing; no field is
+taken by position. A malformed record after the last complete record, or a last line without its line
+end, is an unfinished trailing record: ignored, noted on stderr, so the report is unchanged. A malformed
+interior record is diagnosed in the report and leaves a hole. The same pass reads the start-up echo
+(kernel width factor, drag model, fluid gravity, bed audit frequency, the row count of the table echo,
+domain extents), the time lines and the finish marker. The deck is read with the application's syntax
+(last `@`, last `=`, first list-directed token of the value, so a trailing comment is not part of it);
+a missing key and an unreadable value are told apart.
+
+**B. Protocol.** The solver's rule U(t) (EL_INLET_TABLE_VALUE: linear between the rows, the first and
+the last value held beyond the ends) is applied to the echoed table (complete against its echoed row
+count) and reduced to maximal constant-velocity holds: adjacent equal-valued segments, the holds beyond
+both ends included, are merged before the 0.1 s threshold; the terminal hold ends with the run (open
+when the run has not finished). A step ends where its hold ends and starts where the previous hold ends
+(the start of the transition into it). Redundant knots, subdivided holds and a dropped redundant last
+knot give byte-identical output. Without an echo a valid steps file (no duplicate or overlapping rows)
+is the protocol, every verdict labelled; with an echo a steps file is only validated against it (three
+columns, multiplicity) and gives a labelled summary when it differs.
+
+**C. Clock and audit sequence.** The expected audit rows are the multiples of the echoed audit frequency
+up to the last completed step; their times are t0 + k dt where a constant time step is established (one
+printed dt on every time line; the exact deck TimeStep when it agrees within the 4-digit precision of the
+time line, else the audit rows). An observed row is validated against its step (multiple of the
+frequency, time within the print precision of t0 + k dt, particle count and buoyant weight changing
+together); identical copies are collapsed, conflicting copies rejected with the reason, a missing or
+rejected expected row is a coverage hole. The run ends with the last completed step (the solver finishes
+the step that crosses MaxSimTime; a Reload_SimPar that moves MaxSimTime is followed through the time
+lines and the observed steps); without the finish marker the run has not finished.
+
+**D. Per-step evaluation.** The evaluation window (the last 0.3 s of the step) must lie inside the hold
+and be covered by validated rows (at least ten expected rows); statistics, sub-windows and extrema use
+the same rows, selected by their step time. Buoyant weight, inlet area and particle count must be
+constant in the window: they normalise that step (no run-wide normalisation). A step is `measured`, or
+`unmeasurable` with the reason (short hold, coverage hole, non-finite dp_dyn, non-constant weight / area
+/ count, open terminal hold).
+
+**E. Verdicts.** Every gate is PASS, FAIL or unavailable with the reason. F1-F3 are unavailable when a
+protocol step is unmeasurable (it could belong to the fluidised or the fixed set); the subset value is
+printed as a measurement. F2 and F3 use the closure of the drag-model echo; a differing `--closure` is a
+labelled comparison. F2 needs a finite positive mapping support, finite margins on every contributing
+line (tolerance from the print precision of both coordinates, undecidable otherwise), valid mapped samples
+and a positive closure with a finite ratio on every fixed step. F5 count (every expected row validated
+over the whole finished run, one count) and F5 height (all tied lowest holds covered, no centre above
+zmin + Lz/2; a centre at mid-height is not above) are independent of F1-F3 and of each other; an observed
+exceedance or count change is a FAIL even with holes. Physical command-line arguments must be finite and
+positive. The report ends with one `verdicts:` line.
+
+Evidence: [V, job 164976; `runs/fluid11/unit/post_r4/`] `--self-test` 52/52 (every counterexample
+of reviews r2-r4; `old_vs_new4.txt` runs the r4 cases and two real-log variants through the tool of
+9984944d as well: the redundant knot (3.80, 0.18) gave F1 0.980674 PASS and the dropped 0.8500 s row
+0.980269 PASS there, now 0.978732 FAIL and unavailable). `--self-test-real R_r1_proto`, 300 seeded
+variants: 100 equivalence transforms (knot in a hold or a ramp, subdivided hold, last knot removed,
+unfinished trailing record) with byte-identical output, 200 degrading transforms (rows deleted,
+duplicated, conflicting, a field NaN, log truncated, audit thinned, count or weight perturbed, finish
+marker removed) without a flipped verdict, 170 of them with at least one verdict unavailable.
+`post_r4.txt` of R_r1_proto, R_r1_oldsplit, R_proto_movie and R_r2_rest: every gate number and verdict
+of `post_r3.txt`. `fl11_movie.py --stats` on R_id400_new: both round-3 caches rebuilt, a fresh cache reused.
+
 ## 8. Floor force of the bed audit: the pe wall-contact impulse is the unrelaxed PGS impulse
 
 **Finding [V].** In the fixed branch of the protocol run (R_proto_hrz, job 164004) dp* + floor/W with the

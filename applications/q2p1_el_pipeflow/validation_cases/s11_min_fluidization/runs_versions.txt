@@ -206,3 +206,14 @@ job     run                      binary     result
 164968, 164972  fl11_post --self-test 30/30; old_vs_new.txt (every case through 1fbb28e4 and the new tool); post_r3.txt of
         R_r1_proto, R_r1_oldsplit, R_proto_movie: every gate number identical to post_r2.txt; fl11_movie --stats on R_id400_new
 164969  render job happy path on R_id400_new (check log and temporary movie in the job directory)
+
+Fix round 4 (external review r4, 2026-11-22): post tool only, no Fortran change (binary b9e8f410-pece2a7f7 stands).
+FeatFloWer commits d70850f8 (fl11_post.py rebuilt from record reader, protocol holds, step clock, per-step evaluation,
+tri-state verdicts), 616696cc (fl11_movie.py on fl11_post.evaluate, versioned cache; render stdout per job); design
+note section 7.4.
+job     run                      binary     result
+164976  fl11_post --self-test 52/52; old_vs_new4.txt (r4 cases and two real-log variants through 9984944d and the new
+        tool); --self-test-real R_r1_proto: 300 variants, 0 failures (100 equivalence byte-identical, 200 degrading without
+        a flipped verdict, 170 with a verdict unavailable); post_r4.txt of R_r1_proto, R_r1_oldsplit, R_proto_movie
+        (run dirs) and R_r2_rest (unit/post_r4/R_r2_rest.post_r4.txt): gate numbers and verdicts of post_r3.txt;
+        fl11_movie --stats on R_id400_new: both round-3 caches rebuilt
