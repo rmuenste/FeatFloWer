@@ -1149,6 +1149,12 @@ END SUBROUTINE get_global_domain_extents
        iCommSwitch
      STOP 1
    END IF
+   ! the solver values of the velocity audit are summed across ranks with E013Sum2 as well
+   IF (el_velocity_audit_freq.GT.0 .AND. iCommSwitch.NE.3 .AND. iCommSwitch.NE.4) THEN
+     WRITE(*,'(A,I0)') 'ELVelocityAuditFreq > 0 needs communication scheme 3 or 4 (the parallel dof sum '// &
+       'E013Sum2 of the audit), got ', iCommSwitch
+     STOP 1
+   END IF
    ! ELDragImplicitWeights = hrz needs the drag diagonal in the nonlinear momentum defect; the
    ! hand-built defect of the non-Newtonian path with MatrixRenewal S = 0 has none (EL_CONFIG:
    ! EL_DRAG_HRZ_DEFECT_SUPPORTED). Deck-only, every rank alike.
