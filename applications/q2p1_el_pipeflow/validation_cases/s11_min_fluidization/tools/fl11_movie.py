@@ -52,6 +52,7 @@ Encode: ffmpeg -framerate 30 -i OUTDIR/frame_%05d.png -vf tpad=stop_mode=clone:s
 Render job (check, 4 workers, encode; rendering runs in Slurm, not on the gateway):
         sbatch /data/warehouse17/rmuenste/runs/fluid11/movie/render_R_proto_movie.sbatch [RUN [T_END [STRIDE]]]"""
 import os, sys, glob, io, json, math, argparse
+from fractions import Fraction
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -63,6 +64,7 @@ ap.add_argument('--frames', type=int, nargs=2, default=(0, 10**9))
 ap.add_argument('--stride', type=int, default=1)
 ap.add_argument('--stats', action='store_true'); ap.add_argument('--check', action='store_true')
 ap.add_argument('--no-peer', action='store_true')
+ap.add_argument('--tend', default=None, help='--check: the time the movie must reach (default: the protocol end)')
 A = ap.parse_args()
 run, out = A.run, A.out
 
@@ -94,7 +96,7 @@ PEER = (('MFiX-DEM (run F_none)', 'o', [0.989, 0.999, 0.993, 0.988, 1.005, 0.997
         ('CFDEM (run fluid_C_gid_inlet2)', 's', [0.964, 0.959, 0.950, 0.956, 0.948, 0.953, 0.936,
                                                  0.821, 0.709, 0.599, 0.492, 0.388, 0.286, 0.188]))
 CACHE = os.path.join(out, 'fl11_movie_cache.npz')
-CACHE_FORMAT = 'fl11_movie cache 4'          # with fl11_post.EVAL_VERSION and the deck part of the signature
+CACHE_FORMAT = 'fl11_movie cache 5'          # with fl11_post.EVAL_VERSION and the deck part of the signature
 
 
 # ---- data: read once, cache in OUTDIR
@@ -159,19 +161,26 @@ def build_cache(sig):
         pos = np.empty((nf + 1, n, 3), np.float32); vel = np.zeros((nf + 1, n, 3), np.float32)
         pos[new[fi[keep]] + 1, ip[keep] - 1] = p[keep]; vel[new[fi[keep]] + 1, ip[keep] - 1] = v[keep]
         T = np.concatenate([[0.0], ut[ok] * 1e-6])
+        tus = np.concatenate([[0], ut[ok]]).astype(np.int64)   # frame times in integer microseconds (the logs' digits)
+        traw = int(tick.max())                     # the latest complete particle RECORD, before frame filtering
     else:
         pos = np.empty((1, n, 3), np.float32); vel = np.zeros((1, n, 3), np.float32); T = np.array([0.0])
+        tus = np.zeros(1, np.int64); traw = 0
     pos[0] = xyz
 
     # audit series and step table: fl11_post.evaluate (validated audit rows, the holds of the echoed protocol,
     # the per-step evaluation with its guarded ratios and coverage; nothing re-derived here)
     W = area = float('nan'); aud = np.zeros((0, 8)); srow = np.zeros((0, 10)); table = []; echo = False
-    horizon = solver_end = float('nan'); finished = False
+    horizon = solver_end = float('nan'); finished = False; send_us = -1; horizon_s = 'nan'
     if os.path.exists(os.path.join(run, 'run_slurm.log')):
         ev = post.evaluate(run)
         table = list(ev['echo_table'])                  # the inlet display waits for the complete echo
         echo = bool(table)
-        horizon, solver_end, finished = (ev['horizon'] if echo else float('nan')), ev['solver_end'], ev['finished']
+        horizon, solver_end = (ev['horizon'] if echo else float('nan')), ev['solver_end']
+        finished = ev['finished_single']                # the finish of one invocation (fl11_post)
+        horizon_s = repr(horizon)
+        te = ev['t_end']                                # the exact solver end t0 + K dt
+        send_us = int(te * 10**6) if te is not None and (te * 10**6).denominator == 1 else -1
         rows = ev['clock'].sorted
         area, W = ev['area'], ev['W']
         if rows:
@@ -180,12 +189,14 @@ def build_cache(sig):
             aud = np.array([(r['t'], post.div(r['dp_dyn'], post.div(-r['wz'], r['a_in'])), post.div(r['fbal'], -r['wz']),
                              (r['z99'] + R * 1e-3) * 1e3, r['eps'], r['zmax'] * 1e3, r['n'],
                              r['U'] if echo else float('nan')) for r in rows])
-        srow = np.array([(float(x['t0']), float(x['t1']), x['U'], x['dps'], x['stds'], x['H'] * 1e3, x['eps'], x['fl'],
-                          float(x['measured']), STATES.index(c)) for x, c in zip(ev['steps'], ev['classes'])]).reshape(-1, 10)
+        if ev['table_ok']:                               # spec-step labels only for the spec table
+            srow = np.array([(float(x['t0']), float(x['t1']), x['U'], x['dps'], x['stds'], x['H'] * 1e3, x['eps'], x['fl'],
+                              float(x['measured']), STATES.index(c)) for x, c in zip(ev['steps'], ev['classes'])]).reshape(-1, 10)
     os.makedirs(out, exist_ok=True)
     tmp = os.path.join(out, '.fl11_movie_cache.%d.npz' % os.getpid())
     np.savez(tmp, sig=sig, T=T, pos=pos, vel=vel, aud=aud, srow=srow, table=np.array(table).reshape(-1, 2),
-             W=W, area=area, echo=echo, horizon=horizon, solver_end=solver_end, finished=finished)
+             W=W, area=area, echo=echo, horizon=horizon, solver_end=solver_end, finished=finished, tus=tus, traw=traw,
+             send_us=send_us, horizon_s=horizon_s)
     os.replace(tmp, CACHE)
 
 
@@ -203,6 +214,7 @@ with np.load(CACHE) as z:
     T, POS, VEL, AUD, SROW, TABLE = z['T'], z['pos'], z['vel'], z['aud'], z['srow'], z['table']
     W, AREA, ECHO = float(z['W']), float(z['area']), bool(z['echo'])
     HORIZON, SOLVER_END, FINISHED = float(z['horizon']), float(z['solver_end']), bool(z['finished'])
+    TUS, TRAW, SEND_US, HORIZON_S = z['tus'], int(z['traw']), int(z['send_us']), str(z['horizon_s'])
 N = POS.shape[1]
 table = [tuple(r) for r in TABLE]
 TA = AUD[:, 0]                                         # audit columns: t dp* floor/W H eps zmax n U
@@ -240,8 +252,8 @@ def groups():
     if len(SROW):
         if SROW[0, 0] > 0: g.append((0.0, SROW[0, 0], SROW[0, 2], 'prep'))
         g += [(r[0], r[1], r[2], '%4d' % k) for k, r in enumerate(SROW)]
-    else:
-        g.append((0.0, T[-1], float('nan'), ' all'))
+    else:                                          # not the spec table: one group, U of a constant echoed inlet
+        g.append((0.0, T[-1], table[0][1] if len(table) == 1 else float('nan'), ' all'))
     return g
 
 
@@ -272,7 +284,30 @@ if A.check:
     # render job's predicates use all three (a stride can hide frames beyond the solver end)
     print('check: frames %d t_first %.4f t_last %.4f cadence %.4f stride %d solver_end %.4f protocol_end %.4f finished %d t_last_raw %.4f' % (
         nfr, T[sel[0]], T[sel[-1]], np.median(np.diff(T[sel])) if nfr > 1 else 0.0, A.stride, SOLVER_END, HORIZON,
-        int(FINISHED), T[-1]))
+        int(FINISHED), TRAW * 1e-6))
+    # the render predicate, exact (integer microseconds of the logs, the exact solver end, the required end as a
+    # decimal): one finished invocation, solver end and last selected frame at or after T_END, no complete
+    # particle record beyond the solver end
+    why = []
+    sec = lambda f: '%.9g' % float(f)                   # noqa: E731  (display of an exact time)
+    try:
+        tend = Fraction(A.tend) if A.tend else (Fraction(HORIZON_S) if HORIZON_S not in ('nan', 'inf') else None)
+    except ValueError:
+        tend = None
+    if not FINISHED:
+        why.append('the run has not finished as one invocation (no finish marker, or a second start-up after it)')
+    if tend is None or not tend > 0:
+        why.append('required end time unknown (%s)' % (A.tend or HORIZON_S))
+    if SEND_US < 0:
+        why.append('solver end not known exactly')
+    elif tend is not None and Fraction(SEND_US, 10**6) < tend:
+        why.append('the solver clock ends at %s s, before %s s' % (sec(Fraction(SEND_US, 10**6)), sec(tend)))
+    if tend is not None and Fraction(int(TUS[sel[-1]]), 10**6) < tend:
+        why.append('the last selected frame is at %s s, before %s s' % (sec(Fraction(int(TUS[sel[-1]]), 10**6)), sec(tend)))
+    if SEND_US >= 0 and TRAW > SEND_US:
+        why.append('a complete particle record at %s s lies beyond the solver end %s s (frames of another run)'
+                   % (sec(Fraction(TRAW, 10**6)), sec(Fraction(SEND_US, 10**6))))
+    print('check: render_ok %d%s' % (not why, '' if not why else ' (' + '; '.join(why) + ')'))
     if nfr < 2: sys.exit(0)
     dmax = np.zeros(nfr - 1); d99 = np.zeros(nfr - 1); d50 = np.zeros(nfr - 1); vdt = np.zeros(nfr - 1); who = np.zeros(nfr - 1, int)
     for j in range(nfr - 1):

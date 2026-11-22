@@ -63,4 +63,11 @@ echo "exit=\$status end \$(date '+%F %T')"
 exit "\$status"
 EOT
 [ "${FL11_NOSUBMIT:-0}" = 1 ] && { echo "staged, not submitted: $R/job.sbatch"; exit 0; }
-cd "$R" && out=$(sbatch --no-requeue job.sbatch) && echo "$out" | tee "$R/.fl11_submit.lock/job"
+cd "$R"
+if out=$(sbatch --no-requeue job.sbatch) && [[ "$out" =~ [0-9]+ ]]; then
+  echo "$out" | tee "$R/.fl11_submit.lock/job"          # accepted: the lock stays
+else
+  rmdir "$R/.fl11_submit.lock"                          # rejected (no job id): release this invocation's lock
+  echo "sbatch rejected the job (no job id): lock released, nothing submitted" >&2
+  exit 8
+fi

@@ -262,3 +262,15 @@ job     run                      binary     result
 164919  R_r4_rest  43e7360e-peb047e41 (round 4)  CANCELLED after 7 min: the binary doubled the normal increment in the friction limit of the pass (CANCELLED.txt in the run directory)
 164928  R_r5_rest (protocol, friction 0.3, e 0.9, v_rest 0.01, budget 48) = RECORD RUN of RUNBOOK section 13  3dc21409-pe4e4ad17 (Fortran 627caf47; pe 4e4ad17 = pull request #59 up to trace parser, tests, docs)  completed 6 h 27 min; F1 0.977740 FAIL, F2 3.50 % PASS, F3 1.0504 FAIL, F5 PASS / PASS; contacts met, overlap 1.255 % of d at 0.090 s (preparation only); post_r6.txt in the run directory
 164994  analysis_r5/fast_particles (particle speeds at ten times, R_r5_rest and R_r1_proto)  tool runs/fluid11/analysis_r5/fast_particles.py  1-12 (with restitution) and 1-22 (without) of 9789 particles above 1 mm/s in the fixed bed, largest 0.024 / 0.022 m/s
+
+Fix round 7 (external review r7, 2026-11-22): post tool, movie, render job, submit script; no Fortran change (binary
+b9e8f410-pece2a7f7 stands); design note 7.4 paragraph (incl. the known false refusals: deck repeat notation
+1*0.00025d0, Prop@Viscosity without DynVisc).
+job     run                      binary     result
+165006  fl11_post.py md5 d7865281: self-test 94/94 (90 fixture logs, 4 unit checks; old_vs_new7.txt: the 13 r7 cases
+        through 77914cfa and the new tool); --self-test-real R_r1_proto, R_r1_oldsplit, R_id400_new 300 variants each,
+        0 failures; post_r7.txt of R_r1_proto, R_r1_oldsplit, R_proto_movie (run dirs), R_r2_rest, R_r3_rest, R_r5_rest
+        (unit/post_r7): 0 changed lines against post_r6.txt; render replays (rtest/): intact rendered, a record at
+        0.125 s, a frame at 0.100025 s and a start-up echo after the finish refused; R_static --check labelled 'all
+        0.040'; a scheduler-rejected sbatch releases the submit lock (exit 8)
+165013  final fl11_movie.py (md5 b93ebe07, decimal seconds in the refusal text): the four render_ok checks as in 165006

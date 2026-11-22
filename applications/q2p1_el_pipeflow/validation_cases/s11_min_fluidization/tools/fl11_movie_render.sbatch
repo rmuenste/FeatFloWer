@@ -12,11 +12,10 @@
 # Particle movie of a case 11 run: check, render (4 workers), encode. Pattern of runs/batch10/movie/render_PL15_s1.sbatch.
 # usage: sbatch render_R_proto_movie.sbatch [RUN [T_END [STRIDE]]]
 #   RUN     run directory name under runs/fluid11 (default R_proto_movie)
-#   T_END   the time the movie must reach (default: the protocol end of the evaluation, printed on the check
-#           line). The end check uses the SAME --check invocation: the run finished (finish marker), its solver
-#           end t0 + K dt reaches T_END, the last selected frame reaches T_END, and the last RAW frame of the
-#           particle logs does not lie beyond the solver end (frames of an earlier, longer run; a stride could
-#           hide them from the selected frames). A run in progress is refused.
+#   T_END   the time the movie must reach (default: the protocol end of the evaluation). The end check is the
+#           'check: render_ok' line of the SAME --check invocation, evaluated exactly by the tool: one finished
+#           invocation (fl11_post), solver end t0 + K dt and the last selected frame at or after T_END, no
+#           complete particle record beyond the solver end. A run in progress is refused.
 #   STRIDE  every STRIDE-th log frame (default 1 = one image per logged frame, no interpolation)
 # stdout goes to movie/render-<job id>.log (one file per job; pass --output=... to name it otherwise)
 # Every render writes into a fresh frame directory frames_<RUN>.<job id> (never into the frames of an
@@ -36,16 +35,12 @@ hostname; export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 mkdir -p $FR; echo "frames into $FR"
 # the check reads the logs once and writes the cache that the workers reuse
 CHECK=$FR/check.log
-$TOOL --check > $CHECK || exit 1
+$TOOL --check ${TEND:+--tend $TEND} > $CHECK || exit 1
 cat $CHECK
-read n tlast send pend fin traw <<< "$(awk '/^check: frames/{print $3, $7, $13, $15, $17, $19}' $CHECK)"
-[ -n "$TEND" ] || TEND=$pend
-echo "images $n, last selected frame t = $tlast s, last raw frame $traw s, solver end $send s, finished $fin, protocol end $pend s (required $TEND)"
-[ "$fin" = 1 ] || { echo "run $RUN has not finished (no finish marker): not rendered"; exit 3; }
-awk -v b="$TEND" 'BEGIN{exit !(b + 0 == b && b > 0)}' || { echo "required end time unknown ($TEND): not rendered"; exit 3; }
-awk -v s="$send" -v b="$TEND" 'BEGIN{exit !(s + 0 == s && s >= b - 1e-6)}' || { echo "the solver clock of run $RUN ends at $send s, before $TEND s: not rendered"; exit 3; }
-awk -v a="$tlast" -v b="$TEND" 'BEGIN{exit !(a >= b - 1e-6)}' || { echo "the particle frames of run $RUN end at $tlast s, before $TEND s: not rendered"; exit 3; }
-awk -v a="$traw" -v s="$send" 'BEGIN{exit !(a + 0 == a && a <= s + 1e-6)}' || { echo "a particle frame at $traw s lies beyond the solver end $send s (frames of another run): not rendered"; exit 3; }
+n=$(awk '/^check: frames/{print $3}' $CHECK)
+# the predicate is evaluated by the tool, exactly (fl11_movie.py: finished as one invocation, solver end and last
+# selected frame at or after T_END, no complete particle record beyond the solver end)
+grep -q '^check: render_ok 1$' $CHECK || { echo "not rendered: $(grep '^check: render_ok' $CHECK)"; exit 3; }
 W=4; q=$(( (n + W - 1) / W )); pids=()
 for w in $(seq 0 $((W - 1))); do
   $TOOL --frames $((w * q)) $(( (w + 1) * q - 1 )) > $FR/worker_$w.log 2>&1 &

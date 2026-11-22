@@ -543,8 +543,18 @@ cover (round 6b) qualify the verdict line without withholding a verdict: contact
 or not echoed by a binary before pe pull request #59) and the largest overlap of the validated
 `EL_CONTACT_STATS` rows against 1 % of d (met, exceeded during the preparation only, exceeded inside an
 evaluation window, not available), e.g. `verdicts [set-up: contacts not echoed; overlap 1.17 % of d at
-0.070 s (preparation)]: ...` for R_r1_proto. The paragraphs below describe the round-4 structure; where
-they differ, this paragraph holds.
+0.070 s (preparation)]: ...` for R_r1_proto. Round 7: a printed token stands for a reference only when it
+is the reference exactly as a decimal or carries at least four significant digits and equals the reference
+rounded to them (so `mu_static=0` or `r=0.0004` never pass); the spec holds the bed-R population 9789,
+recognised from the single sphere-creation echo, and the audit counts are F5 observations against it (a
+loss is a witnessed F5 count FAIL); gravity is the vector (0, 0, -9.81); an audit row that contradicts the
+step clock and a repeated sphere-creation, EL viscosity or domain-extents echo disqualify the run; F2 needs
+one measured fixed step, F3 its fit; the overlap check needs the full EL_CONTACT_STATS coverage at its
+cadence before "met" or "preparation only". Known false refusals (fail-closed, accepted): the Fortran
+repeat notation in the deck time step (`SimPar@TimeStep = 1*0.00025d0`) and the `Prop@Viscosity` input
+path without `DynVisc` (no DynVisc echo and no conversion line) are refused although the solver accepts
+them; a run with either is not gated. The paragraphs below describe the round-4 structure; where they
+differ, this paragraph holds.
 
 The fourth review showed verdict reversals on equivalent inputs (a redundant table knot moved F1 from
 0.978732 FAIL to PASS) and on degraded inputs (one dropped audit row: PASS from the remaining subset).
