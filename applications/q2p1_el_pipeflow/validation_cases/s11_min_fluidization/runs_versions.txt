@@ -235,3 +235,18 @@ job     run                      binary     result
 164981  the final fl11_post.py (md5 90abf58d): --self-test 66/66; --self-test-real R_r1_proto and R_id400_new 300
         variants each, 0 failures; the five recorded reports byte-identical to those of job 164979
 164982  round 5b (fl11_post.py md5 88c5493e): F5 height unavailable when the lowest hold begins at the protocol start (preparation); self-test 67/67 (case 66 constant inlet: 788ffbaf FAIL witnessed, now unavailable); dt-changed transform back to 2 dt; --self-test-real R_r1_proto and R_id400_new 300 variants each 0 failures; verdict lines of all recorded run dirs unchanged
+
+Fix round 6 (external review r6, 2026-11-22): the post tool recognises a spec-11 run; no Fortran change (binary
+b9e8f410-pece2a7f7 stands). FeatFloWer commits 5a56f9ba (fl11_post.py Spec object and recognition, fl11_closures.py
+crossing bracketed from zero, make_inlet_table.py DEFAULTS / deck_rows shared with the tool), 3e44616b (movie check
+with finished and the raw last frame, render predicates, submit lock and job-side rank-log check); design note 7.4.
+job     run                      binary     result
+164988  self-test 73/73; old_vs_new6.txt (every case through f8fb7fd8 and the new tool); --self-test-real R_r1_proto,
+        R_r1_oldsplit 300 variants 0 failures, seeds 892 / 4097 pass, R_id400_new 12 failures (knot transform on a
+        one-row table, fixed); post_r6.txt of R_r1_proto, R_r1_oldsplit, R_proto_movie (run dirs), R_r2_rest, R_r3_rest
+        (unit/post_r6): gate numbers and verdicts of post_r5.txt; every run dir under runs/fluid11: constant-inlet
+        smokes no official verdict; R_r5_rest (running) one reason (no finish marker); make_inlet_table output
+        identical; render refuses unfinished / stride-hidden / stale, renders intact; submit exits 6 / 7, job exits 6
+164993  final fl11_post.py (md5 32c77d78): self-test 73/73; --self-test-real 300 variants on R_r1_proto, R_r1_oldsplit,
+        R_id400_new and seeds 892 / 4097, 0 failures; the five reports byte-identical; R_r5_rest (finished meanwhile)
+        F1 0.977740 FAIL, F2 3.50 % PASS, F3 1.0504 FAIL, F5 23.90 mm PASS / 9789 PASS (unit/post_r6/rerun_R_r5_rest.txt)

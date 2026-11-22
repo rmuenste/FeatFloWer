@@ -516,45 +516,29 @@ the round-2 binary d27a74fb-pece2a7f7 (against the older references one extra li
 against R_id400_new: every `EL_` line bitwise (13 077; EL_RESTITUTION_STATS 400, EL_BED_AUDIT 40,
 EL_UMAX_AUDIT 40), XxX 800/800, particle logs 27/27.
 
-### 7.4 Structure of the case-11 post tool (review r4, 2026-11-22; supported domain: review r5)
+### 7.4 Structure of the case-11 post tool (review r4, 2026-11-22; recognition rule: review r6)
 
-**Supported domain and fail-closed rule.** The tool certifies one thing: a complete, uninterrupted run of
-an echoed inlet protocol. Before any gate, one function (`official_preconditions`) checks that (a) the
-inlet table echo is present and complete (row count of the echo, strictly increasing finite rows), (b)
-the time lines form one clock segment (one printed dt; steps 1, 2, ... without a gap; every time line on
-t0 + k dt; one MaxSimTime / MaxNumStep, i.e. no Reload_SimPar that changed the clock; t0 = the first table
-row), (c) the run finished (finish marker) and completed the time of the last table row, and (d) every
-physical input is resolved from the run with its provenance printed: d, rho_p and N from the sphere-setup
-echo (example.json as fallback), rho_f and g from the Prop echo (deck as fallback), mu = the closure nu of
-the viscosity echo times rho_f, the drag model, the kernel width factor (mapping support), the column
-extents, the audit frequency. If any of these fails, every official gate is unavailable and the report
-lists the reasons under `NO OFFICIAL VERDICT`; the per-step table and numbers are printed as measurements
-of a partial or non-standard run. The only verdicts that survive are witnessed failures: a particle-count
-change among validated audit rows (F5 count) and a centre above mid-column in a validated row inside the
-intended lowest hold (F5 height). A PASS never comes out of a run that fails the precondition. The
-reasons it can emit (exact texts in `fl11_post.PRECONDITION_REASONS`): no inlet table echo; table echo
-without its row count / incomplete / not strictly increasing and finite; no time lines; time step not
-constant; no constant time step established; time lines not the consecutive steps 1, 2, ...; MaxSimTime or
-MaxNumStep changed during the run; a time line off t0 + k dt; clock start differs from the first table row;
-no finish marker; run ended before the last table row; audit frequency unknown; d / rho_p / rho_f / mu / g
-not resolved; drag model not one of gidaspow, ergun, wenyu; mapping support not a positive finite number;
-column extents not in the log; particle count N not resolved / sphere-setup count differs from the first
-audit row. Round-5 changes inside the domain: the intended holds come from the echoed table alone and are
-never clipped to the observed interval (coverage decides measured or unmeasurable); a steps file is a
-cross-check only (no echo: no official gate); F2 and F3 need the measured plateau of F1 (no step with
-dp* > 0.95: unavailable, the nominal classification is a labelled measurement); F3 needs two distinct
-nonzero fixed velocities and a relative determinant of the normal equations above 1e-6; F5 height: a
-centre exactly at mid-height passes, one above it by less than the print uncertainty is undecidable
-(unavailable), above that band FAIL, and the exceedance search is independent of the PASS proof; F5
-is about the bed at the lowest velocity after the defluidisation, so a lowest intended hold that begins at
-the protocol start (single-hold protocol, or a table whose first hold is its lowest) includes the
-preparation of the bed and gives F5 height unavailable, an exceedance there is printed as a measurement,
-not a witnessed FAIL (F5 count unaffected; round 5b, job 164982);
-physical command-line arguments or a `--closure` that differ from the run give a labelled comparison;
-an audit row whose pressure identities (dp = p_in - p_out, dp_dyn = dp - dp_hydro, to the ES16.8 print
-precision) fail or whose count is not a non-negative integer is a hole; a printed sub-window mean lies
-inside its hold with its own coverage (else n/a). The paragraphs below describe the round-4 structure;
-where they differ, this paragraph holds.
+**Recognition rule (review r6).** The tool gates spec 11 and nothing else: it recognises a spec-11 run.
+The spec is one `Spec` object (inlet table, physical values, gate constants); the spec-11 instance takes
+its table from `make_inlet_table.py` (the function that writes the deck's table) and d 0.87 mm, rho_p 860,
+rho_f 1.0, mu 1.8e-5, g 9.81, Gidaspow, kernel width factor 2.5 and the 15 x 15 x 100 mm column from the
+spec; the self-test fixtures inject their own small spec. Official gates only when every check holds: the
+echoed table equals the spec table (row count, each time and velocity as decimals to the echo's print
+precision); the effective physical inputs (the last start-up assignment in echo order, the viscosity
+cross-checked against the conversion echoes; repeated assignments are listed in the provenance line) equal
+the spec; a fresh start (StartingProc = 0, no dump load); one invocation (one start-up banner, each start-up
+echo once, nothing the tool reads after the finish marker); no reload line; one constant-dt clock t0 + k dt
+from the first table row (deck strings as decimals, every time line and audit row on it to its print
+precision); finished at or after the last table row. Time comparisons are exact (fractions of the printed
+decimals). Outside the domain there is no official verdict; a witnessed FAIL (F5 count change, F5 height
+exceedance in the spec's lowest hold) is kept only when the run fails nothing but "finished". The reasons
+are listed in the round-6 evidence below. Kept from round 5 inside the domain: holds from the table alone,
+F2 / F3 need the measured plateau (a fluidised step is never fixed), F3 needs two distinct nonzero fixed
+velocities, a full-rank fit and an established closure crossing (bracketed from zero), the F5 print band,
+the per-row identities (pressures, count domain, gradz_win_dyn = gradz_win - dp_hydro / Lz), sub-windows
+inside their hold. The steps file, the physical command-line arguments, the tied-hold, preparation and
+open-terminal-hold logic are gone. The paragraphs below describe the round-4 structure; where they differ,
+this paragraph holds.
 
 The fourth review showed verdict reversals on equivalent inputs (a redundant table knot moved F1 from
 0.978732 FAIL to PASS) and on degraded inputs (one dropped audit row: PASS from the remaining subset).
@@ -644,6 +628,24 @@ four and R_r1_rest) keeps its verdict line under the new tool. Movie: a rank log
 frame (the reviewer's resubmission) is refused, a start-up-only log with a '!' comment in the inlet file
 runs (inlet pending), the render job refuses frames beyond the solver end (exit 3) and an unknown end,
 renders the intact copy; `fl11_submit.sh` refuses a dir with rank logs (exit 6).
+
+Evidence of round 6 (recognition) [V, jobs 164988 and 164993; `runs/fluid11/unit/post_r6/`]. Reasons
+recognition can emit: table (no inlet table echo; echo without its row count; echo incomplete; row count
+or a row differing from the spec table); clock (deck not readable; deck TimeStep / StartSimTime missing;
+no time lines; time step not constant; printed dt or a start-up SimPar echo differing from the deck; time
+lines not the consecutive steps; MaxSimTime / MaxNumStep changed; a time line off t0 + k dt; clock start
+differing from the first table row; audit frequency unknown); history (no or a repeated start-up banner; a
+start-up echo twice; no StartingProc echo or StartingProc not 0; a dump load; a reload line; a property
+echo during the run; solver output after the finish marker); inputs (sphere setup, Prop Density / Gravity
+/ DynVisc / conversion, EL viscosity echo not echoed or differing from the spec; viscosity echoes
+disagreeing; drag model or kernel width factor not available or differing; extents missing or
+differing); particles (N not resolved, sphere-setup count differing from the first audit row); finish (no
+finish marker; ended before the last table row; the only class that keeps witnessed failures).
+`--self-test` 73/73 (70 fixture logs with fixture specs, every r6 counterexample with the earlier answer in
+`old_vs_new6.txt`, 3 unit checks incl. the liquid closure crossing); `--self-test-real` 300 variants each
+on R_r1_proto, R_r1_oldsplit, R_id400_new and the reviewer's seeds 892 / 4097, 0 failures. `post_r6.txt` of
+R_r1_proto, R_r1_oldsplit, R_proto_movie, R_r2_rest, R_r3_rest: every gate number and verdict of
+`post_r5.txt`; the constant-inlet smokes print no official verdict.
 
 ## 8. Floor force of the bed audit: the pe wall-contact impulse is the unrelaxed PGS impulse
 
