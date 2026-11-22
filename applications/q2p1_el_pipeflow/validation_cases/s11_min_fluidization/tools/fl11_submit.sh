@@ -7,6 +7,13 @@ set -eu
 R=$(cd "$1" && pwd); BIN=$2; TM=${3:-00:30:00}; PART=${4:-short}
 W=$(cd "$(dirname "$0")/../../../../.." && pwd)
 [ -x "$BIN" ] || { echo "no binary $BIN" >&2; exit 1; }
+# a second run in the same directory appends its particle frames to the rank logs of the first: refused
+if compgen -G "$R/el_particles_rank*.log" > /dev/null; then
+  echo "refused: $R already holds particle rank logs (el_particles_rank*.log) of an earlier run; a new run would" \
+       "append to them and fl11_movie.py would refuse the mixed frames. Stage a fresh run directory, or move the" \
+       "old rank logs (and run_slurm.log) out of $R, then submit again." >&2
+  exit 6
+fi
 NP=$(( $(grep '^SimPar@SubMeshNumber' "$R/_data/q2p1_param.dat" | sed 's/.*= *//') + 1 ))
 {
   echo "FeatFloWer worktree $W"

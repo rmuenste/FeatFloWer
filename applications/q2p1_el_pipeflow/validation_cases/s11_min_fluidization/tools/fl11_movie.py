@@ -6,15 +6,18 @@ inks, colour map, typography, encode recipe); one image per logged particle fram
 usage: fl11_movie.py RUNDIR OUTDIR [--frames F0 F1] [--stride k] [--stats] [--check] [--no-peer]
 RUNDIR   particles.xyz (t = 0, id = line number), el_particles_rank*.log (time ip f(3) t(3) p(3) v(3);
          a particle changes its rank file when it crosses a partition: all files are read and indexed
-         by (time, ip)), run_slurm.log (EL_BED_AUDIT, EL_NEWTON_PAIR, EL_INLET_TABLE), _data/steps.txt.
+         by (time, ip)), run_slurm.log (EL_BED_AUDIT, EL_NEWTON_PAIR, EL_INLET_TABLE), _data/q2p1_param.dat.
          Read only. A run in progress can be read: a partial last line and incomplete frames are dropped.
+         A rank log whose time decreases holds the frames of an earlier run (a second run in the same
+         directory appends to the logs): refused (fl11_submit.sh refuses to submit into such a directory).
 OUTDIR   frame_%05d.png (2560 x 1440) and the cache fl11_movie_cache.npz (positions, velocities, audit
          series; rebuilt when a log of RUNDIR changed in size or time, reused by parallel workers).
 --stride k     use every k-th log frame (default 1); the images are numbered consecutively.
 --frames F0 F1 render the images F0 .. F1 (inclusive, index of the strided sequence) for parallel workers.
 --stats  print the frame inventory, the per-step values of the post tool and the velocity percentiles
          that the colour range was chosen from; no rendering.
---check  no rendering: displacement of the particles between consecutive images in units of the
+--check  no rendering: the check line (frames, first / last frame time, cadence, stride, the solver end
+         t0 + K dt of the evaluation's clock and the protocol end), then the displacement of the particles between consecutive images in units of the
          diameter (minimum image in x and y), per velocity step, next to max |v| dt / d of the logged
          velocities (the minimum image is only a lower bound once |v| dt exceeds L / 2).
 --no-peer  leave the peer-reported per-step means (MFiX, CFDEM) out of the trace.
@@ -25,11 +28,15 @@ u_of_t, div, finite), nothing is re-derived:
   floor force    particle momentum balance: floor_bal_z of the audit line, or (older logs) the
                  EL_NEWTON_PAIR reconstruction of fl11_post.evaluate
   bed top        z99 + r of the audit line;   bed porosity  eps_bed of the audit line (bed window)
-  U              fl11_post.u_of_t of the echoed inlet table (file _data/inlet_table.txt when the log
-                 has no echo yet)
-  step mean      fl11_post.evaluate: the last 0.3 s of each hold of the echoed protocol (the steps file
-                 only for a log without the echo), validated audit rows; shown for measured steps only
-  fluidised      steps with a step mean dp* > 0.95 (rule of gate F1); the others are called fixed bed
+  U              fl11_post.u_of_t of the echoed inlet table; 'pending' until the echo is complete (no
+                 other source: the file _data/inlet_table.txt is not read)
+  step mean      fl11_post.evaluate: the last 0.3 s of each intended hold of the echoed protocol,
+                 validated audit rows; shown for measured steps only
+  state          fl11_post.classify of every step: fluidised (dp* > 0.95), fixed (dp* < 0.8 of the
+                 measured plateau), intermediate (neither), not classified (no measured plateau),
+                 unmeasurable; only the fixed set is called 'fixed bed' and shaded in the trace
+  trace end      the protocol end of the evaluation (fl11_post: the last table row, or the end of a
+                 finished run when later)
   running mean   centred mean over RUNMEAN = 0.1 s of the audit series (41 lines); display only
 Display only (not evaluation numbers):
   cuts           slab of SLAB mm; a sphere is drawn as a disc at true scale with the radius of its largest
@@ -86,14 +93,13 @@ PEER = (('MFiX-DEM (run F_none)', 'o', [0.989, 0.999, 0.993, 0.988, 1.005, 0.997
         ('CFDEM (run fluid_C_gid_inlet2)', 's', [0.964, 0.959, 0.950, 0.956, 0.948, 0.953, 0.936,
                                                  0.821, 0.709, 0.599, 0.492, 0.388, 0.286, 0.188]))
 CACHE = os.path.join(out, 'fl11_movie_cache.npz')
-CACHE_FORMAT = 'fl11_movie cache 2'          # with fl11_post.EVAL_VERSION and the deck part of the signature
+CACHE_FORMAT = 'fl11_movie cache 3'          # with fl11_post.EVAL_VERSION and the deck part of the signature
 
 
 # ---- data: read once, cache in OUTDIR
 def signature():
     fs = sorted(glob.glob(os.path.join(run, 'el_particles_rank*.log')))
-    fs += [os.path.join(run, q) for q in ('particles.xyz', 'run_slurm.log', '_data/steps.txt', '_data/inlet_table.txt',
-                                          '_data/q2p1_param.dat')]
+    fs += [os.path.join(run, q) for q in ('particles.xyz', 'run_slurm.log', '_data/q2p1_param.dat', 'example.json')]
     sig = []
     for f in fs:
         if os.path.exists(f):
@@ -103,15 +109,28 @@ def signature():
 
 
 def read_log(f):
-    """rows of one particle log: tick (microseconds), ip, position (mm), velocity (m/s)"""
+    """rows of one particle log: tick (microseconds), ip, position (mm), velocity (m/s); refuses a log whose
+    time decreases (the frames of an earlier run in the same directory, followed by those of a new one)"""
     with open(f, 'rb') as fh:
         data = fh.read()
     data = data[:data.rfind(b'\n') + 1]                # a running job may leave a partial last line
     if data.count(b'\n') < 2:
         return None
     a = np.loadtxt(io.BytesIO(data), comments='#', usecols=(0, 1, 8, 9, 10, 11, 12, 13), ndmin=2)
+    back = np.flatnonzero(np.diff(a[:, 0]) < 0)
+    if len(back):
+        j = back[0]
+        sys.exit('refused: %s: the time decreases from %.6g to %.6g s (data row %d): the file holds particle frames '
+                 'of an earlier run (a second run in the same directory appends to the rank logs). Render a run '
+                 'directory with the logs of one run only (stage a fresh run directory; fl11_submit.sh refuses to '
+                 'submit into a directory with rank logs).' % (f, a[j, 0], a[j + 1, 0], j + 2))
     return (np.round(a[:, 0] * 1e6).astype(np.int64), a[:, 1].astype(np.int64),
             (a[:, 2:5] * 1e3).astype(np.float32), a[:, 5:8].astype(np.float32))
+
+
+STATES = ('fluidised', 'fixed', 'intermediate', 'unclassified', 'unmeasurable')   # fl11_post.classify
+LABELS = {'fluidised': 'fluidised', 'fixed': 'fixed bed', 'intermediate': 'intermediate',
+          'unclassified': 'not classified', 'unmeasurable': 'unmeasurable'}
 
 
 def build_cache(sig):
@@ -145,15 +164,13 @@ def build_cache(sig):
 
     # audit series and step table: fl11_post.evaluate (validated audit rows, the holds of the echoed protocol,
     # the per-step evaluation with its guarded ratios and coverage; nothing re-derived here)
-    W = area = float('nan'); aud = np.zeros((0, 8)); srow = np.zeros((0, 9)); table = []; echo = False
-    sfile = os.path.join(run, '_data', 'steps.txt')
+    W = area = float('nan'); aud = np.zeros((0, 8)); srow = np.zeros((0, 10)); table = []; echo = False
+    horizon = solver_end = float('nan')
     if os.path.exists(os.path.join(run, 'run_slurm.log')):
-        ev = post.evaluate(run, D * 1e-3, steps_path=sfile if os.path.exists(sfile) else None)
-        echo = ev['source'] == 'echo'
-        table = list(ev['knots'])
-        tfile = os.path.join(run, '_data', 'inlet_table.txt')
-        if not table and os.path.exists(tfile):         # display only: U of a log without the echo yet
-            table = [tuple(map(float, l.split()[:2])) for l in open(tfile) if l.strip() and not l.startswith('#')]
+        ev = post.evaluate(run, D * 1e-3)
+        echo = ev['source'] == 'echo' and not ev['protocol_errors']
+        table = list(ev['knots']) if echo else []       # the inlet display waits for the complete echo
+        horizon, solver_end = (ev['horizon'] if echo else float('nan')), ev['clock'].t_last
         rows = ev['clock'].sorted
         area, W = ev['area'], ev['W']
         if rows:
@@ -161,13 +178,13 @@ def build_cache(sig):
             # row normalised with its own weight and area
             aud = np.array([(r['t'], post.div(r['dp_dyn'], post.div(-r['wz'], r['a_in'])), post.div(r['fbal'], -r['wz']),
                              (r['z99'] + R * 1e-3) * 1e3, r['eps'], r['zmax'] * 1e3, r['n'],
-                             r['U'] if post.finite(r['U']) or not table else post.u_of_t(table, r['t'])) for r in rows])
+                             r['U'] if echo else float('nan')) for r in rows])
         srow = np.array([(x['t0'], x['t1'], x['U'], x['dps'], x['stds'], x['H'] * 1e3, x['eps'], x['fl'],
-                          float(x['measured'])) for x in ev['steps']]).reshape(-1, 9)
+                          float(x['measured']), STATES.index(c)) for x, c in zip(ev['steps'], ev['classes'])]).reshape(-1, 10)
     os.makedirs(out, exist_ok=True)
     tmp = os.path.join(out, '.fl11_movie_cache.%d.npz' % os.getpid())
     np.savez(tmp, sig=sig, T=T, pos=pos, vel=vel, aud=aud, srow=srow, table=np.array(table).reshape(-1, 2),
-             W=W, area=area, echo=echo)
+             W=W, area=area, echo=echo, horizon=horizon, solver_end=solver_end)
     os.replace(tmp, CACHE)
 
 
@@ -184,16 +201,16 @@ if not fresh:
 with np.load(CACHE) as z:
     T, POS, VEL, AUD, SROW, TABLE = z['T'], z['pos'], z['vel'], z['aud'], z['srow'], z['table']
     W, AREA, ECHO = float(z['W']), float(z['area']), bool(z['echo'])
+    HORIZON, SOLVER_END = float(z['horizon']), float(z['solver_end'])
 N = POS.shape[1]
 table = [tuple(r) for r in TABLE]
 TA = AUD[:, 0]                                         # audit columns: t dp* floor/W H eps zmax n U
 sel = np.arange(0, len(T), A.stride)                   # log frames of the rendered sequence
 nfr = len(sel)
-TEND = table[-1][0] if table else T[-1]
-done = SROW[SROW[:, 8] > 0]                            # complete steps
-FLU = done[done[:, 3] > 0.95]                          # fluidised by the F1 rule
-FIX = done[done[:, 3] <= 0.95]
-T_FIX = FIX[0, 0] if len(FIX) and len(FLU) else None   # start of the first step that is not fluidised
+TEND = HORIZON if post.finite(HORIZON) else T[-1]     # protocol end of the evaluation (frames only without the echo)
+STATE = [STATES[int(r[9])] for r in SROW]              # display state of every step (fl11_post.classify)
+FIXSET = [r for r, c in zip(SROW, STATE) if c == 'fixed']
+FLUSET = [r for r, c in zip(SROW, STATE) if c == 'fluidised']
 
 
 def audit_at(t):
@@ -231,14 +248,15 @@ if A.stats:
     print('%s: N %d, %d frames (t = 0 and %d log frames), t %.4f .. %.4f s, cadence %s s' % (
         os.path.basename(os.path.abspath(run)), N, len(T), len(T) - 1, T[0], T[-1],
         ('%.4f' % np.median(np.diff(T))) if len(T) > 1 else '-'))
-    print('audit lines %d%s, W %.6e N, A %.6e m2, W/A %.3f Pa; inlet table from the %s' % (
-        len(TA), (' (t %.4f .. %.4f s)' % (TA[0], TA[-1])) if len(TA) else '', W, AREA, W / AREA,
-        'log echo' if ECHO else 'file _data/inlet_table.txt (no echo in the log)'))
-    print('\nper step (fl11_post.stats over the last 0.3 s):\n step  U [m/s]  window      dp*      std   H [mm]  eps_bed  floor/W  dp*+floor  regime')
+    print('audit lines %d%s, W %.6e N, A %.6e m2, W/A %.3f Pa; inlet table %s; solver end %.4f s, protocol end %s' % (
+        len(TA), (' (t %.4f .. %.4f s)' % (TA[0], TA[-1])) if len(TA) else '', W, AREA, post.div(W, AREA),
+        'from the log echo' if ECHO else 'pending (echo absent or incomplete)', SOLVER_END,
+        ('%.4f s' % HORIZON) if post.finite(HORIZON) else 'unknown'))
+    print('\nper step (fl11_post.evaluate over the last 0.3 s, state of fl11_post.classify):\n step  U [m/s]  window      dp*      std   H [mm]  eps_bed  floor/W  dp*+floor  state')
     for k, r in enumerate(SROW):
         print(' %3d  %6.3f  %5.2f-%5.2f  %7.4f  %7.4f  %6.2f  %7.4f  %7.4f  %8.4f   %s' % (
             k, r[2], r[1] - 0.3, r[1], r[3], r[4], r[5], r[6], r[7], r[3] + r[7],
-            ('fluidised' if r[3] > 0.95 else 'fixed bed') if r[8] else '(incomplete)'))
+            LABELS[STATE[k]]))
     print('\nvertical particle velocity of the log frames (m/s), colour range +-%.2f:\n step  U [m/s]  frames     p0.1      p1      p5     p50     p95     p99   p99.9  max|v|  share |vz| > range  highest centre [mm]' % VLIM)
     for t0, t1, u, name in groups():
         m = (T > t0 + 1e-9) & (T <= t1 + 1e-9)
@@ -249,8 +267,8 @@ if A.stats:
     sys.exit(0)
 
 if A.check:
-    print('check: frames %d t_first %.4f t_last %.4f cadence %.4f stride %d' % (
-        nfr, T[sel[0]], T[sel[-1]], np.median(np.diff(T[sel])) if nfr > 1 else 0.0, A.stride))
+    print('check: frames %d t_first %.4f t_last %.4f cadence %.4f stride %d solver_end %.4f protocol_end %.4f' % (
+        nfr, T[sel[0]], T[sel[-1]], np.median(np.diff(T[sel])) if nfr > 1 else 0.0, A.stride, SOLVER_END, HORIZON))
     if nfr < 2: sys.exit(0)
     dmax = np.zeros(nfr - 1); d99 = np.zeros(nfr - 1); d50 = np.zeros(nfr - 1); vdt = np.zeros(nfr - 1); who = np.zeros(nfr - 1, int)
     for j in range(nfr - 1):
@@ -359,11 +377,16 @@ ax_h.set_xlim(0, TEND); ax_h.set_ylim(*YH); ax_h.set_yticks([24, 26, 28, 30, 32]
 ax_h.set_ylabel('bed top (mm)', color=C_TOP, fontsize=14); ax_h.yaxis.set_label_coords(1.045, (28 - YH[0]) / (YH[1] - YH[0]))
 ax_h.tick_params(axis='y', colors=C_TOP)
 ax_s.axhline(1.0, color=INK2, lw=1.5, ls=DASH, zorder=2)
-if T_FIX is not None:                            # regimes by the F1 rule of the post tool
+for r in FIXSET:                                 # the fixed set of fl11_post.classify, step by step
     for ax in (ax_s, ax_u):
-        ax.axvspan(T_FIX, TEND, color=INK, alpha=0.05, lw=0, zorder=0); ax.axvline(T_FIX, color=INK2, lw=1, zorder=1)
-    ax_u.text(T_FIX - 0.08, 0.035, 'fluidised', color=INK, fontsize=14, ha='right', va='bottom')
-    ax_u.text(T_FIX + 0.08, 0.305, 'fixed bed', color=INK, fontsize=14, ha='left', va='top')
+        ax.axvspan(r[0], r[1], color=INK, alpha=0.05, lw=0, zorder=0)
+if FIXSET and FLUSET and FLUSET[-1][1] <= FIXSET[0][0] + 1e-9:   # one transition: label both sides
+    t_fix = FIXSET[0][0]
+    for ax in (ax_s, ax_u): ax.axvline(t_fix, color=INK2, lw=1, zorder=1)
+    ax_u.text(t_fix - 0.08, 0.035, 'fluidised', color=INK, fontsize=14, ha='right', va='bottom')
+    ax_u.text(t_fix + 0.08, 0.305, 'fixed bed', color=INK, fontsize=14, ha='left', va='top')
+if not table:
+    ax_u.text(0.02, 0.5, 'inlet velocity: table echo pending', color=INK2, fontsize=14, transform=ax_u.transAxes, va='center')
 handles = []
 if len(TA):
     handles.append(ax_s.plot(TA, AUD[:, 1], color=C_FF, lw=1, alpha=0.40, zorder=3, label='FeatFloWer: pressure drop dp*, every 2.5 ms')[0])
@@ -455,13 +478,13 @@ for j in range(max(A.frames[0], 0), min(A.frames[1], nfr - 1) + 1):
     a = audit_at(t); r = step_at(t)
     u = post.u_of_t(table, t) if table else float('nan')
     tx_time.set_text('t = %5.3f s' % t)
-    tx_now[0].set_text('%.3f' % u)
+    tx_now[0].set_text('%.3f' % u if table else 'pending')
     for q, (i, fmt) in enumerate(((1, '%.3f'), (3, '%.2f'), (4, '%.3f'))):
         tx_now[q + 1].set_text(fmt % a[i] if a is not None else '')
     full = r is not None and r[8] > 0
     for q, (i, fmt) in enumerate(((2, '%.3f'), (3, '%.3f'), (5, '%.2f'), (6, '%.3f'))):
         tx_mean[q].set_text(fmt % r[i] if full else '')
-    tx_reg.set_text(('fluidised' if r[3] > 0.95 else 'fixed bed') if full else ('preparation' if len(SROW) and t < SROW[0, 0] else ''))
+    tx_reg.set_text(LABELS[STATES[int(r[9])]] if r is not None else ('preparation' if len(SROW) and t < SROW[0, 0] else ''))
     top = a[3] if a is not None else None
     for q in tops:
         q.set_visible(top is not None)
