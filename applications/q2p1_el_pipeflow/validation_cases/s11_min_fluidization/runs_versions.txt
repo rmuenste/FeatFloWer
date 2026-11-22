@@ -190,3 +190,19 @@ job     run                      binary     result
 164957-164959  movie render job: happy path on R_id400_new; injected worker failure stops the encode (exit 5)
 164960  fl11_post --self-test 12/12, closure identity, post_r2.txt of R_r1_proto (F1 0.978732 FAIL, F3 1.0474 PASS, F2 3.49 %
         PASS, F5 PASS), R_r1_oldsplit and R_proto_movie (F2 unavailable: 2 d window inside the 2.5 d support)
+
+Fix round 3 (external review r3, 2026-11-22): FeatFloWer commits 46d06ce6 (hrz refusal only with an active fluid solve,
+reload backstop MPI_Abort), 70306954 + a45e9303 (post tool), b9e8f410 (movie tool, render job); pe unchanged (libs/pe ce2a7f7).
+Design note section 7.3.
+binary                                md5                               source
+q2p1_el_pipeflow.b9e8f410-pece2a7f7   d8bd1fa8d9d0a9011aae5bf20527e79b  b9e8f410 + pe ce2a7f7; build-fluid11 on nx-06 (job 164964)
+job     run                      binary     result
+164965  unit tests, ctest el-* / pco-* 1-15  b9e8f410  15/15 passed (check 93 new)
+164966  gate/{D_s6,G_tier2,E2w5,VB40}__b9e8f410-pece2a7f7 vs __base; R_fix3_off400 vs R_smoke_r1; R_fix3_id400 vs R_id400_new
+        -  all common streams + XxX bitwise, particle logs 27/27, every EL_ line bitwise against d27a74fb-pece2a7f7 and
+        R_id400_new (gate/pc_compare_b9e8f410-pece2a7f7.txt)
+164967  finding 8 (fb_r3/: d27a74fb vs b9e8f410)  -  prescribed-field hrz deck refused / runs 3 steps; active non-Newtonian
+        S0 refused by both; reload to non-Newtonian: ERROR STOP (workers) / MPI_ABORT on every rank
+164968, 164972  fl11_post --self-test 30/30; old_vs_new.txt (every case through 1fbb28e4 and the new tool); post_r3.txt of
+        R_r1_proto, R_r1_oldsplit, R_proto_movie: every gate number identical to post_r2.txt; fl11_movie --stats on R_id400_new
+164969  render job happy path on R_id400_new (check log and temporary movie in the job directory)
