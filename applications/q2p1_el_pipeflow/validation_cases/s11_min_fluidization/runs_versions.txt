@@ -250,3 +250,10 @@ job     run                      binary     result
 164993  final fl11_post.py (md5 32c77d78): self-test 73/73; --self-test-real 300 variants on R_r1_proto, R_r1_oldsplit,
         R_id400_new and seeds 892 / 4097, 0 failures; the five reports byte-identical; R_r5_rest (finished meanwhile)
         F1 0.977740 FAIL, F2 3.50 % PASS, F3 1.0504 FAIL, F5 23.90 mm PASS / 9789 PASS (unit/post_r6/rerun_R_r5_rest.txt)
+164999  round 6b (fl11_post.py md5 77708bb7, EVAL_VERSION r6b): set-up checks qualify the verdict line, --steps removed;
+        self-test 80/80; --self-test-real R_r1_proto, R_r1_oldsplit, R_id400_new 300 variants each, 0 failures;
+        post_r6.txt regenerated (R_r1_proto, R_r1_oldsplit, R_proto_movie in their run dirs; R_r2_rest, R_r3_rest,
+        R_r5_rest under unit/post_r6; round-6 copies in _trash/post_r6_round6_copies): only the set-up block and the
+        verdict-line qualifier changed, every gate number and verdict as before. Contacts not echoed (pre-#59 binary):
+        R_r1_proto, R_r1_oldsplit, R_proto_movie; met: R_r2_rest, R_r3_rest, R_r5_rest. Overlap exceeded during the
+        preparation only on all six (largest 1.168 / 1.192 / 1.302 / 1.411 / 1.336 / 1.255 % of d)

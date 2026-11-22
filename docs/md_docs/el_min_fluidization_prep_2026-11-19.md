@@ -537,8 +537,14 @@ F2 / F3 need the measured plateau (a fluidised step is never fixed), F3 needs tw
 velocities, a full-rank fit and an established closure crossing (bracketed from zero), the F5 print band,
 the per-row identities (pressures, count domain, gradz_win_dyn = gradz_win - dp_hydro / Lz), sub-windows
 inside their hold. The steps file, the physical command-line arguments, the tied-hold, preparation and
-open-terminal-hold logic are gone. The paragraphs below describe the round-4 structure; where they differ,
-this paragraph holds.
+open-terminal-hold logic are gone (`--steps` removed outright in round 6b). Set-up checks the gates do not
+cover (round 6b) qualify the verdict line without withholding a verdict: contacts from the single start-up
+`EL_CONTACT_PARAMS` line (every pair mu_static = mu_dynamic = 0.3, e = 0.9, restitution on: met, deviates,
+or not echoed by a binary before pe pull request #59) and the largest overlap of the validated
+`EL_CONTACT_STATS` rows against 1 % of d (met, exceeded during the preparation only, exceeded inside an
+evaluation window, not available), e.g. `verdicts [set-up: contacts not echoed; overlap 1.17 % of d at
+0.070 s (preparation)]: ...` for R_r1_proto. The paragraphs below describe the round-4 structure; where
+they differ, this paragraph holds.
 
 The fourth review showed verdict reversals on equivalent inputs (a redundant table knot moved F1 from
 0.978732 FAIL to PASS) and on degraded inputs (one dropped audit row: PASS from the remaining subset).

@@ -46,7 +46,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from fl11_closures import CLOSURES, closure_grad, closure_umf   # noqa: E402
 import make_inlet_table                                           # noqa: E402
 
-EVAL_VERSION = 'fl11_post r6 2026-11-22'   # part of the movie cache signature
+EVAL_VERSION = 'fl11_post r6b 2026-11-22'   # part of the movie cache signature
 NAN = float('nan')
 INF = float('inf')
 GATES = ('F1', 'F2', 'F3', 'F5 height', 'F5 count')
@@ -163,6 +163,11 @@ class Spec:
     UMF_MEASURED = 0.182            # m/s, NETL measurement (F4, reported)
     FLAG = 0.02                     # sub-window difference flagged in the step table (display)
     REL_DET = 1e-6                  # F3: smallest relative determinant of the normal equations
+    # set-up checks (they qualify the verdicts, they do not withhold them): every contact pair of the
+    # EL_CONTACT_PARAMS echo, restitution switched on; the largest overlap of EL_CONTACT_STATS
+    CONTACT = dict(mu_static=Decimal('0.3'), mu_dynamic=Decimal('0.3'), e=Decimal('0.9'))
+    RESTITUTION = 'on'
+    OVERLAP_MAX = Decimal('0.01')   # x d
 
     def __init__(self, name, table, d, rhop, rhof, mu, g, drag, width, extents):
         self.name = name
@@ -245,6 +250,7 @@ SPECS = {
                          ('grav_buoy', 3, num)], [('total', 3, num)]),
     'EL_NEWTON_PAIR': ([('t', 1, num), ('step', 1, integer), ('dp', 3, num), ('expected', 3, num)],
                        [('mismatch', 3, num)]),
+    'EL_CONTACT_STATS': ([('t', 1, num), ('ncontacts', 1, integer), ('max_overlap', 1, num)], [('Tgran', 1, num)]),
 }
 KEY_TOK = re.compile(r'^[A-Za-z_0-9]+=$')
 
@@ -302,6 +308,7 @@ class Log:
         self.banners, self.reloads, self.dumps = [], [], []
         self.table, self.audit, self.times = [], [], []    # table rows (t, U strings); audit (line, rec, raw); time lines
         self.budget, self.pairs = {}, {}
+        self.contact_params, self.contact_stats = [], []   # start-up echo lines; (line, rec, raw)
         self.finish = None               # line of the first finish marker
         self.after_finish = None         # first line the tool reads after it: (line, text)
         self.first_time = None           # line of the first time line (end of the start-up)
@@ -313,7 +320,10 @@ class Log:
             s = line.rstrip('\r\n')
             st = s.strip()
             kind = None
-            if st.startswith('EL_INLET_TABLE'):
+            if st.startswith('EL_CONTACT_PARAMS'):
+                self.contact_params.append((i, st))
+                kind = 'start-up echo'
+            elif st.startswith('EL_INLET_TABLE'):
                 tok = st.split()
                 if unfinished or len(tok) != 3 or not (NUM_RE.match(tok[1]) and NUM_RE.match(tok[2])):
                     bad.append((i, 'EL_INLET_TABLE', 'no line end' if unfinished else 'not two numbers t U'))
@@ -329,6 +339,8 @@ class Log:
                     good_last, kind = i, 'record'
                     if tag == 'EL_BED_AUDIT':
                         self.audit.append((i, rec, ' '.join(s.split()[1:])))
+                    elif tag == 'EL_CONTACT_STATS':
+                        self.contact_stats.append((i, rec, ' '.join(s.split()[1:])))
                     else:
                         store = self.budget if tag == 'EL_FORCE_BUDGET' else self.pairs
                         k = rec['step'][0]
@@ -965,8 +977,119 @@ def report(ev, a):
     V.update(gates_f1_f3(ev, official))
     V['F5 height'] = gate_f5_height(ev, official)
     V['F5 count'] = gate_f5_count(ev, official)
-    print('verdicts: ' + ' | '.join(f"{g} {V[g]}" for g in GATES) + ('' if official else OUTSIDE))
+    qual = setup_checks(ev)
+    print(f"verdicts [{'set-up met' if not qual else 'set-up: ' + '; '.join(qual)}]: "
+          + ' | '.join(f"{g} {V[g]}" for g in GATES) + ('' if official else OUTSIDE))
     return V
+
+
+def setup_checks(ev):
+    """the set-up checks of the spec that the gates do not cover: prints the block, returns the qualifiers of
+    the verdict line (empty: every check met)"""
+    log, clock, spec = ev['log'], ev['clock'], ev['spec']
+    qual = []
+    print(f"\nset-up checks ({spec.name}; they qualify the verdicts, they do not withhold them):")
+    # contacts: the single start-up EL_CONTACT_PARAMS line, every pair kind, the effective pair values
+    if not log.contact_params:
+        print('   contacts: not echoed (binary before pe pull request #59): contact friction and restitution of this run '
+              'are not known to the tool')
+        qual.append('contacts not echoed')
+    elif len(log.contact_params) > 1:
+        print(f"   contacts: EL_CONTACT_PARAMS echoed {len(log.contact_params)} times (one start-up line expected): not determined")
+        qual.append('contacts not determined')
+    else:
+        parts = [p.strip() for p in log.contact_params[0][1][len('EL_CONTACT_PARAMS'):].split('|')]
+        dev, pairs, rest = [], 0, None
+        for p in parts:
+            kv = dict(x.split('=', 1) for x in p.split() if '=' in x)
+            if 'pair' in kv:
+                if kv.get('wall') == 'none':
+                    dev.append('no particle-wall pair (wall=none)')
+                    continue
+                pairs += 1
+                name = kv['pair'] + (' ' + kv['wall'] if 'wall' in kv else '')
+                for key, ref in spec.CONTACT.items():
+                    if key not in kv or not print_equal(kv[key], ref):
+                        dev.append(f"{name} {key}={kv.get(key, 'absent')}")
+            elif 'restitution' in kv:
+                rest = kv['restitution']
+        if rest != spec.RESTITUTION:
+            dev.insert(0, f"restitution={rest or 'absent'}")
+        if not pairs:
+            dev.append('no contact pair echoed')
+        text = ', '.join(f"{k} {v}" for k, v in spec.CONTACT.items()) + f", restitution {spec.RESTITUTION}"
+        if dev:
+            print(f"   contacts: deviates: {'; '.join(dev)} (spec: {text})")
+            only_rest = all(d.startswith('restitution=') for d in dev)
+            qual.append(f"contacts inelastic ({dev[0]})" if only_rest and rest == 'off' else f"contacts deviate ({'; '.join(dev)})")
+        else:
+            print(f"   contacts: met ({pairs} pair kind(s): {text})")
+    # overlap: the validated EL_CONTACT_STATS rows (their own cadence on the step clock)
+    rows = contact_rows(log, clock)
+    if not rows:
+        print('   overlap: not available (no validated EL_CONTACT_STATS row)')
+        qual.append('overlap not available')
+        return qual
+    lim = spec.OVERLAP_MAX * spec.decimal['d']
+    prep_end = spec.steps[0]['t0']
+    wins = [(x['t1'] - spec.EVAL_LEN, x['t1']) for x in ev['steps'] if x['measured']]
+
+    def worst(sel):
+        sel = list(sel)
+        return max(sel, key=lambda r: r[1]) if sel else None
+    allw = worst(rows)
+    after = worst(r for r in rows if r[0] >= prep_end)
+    inwin = worst(r for r in rows if any(a <= r[0] <= b for a, b in wins))
+    pct = lambda r: 100 * float(r[1] / spec.decimal['d'])          # noqa: E731
+    desc = (f"largest {pct(allw):.3f} % of d at {float(allw[0]):.4f} s over {len(rows)} rows; after the preparation "
+            f"(t >= {float(prep_end):.1f} s) " + (f"{pct(after):.3f} % at {float(after[0]):.4f} s" if after else 'no row')
+            + '; inside the evaluation windows of the measured steps '
+            + (f"{pct(inwin):.3f} % at {float(inwin[0]):.4f} s" if inwin else 'no row') + f"; limit {100 * spec.OVERLAP_MAX:g} % of d")
+    if allw[1] <= lim:
+        state = 'met'
+    elif inwin and inwin[1] > lim:
+        state = 'exceeded inside an evaluation window'
+        qual.append(f"overlap {pct(inwin):.2f} % of d at {float(inwin[0]):.3f} s (evaluation window)")
+    elif after and after[1] > lim:
+        state = 'exceeded after the preparation, outside the evaluation windows'
+        qual.append(f"overlap {pct(after):.2f} % of d at {float(after[0]):.3f} s (outside the evaluation windows)")
+    else:
+        state = 'exceeded during the preparation only'
+        qual.append(f"overlap {pct(allw):.2f} % of d at {float(allw[0]):.3f} s (preparation)")
+    print(f"   overlap: {desc}: {state}")
+    return qual
+
+
+def contact_rows(log, clock):
+    """validated EL_CONTACT_STATS rows: (step time, max_overlap as a decimal); on the step clock at the stream's own
+    cadence (EL momentum audit freq), identical copies collapsed, conflicting copies and non-finite or negative
+    overlaps dropped"""
+    if not clock.exact:
+        return []
+    f = log.el_last('momentum audit freq')
+    freq = int(f) if f is not None and re.fullmatch(r'\d+', f) and int(f) > 0 else None
+    groups = {}
+    for _, rec, raw in log.contact_stats:
+        groups.setdefault(rec['t_s'], set()).add(raw)
+    out = {}
+    for ts, raws in groups.items():
+        if len(raws) > 1:
+            continue
+        try:
+            t, ov = frac(ts), dec(rec_tok(next(iter(raws)), 'max_overlap'))
+        except ValueError:
+            continue
+        k = round((t - clock.t0) / clock.dt)
+        if k < 1 or abs(t - (clock.t0 + k * clock.dt)) > half_ulp(ts) or (freq and k % freq) or not ov >= 0 \
+                or k in out:
+            continue
+        out[k] = (clock.t0 + k * clock.dt, ov)
+    return [out[k] for k in sorted(out)]
+
+
+def rec_tok(raw, key):
+    tok = raw.split()
+    return tok[tok.index(key + '=') + 1]
 
 
 def gates_f1_f3(ev, official):
@@ -1235,7 +1358,6 @@ def gate_f5_height(ev, official):
 def parser():
     ap = argparse.ArgumentParser(description='spec-11 gates of a q2p1_el_pipeflow run')
     ap.add_argument('rundir', nargs='?')
-    ap.add_argument('--steps', default=None, help=argparse.SUPPRESS)
     ap.add_argument('--series', default=None)
     ap.add_argument('--self-test', action='store_true')
     ap.add_argument('--self-test-real', default=None, metavar='RUNDIR')
@@ -1253,8 +1375,6 @@ def main(argv=None, spec=None):
         return self_test_real(a.self_test_real, a.variants, a.seed)
     if not a.rundir:
         ap.error('RUNDIR is required')
-    if a.steps:
-        print('note: --steps is ignored (the protocol is the spec table)', file=sys.stderr)
     report(evaluate(a.rundir, spec=spec), a)
     return 0
 
@@ -1326,7 +1446,7 @@ def _lines(protocol=PROTO, cad=0.01, t_end=None, area=2.25e-4, n=9789, width=2.5
            dyn=True, dp_hydro=0.0, d=0.87e-3, ekern=0.37, ekern_fn=None, extents=True, z0=0.0, table=None,
            echo_table=True, zmax_fn=None, legacy=False, finished=True, time_lines=True, drag='gidaspow',
            width_echo=True, tmax=None, n_fn=None, grad_fn=None, mu=1.8e-5, rhof=1.0, rhop=860.0, clock_fn=None,
-           dps_fn=None, densities=None, starting_proc='0'):
+           dps_fn=None, densities=None, starting_proc='0', contact='met', overlap_fn=None, contact_stats=True):
     """the lines of a synthetic run: start-up echo (EL configuration, banner, SimPar, sphere setup, Prop,
     viscosity), table echo, a time line per step, EL_FORCE_BUDGET and EL_BED_AUDIT lines, the finish marker"""
     g = 9.81
@@ -1347,10 +1467,17 @@ def _lines(protocol=PROTO, cad=0.01, t_end=None, area=2.25e-4, n=9789, width=2.5
         L.append('EL inlet velocity table   = _data/inlet_table.txt (%d rows t / U; linear, constant beyond the ends)' % len(tab))
         L += ['  EL_INLET_TABLE %s %s' % (_e(t, 16, 8), _e(u, 16, 8)) for t, u in tab]
     L.append('EL bed audit freq         = %d' % freq)
+    L.append('EL momentum audit freq    = %d' % freq)
     L += ['  |          %s                                                  |' % BANNER,
           'StartingProc = %s' % starting_proc, 'TimeStep =   %s' % _d(DT).strip(), 'StartSimTime =   %s' % _d(0.0).strip()]
     if extents:
         L.append('Global CFD domain extents: ' + ' '.join(_e(x) for x in (0.0, 0.015, 0.0, 0.015, z0, z0 + 0.1)))
+    if contact:
+        pair = 'mu_static=0.3 mu_dynamic=0.3 e=0.9'
+        L.append({'met': 'EL_CONTACT_PARAMS pair=particle-particle %s | pair=particle-wall wall=zwalls %s | restitution=on '
+                         'threshold=0.01 scheme=post-pass' % (pair, pair),
+                  'off': 'EL_CONTACT_PARAMS pair=particle-particle %s | pair=particle-wall wall=zwalls %s | restitution=off '
+                         'threshold=0 scheme=post-pass' % (pair, pair)}.get(contact, contact))
     L.append('EL terminal-velocity setup: %d free sphere(s) created (r=%r, rho=%g, seedMode=file, seedDomain=box), '
              'PE decomposition 3x3x4.' % (n, d / 2, rhop))
     L.append('Prop    - Gravity =' + _fe(0.0) + _fe(0.0) + _fe(-g))
@@ -1392,6 +1519,9 @@ def _lines(protocol=PROTO, cad=0.01, t_end=None, area=2.25e-4, n=9789, width=2.5
             L.append('EL_FORCE_BUDGET step= %d drag= %s %s %s pressure= %s %s %s lift= 0 0 0 grav_buoy= %s %s %s' % (
                 k, _e(0.0), _e(0.0), _e(dps * W0 * 0.9), _e(0.0), _e(0.0), _e(dps * W0 * 0.1), _e(0.0), _e(0.0), _e(-W0)))
             L.append(line)
+            if contact_stats:
+                L.append('EL_CONTACT_STATS t= %s ncontacts= 4 max_overlap= %s Tgran= %s' % (
+                    _e(t), _e(overlap_fn(t) if overlap_fn else 3.8e-7), _e(1e-6)))
         if time_lines:
             L.append('time:%s/%s | itns:%8d/%8d | dt:%s%s%s' % (_d(t), _d(tmx), k, nsteps, _d(dtk), _d(dtk), _d(dtk)))
     if finished:
@@ -1399,7 +1529,7 @@ def _lines(protocol=PROTO, cad=0.01, t_end=None, area=2.25e-4, n=9789, width=2.5
     return L
 
 
-def _write_run(path, steps_file=None, deck=DECK, mutate=None, last_complete=True, **kw):
+def _write_run(path, deck=DECK, mutate=None, last_complete=True, **kw):
     os.makedirs(os.path.join(path, '_data'), exist_ok=True)
     L = _lines(**kw)
     if mutate:
@@ -1559,7 +1689,8 @@ def self_test_cases():
     two_runs = lambda L: L + _lines(n=9788, cad=0.02)                     # noqa: E731
     overlap = {0.3: 1.80, 0.2: 0.99, 0.1: 0.40, 0.05: 0.20}
     return [
-        ('reference (all gates measurable)', dict(), REF, ['stricter, reported', 'run inputs:'], ['Traceback', NO], ''),
+        ('reference (all gates measurable)', dict(), REF, ['stricter, reported', 'run inputs:', 'verdicts [set-up met]:'],
+         ['Traceback', NO], ''),
         ('missing inlet plane (area_in = 0)', dict(area=0.0), {'F1': U, 'F2': U, 'F3': U, 'F5 height': 'PASS'}, [], ['Traceback'], ''),
         ('empty bed (n = 0)', dict(n=0), ALLU, ['particle count N not resolved'], ['Traceback'], ''),
         ('short run (2.3 s, no finish marker)', dict(t_end=2.3, finished=False), ALLU, ['no finish marker: the run has not finished'], [], ''),
@@ -1688,6 +1819,23 @@ def self_test_cases():
          'f8fb7fd8: F2 from the edited row'),
         ('r6: dump load during the run', dict(mutate=_after_step(6000, [' Loading particle data from _dump/01'])), ALLU,
          ['a dump was loaded'], [], ''),
+        # ---- set-up checks (they qualify the verdicts, they do not withhold them) ----------------------------
+        ('set-up: restitution off', dict(contact='off'), REF,
+         ['contacts: deviates: restitution=off', 'verdicts [set-up: contacts inelastic (restitution=off)]: F1 PASS'], [], ''),
+        ('set-up: particle-particle friction 0.15', dict(contact='EL_CONTACT_PARAMS pair=particle-particle mu_static=0.15 '
+                                                                'mu_dynamic=0.3 e=0.9 | pair=particle-wall wall=zwalls mu_static=0.3 '
+                                                                'mu_dynamic=0.3 e=0.9 | restitution=on threshold=0.01'), REF,
+         ['verdicts [set-up: contacts deviate (particle-particle mu_static=0.15)]'], [], ''),
+        ('set-up: contacts not echoed', dict(contact=None), REF,
+         ['not echoed (binary before pe pull request #59)', 'verdicts [set-up: contacts not echoed]'], [], ''),
+        ('set-up: overlap 1.2 % of d at 0.07 s (preparation)', dict(overlap_fn=lambda t: 1.044e-5 if abs(t - 0.07) < 1e-9 else 3.8e-7),
+         REF, ['exceeded during the preparation only', 'overlap 1.20 % of d at 0.070 s (preparation)]: F1 PASS'], [], ''),
+        ('set-up: overlap 1.2 % of d at 2.4 s (evaluation window)', dict(overlap_fn=lambda t: 1.044e-5 if abs(t - 2.4) < 1e-9 else 3.8e-7),
+         REF, ['exceeded inside an evaluation window', '(evaluation window)]'], [], ''),
+        ('set-up: overlap exactly 1 % of d', dict(overlap_fn=lambda t: 8.7e-6 if abs(t - 2.4) < 1e-9 else 3.8e-7), REF,
+         ['verdicts [set-up met]'], [], ''),
+        ('set-up: no EL_CONTACT_STATS rows', dict(contact_stats=False), REF,
+         ['overlap: not available', 'verdicts [set-up: overlap not available]'], [], ''),
     ]
 
 
@@ -1705,7 +1853,7 @@ def _run_case(run, spec):
 
 
 def verdicts_of(text):
-    m = re.search(r'^verdicts: (.*)$', text, re.M)
+    m = re.search(r'^verdicts(?: \[[^]]*\])?: (.*)$', text, re.M)
     if not m:
         return {}
     V = {}
@@ -1776,7 +1924,7 @@ def self_test(keep=None):
 # ===================================================================================================
 # metamorphic tests on a real log
 # ===================================================================================================
-KEEP_PREFIX = ('EL_BED_AUDIT', 'EL_FORCE_BUDGET', 'EL_NEWTON_PAIR', 'EL_INLET_TABLE', 'EL ', 'Global CFD domain extents',
+KEEP_PREFIX = ('EL_BED_AUDIT', 'EL_FORCE_BUDGET', 'EL_NEWTON_PAIR', 'EL_INLET_TABLE', 'EL_CONTACT_', 'EL ', 'Global CFD domain extents',
                'time:', 'Prop', 'StartingProc', 'TimeStep', 'StartSimTime', 'MaxSimTime', 'MaxNumStep', 'Reloading')
 
 
@@ -1824,7 +1972,7 @@ def self_test_real(rundir, nvar=300, seed=20261122):
     base = _filtered(full)
     ref_text, ref_V, ev0 = run_lines(base, deck)
     full_text, _, _ = run_lines(full, deck)
-    vline = lambda t: re.search(r'^verdicts: .*$', t, re.M).group(0)   # noqa: E731
+    vline = lambda t: re.search(r'^verdicts.*$', t, re.M).group(0)   # noqa: E731
     print(f"real log {rundir}: {len(full)} lines, {len(base)} read by the tool; intact verdicts: "
           + ' | '.join(f'{g} {ref_V[g]}' for g in GATES) + ('' if ev0['official'] else '  (not recognised: '
                                                              + '; '.join(ev0['precondition'][:2]) + ')'))
