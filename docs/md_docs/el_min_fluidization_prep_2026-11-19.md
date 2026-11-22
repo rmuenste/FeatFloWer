@@ -545,7 +545,11 @@ cross-check only (no echo: no official gate); F2 and F3 need the measured platea
 dp* > 0.95: unavailable, the nominal classification is a labelled measurement); F3 needs two distinct
 nonzero fixed velocities and a relative determinant of the normal equations above 1e-6; F5 height: a
 centre exactly at mid-height passes, one above it by less than the print uncertainty is undecidable
-(unavailable), above that band FAIL, and the exceedance search is independent of the PASS proof;
+(unavailable), above that band FAIL, and the exceedance search is independent of the PASS proof; F5
+is about the bed at the lowest velocity after the defluidisation, so a lowest intended hold that begins at
+the protocol start (single-hold protocol, or a table whose first hold is its lowest) includes the
+preparation of the bed and gives F5 height unavailable, an exceedance there is printed as a measurement,
+not a witnessed FAIL (F5 count unaffected; round 5b, job 164982);
 physical command-line arguments or a `--closure` that differ from the run give a labelled comparison;
 an audit row whose pressure identities (dp = p_in - p_out, dp_dyn = dp - dp_hydro, to the ES16.8 print
 precision) fail or whose count is not a non-negative integer is a hole; a printed sub-window mean lies

@@ -234,3 +234,4 @@ job     run                      binary     result
         constant-inlet run into a 0.3 m/s hold of its own; transform changed to dt / 2)
 164981  the final fl11_post.py (md5 90abf58d): --self-test 66/66; --self-test-real R_r1_proto and R_id400_new 300
         variants each, 0 failures; the five recorded reports byte-identical to those of job 164979
+164982  round 5b (fl11_post.py md5 88c5493e): F5 height unavailable when the lowest hold begins at the protocol start (preparation); self-test 67/67 (case 66 constant inlet: 788ffbaf FAIL witnessed, now unavailable); dt-changed transform back to 2 dt; --self-test-real R_r1_proto and R_id400_new 300 variants each 0 failures; verdict lines of all recorded run dirs unchanged

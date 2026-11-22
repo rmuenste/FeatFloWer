@@ -77,7 +77,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from fl11_closures import CLOSURES, closure_grad, closure_umf   # noqa: E402  (re-exported)
 
-EVAL_VERSION = 'fl11_post r5 2026-11-22'   # part of the movie cache signature
+EVAL_VERSION = 'fl11_post r5b 2026-11-22'   # part of the movie cache signature
 NAN = float('nan')
 INF = float('inf')
 GATES = ('F1', 'F2', 'F3', 'F5 height', 'F5 count')
@@ -1271,7 +1271,8 @@ def gate_f5_count(ev, official):
 def gate_f5_height(a, ev, official):
     """an exceedance in a validated row inside the intended lowest hold(s) is a FAIL whatever else is
     missing; a PASS needs the official precondition, full coverage and every reading at or below the mid-
-    column; a reading above it by less than the print uncertainty is undecidable"""
+    column; a reading above it by less than the print uncertainty is undecidable. A lowest hold that begins at
+    the protocol start includes the preparation of the bed: unavailable, an exceedance there is a measurement"""
     clock, setup, holds = ev['clock'], ev['setup'], ev['holds']
     if not holds:
         print("F5 height unavailable: the protocol holds no velocity plateau")
@@ -1303,7 +1304,13 @@ def gate_f5_height(a, ev, official):
     if fin:
         print(f"F5 (b) highest centre during the plateau of the lowest velocity {u:.3f} m/s ({span}, {len(rows)} audit lines): "
               f"{(zm - zmin)*1e3:.2f} mm above the inlet plane (mid-column {lz*500:.1f} mm)")
-    if above:
+    prep = ev['knots'] and any(h['a'] <= ev['knots'][0][0] for h in low)
+    if prep:
+        # gate F5 is about the bed at the lowest velocity after the defluidisation, not about its preparation
+        print(f"F5 height unavailable (the lowest hold begins at the protocol start and includes the preparation of the "
+              f"bed){'; measurement only, not a verdict: ' + str(len(above)) + ' reading(s) above mid-column' if above else ''}")
+        v = 'unavailable'
+    elif above:
         print("F5 height: a centre above mid-column observed in a validated row (witnessed): FAIL")
         v = 'FAIL'
     elif band:
@@ -1772,6 +1779,10 @@ def self_test_cases():
         ('r5: no echo, steps file only, 60 mm in the 20 ms transition', dict(echo_table=False, steps_file=FULL_STEPS,
                                                                             zmax_fn=lambda t: 0.06 if abs(t - 2.01) < 1e-9 else 0.0241),
          ['--steps', S], ALLU, ['no official gate without the table echo'], [], 'r5: labelled 60 mm FAIL'),
+        ('r5b: constant inlet 0.05 m/s, start bed collapsing from 60 mm', dict(table=[(0.0, 0.05)], t_end=1.0,
+                                                                            zmax_fn=lambda t: 0.060 if t < 0.2 else 0.0241), [],
+         {'F5 height': U, 'F5 count': 'PASS'}, ['includes the preparation of the bed', 'measurement only, not a verdict'],
+         ['witnessed'], '788ffbaf: F5 height FAIL (witnessed)'),
     ]
 
 
@@ -2066,20 +2077,18 @@ def self_test_real(rundir, nvar=300, seed=20261122):
                 out.append(l)
             return out, 'the time line of step'
         if kind == 'dt changed':
-            # a TimeStep reload to dt / 2 after step k1: the run stays inside the time span of the intact run, so
-            # the transform creates no observation (a longer terminal hold) that the intact run does not have
             k1 = rnd.randrange(int(0.2 * K), int(0.8 * K))
             out = []
             for l in L:
                 mm = PAT_TIME.match(l)
                 if mm and int(mm.group(3)) > k1:
                     k = int(mm.group(3))
-                    l = _time_line(l, clock0.t0 + k1 * dtc + (k - k1) * 0.5 * dtc, 0.5 * dtc)
+                    l = _time_line(l, clock0.t0 + k1 * dtc + (k - k1) * 2 * dtc, 2 * dtc)
                 elif l.startswith(('EL_BED_AUDIT', 'EL_NEWTON_PAIR')):
                     k = int(re.search(r'step=\s*(\d+)', l).group(1))
                     if k > k1:
                         tok = l.split()
-                        tok[2] = _e(clock0.t0 + k1 * dtc + (k - k1) * 0.5 * dtc)
+                        tok[2] = _e(clock0.t0 + k1 * dtc + (k - k1) * 2 * dtc)
                         l = ' '.join(tok)
                 out.append(l)
             return out, 'time step not constant'
