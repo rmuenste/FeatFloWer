@@ -19,17 +19,16 @@ OUTDIR   frame_%05d.png (2560 x 1440) and the cache fl11_movie_cache.npz (positi
          velocities (the minimum image is only a lower bound once |v| dt exceeds L / 2).
 --no-peer  leave the peer-reported per-step means (MFiX, CFDEM) out of the trace.
 
-Definitions. Everything that is a number of the evaluation comes from fl11_post.py (imported: prepare,
-step_table, u_of_t, div), nothing is re-derived:
+Definitions. Everything that is a number of the evaluation comes from fl11_post.py (imported: evaluate,
+u_of_t, div, finite), nothing is re-derived:
   dp*            dp_dyn A / W of every EL_BED_AUDIT line (2.5 ms), W = -weight_z, A = area_in
   floor force    particle momentum balance: floor_bal_z of the audit line, or (older logs) the
-                 EL_NEWTON_PAIR reconstruction of fl11_post.parse
+                 EL_NEWTON_PAIR reconstruction of fl11_post.evaluate
   bed top        z99 + r of the audit line;   bed porosity  eps_bed of the audit line (bed window)
   U              fl11_post.u_of_t of the echoed inlet table (file _data/inlet_table.txt when the log
                  has no echo yet)
-  step mean      fl11_post.step_table over the last 0.3 s of each step of the protocol (the echoed
-                 table; the steps file only for a log without the echo), with the completeness rules
-                 of the post tool; shown for complete steps only
+  step mean      fl11_post.evaluate: the last 0.3 s of each hold of the echoed protocol (the steps file
+                 only for a log without the echo), validated audit rows; shown for measured steps only
   fluidised      steps with a step mean dp* > 0.95 (rule of gate F1); the others are called fixed bed
   running mean   centred mean over RUNMEAN = 0.1 s of the audit series (41 lines); display only
 Display only (not evaluation numbers):
@@ -87,17 +86,20 @@ PEER = (('MFiX-DEM (run F_none)', 'o', [0.989, 0.999, 0.993, 0.988, 1.005, 0.997
         ('CFDEM (run fluid_C_gid_inlet2)', 's', [0.964, 0.959, 0.950, 0.956, 0.948, 0.953, 0.936,
                                                  0.821, 0.709, 0.599, 0.492, 0.388, 0.286, 0.188]))
 CACHE = os.path.join(out, 'fl11_movie_cache.npz')
+CACHE_FORMAT = 'fl11_movie cache 2'          # with fl11_post.EVAL_VERSION and the deck part of the signature
 
 
 # ---- data: read once, cache in OUTDIR
 def signature():
     fs = sorted(glob.glob(os.path.join(run, 'el_particles_rank*.log')))
-    fs += [os.path.join(run, q) for q in ('particles.xyz', 'run_slurm.log', '_data/steps.txt', '_data/inlet_table.txt')]
+    fs += [os.path.join(run, q) for q in ('particles.xyz', 'run_slurm.log', '_data/steps.txt', '_data/inlet_table.txt',
+                                          '_data/q2p1_param.dat')]
     sig = []
     for f in fs:
         if os.path.exists(f):
             st = os.stat(f); sig.append([os.path.basename(f), st.st_size, st.st_mtime_ns])
-    return json.dumps(sig)
+    # the cache format and the evaluation version: a cache of an older tool is never reused
+    return json.dumps({'format': CACHE_FORMAT, 'evaluation': post.EVAL_VERSION, 'files': sig})
 
 
 def read_log(f):
@@ -141,30 +143,27 @@ def build_cache(sig):
         pos = np.empty((1, n, 3), np.float32); vel = np.zeros((1, n, 3), np.float32); T = np.array([0.0])
     pos[0] = xyz
 
-    # audit series and step table: fl11_post.prepare / step_table (the guarded ratios, the protocol of the
-    # echo and the completeness rules of the post tool; nothing re-derived here)
+    # audit series and step table: fl11_post.evaluate (validated audit rows, the holds of the echoed protocol,
+    # the per-step evaluation with its guarded ratios and coverage; nothing re-derived here)
     W = area = float('nan'); aud = np.zeros((0, 8)); srow = np.zeros((0, 9)); table = []; echo = False
     sfile = os.path.join(run, '_data', 'steps.txt')
     if os.path.exists(os.path.join(run, 'run_slurm.log')):
-        ev = post.prepare(run, D * 1e-3, steps_path=sfile if os.path.exists(sfile) else None)
+        ev = post.evaluate(run, D * 1e-3, steps_path=sfile if os.path.exists(sfile) else None)
         echo = ev['source'] == 'echo'
-        table = ev['knots']
+        table = list(ev['knots'])
         tfile = os.path.join(run, '_data', 'inlet_table.txt')
         if not table and os.path.exists(tfile):         # display only: U of a log without the echo yet
             table = [tuple(map(float, l.split()[:2])) for l in open(tfile) if l.strip() and not l.startswith('#')]
-        steps = ev['protocol'] if ev['source'] else post.protocol_steps(table)
-        if ev['audit']:
-            area, W, wa = ev['area'], ev['W'], ev['wa']
-            for row in ev['audit']:
-                if not post.finite(row['U']) and table:
-                    row['U'] = post.u_of_t(table, row['t'])
-            # display columns: t dp* floor/W bed top (absolute z, mm; the frame coordinates) eps zmax n U
-            aud = np.array([(r['t'], post.div(r['dp_dyn'], wa), post.div(r['fbal'], W), (r['z99'] + R * 1e-3) * 1e3,
-                             r['eps'], r['zmax'] * 1e3, r['n'], r['U']) for r in ev['audit']])
-            srow = np.array([(x['t0'], x['t1'], x['U'], x['dps'], x['stds'], x['H'] * 1e3, x['eps'], x['fl'],
-                              float(x['complete'])) for x in post.step_table(ev, steps)]).reshape(-1, 9)
-        else:
-            srow = np.array([(t0, t1, u) + (float('nan'),) * 5 + (0.0,) for t0, t1, u in steps]).reshape(-1, 9)
+        rows = ev['clock'].sorted
+        area, W = ev['area'], ev['W']
+        if rows:
+            # display columns: t dp* floor/W bed top (absolute z, mm; the frame coordinates) eps zmax n U, each
+            # row normalised with its own weight and area
+            aud = np.array([(r['t'], post.div(r['dp_dyn'], post.div(-r['wz'], r['a_in'])), post.div(r['fbal'], -r['wz']),
+                             (r['z99'] + R * 1e-3) * 1e3, r['eps'], r['zmax'] * 1e3, r['n'],
+                             r['U'] if post.finite(r['U']) or not table else post.u_of_t(table, r['t'])) for r in rows])
+        srow = np.array([(x['t0'], x['t1'], x['U'], x['dps'], x['stds'], x['H'] * 1e3, x['eps'], x['fl'],
+                          float(x['measured'])) for x in ev['steps']]).reshape(-1, 9)
     os.makedirs(out, exist_ok=True)
     tmp = os.path.join(out, '.fl11_movie_cache.%d.npz' % os.getpid())
     np.savez(tmp, sig=sig, T=T, pos=pos, vel=vel, aud=aud, srow=srow, table=np.array(table).reshape(-1, 2),
@@ -177,6 +176,9 @@ fresh = False
 if os.path.exists(CACHE):
     with np.load(CACHE) as z:
         fresh = str(z['sig']) == sig
+    if not fresh:
+        print('note: cache %s not reused (older cache format or evaluation version, or changed inputs): rebuilt' % CACHE,
+              file=sys.stderr)
 if not fresh:
     build_cache(sig)
 with np.load(CACHE) as z:

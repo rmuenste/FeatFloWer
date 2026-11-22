@@ -7,13 +7,13 @@
 #SBATCH --mem=12G
 #SBATCH --time=01:30:00
 #SBATCH --exclude=82ndalltheway,christmastruce,gottmituns,redbaron,soldierofheaven,steelcommanders,stormtroopers,wolfpack
-#SBATCH --output=/data/warehouse17/rmuenste/runs/fluid11/movie/render_R_proto_movie.log
+#SBATCH --output=/data/warehouse17/rmuenste/runs/fluid11/movie/render-%j.log
 # Particle movie of a case 11 run: check, render (4 workers), encode. Pattern of runs/batch10/movie/render_PL15_s1.sbatch.
 # usage: sbatch render_R_proto_movie.sbatch [RUN [T_END [STRIDE]]]
 #   RUN     run directory name under runs/fluid11 (default R_proto_movie)
 #   T_END   the last particle frame must reach this time (default 7.5 s: refuses a run in progress)
 #   STRIDE  every STRIDE-th log frame (default 1 = one image per logged frame, no interpolation)
-# for another run also pass --output=.../movie/render_<RUN>.log on the sbatch command line
+# stdout goes to movie/render-<job id>.log (one file per job; pass --output=... to name it otherwise)
 # Every render writes into a fresh frame directory frames_<RUN>.<job id> (never into the frames of an
 # earlier render), waits for each worker and stops on the first failed one, and encodes only after
 # all n frames of this render exist (frame_00000 .. frame_<n-1>). The check log and the temporary mp4
