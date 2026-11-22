@@ -384,7 +384,7 @@ the F2 column. The three runs have the same physical deck; the output settings d
   global balance dp* + floor force is 0.9935 on the plateau against 0.9975 (fixed bed: 1.0001 against
   1.0005-1.0013, so the consistent split closes the fixed-bed balance better).
 - **Peak gas speed** (`EL_UMAX_AUDIT`, mean of the audited maximum per velocity step): consistent split
-  1.22 m/s at U = 0.30, 0.89 at 0.18, 0.23 at 0.04; first split 0.80 / 0.52 / 0.12. In the packed bed at
+  1.22 m/s at U = 0.30, 0.89 at 0.18, 0.23 at 0.04 (largest single audit there 0.33); first split 0.80 / 0.52 / 0.12. In the packed bed at
   0.04 m/s the interstitial speed is 0.109 m/s: the first split shows it, the consistent split shows
   twice that at single (Q2 vertex) dofs. The consistent split therefore carries a node-to-node
   oscillation of the gas velocity inside the bed. Second review (section 12): the saved fields confirm
@@ -447,10 +447,11 @@ the friction-only runs are inelastic.
 
 ### Review rounds 3 to 5 (2026-11-22): the post tool
 
-Rounds 3, 4 and 5 (same reviewer; reports in the session record) found no further defect in the solver
+Rounds 3 to 6 (same reviewer; reports in the session record) found no further defect in the solver
 after one regression of fix round 2 (the `hrz` refusal also rejected a prescribed-field run, which never
 executes the momentum solve; narrowed in 46d06ce6, the reload backstop now aborts every rank). All other
-findings concerned `tools/fl11_post.py`: on variants of the real log (a duplicated or missing row of a
+findings concerned the case tools: the movie tool, the render job and the submit script (stale frames of
+an earlier invocation, unfinished runs, concurrent jobs), and above all `tools/fl11_post.py`: on variants of the real log (a duplicated or missing row of a
 `--steps` file, a redundant knot of the inlet table, one missing or non-finite audit row, a run stopped
 early, a log segment starting at 1.0 s, a reload that resets the time) the tool issued a different
 official verdict, e.g. F1 0.9807 PASS for `R_r1_proto` (0.9787 FAIL). None of these conditions exists
