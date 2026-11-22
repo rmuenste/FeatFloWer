@@ -287,28 +287,37 @@ same diagonal, `EL_FIELDS:EL_APPLY_DRAG_SPLIT_PARTNER` (called in `QuadSc_main` 
 explicit source, before the boundary values of the new step are imposed): + dt B_i u_i^n on
 every dof, B_i the captured coefficient `drag_B_source` (distributed form, like the explicit
 source). The deposit no longer carries a partner (`EL_DEPOSIT_PARTICLE` argument `hrz` instead
-of `split`; the transfer result rows are 5 again). The discrete fluid equation per dof i is
+of `split`; the transfer result rows are 5 again). The drag matrix acts in the MOMENTUM SOLVE,
+i.e. on the momentum predictor u~ (the velocity before the pressure projection and the velocity
+correction that follow it; review r2, P2); the discrete momentum equation per dof i is
 
-    (M_i + theta dt (A + B_i)) u_i^{n+1} = (M_i - (1-theta) dt A) u_i^n + dt (-w_i F_d + f_i^other)
-                                           + theta dt B_i u_i^n,
+    (M_i + theta dt (A + B_i)) u~_i = (M_i - (1-theta) dt A) u_i^n + dt (-w_i F_d + f_i^other)
+                                      + theta dt B_i u_i^n + (pressure gradient, body forces),
 
-i.e. the drag terms are dt [ -w_i F_d - theta B_i (u_i^{n+1} - u_i^n) ] with B_i = sum_p B_p h_ip
->= 0 (A the remaining operator, F_d the drag impulse per dt that pe applies over its sub-cycled
-semi-implicit steps with the frozen u_f, f^other the non-drag reactions; case 11 runs BE,
-theta = 1: -dt B_i (u_i^{n+1} - u_i^n)).
+i.e. the drag terms of the momentum solve are dt [ -w_i F_d - theta B_i (u~_i - u_i^n) ] with
+B_i = sum_p B_p h_ip >= 0 (A the remaining operator, F_d the drag impulse per dt that pe applies
+over its sub-cycled semi-implicit steps with the frozen u_f, f^other the non-drag reactions; case 11
+runs BE, theta = 1: -dt B_i (u~_i - u_i^n)). The projection then changes u~ to u^{n+1} without a
+drag term.
 
 What is and is not conserved:
-- A field that does not change over the step: the split correction vanishes node by node (not
-  only in the sum); the fluid receives exactly -F_d dt, the mirror of the particle drag impulse
-  [V, unit tests `test_el_transfer` on the regular mesh with a small and a wide kernel and on a
-  distorted mesh, `test_el_periodic_mpi` on 4 and 8 ranks with the periodic seam].
-- A field that changes within the step: the fluid receives in addition
-  -theta dt sum_i B_i (u_i^{n+1} - u_i^n), which the particle does not see (pe integrates with
-  the frozen u_f of the start of the step). It is a non-negative nodal damping of the velocity
-  increment (B_i >= 0), the stabilising part of the linearisation; it is NOT momentum exchange
-  and is not mirrored. The default `rowsum` has the corresponding term
-  B (u_f - sum_i w_i u_i^theta), which vanishes in the sum for a steady field (u_f is sampled with
-  the same w_i) but not node by node, and whose nodal coefficient can be negative.
+- u~ = u^n (a field the momentum solve leaves unchanged), the configuration the unit tests exercise:
+  they evaluate the deposit, the partner and the diagonal for a GIVEN steady field (no solve, no
+  projection). There the split correction vanishes node by node (not only in the sum) and the fluid
+  receives exactly -F_d dt, the mirror of the particle drag impulse [V, unit tests
+  `test_el_transfer` on the regular mesh with a small and a wide kernel and on a distorted mesh,
+  `test_el_periodic_mpi` on 4 and 8 ranks with the periodic seam]. This is the whole conservation
+  claim; it is not a statement about the steps of a run.
+- In a run the momentum solve receives in addition the impulse -theta dt sum_i B_i (u~_i - u_i^n),
+  which the particle does not see (pe integrates with the frozen u_f of the start of the step). It
+  is a non-negative nodal damping of the predictor increment (B_i >= 0), the stabilising part of the
+  linearisation; it is NOT momentum exchange and is not mirrored. It is not measured: the velocity
+  audit and the output fields carry the projected u^{n+1}, and two equal successive PROJECTED
+  velocities do not show that u~ = u^n within the step. A stepwise statement would need the term
+  evaluated at the predictor, before the projection (open [I]).
+- The default `rowsum` has the corresponding term B (u_f - sum_i w_i u~_i^theta), which vanishes in
+  the sum for a steady field (u_f is sampled with the same w_i) but not node by node, and whose nodal
+  coefficient can be negative.
 - `rowsum` (default) is unchanged bit for bit [V, gates D_s6, G_tier2, E2w5, VB40 of the round-1
   binary 627caf47, job 164668, `s11_min_fluidization/runs_versions.txt`].
 
@@ -344,6 +353,100 @@ values the fluid solve of the step used), summed over all ranks that share the d
 comparison with older logs; the counts in the RUNBOOK of negative coefficients at the spike
 locations (1 674 / 1 875 = 89.3 % of the logged maxima, not 95 % as written above) refer to that
 older field.
+
+### 7.2 Fix round 2 (review r2, 2026-11-22)
+
+Implementation of the external review r2 (findings 1-10 of the brief; record files RUNBOOK,
+example json and datasheet are kept by the campaign record, not here). Fortran commits c0d71b65,
+95e5923a, 729f77c9, 3e801eab, d27a74fb; binary `q2p1_el_pipeflow.d27a74fb-pece2a7f7` (build job
+164949); post tool 1fbb28e4, movie job 2cfeb048. Every claim was checked in the code first.
+
+**Post tool `fl11_post.py` (findings 1-3) [V, job 164960].**
+- F2 is gated only when every contributing audit window excludes max(2 d, mapping support) at both
+  ends. The support is the kernel width factor of the start-up echo times d (EL_CONFIG:
+  EL_KERNEL_SUPPORT_RADIUS = 2 x factor x r for every kernel); the margin is measured on every audit
+  line of the fixed-step windows: lower end minus the inlet plane (`Global CFD domain extents`),
+  z99 + r minus the upper end, and `win_margin` (2 d for binaries before 627caf47), within the print
+  precision of the line. Otherwise the ratios are printed as a measurement and the verdict is
+  `unavailable (window inside the mapping support)`.
+- F2 uses `gradz_win_dyn`; a log without it uses `gradz_win` only when `dp_hydro` = 0 on every audit
+  line used (dp_hydro = -rho_f g_z (zmax - zmin) is zero exactly when the fluid carries no gravity or
+  rho_f g_z = 0, i.e. no hydrostatic gradient), else unavailable. All three section-11 runs: zero.
+- Every ratio needs a positive finite denominator (no inlet plane, empty bed: nan, `unavailable`, no
+  exception); F1-F3 and F5 are evaluated independently; a step is complete when the audit samples its
+  window densely (interval at most a tenth of the window, no gap wider than one interval); a steps
+  file is compared with the echoed protocol (missing and foreign steps named, foreign ones excluded)
+  and cannot move the F5 target, which is the lowest plateau of the ECHO; F5 runs over the constant
+  part of that plateau after an audit-coverage check, the 20 ms transition into it is reported as a
+  labelled stricter number. `--self-test`: 12 synthetic logs (reference, missing inlet plane, empty
+  bed, incomplete and foreign steps file, short window, sparse audit, margin and gradient rules).
+
+| run (`post_r2.txt`) | F1 | F3 ratio | F2 worst \|ratio_k - 1\| | window margin | F2 verdict | F5 (plateau / with transition) |
+|---|---|---|---|---|---|---|
+| R_r1_proto | 0.978732 FAIL | 1.0474 PASS | 3.49 % | 2.5 d | PASS | 23.81 / 23.81 mm PASS |
+| R_r1_oldsplit | 0.982573 PASS | 1.0490 PASS | 2.38 % (measurement) | 2.0 d < 2.5 d | unavailable | 24.00 / 24.00 mm PASS |
+| R_proto_movie | 0.981421 PASS | 1.0420 PASS | 1.62 % (measurement) | 2.0 d < 2.5 d | unavailable | 24.03 / 24.03 mm PASS |
+
+The two historical 2 d windows lie inside the 2.5 d support: their F2 numbers are measurements, not
+gate results. The F2 comparison between the two splits (3.49 % vs 2.38 %) also mixes two windows.
+
+**`ELDragImplicitWeights = hrz` and the non-Newtonian defect (finding 4) [V, job 164952].** Verified:
+with ELMomentumModel = none, ELFluidViscosity = kinematic, semi-implicit feedback, FlowType =
+non-Newtonian and MatrixRenewal S = 0 every former check passed, the partner + dt B_i u_i^n went to
+the right-hand side, and the hand-built defect of `Matdef` (idef = -1: mass, convection, STRESS) has
+no -theta dt B_i u_i, so the partner stays in the residual of an unchanged field (the assembled-matrix
+defects of the Newtonian path and of non-Newtonian S >= 1 carry B on the diagonal). That combination
+is now refused at start-up (`EL_CONFIG:EL_DRAG_HRZ_DEFECT_SUPPORTED`, message naming FlowType,
+MatrixRenewal and ELDragImplicitWeights) and the hrz branch of the momentum assembly stops on it (a
+FlowType or MatrixRenewal changed later by Reload_SimPar, whose generic parser reads both). Old binary:
+accepted, 3 steps; new: refused before the first step. Follow-up [I]: the missing defect term itself
+(no test case); the same branch also lacks the theta dt B_i u_i of the default `rowsum` semi-implicit
+drag, which this round does not refuse (pre-existing, outside the brief).
+
+**Velocity audit (finding 5) [V, job 164952].** The transfer captures `drag_B_source` and
+`fluid_feedback_source` in every configuration; the solve applies B only under semi-implicit fluid
+feedback, the source only with fluid feedback, neither for a prescribed field. `EL_AUDIT_SOLVE_APPLIES`
+mirrors these guards and the audit prints NaN for a term the solve did not apply (collectives
+unchanged). Old binary, explicit drag with feedback (G_tier2): Bs 1.81e-3 printed; new: NaN, fs
+unchanged. Feedback off (VB40): old Bs 2.0e-6, fs -6.0e-7; new NaN NaN. E013Sum2 sums for the
+communication schemes 3 and 4 only: ELVelocityAuditFreq > 0 with another scheme is refused at
+start-up (the pattern of the other E013Sum2 consumers; iCommSwitch has no deck key, 3 is the default,
+so the case is not reachable from a deck).
+
+**Inlet definition at a reload (finding 6) [V, job 164952; unit test checks 48-51].** Start-up only
+stays the contract: Reload_SimPar runs the generic parser, which reads no SimPar@EL* key. The reload
+now reads the inlet keys of the reload file the way the application parser reads them and reports a
+difference (changed table path, table removed, table <-> ramp, ramp values changed or removed, both
+together, unreadable value) as a WARNING on the protocol and the terminal; the run keeps its
+definition. A ramp-only deck gets its start-up notice (`EL inlet velocity ramp: start-up setting ...`,
+not an `EL_` line). E2w5 with a reload deck that swaps the ramp for a table: old binary silent, new
+`WARNING: EL inlet definition of the reload file _data/reload_table.dat ignored: ramp -> table ...`.
+
+**Inlet reader (finding 7) [V, failing before: job 164948, STOP 47].** Tabs become blanks before the
+blank-line and comment tests; tab-only and tab-indented comment lines are skipped, data rows
+tokenise as before.
+
+**Movie render job (finding 8) [V, jobs 164957-164959].** Fresh frame directory per render, each
+worker waited for, a failed worker stops the encode, the movie is replaced only on success.
+
+**Design note (finding 9).** Section 7.1 now writes the drag terms with the momentum predictor u~ and
+restricts the conservation claim to the given-field configuration of the unit tests.
+
+**P3.** `el_bed_audit.f90`: the window-gradient weighting is exact for constant horizontal
+cross-section, stated at the integration routine; one closure module `fl11_closures.py` for
+`fl11_post.py` and `core_deficit.py` (identical values to both former copies, job 164960); the
+unit-test job prints the checkout HEAD and the tree hashes of `source/` and of the application.
+
+**Gates [V, job 164951; `runs/fluid11/gate/pc_compare_d27a74fb-pece2a7f7.txt`].** (a) Default path: D_s6,
+G_tier2, E2w5, VB40 against the `__base` runs of job 163807 and the first 400 steps of case 11 with
+the restitution keys absent (`R_fix2_off400`, inputs of R_smoke_r1) against R_smoke_r1 (627caf47):
+all common EL_ streams bitwise (strict), XxX 40/60/10/40/800 bitwise, case-11 particle logs 27/27
+identical; every `EL_` line as text bitwise against the previous binary 20867701-pece2a7f7 (against
+the older references one extra line, the start-up `EL_CONTACT_PARAMS` echo of pe ce2a7f7). (b) Case 11
+with restitution on (`R_fix2_id400`, deck and json of R_id400_new, 400 steps) against R_id400_new:
+every `EL_` line bitwise (13 077, among them EL_RESTITUTION_STATS 400, EL_BED_AUDIT 40, EL_UMAX_AUDIT
+40), XxX 800/800, particle logs 27/27 identical. The record run (Fortran 627caf47) therefore stands
+for the final head on the case-11 path.
 
 ## 8. Floor force of the bed audit: the pe wall-contact impulse is the unrelaxed PGS impulse
 
