@@ -51,10 +51,11 @@
 !                 excludes two diameters and the mapping support at both ends.
 !   gradz_win     -<dp/dz> over the same window: the element-wise constant z gradient of the P1
 !                 pressure weighted with the part of the element volume inside [z_lo, z_hi]
-!                 (overlap of the element z range with the window). EXACT ONLY for elements
-!                 bounded by two z planes (the case-11 mesh); for any other element, even a
-!                 tapered hex with horizontal top and bottom faces, the height fraction is not the
-!                 volume fraction and the value is an estimate. The total gradient, including the
+!                 (overlap of the element z range with the window). EXACT ONLY for elements of
+!                 constant horizontal cross-section between two z planes (prisms along z, the
+!                 case-11 mesh); for any other element, even a tapered hex with horizontal top and
+!                 bottom faces, the height fraction is not the volume fraction and the value is an
+!                 estimate. The total gradient, including the
 !                 hydrostatic part when the fluid carries gravity (gate F2 uses gradz_win_dyn).
 !   gradz_win_dyn the window gradient without the hydrostatic part, gradz_win - dp_hydro /
 !                 (zmax - zmin) (= gradz_win when the fluid carries no gravity, as in every
@@ -398,7 +399,9 @@ CONTAINS
   ! Volume of the elements of this rank inside the slab za < z < zb and its integral of -dp/dz
   ! (P1 pressure: the gradient is constant per element, entry 4 of its block). The part of an
   ! element in the slab is taken as the overlap of its vertex z range with the slab times its
-  ! volume: exact for an element bounded by two z planes, an estimate otherwise.
+  ! volume: exact for an element of constant horizontal cross-section between two z planes (a
+  ! prism along z, the case-11 mesh); an estimate otherwise, also for an element bounded by two
+  ! z planes whose cross-section varies with z (a tapered hex).
   SUBROUTINE EL_WINDOW_GRADIENT_LOCAL(mesh, ilev, pressure, za, zb, volume, gradient_integral)
     TYPE(tMultiMesh), INTENT(IN) :: mesh
     INTEGER, INTENT(IN) :: ilev
