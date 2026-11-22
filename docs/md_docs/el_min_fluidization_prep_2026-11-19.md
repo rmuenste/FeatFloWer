@@ -516,7 +516,41 @@ the round-2 binary d27a74fb-pece2a7f7 (against the older references one extra li
 against R_id400_new: every `EL_` line bitwise (13 077; EL_RESTITUTION_STATS 400, EL_BED_AUDIT 40,
 EL_UMAX_AUDIT 40), XxX 800/800, particle logs 27/27.
 
-### 7.4 Structure of the case-11 post tool (review r4, 2026-11-22)
+### 7.4 Structure of the case-11 post tool (review r4, 2026-11-22; supported domain: review r5)
+
+**Supported domain and fail-closed rule.** The tool certifies one thing: a complete, uninterrupted run of
+an echoed inlet protocol. Before any gate, one function (`official_preconditions`) checks that (a) the
+inlet table echo is present and complete (row count of the echo, strictly increasing finite rows), (b)
+the time lines form one clock segment (one printed dt; steps 1, 2, ... without a gap; every time line on
+t0 + k dt; one MaxSimTime / MaxNumStep, i.e. no Reload_SimPar that changed the clock; t0 = the first table
+row), (c) the run finished (finish marker) and completed the time of the last table row, and (d) every
+physical input is resolved from the run with its provenance printed: d, rho_p and N from the sphere-setup
+echo (example.json as fallback), rho_f and g from the Prop echo (deck as fallback), mu = the closure nu of
+the viscosity echo times rho_f, the drag model, the kernel width factor (mapping support), the column
+extents, the audit frequency. If any of these fails, every official gate is unavailable and the report
+lists the reasons under `NO OFFICIAL VERDICT`; the per-step table and numbers are printed as measurements
+of a partial or non-standard run. The only verdicts that survive are witnessed failures: a particle-count
+change among validated audit rows (F5 count) and a centre above mid-column in a validated row inside the
+intended lowest hold (F5 height). A PASS never comes out of a run that fails the precondition. The
+reasons it can emit (exact texts in `fl11_post.PRECONDITION_REASONS`): no inlet table echo; table echo
+without its row count / incomplete / not strictly increasing and finite; no time lines; time step not
+constant; no constant time step established; time lines not the consecutive steps 1, 2, ...; MaxSimTime or
+MaxNumStep changed during the run; a time line off t0 + k dt; clock start differs from the first table row;
+no finish marker; run ended before the last table row; audit frequency unknown; d / rho_p / rho_f / mu / g
+not resolved; drag model not one of gidaspow, ergun, wenyu; mapping support not a positive finite number;
+column extents not in the log; particle count N not resolved / sphere-setup count differs from the first
+audit row. Round-5 changes inside the domain: the intended holds come from the echoed table alone and are
+never clipped to the observed interval (coverage decides measured or unmeasurable); a steps file is a
+cross-check only (no echo: no official gate); F2 and F3 need the measured plateau of F1 (no step with
+dp* > 0.95: unavailable, the nominal classification is a labelled measurement); F3 needs two distinct
+nonzero fixed velocities and a relative determinant of the normal equations above 1e-6; F5 height: a
+centre exactly at mid-height passes, one above it by less than the print uncertainty is undecidable
+(unavailable), above that band FAIL, and the exceedance search is independent of the PASS proof;
+physical command-line arguments or a `--closure` that differ from the run give a labelled comparison;
+an audit row whose pressure identities (dp = p_in - p_out, dp_dyn = dp - dp_hydro, to the ES16.8 print
+precision) fail or whose count is not a non-negative integer is a hole; a printed sub-window mean lies
+inside its hold with its own coverage (else n/a). The paragraphs below describe the round-4 structure;
+where they differ, this paragraph holds.
 
 The fourth review showed verdict reversals on equivalent inputs (a redundant table knot moved F1 from
 0.978732 FAIL to PASS) and on degraded inputs (one dropped audit row: PASS from the remaining subset).
@@ -541,9 +575,10 @@ count) and reduced to maximal constant-velocity holds: adjacent equal-valued seg
 both ends included, are merged before the 0.1 s threshold; the terminal hold ends with the run (open
 when the run has not finished). A step ends where its hold ends and starts where the previous hold ends
 (the start of the transition into it). Redundant knots, subdivided holds and a dropped redundant last
-knot give byte-identical output. Without an echo a valid steps file (no duplicate or overlapping rows)
-is the protocol, every verdict labelled; with an echo a steps file is only validated against it (three
-columns, multiplicity) and gives a labelled summary when it differs.
+knot give byte-identical output. (Round 5: the holds start at the first table row and are not clipped to
+the observed interval; without an echo there is no official gate and a steps file only gives a labelled
+summary.) With an echo a steps file is only validated against it (three columns, multiplicity) and gives
+a labelled summary when it differs.
 
 **C. Clock and audit sequence.** The expected audit rows are the multiples of the echoed audit frequency
 up to the last completed step; their times are t0 + k dt where a constant time step is established (one

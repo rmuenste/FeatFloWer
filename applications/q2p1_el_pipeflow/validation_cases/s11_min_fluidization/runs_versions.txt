@@ -217,3 +217,20 @@ job     run                      binary     result
         a flipped verdict, 170 with a verdict unavailable); post_r4.txt of R_r1_proto, R_r1_oldsplit, R_proto_movie
         (run dirs) and R_r2_rest (unit/post_r4/R_r2_rest.post_r4.txt): gate numbers and verdicts of post_r3.txt;
         fl11_movie --stats on R_id400_new: both round-3 caches rebuilt
+
+Fix round 5 (external review r5, 2026-11-22): post tool, movie tool, render job and submit script only, no Fortran
+change (binary b9e8f410-pece2a7f7 stands). FeatFloWer commits 788ffbaf (fl11_post.py: supported domain = a complete,
+uninterrupted run of an echoed inlet protocol, fail-closed precondition, intended holds from the echo alone, run
+physics with provenance, F3 rank check, F5 print-precision band), 14874b5b (fl11_movie.py state / trace end from the
+evaluation, stale rank frames refused; render end check on the solver clock; fl11_submit.sh refuses a dir with rank
+logs); design note section 7.4 (first paragraph and round-5 evidence).
+job     run                      binary     result
+164979  fl11_post --self-test 66/66; old_vs_new5.txt (r5 cases and six R_r1_proto variants through 49e99566 and the
+        new tool); --self-test-real R_r1_proto 300 variants 0 failures; post_r5.txt of R_r1_proto, R_r1_oldsplit,
+        R_proto_movie (run dirs) and R_r2_rest (unit/post_r5): gate numbers and verdicts of post_r4.txt; verdict lines of
+        every run dir with a post*.txt (incl. R_r1_rest) unchanged; movie rtest/: stale rank frames refused, start-up
+        log runs, render refuses frames beyond the solver end, renders the intact copy; submit refusal exit 6.
+        (--self-test-real R_id400_new failed 11/60 there: the dt-changed transform doubled dt and lengthened the
+        constant-inlet run into a 0.3 m/s hold of its own; transform changed to dt / 2)
+164981  the final fl11_post.py (md5 90abf58d): --self-test 66/66; --self-test-real R_r1_proto and R_id400_new 300
+        variants each, 0 failures; the five recorded reports byte-identical to those of job 164979
