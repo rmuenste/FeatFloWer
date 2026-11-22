@@ -113,7 +113,9 @@ def tol_t(t):
 # ---------------------------------------------------------------------------------------------------
 # reading
 # ---------------------------------------------------------------------------------------------------
-PAT_TIME = re.compile(r'^\s*time:\s*(%s)\s*/\s*(%s)\s*\|.*\|\s*dt:\s*(%s)' % (NUM, NUM, NUM))
+# time line of a step: 'time: t / t_max | itns: istep / nsteps | dt: dt' (D format with 4 digits)
+PAT_TIME = re.compile(r'^\s*time:\s*(%s)\s*/\s*(%s)\s*\|\s*itns:\s*(\d+)\s*/\s*(\d+)\s*\|\s*dt:\s*(%s)' % (NUM, NUM, NUM))
+TOL_D4 = 5e-4          # relative print precision of the 4-digit D format of the time line
 
 
 def parse(rundir):
@@ -159,7 +161,7 @@ def parse(rundir):
         elif not finite(dt_log) and line.lstrip().startswith('time:'):
             m = PAT_TIME.match(line)
             if m:
-                dt_log = f(m.group(3))
+                dt_log = f(m.group(5))
     # floor force from the particle momentum balance: EL_BED_AUDIT floor_bal_z; an older log without
     # the field: from the EL_NEWTON_PAIR line of the same step (the same two numbers), only with that
     # line and a positive finite time step (the log's dt, else the audit spacing); nan otherwise
@@ -175,19 +177,23 @@ def parse(rundir):
 
 def parse_setup(rundir):
     """kernel width factor (and where it came from), fluid gravity, extents of the column (z), start
-    of the run and evaluation horizon (and where they came from)"""
+    of the run, evaluation horizon (and where it came from) and the time the run reached.
+    Time: the solver stops at min(MaxSimTime, start + MaxNumStep dt). The time lines of the first and
+    the last step of the log give start, t_max, step counts and dt with 4 digits; the deck gives
+    StartSimTime, MaxSimTime, TimeStep, MaxNumStep exactly. The deck values are used when they agree
+    with the log within its print precision (or the log has no time line), the log values otherwise
+    (they are what ran). t_run = start + (steps of the last time line) x dt."""
     setup = dict(width=None, width_src=None, fluid_gravity=None, zmin=None, zmax=None,
                  t_start=NAN, horizon=NAN, horizon_src=None, t_run=NAN)
     pat_w = re.compile(r'^EL kernel width factor\s*=\s*(%s)' % NUM)
     pat_g = re.compile(r'^EL fluid gravity\s*=\s*([TF])')
     pat_x = re.compile(r'^Global CFD domain extents:\s*(%s)\s+(%s)\s+(%s)\s+(%s)\s+(%s)\s+(%s)' % ((NUM,) * 6))
+    first = last = None
     for line in open(os.path.join(rundir, 'run_slurm.log'), errors='replace'):
         if line.lstrip().startswith('time:'):
             m = PAT_TIME.match(line)
             if m:
-                t1, tend, dt = f(m.group(1)), f(m.group(2)), f(m.group(3))
-                if finite(t1) and finite(tend) and finite(pos(dt)):
-                    setup['t_start'], setup['horizon'], setup['horizon_src'] = t1 - dt, tend, 'log (time line of the first step)'
+                first = (f(m.group(1)), f(m.group(2)), int(m.group(3)), int(m.group(4)), f(m.group(5)))
                 break                                     # the first time line follows the start-up echo
         m = pat_w.match(line)
         if m and setup['width'] is None:
@@ -198,6 +204,16 @@ def parse_setup(rundir):
         m = pat_x.match(line)
         if m and setup['zmin'] is None:
             setup['zmin'], setup['zmax'] = f(m.group(5)), f(m.group(6))
+    with open(os.path.join(rundir, 'run_slurm.log'), 'rb') as fh:        # the last time line: the tail
+        fh.seek(0, 2)
+        fh.seek(max(0, fh.tell() - 4000000))
+        tail = fh.read().decode(errors='replace').splitlines()
+    for line in reversed(tail):
+        if line.lstrip().startswith('time:'):
+            m = PAT_TIME.match(line)
+            if m:
+                last = (f(m.group(1)), f(m.group(2)), int(m.group(3)), int(m.group(4)), f(m.group(5)))
+                break
     deck = os.path.join(rundir, '_data', 'q2p1_param.dat')
     keys = {}
     if os.path.exists(deck):
@@ -210,24 +226,28 @@ def parse_setup(rundir):
             setup['width'], setup['width_src'] = keys['ELKernelWidthFactor'], 'deck'
         else:
             setup['width'], setup['width_src'] = 2.5, 'EL_CONFIG default'
-    if not finite(setup['horizon']) and 'TimeStep' in keys and 'MaxNumStep' in keys:
-        t0 = keys.get('StartSimTime', 0.0)
-        setup['t_start'], setup['horizon'] = t0, t0 + keys['TimeStep'] * keys['MaxNumStep']
-        setup['horizon_src'] = 'deck (StartSimTime + TimeStep x MaxNumStep)'
+
+    def agree(a, b):
+        return finite(a) and finite(b) and abs(a - b) <= TOL_D4 * max(abs(a), abs(b), 1.0 if b == 0 else 0.0)
+    log_ok = first is not None and all(finite(x) for x in (first[0], first[1], first[4])) and first[4] > 0
+    deck_ok = all(k in keys for k in ('TimeStep', 'MaxNumStep')) and finite(pos(keys['TimeStep']))
+    dt = keys['TimeStep'] if deck_ok and (not log_ok or agree(keys['TimeStep'], first[4])) else (first[4] if log_ok else NAN)
+    t_log = first[0] - first[2] * dt if log_ok else NAN
+    h_log = min(first[1], t_log + first[3] * dt) if log_ok else NAN
+    if deck_ok:
+        t_deck = keys.get('StartSimTime', 0.0)
+        h_deck = min(keys.get('MaxSimTime', math.inf), t_deck + keys['TimeStep'] * keys['MaxNumStep'])
+    if deck_ok and (not log_ok or (agree(t_deck, t_log) or abs(t_deck - t_log) <= TOL_D4) and agree(h_deck, h_log)):
+        setup['t_start'], setup['horizon'] = t_deck, h_deck
+        setup['horizon_src'] = 'deck: min(MaxSimTime, StartSimTime + TimeStep x MaxNumStep)' + (', the log agrees' if log_ok else '')
+    elif log_ok:
+        setup['t_start'], setup['horizon'] = t_log, h_log
+        setup['horizon_src'] = 'log: min(t_max, start + nsteps x dt) of the first time line' + (' (the deck disagrees)' if deck_ok else '')
+    if last is not None and finite(setup['t_start']) and finite(dt):
+        setup['t_run'] = setup['t_start'] + last[2] * dt
     for k in ('zmin', 'zmax'):
         if setup[k] is not None and not finite(setup[k]):
             setup[k] = None
-    # how far the run got: the time line of the last step in the log (its tail)
-    with open(os.path.join(rundir, 'run_slurm.log'), 'rb') as fh:
-        fh.seek(0, 2)
-        fh.seek(max(0, fh.tell() - 4000000))
-        tail = fh.read().decode(errors='replace').splitlines()
-    for line in reversed(tail):
-        if line.lstrip().startswith('time:'):
-            m = PAT_TIME.match(line)
-            if m:
-                setup['t_run'] = f(m.group(1))
-                break
     return setup
 
 
@@ -300,6 +320,8 @@ def lowest_plateau(knots):
 def read_steps(path):
     """rows 't_start t_end U' of a steps file; (rows, errors)"""
     rows, errors = [], []
+    if not os.path.isfile(path):
+        return rows, ['steps file %s not found' % path]
     for k, line in enumerate(open(path), 1):
         s = line.strip()
         if not s or s.startswith('#'):
@@ -829,7 +851,7 @@ def _dps(u):
 def _write_run(path, protocol=PROTO, cad=0.01, times=None, t_from=None, t_end=None, area=2.25e-4, n=9789,
                width=2.5, margin_d=2.5, zlo_d=None, dyn=True, dp_hydro=0.0, d=0.87e-3, steps_file=None,
                ekern=0.37, ekern_fn=None, extents=True, z0=0.0, drop_last_knot=False, horizon='log',
-               zmax_fn=None, legacy=False, tstep=0.5, t_run=None):
+               zmax_fn=None, legacy=False, tstep=0.5, t_run=None, planned=None):
     """a synthetic run directory: start-up echo, table echo, the time line of the first step (or the
     deck), EL_BED_AUDIT and EL_FORCE_BUDGET lines. Heights above the inlet plane z0: bed top 24 mm
     (zmax_fn(t) for the highest centre), mapped porosity ekern (or ekern_fn(t)); legacy = a binary before
@@ -852,14 +874,15 @@ def _write_run(path, protocol=PROTO, cad=0.01, times=None, t_from=None, t_end=No
     lines += ['  EL_INLET_TABLE %s %s' % (_e(t, 16, 8), _e(u, 16, 8)) for t, u in tab]
     if extents:
         lines += ['Global CFD domain extents: ' + ' '.join(_e(x) for x in (0.0, 0.015, 0.0, 0.015, z0, z0 + 0.1))]
+    nplan = int(round((t_proto if planned is None else planned) / dt_sim))
     if horizon == 'log':
         lines.append('time:  %s/  %s | itns:       1/  %d  | dt:  %s' % (
-            _e(dt_sim, 10, 4).replace('E', 'D'), _e(t_proto, 10, 4).replace('E', 'D'), int(round(t_proto / dt_sim)),
+            _e(dt_sim, 10, 4).replace('E', 'D'), _e(t_proto, 10, 4).replace('E', 'D'), nplan,
             _e(dt_sim, 10, 4).replace('E', 'D')))
     if horizon == 'deck':
         with open(os.path.join(path, '_data', 'q2p1_param.dat'), 'w') as fh:
             fh.write('SimPar@TimeStep = %gd0\nSimPar@MaxNumStep = %d\nSimPar@StartSimTime = 0d0\n'
-                     % (dt_sim, int(round(t_proto / dt_sim))))
+                     % (dt_sim, nplan))
     if times is None:
         times, k = [], 1
         while k * cad <= t_end + 1e-12:
@@ -896,7 +919,7 @@ def _write_run(path, protocol=PROTO, cad=0.01, times=None, t_from=None, t_end=No
     if horizon == 'log':
         lines.append('time:  %s/  %s | itns:  %d/  %d  | dt:  %s' % (
             _e(t_run, 10, 4).replace('E', 'D'), _e(t_proto, 10, 4).replace('E', 'D'), int(round(t_run / dt_sim)),
-            int(round(t_proto / dt_sim)), _e(dt_sim, 10, 4).replace('E', 'D')))
+            nplan, _e(dt_sim, 10, 4).replace('E', 'D')))
     with open(os.path.join(path, 'run_slurm.log'), 'w') as fh:
         fh.write('\n'.join(lines) + '\n')
     if steps_file is not None:
@@ -967,9 +990,11 @@ def self_test_cases():
         ('r3: terminal hold without its last knot, centre at 60 mm late in the hold', dict(drop_last_knot=True, zmax_fn=hi_after), [],
          ['lowest velocity 0.050 m/s (2.020-2.500 s', 'containment NOT met: FAIL'], ['0.100 m/s (', 'Traceback'], False),
         ('r3: the same table, horizon from the deck', dict(drop_last_knot=True, zmax_fn=hi_after, horizon='deck'), [],
-         ['[deck (StartSimTime', 'lowest velocity 0.050 m/s (2.020-2.500 s', 'containment NOT met: FAIL'], ['Traceback'], False),
+         ['[deck: min(MaxSimTime', 'lowest velocity 0.050 m/s (2.020-2.500 s', 'containment NOT met: FAIL'], ['Traceback'], False),
         ('r3: the same table without a horizon', dict(drop_last_knot=True, zmax_fn=hi_after, horizon=None), [],
          ['F5 withheld: the lowest velocity 0.050 m/s is the hold of the last table value'], ['containment', 'Traceback'], False),
+        ('MaxNumStep ends the run before the table (horizon from the step count)', dict(planned=2.3, t_end=2.3), [],
+         ['horizon 2.3000 s', 'lowest velocity 0.050 m/s (2.020-2.300 s', 'containment met: PASS'], ['Traceback', 'incomplete'], False),
         ('r3: one audit line of a binary without floor_bal_z', dict(legacy=True, times=[0.75]), [],
          ['1 audit lines', 'F1, F2, F3 unavailable', 'F5'], ['Traceback'], False),
         ('r3: no column extents, lower window end at 1 d', dict(zlo_d=1.0, extents=False), [],
