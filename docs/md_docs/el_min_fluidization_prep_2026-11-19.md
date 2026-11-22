@@ -451,6 +451,71 @@ every `EL_` line bitwise (13 077, among them EL_RESTITUTION_STATS 400, EL_BED_AU
 40), XxX 800/800, particle logs 27/27 identical. The record run (Fortran 627caf47) therefore stands
 for the final head on the case-11 path.
 
+### 7.3 Fix round 3 (review r3, 2026-11-22)
+
+Commits 46d06ce6 (Fortran, finding 8), 70306954 and a45e9303 (post tool, findings 1-7), b9e8f410
+(movie tool and render job, findings 9-10); binary `q2p1_el_pipeflow.b9e8f410-pece2a7f7` (build job
+164964, unit tests 164965: 15/15). Every reviewer counterexample was reproduced first.
+
+**Post tool `fl11_post.py` [V, jobs 164968, 164972; `runs/fluid11/unit/post_r3/old_vs_new.txt`].**
+- The official gates F1-F5 use the ECHOED protocol only, each plateau once. A `--steps` file is
+  validated in all three columns and for multiplicity; a deviating file gives a separately labelled
+  steps-file summary (NOT gated). Only a log without a table echo is evaluated from a steps file, and
+  every verdict then carries `[protocol from the steps file, not from the echo]`. On the unchanged
+  R_r1_proto log the tool of 1fbb28e4 printed F1 0.980867 PASS for a duplicated 0.18 row and 0.980269
+  PASS for an omitted 0.30 row and accepted a 0.18 row with a shifted start silently; the new tool
+  prints the recorded 0.978732 FAIL in all three and names the deviation.
+- F2: each contributing mapped sample must be finite with 0 < eps < 1 (the -1 sentinel of old
+  binaries and an unclipped 1 are refused), and every fixed step needs a positive closure and a finite
+  ratio before the maximum (zero-velocity plateau included). The old tool printed `worst 0.0000 PASS`
+  for a mapped porosity 1.0; now unavailable with the reason.
+- Inlet history with the solver rule (EL_INLET_TABLE_VALUE): the last value is held up to the
+  evaluation horizon min(MaxSimTime, start + MaxNumStep dt) (deck values when the log's time line
+  agrees within its 4-digit print precision, the log otherwise); without a horizon F5 is withheld for
+  that hold. A table without its redundant last knot: old F5 tested 0.10 m/s (PASS), new 0.05 m/s (FAIL
+  with the 60 mm centre of the fixture).
+- A missing floor_bal_z is nan for any number of audit lines (old: TypeError on a one-line log); the
+  EL_NEWTON_PAIR reconstruction needs the matching line and a positive finite dt.
+- F2 margin: the inlet elevation and a finite lower, upper and reported-or-legacy margin on every
+  contributing line are required; missing geometry is its own reason (old: `met`, PASS).
+- 'The run reached t' (an audit line or the step count of the last time line of the log) is checked
+  separately from the sampling (distinct samples, first / last within one cadence of the window ends,
+  no gap wider than one cadence, print-precision tolerance of the time). A uniform 30 ms audit now
+  qualifies (old: no window), 40 ms gaps in a 30 ms audit do not, a dropped last audit line of a run
+  that reached its end gives a consistent complete result. F5 qualifies the particle count over the
+  whole run (start to horizon) separately from the height coverage of the lowest plateau; a log with
+  only the final rows gives `unavailable (count over the run not established)` (old: PASS).
+- Absolute z: bed height z99 + r - zmin, containment against zmin + Lz/2 from the echoed extents
+  (unavailable without them; `--lz` only cross-checked). A column translated by -20 mm: old 40 mm
+  PASS, new 60 mm above the floor, FAIL.
+- `--self-test`: 30 synthetic logs, every counterexample of reviews r2 and r3 among them;
+  `old_vs_new.txt` runs each through the tool of 1fbb28e4 as well.
+
+`post_r3.txt` of R_r1_proto, R_r1_oldsplit and R_proto_movie: every gate number identical to
+`post_r2.txt` (F1 0.978732 FAIL / 0.982573 / 0.981421, F3 1.0474 / 1.0490 / 1.0420, F2 3.49 % PASS /
+unavailable / unavailable, F5 23.81 / 24.00 / 24.03 mm PASS with the count covered over 0-7.5 s).
+
+**HRZ refusal (finding 8) [V, job 164967].** `EL_CONFIG:EL_FLUID_SOLVE_ACTIVE` is the one fluid-solve
+predicate (transport, velocity-audit terms, start-up refusal). The prescribed-field deck (fb4 +
+`ELPrescribedField = linear_shear`): refused by d27a74fb, runs 3 steps with the new binary; the active
+non-Newtonian S0 solve is still refused, the message no longer suggests rowsum. The post-reload
+backstop aborts MPI_COMM_WORLD (EL_DRAG_HRZ_RUNTIME_CHECK): a Newtonian hrz run whose Reload_SimPar
+switches FlowType to non-Newtonian ends after step 1 on every rank with MPI_ABORT, exit 149 (d27a74fb:
+ERROR STOP on the workers only; in this run the launcher also ended the job, exit 1, but the new path
+does not rely on that).
+
+**Movie (findings 9-10).** `fl11_movie.py` takes its step table and audit columns from
+`fl11_post.prepare` / `step_table`; the render job keeps the check log and the temporary movie in its
+job directory and exits with the status of the final rename [V, job 164969].
+
+**Gates [V, job 164966; `runs/fluid11/gate/pc_compare_b9e8f410-pece2a7f7.txt`].** (a) Default path: D_s6, G_tier2, E2w5,
+VB40 against `__base` and `R_fix3_off400` (restitution keys absent) against R_smoke_r1: all common EL_
+streams bitwise (strict), XxX 40/60/10/40/800, particle logs 27/27; every `EL_` line bitwise against
+the round-2 binary d27a74fb-pece2a7f7 (against the older references one extra line, the
+`EL_CONTACT_PARAMS` start-up echo of pe ce2a7f7). (b) `R_fix3_id400` (restitution on, 400 steps)
+against R_id400_new: every `EL_` line bitwise (13 077; EL_RESTITUTION_STATS 400, EL_BED_AUDIT 40,
+EL_UMAX_AUDIT 40), XxX 800/800, particle logs 27/27.
+
 ## 8. Floor force of the bed audit: the pe wall-contact impulse is the unrelaxed PGS impulse
 
 **Finding [V].** In the fixed branch of the protocol run (R_proto_hrz, job 164004) dp* + floor/W with the
