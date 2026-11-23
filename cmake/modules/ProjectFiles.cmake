@@ -313,6 +313,7 @@ ${CMAKE_SOURCE_DIR}/source/src_el/el_momentum_model.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_va_flux.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_viscous.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_mm_operator.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_momentum_balance.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_image_transfer.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_transfer.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_volume_averaged.f90
@@ -357,6 +358,7 @@ ${CMAKE_SOURCE_DIR}/source/src_el/el_momentum_model.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_va_flux.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_viscous.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_mm_operator.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_momentum_balance.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_image_transfer.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_transfer.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_volume_averaged.f90
@@ -445,6 +447,15 @@ if(BUILD_TESTING)
   target_include_directories(test_el_bed_audit PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
   target_compile_options(test_el_bed_audit PRIVATE ${Fortran_FLAGS})
   add_test(NAME el-bed-audit-serial COMMAND test_el_bed_audit)
+
+  # Helpers of the momentum-balance audit (SimPar@ELMomentumBalanceAudit): masked row sums,
+  # momentum flux and viscous traction through the z planes on the synthetic unit-cube mesh.
+  add_executable(test_el_momentum_balance
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_el_momentum_balance.f90)
+  target_link_libraries(test_el_momentum_balance ff_quadLS_app el_test_helpers)
+  target_include_directories(test_el_momentum_balance PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_el_momentum_balance PRIVATE ${Fortran_FLAGS})
+  add_test(NAME el-momentum-balance-serial COMMAND test_el_momentum_balance)
 
   # Particle-mesh transfer conservation/interpolation suite. Runs the
   # assertable transfer math against a synthetic structured Q2/P1 mesh on

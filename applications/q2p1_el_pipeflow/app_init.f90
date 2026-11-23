@@ -717,6 +717,7 @@ END SUBROUTINE get_global_domain_extents
                         el_tavg_window, &
                         el_inlet_u0, el_inlet_u1, el_inlet_tramp, &
                         el_inlet_table_file, el_bed_audit_freq, el_velocity_audit_freq, &
+                        el_momentum_balance_audit, &
                         EL_INLET_SUPERFICIAL, &
                         el_momentum_model, el_mm_pressure_operator, el_fluid_viscosity, &
                         el_periodic_kernel, el_periodic_wrap, &
@@ -730,7 +731,8 @@ END SUBROUTINE get_global_domain_extents
    USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,iCommSwitch,&
      nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
      myExport,cAdaptedMeshFile,nUmbrellaSteps,bNoOutflow,myDataFile,&
-     bViscoElastic,bRefFrame,bConstForce,ConstForce,iConvectionForm
+     bViscoElastic,bRefFrame,bConstForce,ConstForce,iConvectionForm,&
+     bNS_Stabilization,GAMMA
 
    IMPLICIT DOUBLE PRECISION(A-H,O-Z)
    PARAMETER (NNLEV=9)
@@ -1005,6 +1007,8 @@ END SUBROUTINE get_global_domain_extents
          READ(string(iEq+1:),*) el_bed_audit_freq
        CASE ("ELVelocityAuditFreq")
          READ(string(iEq+1:),*) el_velocity_audit_freq
+       CASE ("ELMomentumBalanceAudit")
+         el_momentum_balance_audit = parse_yes_no_param(string, iEq, cName, cPar)
 #endif
        CASE ("MinTimeAdapt")
          READ(string(iEq+1:),*) DTMIN
@@ -1167,6 +1171,20 @@ END SUBROUTINE get_global_domain_extents
        'the explicit partner dt B u^n would stay in the residual. Use FlowType = Newtonian or '// &
        'MatrixRenewal S >= 1.'
      STOP 1
+   END IF
+   ! ELMomentumBalanceAudit splits the momentum defect into lumped mass, diffusion matrix D,
+   ! convection matrix K and drag diagonal (EL_MOMENTUM_BALANCE): it covers the backward-Euler
+   ! Newtonian path whose matrix is M_l + dt (D + K + B) only, with the fluid solved every step
+   ! and no filter acting on the velocity after the projection. Deck-only, every rank alike.
+   IF (el_momentum_balance_audit) THEN
+     IF (THETA.NE.1.0d0 .OR. bNonNewtonian .OR. bViscoElastic .OR. bNS_Stabilization .OR. &
+         GAMMA.NE.0.0d0 .OR. myMatrixRenewal%M.LT.1 .OR. myMatrixRenewal%D.LT.1 .OR. &
+         myMatrixRenewal%K.LT.1 .OR. el_meso_filter .OR. .NOT.EL_FLUID_SOLVE_ACTIVE()) THEN
+       WRITE(*,'(A)') 'ELMomentumBalanceAudit = Yes covers SimPar@TimeScheme = BE, FlowType = Newtonian '// &
+         'without viscoelastic stress, NS stabilisation or GAMMA, MatrixRenewal M, D, K >= 1, no '// &
+         'ELMesoFilter and a solved (not prescribed) fluid only.'
+       STOP 1
+     END IF
    END IF
    ! the superficial inlet sums its nodal porosity with the same routine
    IF (EL_INLET_SUPERFICIAL() .AND. iCommSwitch.NE.3 .AND. iCommSwitch.NE.4) THEN

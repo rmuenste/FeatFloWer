@@ -360,6 +360,12 @@ MODULE EL_CONFIG
   ! (EL_VELOCITY_AUDIT: location, components and local porosity of the fastest fluid dof,
   ! smallest element porosity, inlet-plane porosity). Diagnostic only.
   INTEGER :: el_velocity_audit_freq = 0
+  ! SimPar@ELMomentumBalanceAudit = Yes (default No): every step the EL_MOM_BALANCE_* lines
+  ! (EL_MOMENTUM_BALANCE: the impulse the particles receive, the coupling terms of the gas
+  ! momentum equation as assembled, boundary planes and storage, closure residuals). Reads the
+  ! solver state only; no effect on the solution. Needs ELDomainType = box (inlet / outlet
+  ! planes); the application refuses solver settings the balance does not cover (app_init).
+  LOGICAL :: el_momentum_balance_audit = .FALSE.
   ! Mesoscale lane-mode filter for periodic settling boxes: each step,
   ! subtract from u_z its zero-mean x-binned and y-binned plane averages
   ! (the gravest "lane" modes of the two-way-coupled concentration
@@ -650,6 +656,12 @@ CONTAINS
       WRITE(*,*) 'ELVelocityAuditFreq must be >= 0 (0 = off).'
       STOP 1
     END IF
+    ! the boundary terms of the momentum balance are integrals over the z planes of the box
+    IF (el_momentum_balance_audit .AND. TRIM(el_domain_type).NE.'box') THEN
+      WRITE(*,'(A,A)') 'ELMomentumBalanceAudit = Yes needs ELDomainType = box (inlet / outlet ', &
+        'are the z planes of the domain box); ELDomainType = '//TRIM(el_domain_type)
+      STOP 1
+    END IF
 
     IF (el_tavg_window.LE.0.0d0 .OR. el_tavg_window.GT.1.0d0) THEN
       WRITE(*,*) 'ELTAvgWindow must be in (0,1].'
@@ -714,6 +726,8 @@ CONTAINS
       el_bed_audit_freq
     IF (el_velocity_audit_freq.GT.0) WRITE(mfile,'(A,I0)') 'EL velocity audit freq    = ', &
       el_velocity_audit_freq
+    IF (el_momentum_balance_audit) WRITE(mfile,'(A,L1)') 'EL momentum balance audit = ', &
+      el_momentum_balance_audit
 
     IF (mterm.NE.mfile) THEN
       WRITE(mterm,'(A,A)') 'EL kernel                 = ', TRIM(el_kernel)
@@ -765,6 +779,8 @@ CONTAINS
         el_bed_audit_freq
       IF (el_velocity_audit_freq.GT.0) WRITE(mterm,'(A,I0)') 'EL velocity audit freq    = ', &
         el_velocity_audit_freq
+      IF (el_momentum_balance_audit) WRITE(mterm,'(A,L1)') 'EL momentum balance audit = ', &
+        el_momentum_balance_audit
     END IF
 
   END SUBROUTINE EL_PRINT_CONFIG
