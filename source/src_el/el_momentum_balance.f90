@@ -59,7 +59,7 @@
 !              it then applies per body: the difference appears in res_p
 !   pressure, viscous, lift    the other hydrodynamic forces armed in pe (model A: -V grad p, V div tau)
 !   weight     the buoyant weight (rho_p - rho_f) V g armed in pe
-!   hydro      drag_impl + pressure + viscous + lift  (H_p, the hydrodynamic force of gate F1's budget)
+!   hydro      drag_impl + pressure + viscous + lift  (H_p of the F1 budget, RUNBOOK section 15)
 !   fb_used    sum of the explicit feedback the particles deposit (hydro reaction actually deposited)
 !   deposit    sum of the deposited nodal source (= -fb_used up to the kernel normalisation)
 !   dp_dt      measured change of the total particle momentum over the pe advance / dt
@@ -77,7 +77,7 @@
 !   trac_in/out   sum over the plane faces of c (grad u) n dS (unweighted Laplacian form of D,
 !              c the operator viscosity): the viscous force the outside exerts on the gas
 ! The momentum values mom_start / mom_pred / mom_end (sum M u^n, sum M u~, sum M u^{n+1}, this
-! step's lumped mass) are in lines GA / GD.
+! lumped mass of the step) are in lines GA / GD.
 !
 ! Closures (line C):
 !   res_gas_F  = inertia_F - [pgrad_end + mmp_end + mmv_old + visc_pred + conv_pred + feedback
@@ -90,7 +90,7 @@
 !                mmp_old + mmv_old + feedback + partner + dragimp_pred + visc_pred + conv_pred
 !                + rhs_other]_D}: ROUND-OFF.
 !   res_p      = dp_dt - (hydro + weight + PE_WALL_RELAXATION wall_contact_raw + wall_lub_raw):
-!                the particle balance against pe's own wall impulse. Holds only to the accuracy of
+!                the particle balance against the own wall impulse of pe. Holds only to the accuracy of
 !                that bookkeeping and of drag_impl as the applied drag (contacts inside the pe
 !                sub-steps change the drag pe applies); res_p_raw: the same with factor 1.
 !   Reconstruction of hydro - dpA (the F1 residual) from the free-row gas balance; the terms add
@@ -162,7 +162,7 @@ MODULE EL_MOMENTUM_BALANCE
   REAL*8, SAVE :: plane_loc(MB_NPLANE) = 0.0d0
   LOGICAL, SAVE :: planes_set = .FALSE.
 
-  ! particle values, already global (summed over the ranks by the recording routine's caller)
+  ! particle values, already global (summed over the ranks by the caller of the recording routine)
   INTEGER, SAVE :: part_step = -1, dp_step = -1
   REAL*8, SAVE :: p_drag_expl(3) = 0.0d0, p_drag_impl(3) = 0.0d0, p_pressure(3) = 0.0d0
   REAL*8, SAVE :: p_viscous(3) = 0.0d0, p_lift(3) = 0.0d0, p_weight(3) = 0.0d0
@@ -279,7 +279,7 @@ CONTAINS
 
   ! Momentum flux and viscous traction through the element faces of this rank that lie in the
   ! plane z = zplane (all 9 face points within tol): area, sum rho_eps_e u (u.n) dS and
-  ! sum c (grad u) n dS, n the outward normal of the element (the domain's outward normal on a
+  ! sum c (grad u) n dS, n the outward normal of the element (the outward normal of the domain on a
   ! boundary plane). coor(3,*) the Q2 dof coordinates, coef_e(nel) the element coefficient of the
   ! convection operator, visc the operator viscosity c. Isoparametric Q2 map, 3 x 3 Gauss points.
   SUBROUTINE EL_MOMBAL_PLANE_LOCAL(mesh, ilev, coor, val_u, val_v, val_w, coef_e, visc, zplane, &
