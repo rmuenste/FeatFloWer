@@ -3,7 +3,7 @@
 Record of 2026-11-19 (preparation and cost probes; the protocol has NOT been run). Spec and reference
 (peer session, read-only): `liggghts-dem/LIGGGHTS-PUBLIC/md_docs/case_specs/11_min_fluidization/SPEC.md`,
 `reference/umf_reference.py`, `reference/inlet_table.py`. Origin: MFiX PIC07 / NETL experiment.
-Branch `feature/el-min-fluidization` (worktree `FeatFloWer-fluid11`), pe pin 43e8fb54. Design note of the
+Branch `feature/el-min-fluidization` (worktree `FeatFloWer-fluid11`), pe pin 619d43c (pe master with pull request #59; section 14; the runs of sections 1-13 used the binaries named there). Design note of the
 code: `docs/md_docs/el_min_fluidization_prep_2026-11-19.md`. Runs: `/data/warehouse17/rmuenste/runs/fluid11`.
 
 Marks: **[V]** verified here (code read, unit test, run output), **[I]** inferred or computed, not verified
@@ -624,6 +624,40 @@ Gates (amended spec):
 
 Standing of case 11 on this branch after section 13: F2 and F5 pass; F1 fails by 0.002 and F3 by 0.0004
 with the specified contact model; the peak gas speed carries the vertex oscillation of the consistent
-`hrz` split; the pe pin of the branch is still master's (the restitution keys need pe pull request #59
-and the pin bump).
+`hrz` split. The pe pin was still master's when this section was written; it is bumped in section 14.
+
+## 14. pe pin 619d43c (pe master with pull request #59), master merged (2026-11-23)
+
+Owner instruction of 2026-11-23: merge `feature/dns-validation-finalize` into master first, then bump the pin.
+
+1. Finalize merged into master as pull request #53 (master 9776a1da): pe pin 43e8fb5 -> 6003b00 with its
+   Fortran side (`mesh_extents`, callers in `q2p1_dkt` and `q2p1_viscometer`). Certified before the merge
+   (DNS datasheet row `finalize_4c901653_pre_merge_twin`): e4_l3 and DKT twins and four EL gates bitwise.
+2. pe pull request #59 merged by the owner: pe master 619d43c, a merge commit whose tree equals the reviewed
+   head d8b1893 (the binary of the record run, pe 4e4ad17, and the review binaries ce2a7f7 differ from it in
+   trace parser, tests and documentation only; section 13 and the gate below).
+3. This branch: master merged (73bd1a79), pin 6003b00 -> 619d43c (5b775bcc). `libs/pe` of the worktree is a
+   submodule checkout again (the plain copy of the pe branch is gone).
+
+Gates of 5b775bcc with pe 619d43c [V; scripts, logs and run directories in
+`/data/warehouse17/rmuenste/runs/pinbump_2026-11-23`], both trees new, build id
+`epycmilan-linux-gcc-release` pinned:
+
+| gate | job | reference | result |
+|---|---|---|---|
+| EL default paths D_s6, G_tier2, VB40, E2w5 (binary `5b775bcc-pe619d43c`, build job 165369) | 165373 | runs of binary b9e8f410-pece2a7f7 (job 164966) and the `__base` runs | all common EL streams, solver lines, every `EL_` line bitwise (18455, 962, 1681, 10181 lines) |
+| case 11, first 400 steps, restitution keys absent | 165373 | `R_fix3_off400`, `R_smoke_r1` | bitwise: 12677 `EL_` lines, 800 solver lines, 27 particle logs |
+| case 11, 400 steps, restitution on (deck and json of the record run) | 165373 | `R_fix3_id400`, `R_id400_new` | bitwise: 13077 `EL_` lines incl. 400 `EL_RESTITUTION_STATS`, 800 solver lines, 27 particle logs |
+| EL / pco unit tests | 165374 | - | 15 of 15 pass |
+| DNS twin e4_l3 (tree `build-twin-5b775bcc`, certified DNS recipe, build job 165368) | 165375 | certified head | particle_force.log ca98e7af225b, bulk_flow.log 89abce88b675, 7 streams identical |
+| DNS twin DKT | 165376 | certified head | particle_force.log 82411f64f661, bulk_flow.log cfb8b42d0969, 5 streams identical |
+
+So the pin with the restitution switch leaves every default path and both DNS twins bitwise, and the
+record configuration of section 13 reproduces bitwise over 400 steps with the pinned pe. The full 7.5 s
+protocol was not repeated with this binary (6.5 h); `R_r5_rest` stays the record run. Not covered: the
+Fritz half of the pin gate (production trees for 6003b00 and 619d43c), pending as in the DNS datasheet.
+
+Note for twin builds through Slurm: a tree configured on a compute node without a build id takes that
+node's flags (`-march=native` on nx) and the DKT twin is then not bitwise with the certified head
+(e4_l3 is); the build id has to be pinned (first attempt of the finalize certification, jobs 165356/165360).
 

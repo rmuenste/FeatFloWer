@@ -274,3 +274,7 @@ job     run                      binary     result
         0.125 s, a frame at 0.100025 s and a start-up echo after the finish refused; R_static --check labelled 'all
         0.040'; a scheduler-rejected sbatch releases the submit lock (exit 8)
 165013  final fl11_movie.py (md5 b93ebe07, decimal seconds in the refusal text): the four render_ok checks as in 165006
+165369  build-el-5b775bcc (new tree, build id pinned): binary runs/pinbump_2026-11-23/bin/q2p1_el_pipeflow.5b775bcc-pe619d43c md5 1fec1d02  FF 5b775bcc = master 9776a1da merged + pe pin 619d43c (pe master, pull request #59)
+165373  pin-bump gate: D_s6, G_tier2, VB40, E2w5, R_off400, R_id400 (runs/pinbump_2026-11-23/gate/*__5b775bcc-pe619d43c) bitwise against the b9e8f410-pece2a7f7 runs, the __base runs, R_smoke_r1 and R_id400_new (pc_compare_5b775bcc-pe619d43c.txt)
+165374  unit tests of build-el-5b775bcc: 15 of 15 pass
+165368 / 165375 / 165376  DNS tree build-twin-5b775bcc, twins twin_m5b775bcc_e4l3 and _dkt: bitwise with the certified heads (logs/m2_compare_twins.txt)
