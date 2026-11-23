@@ -116,6 +116,7 @@ set(src_util
   ${CMAKE_SOURCE_DIR}/source/src_util/MPI_SharedMemory.f90
   ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_Sigma_User.f90
   ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_var.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/mesh_extents.f90
   )
 
 #=========================================================================
