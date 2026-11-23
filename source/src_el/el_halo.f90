@@ -1,3 +1,29 @@
+!=========================================================================
+! EL_HALO - particle records of the coupling halo
+!
+! Every worker couples the particles it owns and the particles of other ranks whose kernel
+! reaches its elements. The neighbour graph links the ranks whose bounding boxes lie within
+! the largest kernel radius of each other; an owner sends a particle to every neighbour whose
+! box the kernel sphere of the particle reaches. A rank holds a particle at most once (one
+! record per rank, EL_ASSERT_UNIQUE_RECORDS).
+!
+! Periodic images (SimPar@ELPeriodicKernel = wrap): the two geometric tests become periodic
+! distances (EL_HALO_BOXES_COUPLED, EL_HALO_PARTICLE_REACHES_BOX; the lattice lives in
+! EL_PERIODIC). The record still travels once per rank and carries the position of the owner,
+! unshifted: which images of it reach the receiving rank, and with which shifts, is decided
+! there (EL_IMAGE_TRANSFER with EL_HALO_LOCAL_BOX), the same way for owned and received
+! records. A rank is never its own neighbour; the images of its own particles are found by
+! the same local enumeration.
+!
+! Agreement between ranks. The neighbour graph is declared by every rank for itself, so two
+! ranks must reach the same verdict on their pair: the periodic neighbour test is symmetric
+! bit for bit and is, in addition, evaluated with the box of the lower rank first on both
+! sides. The send list needs no such care: only the owner decides which records exist (the
+! receiver learns the count from it), and the receiver enumerates the images of a received
+! record with the same routine, the same radius and the same gathered box the owner used,
+! so it finds at least the image the owner found. A received record of which no image
+! touches an element contributes nothing.
+!=========================================================================
 MODULE EL_HALO
 
   USE ISO_C_BINDING, ONLY: c_int, c_short
@@ -5,7 +31,10 @@ MODULE EL_HALO
   USE TYPES, ONLY: tMultiMesh
   USE PP3D_MPI, ONLY: myid, master, showid, MPI_COMM_SUBS
   USE DEM_QUERY, ONLY: tParticleData
-  USE EL_CONFIG, ONLY: el_kernel_width_factor
+  USE EL_CONFIG, ONLY: EL_KERNEL_SUPPORT_RADIUS
+  USE EL_PERIODIC, ONLY: EL_PERIODIC_ACTIVE, EL_PERIODIC_KERNEL_FITS, EL_PERIODIC_LENGTHS, &
+                         EL_PERIODIC_BOXES_WITHIN_DELTA, EL_PERIODIC_SPHERE_REACHES_BOX, &
+                         EL_PERIODIC_BOX_SPANS_AXIS
 
   IMPLICIT NONE
 
@@ -62,7 +91,7 @@ CONTAINS
     IF (SIZE(owned_particles).GT.0) local_radius = MAXVAL(owned_particles%radius)
     CALL MPI_Allreduce(local_radius, global_radius, 1, MPI_DOUBLE_PRECISION, &
                        MPI_MAX, MPI_COMM_SUBS, ierr)
-    requested_delta = 2.0d0*el_kernel_width_factor*global_radius
+    requested_delta = EL_KERNEL_SUPPORT_RADIUS(global_radius)
 
     IF (.NOT.halo%initialized .OR. &
         ABS(requested_delta-halo%delta_max).GT.1.0d-12*MAX(1.0d0,requested_delta)) THEN
@@ -82,10 +111,25 @@ CONTAINS
     REAL*8 :: local_box(6), min_width, global_min_width
     INTEGER :: i, ierr, degree, affected_local, affected_global
     INTEGER :: max_layers_local, max_layers_global
+    INTEGER :: max_degree, spanning_rank
     INTEGER, ALLOCATABLE :: candidate_neighbors(:)
     LOGICAL :: overlap
 
     CALL EL_RELEASE_GRAPH()
+
+    ! Periodic images: the image bound of EL_PERIODIC needs a kernel radius below every
+    ! period. delta_max and the lattice are the same on every worker, so all of them stop here.
+    IF (EL_PERIODIC_ACTIVE()) THEN
+      IF (.NOT.EL_PERIODIC_KERNEL_FITS(delta_max)) THEN
+        IF (myid.EQ.showid) THEN
+          WRITE(*,'(A,ES14.6,A,3ES14.6)') 'Fatal: ELPeriodicKernel = wrap needs a kernel radius below every period; kernel radius = ', &
+            delta_max, ', periods (0 = not periodic) = ', EL_PERIODIC_LENGTHS()
+          WRITE(mfile,'(A,ES14.6,A,3ES14.6)') 'Fatal: ELPeriodicKernel = wrap needs a kernel radius below every period; kernel radius = ', &
+            delta_max, ', periods (0 = not periodic) = ', EL_PERIODIC_LENGTHS()
+        END IF
+        CALL MPI_Abort(MPI_COMM_SUBS, 911, ierr)
+      END IF
+    END IF
 
     CALL MPI_Comm_rank(MPI_COMM_SUBS, halo%rank, ierr)
     CALL MPI_Comm_size(MPI_COMM_SUBS, halo%size, ierr)
@@ -100,11 +144,44 @@ CONTAINS
     CALL MPI_Allgather(local_box, 6, MPI_DOUBLE_PRECISION, halo%boxes, 6, &
                        MPI_DOUBLE_PRECISION, MPI_COMM_SUBS, ierr)
 
+    ! Periodic images: no rank may hold both planes of a periodic axis. The image
+    ! enumeration needs a rank box that does not span a period, and the fluid pairs the dofs
+    ! of a periodic plane pair across ranks only (the boundary-face mask of the particle
+    ! viscous force would keep such faces). The partition of the fluid mesh is an input of
+    ! its own, so this is checked on the gathered boxes: the same on every worker, all stop.
+    IF (EL_PERIODIC_ACTIVE()) THEN
+      spanning_rank = -1
+      DO i=1,halo%size
+        IF (EL_PERIODIC_BOX_SPANS_AXIS(halo%boxes(:,i))) THEN
+          spanning_rank = i-1
+          EXIT
+        END IF
+      END DO
+      IF (spanning_rank.GE.0) THEN
+        IF (myid.EQ.showid) THEN
+          WRITE(*,'(A,I0,A,6ES14.6,A,3ES14.6)') 'Fatal: ELPeriodicKernel = wrap: the subdomain of worker ', &
+            spanning_rank, ' spans a whole period (box ', halo%boxes(:,spanning_rank+1), &
+            '); partition the fluid mesh into at least two subdomains along every periodic axis. Periods (0 = not periodic) = ', &
+            EL_PERIODIC_LENGTHS()
+          WRITE(mfile,'(A,I0,A,6ES14.6,A,3ES14.6)') 'Fatal: ELPeriodicKernel = wrap: the subdomain of worker ', &
+            spanning_rank, ' spans a whole period (box ', halo%boxes(:,spanning_rank+1), &
+            '); partition the fluid mesh into at least two subdomains along every periodic axis. Periods (0 = not periodic) = ', &
+            EL_PERIODIC_LENGTHS()
+        END IF
+        CALL MPI_Abort(MPI_COMM_SUBS, 914, ierr)
+      END IF
+    END IF
+
     ALLOCATE(candidate_neighbors(MAX(1,halo%size-1)))
     degree = 0
     DO i=1,halo%size
       IF (i-1.EQ.halo%rank) CYCLE
-      overlap = EL_BOXES_WITHIN_DELTA(local_box, halo%boxes(:,i), delta_max)
+      IF (EL_PERIODIC_ACTIVE() .AND. i-1.LT.halo%rank) THEN
+        ! the pair in canonical order (box of the lower rank first), as the other rank has it
+        overlap = EL_HALO_BOXES_COUPLED(halo%boxes(:,i), local_box, delta_max)
+      ELSE
+        overlap = EL_HALO_BOXES_COUPLED(local_box, halo%boxes(:,i), delta_max)
+      END IF
       IF (overlap) THEN
         degree = degree + 1
         candidate_neighbors(degree) = i-1
@@ -128,6 +205,18 @@ CONTAINS
     halo%recv_displs = 0
     halo%delta_max = delta_max
     halo%initialized = .TRUE.
+
+    ! Periodic images: one line per graph build with the lattice and the size of the graph
+    ! (wrap neighbours included), for the record of the run.
+    IF (EL_PERIODIC_ACTIVE()) THEN
+      CALL MPI_Allreduce(degree, max_degree, 1, MPI_INTEGER, MPI_MAX, MPI_COMM_SUBS, ierr)
+      IF (myid.EQ.showid) THEN
+        WRITE(*,'(A,3ES14.6,A,ES14.6,A,I0)') 'EL_PERIODIC_KERNEL wrap periods= ', &
+          EL_PERIODIC_LENGTHS(), ' kernel_radius= ', delta_max, ' max_neighbour_ranks= ', max_degree
+        WRITE(mfile,'(A,3ES14.6,A,ES14.6,A,I0)') 'EL_PERIODIC_KERNEL wrap periods= ', &
+          EL_PERIODIC_LENGTHS(), ' kernel_radius= ', delta_max, ' max_neighbour_ranks= ', max_degree
+      END IF
+    END IF
 
     min_width = MIN(local_box(2)-local_box(1), local_box(4)-local_box(3), &
                     local_box(6)-local_box(5))
@@ -169,8 +258,8 @@ CONTAINS
     halo%send_counts = 0
     DO j=1,halo%neighbor_count
       DO i=1,SIZE(owned_particles)
-        IF (EL_SPHERE_INTERSECTS_BOX(owned_particles(i)%position, &
-            2.0d0*el_kernel_width_factor*owned_particles(i)%radius, &
+        IF (EL_HALO_PARTICLE_REACHES_BOX(owned_particles(i)%position, &
+            EL_KERNEL_SUPPORT_RADIUS(owned_particles(i)%radius), &
             halo%boxes(:,halo%neighbors(j)+1))) THEN
           halo%send_counts(j) = halo%send_counts(j) + 1
         END IF
@@ -193,8 +282,8 @@ CONTAINS
 
     DO j=1,halo%neighbor_count
       DO i=1,SIZE(owned_particles)
-        IF (.NOT.EL_SPHERE_INTERSECTS_BOX(owned_particles(i)%position, &
-            2.0d0*el_kernel_width_factor*owned_particles(i)%radius, &
+        IF (.NOT.EL_HALO_PARTICLE_REACHES_BOX(owned_particles(i)%position, &
+            EL_KERNEL_SUPPORT_RADIUS(owned_particles(i)%radius), &
             halo%boxes(:,halo%neighbors(j)+1))) CYCLE
         slot = cursor(j)
         CALL EL_PACK_RECORD(owned_particles(i), i, slot, send_real, send_int)
@@ -324,6 +413,59 @@ CONTAINS
     halo%initialized = .FALSE.
 
   END SUBROUTINE EL_RELEASE_GRAPH
+
+  ! Bounding box of the elements of this rank on the coupling level, as gathered for the
+  ! neighbour graph (xmin, xmax, ymin, ymax, zmin, zmax); valid after the first
+  ! EL_REFRESH_COUPLING_HALO of a worker.
+  FUNCTION EL_HALO_LOCAL_BOX() RESULT(box)
+
+    REAL*8 :: box(6)
+
+    box = halo%boxes(:,halo%rank+1)
+
+  END FUNCTION EL_HALO_LOCAL_BOX
+
+  ! Bounding box of the whole fluid mesh on the coupling level (all workers), from the
+  ! gathered rank boxes; valid after the first EL_REFRESH_COUPLING_HALO of a worker.
+  FUNCTION EL_HALO_DOMAIN_BOX() RESULT(box)
+
+    REAL*8 :: box(6)
+    INTEGER :: a
+
+    DO a = 1, 3
+      box(2*a-1) = MINVAL(halo%boxes(2*a-1,:))
+      box(2*a) = MAXVAL(halo%boxes(2*a,:))
+    END DO
+
+  END FUNCTION EL_HALO_DOMAIN_BOX
+
+  ! Two rank boxes exchange records: their gap is within the kernel radius delta, measured to
+  ! the nearest periodic image of the other box when the coupling wraps.
+  LOGICAL FUNCTION EL_HALO_BOXES_COUPLED(a, b, delta)
+
+    REAL*8, INTENT(IN) :: a(6), b(6), delta
+
+    IF (EL_PERIODIC_ACTIVE()) THEN
+      EL_HALO_BOXES_COUPLED = EL_PERIODIC_BOXES_WITHIN_DELTA(a, b, delta)
+    ELSE
+      EL_HALO_BOXES_COUPLED = EL_BOXES_WITHIN_DELTA(a, b, delta)
+    END IF
+
+  END FUNCTION EL_HALO_BOXES_COUPLED
+
+  ! The kernel sphere of a particle, or of one of its periodic images when the coupling
+  ! wraps, reaches a rank box: the particle is sent to that rank.
+  LOGICAL FUNCTION EL_HALO_PARTICLE_REACHES_BOX(position, radius, box)
+
+    REAL*8, INTENT(IN) :: position(3), radius, box(6)
+
+    IF (EL_PERIODIC_ACTIVE()) THEN
+      EL_HALO_PARTICLE_REACHES_BOX = EL_PERIODIC_SPHERE_REACHES_BOX(position, radius, box)
+    ELSE
+      EL_HALO_PARTICLE_REACHES_BOX = EL_SPHERE_INTERSECTS_BOX(position, radius, box)
+    END IF
+
+  END FUNCTION EL_HALO_PARTICLE_REACHES_BOX
 
   LOGICAL FUNCTION EL_BOXES_WITHIN_DELTA(a, b, delta)
 

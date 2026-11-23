@@ -10,7 +10,7 @@ MODULE EL_TRANSFER
   ! before the feedback assembly (see EL_PARTICLE_MESH_PASS).
   USE def_FEAT, ONLY: el_mg_ilev => ILEV
   ! Global mesh dimensions from COMMON /TRIAD/ (def_FEAT). NDFGL (called from
-  ! EL_INTEGRATE_PARTICLE / EL_DEPOSIT_PARTICLE) derives Q2 global DOF indices
+  ! EL_INTEGRATE_PARTICLE / EL_DEPOSIT_PARTICLE of EL_QUADRATURE) derives Q2 global DOF indices
   ! from these offsets; like ILEV they are left at whatever level the previous
   ! solver phase set, so they must be pinned to the EL coupling level for the pass
   ! (see EL_PARTICLE_MESH_PASS). Aliased to avoid colliding with the local `nel`.
@@ -33,13 +33,15 @@ MODULE EL_TRANSFER
   USE EL_FIELDS, ONLY: el_field_data, EL_ENSURE_FIELDS, EL_BEGIN_FIELD_UPDATE, &
                        EL_CAPTURE_FLUID_FEEDBACK_SOURCE, EL_ENSURE_TRANSPORT_EPS
   USE EL_HALO, ONLY: tElParticleRecord, EL_REFRESH_COUPLING_HALO, &
-                     EL_REDUCE_TO_OWNERS, EL_BROADCAST_FROM_OWNERS
+                     EL_REDUCE_TO_OWNERS, EL_BROADCAST_FROM_OWNERS, EL_HALO_LOCAL_BOX, &
+                     EL_HALO_DOMAIN_BOX
   USE EL_MOMENTUM_MODEL, ONLY: EL_MM_VISCOUS_FORCE
-  USE EL_VISCOUS, ONLY: EL_INTEGRATE_PARTICLE_VISCOUS, EL_VISCOUS_LAPLACIAN, EL_VIS_SIZE
-  USE EL_CONFIG, ONLY: el_kernel_width_factor
-  USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION, &
-                           EL_INTEGRATE_PARTICLE, &
-                           EL_DEPOSIT_PARTICLE
+  USE EL_VISCOUS, ONLY: EL_VISCOUS_LAPLACIAN, EL_VIS_SIZE
+  USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION
+  ! the three coupling operations of a record on this rank (the record and, under
+  ! SimPar@ELPeriodicKernel = wrap, its periodic images)
+  USE EL_IMAGE_TRANSFER, ONLY: EL_SAMPLE_RECORD, EL_SAMPLE_RECORD_VISCOUS, EL_DEPOSIT_RECORD
+  USE EL_PERIODIC, ONLY: EL_PERIODIC_ACTIVE, EL_PERIODIC_MARKED_ON_PLANES
 
   IMPLICIT NONE
 
@@ -126,6 +128,7 @@ CONTAINS
 #endif
     TYPE(tElForceResult) :: force_result
     REAL*8 :: local_deposited, global_deposited, local_expected, global_expected
+    REAL*8 :: local_box(6)
     REAL*8 :: local_feedback(3), global_feedback(3)
     REAL*8 :: local_drag(3), global_drag(3), local_lift(3), global_lift(3)
     REAL*8 :: drag_force_eff(3), feedback_used(3), m_p
@@ -140,6 +143,7 @@ CONTAINS
     REAL*8 :: feedback_residual_norm, volume_rel_error
     INTEGER :: n_owned, n_records, i, ierr, ndof, nel, nel_min
     INTEGER :: local_record_rank, global_record_ranks
+    INTEGER :: n_marked
     INTEGER :: global_records, max_records
     INTEGER :: saved_mg_ilev
     INTEGER :: saved_tr_nel, saved_tr_nvt, saved_tr_net, saved_tr_nat
@@ -216,6 +220,10 @@ CONTAINS
 
     CALL EL_REFRESH_COUPLING_HALO(mesh, ilev, owned_particles, records, mfile)
     n_records = SIZE(records)
+    ! box of this rank's elements: selects the periodic images of a record that reach this
+    ! rank (EL_IMAGE_TRANSFER); not read when the coupling does not wrap
+    local_box = 0.0d0
+    IF (EL_PERIODIC_ACTIVE()) local_box = EL_HALO_LOCAL_BOX()
     ALLOCATE(local_samples(EL_SAMPLE_SIZE,n_records))
     ALLOCATE(owned_samples(EL_SAMPLE_SIZE,n_owned))
     ALLOCATE(owned_result(5,n_owned), record_result(5,n_records))
@@ -240,8 +248,8 @@ CONTAINS
 #endif
 
     DO i=1,n_records
-      CALL EL_INTEGRATE_PARTICLE(mesh, ilev, val_u, val_v, val_w, val_p, &
-        el_field_data%epsilon_f, records(i), local_samples(:,i))
+      CALL EL_SAMPLE_RECORD(mesh, ilev, val_u, val_v, val_w, val_p, &
+        el_field_data%epsilon_f, records(i), local_box, local_samples(:,i))
     END DO
     CALL EL_REDUCE_TO_OWNERS(local_samples, owned_samples)
     ! Momentum models Bfull / A: kernel average of lap u for the particle viscous force
@@ -254,11 +262,32 @@ CONTAINS
         WRITE(*,*) 'EL_PARTICLE_MESH_PASS: boundary-face mask for the viscous force not set on rank ', myid
         CALL MPI_Abort(MPI_COMM_SUBS, 910, ierr)
       END IF
+      ! Periodic images: a periodic plane does not cut the kernel, so its faces must not be
+      ! in the boundary mask. The mask counts the elements adjacent to a face through the
+      ! parallel sum of the fluid, which pairs the two faces of a periodic plane pair across
+      ! ranks (a rank holding both is refused by the halo). Verified in every pass on the
+      ! mask as it is now (the fluid adapter may rebuild it), against the planes of the
+      ! lattice on the bounding box of the whole mesh, whatever the wall geometry of the
+      ! closures; a marked face on a periodic plane would add a spurious boundary term to
+      ! the viscous average. Rank-local, a failing rank stops the run.
+      IF (EL_PERIODIC_ACTIVE()) THEN
+        n_marked = EL_PERIODIC_MARKED_ON_PLANES(mesh%level(ilev)%dcorvg, &
+                     el_field_data%boundary_face_dof, EL_HALO_DOMAIN_BOX())
+        IF (n_marked.LT.0) THEN
+          WRITE(*,'(A,I0,A,I0,A,I0)') 'Fatal: ELPeriodicKernel = wrap with a particle viscous force: rank ', &
+            myid, ': the boundary-face mask has ', SIZE(el_field_data%boundary_face_dof), &
+            ' entries, the dof coordinates ', SIZE(mesh%level(ilev)%dcorvg,2)
+          CALL MPI_Abort(MPI_COMM_SUBS, 912, ierr)
+        ELSE IF (n_marked.GT.0) THEN
+          WRITE(*,'(A,I0,A,I0,A)') 'Fatal: ELPeriodicKernel = wrap with a particle viscous force: rank ', &
+            myid, ' has ', n_marked, ' faces on a periodic plane marked as domain boundary.'
+          CALL MPI_Abort(MPI_COMM_SUBS, 912, ierr)
+        END IF
+      END IF
       ALLOCATE(local_lap(EL_VIS_SIZE,n_records), owned_lap(EL_VIS_SIZE,n_owned))
       DO i=1,n_records
-        CALL EL_INTEGRATE_PARTICLE_VISCOUS(mesh, ilev, mesh%level(ilev)%dcorvg, val_u, val_v, &
-          val_w, el_field_data%boundary_face_dof, records(i)%position, &
-          2.0d0*el_kernel_width_factor*records(i)%radius, local_lap(:,i))
+        CALL EL_SAMPLE_RECORD_VISCOUS(mesh, ilev, mesh%level(ilev)%dcorvg, val_u, val_v, &
+          val_w, el_field_data%boundary_face_dof, records(i), local_box, local_lap(:,i))
       END DO
       owned_lap = 0.0d0
       CALL EL_REDUCE_TO_OWNERS(local_lap, owned_lap)
@@ -364,7 +393,7 @@ CONTAINS
 
     CALL EL_BROADCAST_FROM_OWNERS(owned_result, record_result)
     DO i=1,n_records
-      CALL EL_DEPOSIT_PARTICLE(mesh, ilev, records(i), record_result(1,i), &
+      CALL EL_DEPOSIT_RECORD(mesh, ilev, records(i), local_box, record_result(1,i), &
         record_result(2:4,i), el_field_data, drag_b=record_result(5,i))
     END DO
 

@@ -4,6 +4,8 @@ USE PP3D_MPI, ONLY:E011DMat,myid,showID,MPI_COMM_WORLD,& !E011Sum,
                    COMM_Maximum,COMM_SUMM,COMM_NLComplete
 USE var_QuadScalar
 USE UMFPackSolver, ONLY : myUmfPack_Solve,myUmfPack_Free
+USE pco_coarse_solver, ONLY : PCO_ACTIVE,PCO_SOLVE_FULL,PCO_SOLVE_P0,PCO_RAW_SOR
+USE pco_p0_reconstruct, ONLY : PCO_P0_TO_VERTEX,pco_vertex_values
 #ifdef MKL_PARDISO_AVAIL
 USE PardisoSolver, ONLY : myPardiso_Solve,myPardiso_Free
 #endif
@@ -2039,6 +2041,7 @@ INTEGER Iter,i,j,k,ndof
 REAL*8 daux,dCrit
 INTEGER iEntry,jCol,mgLevBU
 INTEGER ffAbortErr
+REAL*8, ALLOCATABLE :: p0sol(:)
 EXTERNAL E011
 #ifdef FF_SOLVER_TIMING
 REAL*8 MPI_WTIME
@@ -2073,7 +2076,21 @@ CHARACTER(LEN=16) :: ff_label
   IF (myid.eq.0.and.((MyMG%CrsSolverType.GE.1.AND.MyMG%CrsSolverType.LE.4).OR.&
       MyMG%CrsSolverType.EQ.9)) THEN
   
-   IF (myMG%MinLev.EQ.myMG%MedLev) THEN
+   IF (myMG%MinLev.EQ.myMG%MedLev .AND. PCO_ACTIVE()) THEN
+
+    ! periodic coarse operator (QuadSc_pco_operator.f90): gathered or wrapped, gauged copy
+    CoarseIter = myMG%nIterCoarse
+    IF (MyMG%CrsSolverType.EQ.1.OR.MyMG%CrsSolverType.EQ.2) THEN
+     CALL PCO_SOLVE_FULL(myMG%X(mgLev)%x,myMG%B(mgLev)%x,SIZE(myMG%X(mgLev)%x),CoarseIter,&
+                         myMG%DefImprCoarse,myMG%RLX)
+    ELSE
+     ALLOCATE(p0sol(mg_mesh%level(mgLev)%nel))
+     CALL PCO_SOLVE_P0(myMG%B(mgLev)%x,p0sol,CoarseIter,myMG%DefImprCoarse,myMG%RLX)
+     CALL crs_P0_Correction(p0sol)
+     DEALLOCATE(p0sol)
+    END IF
+
+   ELSE IF (myMG%MinLev.EQ.myMG%MedLev) THEN
  
     IF (MyMG%CrsSolverType.EQ.1) THEN
      ndof  = SIZE(myMG%X(mgLev)%x)
@@ -2123,30 +2140,9 @@ CHARACTER(LEN=16) :: ff_label
       CoarseIter = 1
      END IF
      
-!      WRITE(*,*) size(mg_mesh%level(mgLev)%dvol),SIZE(myCG%d1),SIZE(myCG%d2),mg_mesh%level(mgLev)%nel,mg_mesh%level(mgLev)%nvt
      myCG%d1 = 0d0
      myCG%d2 = 0d0
-     crsSTR%A_SOL = 3d0*crsSTR%A_SOL
-     CALL INTPVB(crsSTR%A_SOL,myCG%d1,myCG%d2,&
-       mg_mesh%level(mgLev)%dvol,&
-       mg_mesh%level(mgLev)%kvert,&
-       mg_mesh%level(mgLev)%nel,&
-       mg_mesh%level(mgLev)%nvt)
-!      CALL INTPVBDBLE(crsSTR%A_SOL,myCG%d1,myCG%d2,&
-!        mg_mesh%level(mgLev)%dvol,&
-!        mg_mesh%level(mgLev)%kvert)
-!       WRITE(*,*) myCG%d1(1:mg_mesh%level(mgLev)%nvt)
-!       pause
-! 
-!      pause
-     CALL IntQ1toP1(myMG%X(mgLev)%x,myCG%d1,&
-                    mg_mesh%level(mgLev)%kvert,&
-                    mg_mesh%level(mgLev)%karea,&
-                    mg_mesh%level(mgLev)%kedge,&
-                    mg_mesh%level(mgLev)%dcorvg,&
-                    E011)
-
-     CALL crsSmoother()
+     CALL crs_P0_Correction(crsSTR%A_SOL)
 
     END IF
    
@@ -2567,24 +2563,7 @@ EXTERNAL E011
       CoarseIter = 1
      END IF
 
-     crsSTR%A_SOL = 3d0*crsSTR%A_SOL
-!      CALL INTPVB(crsSTR%A_SOL,myCG%d1,myCG%d2,&
-!        mg_mesh%level(mgLev)%dvol,&
-!        mg_mesh%level(mgLev)%kvert)
-     CALL INTPVB(crsSTR%A_SOL,myCG%d1,myCG%d2,&
-     mg_mesh%level(mgLev)%dvol,&
-     mg_mesh%level(mgLev)%kvert,&
-     mg_mesh%level(mgLev)%nel,&
-     mg_mesh%level(mgLev)%nvt)
-     
-     CALL IntQ1toP1(myMG%X(mgLev)%x,myCG%d1,&
-                    mg_mesh%level(mgLev)%kvert,&
-                    mg_mesh%level(mgLev)%karea,&
-                    mg_mesh%level(mgLev)%kedge,&
-                    mg_mesh%level(mgLev)%dcorvg,&
-                    E011)
-
-     CALL crsSmoother()
+     CALL crs_P0_Correction(crsSTR%A_SOL)
 
     END IF
 
@@ -2592,6 +2571,57 @@ EXTERNAL E011
  myStat%tSolvP = myStat%tSolvP + (time1-time0)
 
 END SUBROUTINE crsCoarseGridSolver
+!
+! ----------------------------------------------
+!
+! Coarse solver types 3/4, shared by both master coarse solves: the element means p0 of the
+! reduced solve (scaled by 3, as always) are averaged to the vertices (INTPVB; with a periodic
+! coarse operator the periodic version, which sums over each periodic vertex class,
+! QuadSc_pco_reconstruct.f90), projected to P1 on the physical elements (IntQ1toP1) and
+! smoothed with the coarse operator (the legacy matrix, or the raw periodic operator).
+! On return p0 holds the scaled means.
+SUBROUTINE crs_P0_Correction(p0)
+REAL*8 p0(:)
+EXTERNAL E011
+
+ p0 = 3d0*p0
+ IF (PCO_ACTIVE()) THEN
+  ! periodic averaging into its own nvt-sized arrays (pco_vertex_values)
+  CALL PCO_P0_TO_VERTEX(p0,&
+       mg_mesh%level(mgLev)%dvol,&
+       mg_mesh%level(mgLev)%kvert,&
+       mg_mesh%level(mgLev)%nel,&
+       mg_mesh%level(mgLev)%nvt)
+  CALL IntQ1toP1(myMG%X(mgLev)%x,pco_vertex_values,&
+                 mg_mesh%level(mgLev)%kvert,&
+                 mg_mesh%level(mgLev)%karea,&
+                 mg_mesh%level(mgLev)%kedge,&
+                 mg_mesh%level(mgLev)%dcorvg,&
+                 E011)
+ ELSE
+  CALL INTPVB(p0,myCG%d1,myCG%d2,&
+       mg_mesh%level(mgLev)%dvol,&
+       mg_mesh%level(mgLev)%kvert,&
+       mg_mesh%level(mgLev)%nel,&
+       mg_mesh%level(mgLev)%nvt)
+  CALL IntQ1toP1(myMG%X(mgLev)%x,myCG%d1,&
+                 mg_mesh%level(mgLev)%kvert,&
+                 mg_mesh%level(mgLev)%karea,&
+                 mg_mesh%level(mgLev)%kedge,&
+                 mg_mesh%level(mgLev)%dcorvg,&
+                 E011)
+ END IF
+
+ IF (PCO_ACTIVE()) THEN
+  CALL ZTIME(time0)
+  CALL PCO_RAW_SOR(myMG%X(mgLev)%x,myMG%B(mgLev)%x,myMG%nSmootherSteps,myMG%RLX)
+  CALL ZTIME(time1)
+  myStat%tSmthP = myStat%tSmthP + (time1-time0)
+ ELSE
+  CALL crsSmoother()
+ END IF
+
+END SUBROUTINE crs_P0_Correction
 !
 ! ----------------------------------------------
 !

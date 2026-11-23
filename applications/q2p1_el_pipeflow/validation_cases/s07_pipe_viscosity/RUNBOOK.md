@@ -105,6 +105,21 @@ is now printed in every run.
   non-Newtonian fluid is refused at start-up unless it sets `kinematic`.
 - Ergun column reruns with the new default: s05 RUNBOOK.
 
+## Merged tree with the weighted pressure matrix (integration/el-pweight-visc, 2026-11-16)
+
+The branch of PR #50 merges this branch with feature/el-va-weighted-pressure. EL binary
+FeatFloWer-int/build-el-b (built at the merge commit ed573db0; the later commits change records
+only, versions.txt of the runs names eb73cc12, dirty 0), DNS binaries FeatFloWer-int/build-dns
+(eb73cc12).
+
+- Six certified EL configurations with rho_f = 1 at the default (`dynamic`): bitwise against
+  ergun_gates2, strict comparison (jobs 160877, 160878, 160880-160883; runs/coupling_p4p5/int_gates).
+- The four with rho_f = 10 with `SimPar@ELFluidViscosity = kinematic`: bitwise (jobs 160876,
+  160879, 160884, 160885).
+- DNS twins: e4_l3 job 160888, DKT job 160889 bitwise against the certified heads (md5
+  ca98e7af225b / 89abce88b675 and 82411f64f661 / cfb8b42d0969).
+- Unit tests of the merged tree pass; model A with both keys: s05 RUNBOOK (jobs 160706, 160707).
+
 ## Open
 
 - Size of the change in the four rho_f = 10 certified cases (s01, s04 VB) at the new default:

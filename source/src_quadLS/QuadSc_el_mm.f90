@@ -104,14 +104,19 @@ END SUBROUTINE EL_MM_Update_Fluid_Coefficients
 ! already holds (no new exchange). The residual divisor is then 1 (EL_MM_RESIDUAL_DIVISOR).
 ! It stays a preconditioner: the fixed point of the residual iteration does not depend on it.
 !
-! Called after EL_MM_Update_Fluid_Coefficients (mg_MlRhoPmat holds W): builds C on the levels
-! of this rank from m, the parallel matrix on the workers and the coarse solver (the tail of
-! the MatrixRenewal C branch of the solver; B, its parallel part and the slip treatment do
+! Called after EL_MM_Update_Fluid_Coefficients (mg_MlRhoPmat holds W): renews the pressure
+! operator from m through the one renewal entry point (Renew_Pressure_Operator: C on the levels
+! of this rank, the parallel matrix on the workers and the coarse operator of the master - the tail
+! of the MatrixRenewal C branch of the solver; B, its parallel part and the slip treatment do
 ! not depend on the mass and are not rebuilt), then puts W back. On return mg_MlRhoPmat holds
-! W again and ILEV / MlRhoPmat point to NLMAX as after Create_MRhoMat.
+! W again and ILEV / MlRhoPmat point to NLMAX as after Create_MRhoMat. The weighted mass W of
+! the coarse level and rho are handed over as well: a periodic wrapped coarse operator sums
+! U = rho Ml and W over each periodic class before it transforms (U^2/W of the class sums, as
+! the workers do); it forms U itself, on the master, only when it needs it.
 !
 ! Coarse solver: the previous UMFPACK factorisation (types 2, 4) is released here before the
-! new one is made; under MatrixRenewal C1 nobody else does (PARDISO, type 9, releases its own).
+! new one is made; under MatrixRenewal C1 nobody else does (PARDISO, type 9, releases its own;
+! the periodic coarse operator refreshes its own factors, the release is then a no-op).
 ! The master receives the porosity on level NLMIN only, so the pressure multigrid must have
 ! its coarse and its master level there, and the hypre solvers keep a matrix copy of their
 ! own: EL_MM_Check_Solver_Settings refuses the other settings.
@@ -151,9 +156,7 @@ SUBROUTINE EL_MM_Pressure_Operator()
 
   crs = LinSc%prm%MGprmIn%CrsSolverType
   IF (myid.EQ.master .AND. (crs.EQ.2 .OR. crs.EQ.4)) CALL myUmfPack_Free()
-  CALL Create_CMat(QuadSc%knprU, QuadSc%knprV, QuadSc%knprW, LinSc%knprP, &
-                   LinSc%prm%MGprmIn%MinLev, crs)
-  IF (myid.NE.master) CALL Create_ParCMat(QuadSc%knprU, QuadSc%knprV, QuadSc%knprW)
+  CALL Renew_Pressure_Operator(weighted(LinSc%prm%MGprmIn%MinLev)%a, rho)
 
   DO jlev = NLMIN, NLMAX
     mg_MlRhoPmat(jlev)%a = weighted(jlev)%a

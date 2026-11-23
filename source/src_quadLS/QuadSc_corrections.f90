@@ -277,12 +277,8 @@ subroutine OperatorRegenaration(iType)
 
     call SetSlipOnBandBT()
 
-    call Create_CMat(QuadSc%knprU, QuadSc%knprV, QuadSc%knprW, LinSc%knprP, &
-                     LinSc%prm%MGprmIn%MinLev, LinSc%prm%MGprmIn%CrsSolverType)
-
-    if (myid /= master) then
-      call Create_ParCMat(QuadSc%knprU, QuadSc%knprV, QuadSc%knprW)
-    end if
+    ! C, its parallel part and the coarse operator of the master (QuadSc_pco_operator.f90)
+    call Renew_Pressure_Operator()
     bHit = .true.
   end if
 

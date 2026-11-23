@@ -48,7 +48,6 @@ MODULE QuadSc_assembly
   USE PP3D_MPI, ONLY: myid, showID
   USE var_QuadScalar
   USE QuadSc_struct, ONLY: Create_LinMatStruct, Create_QuadLinMatStruct
-  USE QuadSc_solver_coarse, ONLY: Setup_UMFPACK_CoarseSolver
 
   IMPLICIT NONE
   PRIVATE
@@ -629,10 +628,11 @@ END SUBROUTINE Create_BMat
 
 !-------------------------------------------------------------------------------
 
-SUBROUTINE Create_CMat(knprU,knprV,knprW,knprP,coarse_lev,coarse_solver) !(C)
-INTEGER coarse_lev,coarse_solver
-TYPE(mg_kVector) :: knprU(*),knprV(*),knprW(*),knprP(*)
-INTEGER i,j,iEntry,jCol
+! Local pressure Schur matrix C = B^T (MlRhoP)^-1 B on every level of this rank (the master:
+! its unpartitioned coarse levels). The coarse solver of the master is set up by the caller, the
+! pressure operator renewal (Renew_Pressure_Operator, QuadSc_pco_operator.f90).
+SUBROUTINE Create_CMat(knprU,knprV,knprW) !(C)
+TYPE(mg_kVector) :: knprU(*),knprV(*),knprW(*)
 
  if (.not.bMasterTurnedOn) return
 
@@ -686,10 +686,6 @@ INTEGER i,j,iEntry,jCol
  BTZMat    => mg_BTZMat(NLMAX)%a
  CMat      => mg_CMat(NLMAX)%a
  MlRhoPmat => mg_MlRhoPmat(NLMAX)%a
-
- ! Phase 1: UMFPACK coarse grid solver setup (types 2, 3, 4)
- ! Call extracted UMFPACK setup routine
- CALL Setup_UMFPACK_CoarseSolver(knprP, coarse_solver, coarse_lev, bNoOutflow)
 
  CALL ZTIME(myStat%t1)
  myStat%tCMat = myStat%tCMat + (myStat%t1-myStat%t0)
