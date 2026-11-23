@@ -492,8 +492,10 @@ CONTAINS
   ! int K phi_i. Absent or .FALSE.: the row-sum weights for drag_b as well (default, unchanged).
   ! The explicit partner of the implicit drag is not deposited under hrz: the fluid forms it
   ! from the nodal velocity (EL_FIELDS:EL_APPLY_DRAG_SPLIT_PARTNER, design note section 7.1).
+  ! split (optional, with hrz; diagnostic control SimPar@ELDragHrzPartner = sampled only): the
+  ! partner -B u_f of the first hrz version (77ffd070), deposited with the HRZ weights.
   SUBROUTINE EL_DEPOSIT_PARTICLE(mesh, ilev, particle, normalization, force, fields, &
-      drag_b, hrz)
+      drag_b, hrz, split)
 
     TYPE(tMultiMesh), INTENT(IN) :: mesh
     INTEGER, INTENT(IN) :: ilev
@@ -502,6 +504,7 @@ CONTAINS
     TYPE(tElFieldStorage), INTENT(INOUT) :: fields
     REAL*8, INTENT(IN), OPTIONAL :: drag_b
     LOGICAL, INTENT(IN), OPTIONAL :: hrz
+    REAL*8, INTENT(IN), OPTIONAL :: split(3)
 
     INTEGER :: iel, icubp, i, ig
     INTEGER :: kdfl(NNBAS), kdfg(NNBAS), ieltyp, idfl
@@ -620,6 +623,8 @@ CONTAINS
         fields%force_rhs(:,ig) = fields%force_rhs(:,ig) - &
           force*basis_integral(i)/normalization
         IF (use_hrz) THEN
+          IF (PRESENT(split)) fields%force_rhs(:,ig) = fields%force_rhs(:,ig) - &
+            split*hrz_weight(i)/normalization
           fields%drag_B_ml(ig) = fields%drag_B_ml(ig) + &
             drag_b*hrz_weight(i)/normalization
         ELSE IF (PRESENT(drag_b)) THEN

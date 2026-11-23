@@ -265,6 +265,18 @@ CONTAINS
                'hrz: the explicit force keeps the row-sum weights (identical deposit)', nf)
     WRITE(*,'(A,ES12.4,A,ES12.4)') '  hrz test: row-sum min B_a ', rowsum_min, &
       ', hrz min B_a ', MINVAL(el_field_data%drag_B_ml)
+    ! diagnostic control SimPar@ELDragHrzPartner = sampled (check revived from 77ffd070): the
+    ! split partner is deposited with the hrz weights, force_rhs = -split * w_hrz: total -split,
+    ! every entry >= 0 for split(3) < 0, the coefficient as without split
+    CALL EL_BEGIN_FIELD_UPDATE(.TRUE.)
+    CALL EL_DEPOSIT_PARTICLE(mesh, 1, p, sample(1), (/0.0d0, 0.0d0, 0.0d0/), el_field_data, &
+                             drag_b=drag_b, hrz=.TRUE., split=(/0.0d0, 0.0d0, -0.7d0/))
+    CALL check(ABS(SUM(el_field_data%force_rhs(3,:)) - 0.7d0).LE.1.0d-12 .AND. &
+               MINVAL(el_field_data%force_rhs(3,:)).GE.0.0d0, &
+               'split partner (ELDragHrzPartner = sampled): deposited with the hrz weights (total -split, one sign)', nf)
+    CALL check(ABS(SUM(el_field_data%drag_B_ml) - drag_b).LE.1.0d-10*drag_b .AND. &
+               MINVAL(el_field_data%drag_B_ml).GE.0.0d0, &
+               'split partner (ELDragHrzPartner = sampled): hrz coefficient unchanged', nf)
     DEALLOCATE(rowsum_b, rowsum_f)
   END SUBROUTINE test_drag_B_hrz_weights
 

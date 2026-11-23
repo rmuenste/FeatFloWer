@@ -58,6 +58,20 @@ MODULE EL_CONFIG
   CHARACTER(LEN=6), PARAMETER :: el_drag_iw_names(0:1) = (/ 'rowsum', 'hrz   ' /)
   ! Resolved by EL_VALIDATE_CONFIG (deck-only, the same on every rank): 'hrz' selected.
   LOGICAL :: el_drag_hrz = .FALSE.
+  ! SimPar@ELDragHrzPartner = nodal | sampled (only with ELDragImplicitWeights = hrz). A
+  ! DIAGNOSTIC CONTROL, not a model option:
+  !   'nodal'    (default) the explicit partner of the hrz drag diagonal is the nodal + B_i u_i^n
+  !              the fluid forms itself (EL_FIELDS:EL_APPLY_DRAG_SPLIT_PARTNER; design note 7.1).
+  !   'sampled'  the arithmetic of the first hrz version (commit 77ffd070) verbatim: the partner
+  !              -B u_f with the kernel-sampled u_f is deposited in the transfer with the HRZ
+  !              weights and the fluid adds no nodal partner. KNOWN MOMENTUM INCONSISTENCY: in a
+  !              steady non-uniform field the fluid receives -F_d + B (u_f - sum_i h_i u_i), a net
+  !              force without a particle counterpart (design note 7.1, review r1 finding 2). For
+  !              the paired fixed-bed holds of case 11 (experiment E2) only.
+  CHARACTER(LEN=32) :: el_drag_hrz_partner = 'nodal'
+  CHARACTER(LEN=7), PARAMETER :: el_drag_hrz_partner_names(0:1) = (/ 'nodal  ', 'sampled' /)
+  ! Resolved by EL_VALIDATE_CONFIG: 'sampled' selected (implies el_drag_hrz).
+  LOGICAL :: el_drag_hrz_sampled = .FALSE.
   CHARACTER(LEN=32) :: el_lift_model = 'none'
   CHARACTER(LEN=32) :: el_inertial_lift = 'none'
   CHARACTER(LEN=32) :: el_prescribed_field = 'none'
@@ -366,6 +380,11 @@ MODULE EL_CONFIG
   ! solver state only; no effect on the solution. Needs ELDomainType = box (inlet / outlet
   ! planes); the application refuses solver settings the balance does not cover (app_init).
   LOGICAL :: el_momentum_balance_audit = .FALSE.
+  ! SimPar@ELBedWindowAudit = Yes (default No; needs ELBedAuditFreq > 0): on every bed-audit step
+  ! the EL_BED_WINDOW lines (EL_BED_AUDIT: window gradient, porosity and particle means of the
+  ! windows with 2 d and 2.5 d margins and of the fixed interior 5-20 mm) and the EL_BED_VERTEX_MODE
+  ! line (spread of the vertical gas velocity per Q2 dof class in the interior). Diagnostic only.
+  LOGICAL :: el_bed_window_audit = .FALSE.
   ! Mesoscale lane-mode filter for periodic settling boxes: each step,
   ! subtract from u_z its zero-mean x-binned and y-binned plane averages
   ! (the gravest "lane" modes of the two-way-coupled concentration
@@ -453,6 +472,16 @@ CONTAINS
       STOP 1
     END IF
     el_drag_hrz = (TRIM(el_drag_implicit_weights).EQ.TRIM(el_drag_iw_names(1)))
+    CALL EL_LOWERCASE(el_drag_hrz_partner)
+    IF (.NOT.ANY(TRIM(el_drag_hrz_partner).EQ.el_drag_hrz_partner_names)) THEN
+      WRITE(*,'(A,A)') 'Invalid ELDragHrzPartner (nodal|sampled): ', TRIM(el_drag_hrz_partner)
+      STOP 1
+    END IF
+    el_drag_hrz_sampled = (TRIM(el_drag_hrz_partner).EQ.TRIM(el_drag_hrz_partner_names(1)))
+    IF (el_drag_hrz_sampled .AND. .NOT.el_drag_hrz) THEN
+      WRITE(*,*) 'ELDragHrzPartner = sampled needs ELDragImplicitWeights = hrz.'
+      STOP 1
+    END IF
     IF (el_drag_hrz .AND. .NOT.el_drag_semi_implicit) THEN
       WRITE(*,*) 'ELDragImplicitWeights = hrz needs ELDragCoupling = semi_implicit.'
       STOP 1
@@ -656,6 +685,10 @@ CONTAINS
       WRITE(*,*) 'ELVelocityAuditFreq must be >= 0 (0 = off).'
       STOP 1
     END IF
+    IF (el_bed_window_audit .AND. el_bed_audit_freq.LE.0) THEN
+      WRITE(*,*) 'ELBedWindowAudit = Yes needs ELBedAuditFreq > 0 (it is written on the bed-audit steps).'
+      STOP 1
+    END IF
     ! the boundary terms of the momentum balance are integrals over the z planes of the box
     IF (el_momentum_balance_audit .AND. TRIM(el_domain_type).NE.'box') THEN
       WRITE(*,'(A,A)') 'ELMomentumBalanceAudit = Yes needs ELDomainType = box (inlet / outlet ', &
@@ -684,6 +717,8 @@ CONTAINS
     WRITE(mfile,'(A,A)') 'EL drag model             = ', TRIM(el_drag_model)
     WRITE(mfile,'(A,A)') 'EL drag coupling          = ', TRIM(el_drag_coupling)
     IF (el_drag_hrz) WRITE(mfile,'(A,A)') 'EL drag implicit weights  = ', TRIM(el_drag_implicit_weights)
+    IF (el_drag_hrz_sampled) WRITE(mfile,'(A,A)') 'EL drag hrz partner       = ', &
+      TRIM(el_drag_hrz_partner)//' (diagnostic control, first hrz split 77ffd070)'
     WRITE(mfile,'(A,L1)') 'EL pressure force         = ', el_pressure_force
     WRITE(mfile,'(A,L1)') 'EL pressure feedback      = ', el_pressure_feedback
     WRITE(mfile,'(A,A)') 'EL lift model             = ', TRIM(el_lift_model)
@@ -728,6 +763,8 @@ CONTAINS
       el_velocity_audit_freq
     IF (el_momentum_balance_audit) WRITE(mfile,'(A,L1)') 'EL momentum balance audit = ', &
       el_momentum_balance_audit
+    IF (el_bed_window_audit) WRITE(mfile,'(A,L1)') 'EL bed window audit       = ', &
+      el_bed_window_audit
 
     IF (mterm.NE.mfile) THEN
       WRITE(mterm,'(A,A)') 'EL kernel                 = ', TRIM(el_kernel)
@@ -737,6 +774,8 @@ CONTAINS
       WRITE(mterm,'(A,A)') 'EL drag model             = ', TRIM(el_drag_model)
       WRITE(mterm,'(A,A)') 'EL drag coupling          = ', TRIM(el_drag_coupling)
       IF (el_drag_hrz) WRITE(mterm,'(A,A)') 'EL drag implicit weights  = ', TRIM(el_drag_implicit_weights)
+      IF (el_drag_hrz_sampled) WRITE(mterm,'(A,A)') 'EL drag hrz partner       = ', &
+        TRIM(el_drag_hrz_partner)//' (diagnostic control, first hrz split 77ffd070)'
       WRITE(mterm,'(A,L1)') 'EL pressure force         = ', el_pressure_force
       WRITE(mterm,'(A,L1)') 'EL pressure feedback      = ', el_pressure_feedback
       WRITE(mterm,'(A,A)') 'EL lift model             = ', TRIM(el_lift_model)
@@ -781,6 +820,8 @@ CONTAINS
         el_velocity_audit_freq
       IF (el_momentum_balance_audit) WRITE(mterm,'(A,L1)') 'EL momentum balance audit = ', &
         el_momentum_balance_audit
+      IF (el_bed_window_audit) WRITE(mterm,'(A,L1)') 'EL bed window audit       = ', &
+        el_bed_window_audit
     END IF
 
   END SUBROUTINE EL_PRINT_CONFIG

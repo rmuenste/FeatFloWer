@@ -25,7 +25,7 @@ MODULE EL_TRANSFER
                        el_apply_particle_forces, el_apply_fluid_feedback, &
                        el_write_diagnostics, el_momentum_audit_freq, &
                        el_drag_semi_implicit, el_pressure_feedback, el_prescribed_field, &
-                       el_drag_hrz, el_bed_audit_freq, &
+                       el_drag_hrz, el_drag_hrz_sampled, el_bed_audit_freq, el_bed_window_audit, &
                        EL_VA_CONSERVATIVE_FORM, EL_INLET_SUPERFICIAL
   USE EL_VA_FLUX, ONLY: EL_VA_RECONSTRUCT_EPS_LOCAL, EL_VA_EMBED_Q1_IN_Q2, &
                         EL_VA_CHECK_DOF_LAYOUT
@@ -39,7 +39,8 @@ MODULE EL_TRANSFER
   USE EL_MOMENTUM_MODEL, ONLY: EL_MM_VISCOUS_FORCE
   USE EL_VISCOUS, ONLY: EL_VISCOUS_LAPLACIAN, EL_VIS_SIZE
   USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION, EL_SAMPLE_EPSILON_F
-  USE EL_BED_AUDIT, ONLY: EL_BED_AUDIT_BEGIN_SAMPLES, EL_BED_AUDIT_RECORD_SAMPLE
+  USE EL_BED_AUDIT, ONLY: EL_BED_AUDIT_BEGIN_SAMPLES, EL_BED_AUDIT_RECORD_SAMPLE, &
+                          EL_BED_AUDIT_RECORD_FORCES
   ! the three coupling operations of a record on this rank (the record and, under
   ! SimPar@ELPeriodicKernel = wrap, its periodic images)
   USE EL_IMAGE_TRANSFER, ONLY: EL_SAMPLE_RECORD, EL_SAMPLE_RECORD_VISCOUS, EL_DEPOSIT_RECORD
@@ -144,7 +145,7 @@ CONTAINS
     REAL*8 :: global_grav_buoy(3), local_particle_total(3), global_particle_total(3)
     REAL*8 :: local_rhs(3), global_rhs(3), feedback_residual(3)
     REAL*8 :: feedback_residual_norm, volume_rel_error
-    INTEGER :: n_owned, n_records, i, ierr, ndof, nel, nel_min
+    INTEGER :: n_owned, n_records, i, ierr, ndof, nel, nel_min, nres
     INTEGER :: local_record_rank, global_record_ranks
     INTEGER :: n_marked
     INTEGER :: global_records, max_records
@@ -229,8 +230,12 @@ CONTAINS
     IF (EL_PERIODIC_ACTIVE()) local_box = EL_HALO_LOCAL_BOX()
     ALLOCATE(local_samples(EL_SAMPLE_SIZE,n_records))
     ALLOCATE(owned_samples(EL_SAMPLE_SIZE,n_owned))
-    ! rows: 1 normalisation, 2:4 explicit feedback, 5 drag coefficient B
-    ALLOCATE(owned_result(5,n_owned), record_result(5,n_records))
+    ! rows: 1 normalisation, 2:4 explicit feedback, 5 drag coefficient B, and under the
+    ! diagnostic control ELDragHrzPartner = sampled 6:8 the split partner -B u_f (deposited with
+    ! the HRZ weights; the first hrz version, 77ffd070)
+    nres = 5
+    IF (el_drag_hrz_sampled) nres = 8
+    ALLOCATE(owned_result(nres,n_owned), record_result(nres,n_records))
     local_samples = 0.0d0
     owned_samples = 0.0d0
     owned_result = 0.0d0
@@ -324,6 +329,12 @@ CONTAINS
           MIN(1.0d0, MAX(el_eps_f_min, owned_samples(EL_SAMPLE_EPSILON_F,i)/ &
           owned_samples(EL_SAMPLE_NORMALIZATION,i))), &
           force_result%u_f(3) - owned_particles(i)%velocity(3))
+      ! window audit (SimPar@ELBedWindowAudit; implies ELBedAuditFreq > 0)
+      IF (el_bed_window_audit .AND. .NOT.advance_history) &
+        CALL EL_BED_AUDIT_RECORD_FORCES(owned_particles(i)%position(3), &
+          force_result%u_f - owned_particles(i)%velocity, force_result%drag, &
+          force_result%pressure, force_result%viscous, owned_particles(i)%radius, &
+          owned_particles(i)%density)
       ! Default: the explicit feedback force (drag + lift, + the pressure reaction
       ! under ELPressureFeedback), used as deposited by the post-advance diagnostic
       ! pass and by the pre-advance pass when the particles are not advanced. The
@@ -347,6 +358,10 @@ CONTAINS
           .NOT.el_apply_particle_forces .AND. .NOT.el_drag_hrz) THEN
         feedback_used = feedback_used - force_result%drag_B*force_result%u_f
       END IF
+      ! ELDragHrzPartner = sampled (diagnostic control): the partner of the first hrz version
+      IF (el_drag_semi_implicit .AND. advance_history .AND. &
+          .NOT.el_apply_particle_forces .AND. el_drag_hrz_sampled) &
+        owned_result(6:8,i) = -force_result%drag_B*force_result%u_f
       local_drag = local_drag + force_result%drag
       local_lift = local_lift + force_result%lift
       local_pressure = local_pressure + force_result%pressure
@@ -399,6 +414,9 @@ CONTAINS
           ! fluid receives exactly minus the drag impulse PE applies (design note 7.1).
           IF (el_drag_hrz) THEN
             feedback_used = drag_force_eff + feedback_nondrag
+            ! diagnostic control ELDragHrzPartner = sampled: the split partner goes with the
+            ! implicit coefficient (HRZ weights), first hrz version 77ffd070
+            IF (el_drag_hrz_sampled) owned_result(6:8,i) = -force_result%drag_B*force_result%u_f
           ELSE
             feedback_used = drag_force_eff + feedback_nondrag - &
               force_result%drag_B*force_result%u_f
@@ -413,13 +431,21 @@ CONTAINS
 #endif
       owned_result(2:4,i) = feedback_used
       local_feedback = local_feedback + feedback_used
+      ! sampled: the separately deposited split partner belongs to the reaction total (77ffd070)
+      IF (el_drag_hrz_sampled) local_feedback = local_feedback + owned_result(6:8,i)
       local_drag_impl = local_drag_impl + drag_force_eff
     END DO
 
     CALL EL_BROADCAST_FROM_OWNERS(owned_result, record_result)
     DO i=1,n_records
-      CALL EL_DEPOSIT_RECORD(mesh, ilev, records(i), local_box, record_result(1,i), &
-        record_result(2:4,i), el_field_data, drag_b=record_result(5,i), hrz=el_drag_hrz)
+      IF (el_drag_hrz_sampled) THEN
+        CALL EL_DEPOSIT_RECORD(mesh, ilev, records(i), local_box, record_result(1,i), &
+          record_result(2:4,i), el_field_data, drag_b=record_result(5,i), hrz=el_drag_hrz, &
+          split=record_result(6:8,i))
+      ELSE
+        CALL EL_DEPOSIT_RECORD(mesh, ilev, records(i), local_box, record_result(1,i), &
+          record_result(2:4,i), el_field_data, drag_b=record_result(5,i), hrz=el_drag_hrz)
+      END IF
     END DO
 
     local_rhs(1) = SUM(el_field_data%force_rhs(1,:))

@@ -72,14 +72,14 @@ SUBROUTINE EL_MomBal_Rhs()
 
   USE EL_MOMENTUM_BALANCE, ONLY: EL_MOMBAL_ACTIVE, EL_MOMBAL_RECORD, mb_u_old, mb_p_old, &
                                  MB_RHS_FULL, MB_PGRAD_OLD, MB_FEEDBACK, MB_PARTNER, MB_MMP_OLD, &
-                                 MB_MMV_OLD, MB_RHS_OTHER
+                                 MB_MMV_OLD, MB_RHS_OTHER, EL_MOMBAL_RECORD_FBD_CLASS
   USE EL_MM_OPERATOR, ONLY: EL_MM_PHI_OPERATORS
   USE EL_FORCES, ONLY: EL_FLUID_OPERATOR_VISCOSITY
   USE PP3D_MPI, ONLY: myid, master
 
   REAL*8, ALLOCATABLE :: f(:,:), other(:,:), fp(:,:), fv(:,:), bx(:), by(:), bz(:)
-  REAL*8 :: dt, c
-  INTEGER :: n
+  REAL*8 :: dt, c, fbdc(3)
+  INTEGER :: n, i, nv, ne, na
 
   IF (.NOT.EL_MOMBAL_ACTIVE()) RETURN
   IF (myid.EQ.master) RETURN
@@ -113,8 +113,26 @@ SUBROUTINE EL_MomBal_Rhs()
     f = el_field_data%fluid_feedback_source(:,1:n)
   CALL EL_MOMBAL_RECORD(MB_FEEDBACK, f, 1.0d0)
   other = other - f
+  ! its z part on the Dirichlet rows by dof class (vertex, edge, face; the layout of
+  ! EL_VA_ELEMENT_DOFS: vertices, then edges, faces, centres)
+  nv = mg_mesh%level(NLMAX)%nvt
+  ne = mg_mesh%level(NLMAX)%net
+  na = mg_mesh%level(NLMAX)%nat
+  fbdc = 0.0d0
+  DO i = 1, n
+    IF (QuadSc%knprW(NLMAX)%x(i).NE.1) CYCLE
+    IF (i.LE.nv) THEN
+      fbdc(1) = fbdc(1) + f(3,i)
+    ELSE IF (i.LE.nv+ne) THEN
+      fbdc(2) = fbdc(2) + f(3,i)
+    ELSE IF (i.LE.nv+ne+na) THEN
+      fbdc(3) = fbdc(3) + f(3,i)
+    END IF
+  END DO
+  CALL EL_MOMBAL_RECORD_FBD_CLASS(fbdc)
   f = 0.0d0
-  IF (el_apply_fluid_feedback .AND. el_drag_hrz .AND. ALLOCATED(el_field_data%drag_B_source)) THEN
+  IF (el_apply_fluid_feedback .AND. el_drag_hrz .AND. .NOT.el_drag_hrz_sampled .AND. &
+      ALLOCATED(el_field_data%drag_B_source)) THEN
     f(1,:) = el_field_data%drag_B_source(1:n)*mb_u_old(1,:)
     f(2,:) = el_field_data%drag_B_source(1:n)*mb_u_old(2,:)
     f(3,:) = el_field_data%drag_B_source(1:n)*mb_u_old(3,:)
@@ -290,13 +308,26 @@ SUBROUTINE EL_MomBal_End(mfile, istep)
   pl = 0.0d0
   CALL EL_PLANE_PRESSURE_LOCAL(mg_mesh, NLMAX, LinSc%valP(NLMAX)%x, zmin, tol, pl(1), pl(2))
   CALL EL_PLANE_PRESSURE_LOCAL(mg_mesh, NLMAX, LinSc%valP(NLMAX)%x, zmax, tol, pl(3), pl(4))
-  ! (the face areas of the flux kernel repeat pl(1) / pl(3) and are not kept)
+  ! (the face areas of the flux kernel repeat pl(1) / pl(3) and are not kept); the transport
+  ! porosity on the planes where it exists, else eps = 1 (integral = area)
   face_area = 0.0d0
-  CALL EL_MOMBAL_PLANE_LOCAL(mg_mesh, NLMAX, mg_mesh%level(NLMAX)%dcorvg, QuadSc%valU, &
-    QuadSc%valV, QuadSc%valW, mgDensity(NLMAX)%x, c, zmin, tol, face_area, pl(5:7), pl(11:13))
-  face_area = 0.0d0
-  CALL EL_MOMBAL_PLANE_LOCAL(mg_mesh, NLMAX, mg_mesh%level(NLMAX)%dcorvg, QuadSc%valU, &
-    QuadSc%valV, QuadSc%valW, mgDensity(NLMAX)%x, c, zmax, tol, face_area, pl(8:10), pl(14:16))
+  IF (ALLOCATED(el_field_data%epsilon_transport_q2)) THEN
+    CALL EL_MOMBAL_PLANE_LOCAL(mg_mesh, NLMAX, mg_mesh%level(NLMAX)%dcorvg, QuadSc%valU, &
+      QuadSc%valV, QuadSc%valW, mgDensity(NLMAX)%x, c, zmin, tol, face_area, pl(5:7), pl(11:13), &
+      el_field_data%epsilon_transport_q2, pl(17))
+    face_area = 0.0d0
+    CALL EL_MOMBAL_PLANE_LOCAL(mg_mesh, NLMAX, mg_mesh%level(NLMAX)%dcorvg, QuadSc%valU, &
+      QuadSc%valV, QuadSc%valW, mgDensity(NLMAX)%x, c, zmax, tol, face_area, pl(8:10), pl(14:16), &
+      el_field_data%epsilon_transport_q2, pl(18))
+  ELSE
+    CALL EL_MOMBAL_PLANE_LOCAL(mg_mesh, NLMAX, mg_mesh%level(NLMAX)%dcorvg, QuadSc%valU, &
+      QuadSc%valV, QuadSc%valW, mgDensity(NLMAX)%x, c, zmin, tol, face_area, pl(5:7), pl(11:13))
+    face_area = 0.0d0
+    CALL EL_MOMBAL_PLANE_LOCAL(mg_mesh, NLMAX, mg_mesh%level(NLMAX)%dcorvg, QuadSc%valU, &
+      QuadSc%valV, QuadSc%valW, mgDensity(NLMAX)%x, c, zmax, tol, face_area, pl(8:10), pl(14:16))
+    pl(17) = pl(1)
+    pl(18) = pl(3)
+  END IF
   CALL EL_MOMBAL_RECORD_PLANES(pl)
 
   CALL EL_MOMBAL_WRITE(timens, istep, dt, mfile)

@@ -717,7 +717,7 @@ END SUBROUTINE get_global_domain_extents
                         el_tavg_window, &
                         el_inlet_u0, el_inlet_u1, el_inlet_tramp, &
                         el_inlet_table_file, el_bed_audit_freq, el_velocity_audit_freq, &
-                        el_momentum_balance_audit, &
+                        el_momentum_balance_audit, el_drag_hrz_partner, el_bed_window_audit, &
                         EL_INLET_SUPERFICIAL, &
                         el_momentum_model, el_mm_pressure_operator, el_fluid_viscosity, &
                         el_periodic_kernel, el_periodic_wrap, &
@@ -913,6 +913,8 @@ END SUBROUTINE get_global_domain_extents
          READ(string(iEq+1:),*) el_drag_coupling
        CASE ("ELDragImplicitWeights")
          READ(string(iEq+1:),*) el_drag_implicit_weights
+       CASE ("ELDragHrzPartner")
+         READ(string(iEq+1:),*) el_drag_hrz_partner
        CASE ("ELPressureForce")
          el_pressure_force = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("ELPressureFeedback")
@@ -1009,6 +1011,8 @@ END SUBROUTINE get_global_domain_extents
          READ(string(iEq+1:),*) el_velocity_audit_freq
        CASE ("ELMomentumBalanceAudit")
          el_momentum_balance_audit = parse_yes_no_param(string, iEq, cName, cPar)
+       CASE ("ELBedWindowAudit")
+         el_bed_window_audit = parse_yes_no_param(string, iEq, cName, cPar)
 #endif
        CASE ("MinTimeAdapt")
          READ(string(iEq+1:),*) DTMIN

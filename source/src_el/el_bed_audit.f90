@@ -83,6 +83,30 @@
 ! line of the transfer pass of the same step (evaluated with the fluid state before the
 ! solve of the step); the post tool of case 11 joins the two by step.
 !
+! Window audit (SimPar@ELBedWindowAudit = Yes, EL_CONFIG; experiment E2 of case 11), written on the
+! same steps after the audit line, by EL_WRITE_BED_WINDOWS (called through the fluid adapter, which
+! supplies the vertex-mode sums). One line per window of the table WINDOWS below:
+!
+!   EL_BED_WINDOW t= step= win= NAME z_lo_hi= zl zh gradz= G n= N eps_geo= e eps_kern= e
+!                 slip= sx sy sz drag_mean= Fd drag_of_means= Fm pres_mean= Fp visc_mean= Fv
+!
+!   windows      'm2d' / 'm2.5d': [zmin + m, z99 + r - m] with m = 2 d / 2.5 d (d, r the mean
+!                diameter and radius, z99 of the audit line), 'interior': [zmin + 5 mm, zmin + 20 mm]
+!   gradz        -<dp/dz> of the broken P1 pressure over the window (EL_WINDOW_GRADIENT_LOCAL)
+!   n            particles with the centre in the window (bin centre, as eps_kern_slip_win)
+!   eps_geo      1 - V_solid(window) / (area_in (zh - zl)) from the particle positions
+!   eps_kern, slip   means over those particles of the kernel-sampled porosity (clipped as in the
+!                closure) and of the sampled slip u_f - v (post-advance transfer pass)
+!   drag_mean    mean z closure drag PER PARTICLE [N], <B(eps_i, |s_i|) s_z,i> (EL_FORCE_BUDGET drag)
+!   drag_of_means  z drag of one particle of mean radius and density at the mean porosity and the
+!                mean slip vector [N], B(<eps>, |<s>|) <s_z>
+!   pres_mean, visc_mean   mean z pressure / viscous force per particle [N]
+!
+!   EL_BED_VERTEX_MODE t= step= z_lo_hi= zl zh vertex= n mean std min max edge= ... face= ...
+!                 centre= ...
+!   w (m/s) over the Q2 dofs of each class with zmin + 5 mm <= z <= zmin + 20 mm, every dof counted
+!   once (weight 1 / number of copies); n is the dof count of the class in the window.
+!
 ! Collectives on MPI_COMM_SUBS: the routine is called by every worker (never by the master),
 ! with or without particles.
 !=========================================================================
@@ -93,7 +117,9 @@ MODULE EL_BED_AUDIT
   USE TYPES, ONLY: tMultiMesh
   USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_VALUE, IEEE_QUIET_NAN
   USE EL_CONFIG, ONLY: el_bed_audit_freq, el_fluid_gravity, el_apply_particle_forces, &
-                       EL_KERNEL_SUPPORT_RADIUS
+                       EL_KERNEL_SUPPORT_RADIUS, el_bed_window_audit
+  USE EL_FORCES, ONLY: EL_DRAG_CLOSURE
+  USE EL_MOMENTUM_MODEL, ONLY: EL_MM_DRAG_SCALE
   USE EL_GEOMETRY, ONLY: el_domain_box, el_domain_box_set
   USE EL_QUADRATURE, ONLY: EL_Q1_MAP
   USE EL_DIAGNOSTICS, ONLY: el_pair_last_step, el_pair_last_dp, el_pair_last_expected
@@ -106,6 +132,8 @@ MODULE EL_BED_AUDIT
   PRIVATE
 
   PUBLIC :: EL_WRITE_BED_AUDIT, EL_BED_AUDIT_BEGIN_SAMPLES, EL_BED_AUDIT_RECORD_SAMPLE
+  PUBLIC :: EL_BED_AUDIT_RECORD_FORCES, EL_WRITE_BED_WINDOWS, EL_BED_WINDOW_BOUNDS
+  PUBLIC :: NWIN, BW_VM_LO, BW_VM_HI
   ! helpers, public for the unit test
   PUBLIC :: EL_SPHERE_SLAB_VOLUME, EL_HISTOGRAM_QUANTILE, EL_PLANE_PRESSURE_LOCAL, &
             EL_WINDOW_GRADIENT_LOCAL, EL_BED_WINDOW_MARGIN, EL_BED_FLOOR_BALANCE, &
@@ -115,6 +143,22 @@ MODULE EL_BED_AUDIT
   ! per height bin of the particle centre: sum of the kernel-sampled porosity, of the sampled slip
   ! (z) and the count, of the owned particles of this rank (EL_BED_AUDIT_RECORD_SAMPLE)
   REAL*8, SAVE :: sample_bins(3, NBINS) = 0.0d0
+  ! window audit: per height bin, sums of slip x, slip y, closure drag z, pressure force z, viscous
+  ! force z, radius, particle density of the owned particles (EL_BED_AUDIT_RECORD_FORCES; the
+  ! porosity, slip z and count are those of sample_bins)
+  INTEGER, PARAMETER :: NFB = 7
+  REAL*8, SAVE :: force_bins(NFB, NBINS) = 0.0d0
+  ! table of the windows: kind 1 margin of win_a / win_b mean diameters from the floor / bed top,
+  ! kind 2 fixed heights win_a / win_b above zmin [m]
+  INTEGER, PARAMETER :: NWIN = 3
+  CHARACTER(LEN=8), PARAMETER :: win_name(NWIN) = (/ 'm2d     ', 'm2.5d   ', 'interior' /)
+  INTEGER, PARAMETER :: win_kind(NWIN) = (/ 1, 1, 2 /)
+  REAL*8, PARAMETER :: win_a(NWIN) = (/ 2.0d0, 2.5d0, 0.005d0 /), win_b(NWIN) = (/ 2.0d0, 2.5d0, 0.020d0 /)
+  ! the vertex-mode window (heights above zmin, m)
+  REAL*8, PARAMETER :: BW_VM_LO = 0.005d0, BW_VM_HI = 0.020d0
+  ! bed top and mean radius of the last audit line (window bounds of the window audit)
+  INTEGER, SAVE :: last_step = -1
+  REAL*8, SAVE :: last_z99 = 0.0d0, last_rmean = 0.0d0, last_area = 0.0d0
 
 CONTAINS
 
@@ -229,6 +273,12 @@ CONTAINS
 #endif
     ! the window gradient without the hydrostatic part (the counterpart of dp_dyn)
     gradz_dyn = gradz_win - dp_hydro/(zmax - zmin)
+    ! bed top of this step for the window audit (EL_WRITE_BED_WINDOWS)
+    last_step = istep
+    last_z99 = zq(3)
+    last_rmean = EL_BED_UNAVAILABLE()
+    IF (nglob.GT.0) last_rmean = glob(6)/DBLE(nglob)
+    last_area = glob(1)
 
     ! wall force from the particle momentum balance of this step (forces actually armed only)
     floor_bal = EL_BED_FLOOR_BALANCE(el_pair_last_step, istep, el_pair_last_dp(3), &
@@ -383,7 +433,179 @@ CONTAINS
   ! with SimPar@ELBedAuditFreq > 0). Rank-local, no collective.
   SUBROUTINE EL_BED_AUDIT_BEGIN_SAMPLES()
     sample_bins = 0.0d0
+    IF (el_bed_window_audit) force_bins = 0.0d0
   END SUBROUTINE EL_BED_AUDIT_BEGIN_SAMPLES
+
+  ! Window audit: the forces and slip of one owned particle, next to EL_BED_AUDIT_RECORD_SAMPLE
+  ! (EL_TRANSFER, post-advance pass, only with SimPar@ELBedWindowAudit = Yes). Rank-local.
+  SUBROUTINE EL_BED_AUDIT_RECORD_FORCES(z, slip, drag, pressure, viscous, radius, rho_p)
+    REAL*8, INTENT(IN) :: z, slip(3), drag(3), pressure(3), viscous(3), radius, rho_p
+    INTEGER :: ib
+    IF (.NOT.el_domain_box_set) RETURN
+    ib = 1 + INT(DBLE(NBINS)*(z - el_domain_box(5))/(el_domain_box(6) - el_domain_box(5)))
+    ib = MIN(NBINS, MAX(1, ib))
+    force_bins(1, ib) = force_bins(1, ib) + slip(1)
+    force_bins(2, ib) = force_bins(2, ib) + slip(2)
+    force_bins(3, ib) = force_bins(3, ib) + drag(3)
+    force_bins(4, ib) = force_bins(4, ib) + pressure(3)
+    force_bins(5, ib) = force_bins(5, ib) + viscous(3)
+    force_bins(6, ib) = force_bins(6, ib) + radius
+    force_bins(7, ib) = force_bins(7, ib) + rho_p
+  END SUBROUTINE EL_BED_AUDIT_RECORD_FORCES
+
+  ! Bounds [zl, zh] of window k (table above) for floor zmin, bed top z99 + r and mean radius r;
+  ! unavailable (NaN) when the bed top is.
+  PURE SUBROUTINE EL_BED_WINDOW_BOUNDS(k, zmin, z99, rmean, zl, zh)
+    INTEGER, INTENT(IN) :: k
+    REAL*8, INTENT(IN) :: zmin, z99, rmean
+    REAL*8, INTENT(OUT) :: zl, zh
+    IF (win_kind(k).EQ.1) THEN
+      zl = zmin + win_a(k)*2.0d0*rmean
+      zh = z99 + rmean - win_b(k)*2.0d0*rmean
+    ELSE
+      zl = zmin + win_a(k)
+      zh = zmin + win_b(k)
+    END IF
+  END SUBROUTINE EL_BED_WINDOW_BOUNDS
+
+  ! The window lines of this step (see the header). Collective over the workers; called by every
+  ! worker on the audit steps when SimPar@ELBedWindowAudit = Yes, after EL_WRITE_BED_AUDIT of the
+  ! step. vm_sum(3,4) / vm_min(4) / vm_max(4): this rank's vertex-mode sums (sum 1/m, sum w/m,
+  ! sum w^2/m), minima and maxima per dof class (vertex, edge, face, centre), formed by the caller.
+  SUBROUTINE EL_WRITE_BED_WINDOWS(pressure, time, mfile, istep, mesh, ilev, density, viscosity, &
+                                  vm_sum, vm_min, vm_max)
+    REAL*8, INTENT(IN) :: pressure(:), time, density, viscosity
+    INTEGER, INTENT(IN) :: mfile, istep, ilev
+    TYPE(tMultiMesh), INTENT(IN) :: mesh
+    REAL*8, INTENT(IN) :: vm_sum(3,4), vm_min(4), vm_max(4)
+
+    INTEGER, PARAMETER :: NPW = 3 + 10
+    REAL*8 :: loc(NPW*NWIN + 12), glob(NPW*NWIN + 12), vmin(4), vmax(4), zmin, zl(NWIN), zh(NWIN)
+    REAL*8 :: zb, state(8), fm(3), bm, cnt, mean_eps, slip(3), rmean_w, rho_w, eps_geo, gz, nan
+    REAL*8 :: vm_mean(4), vm_std(4)
+    INTEGER :: k, ib, i, nloc, ierr, j0
+    CHARACTER(LEN=8), PARAMETER :: cname(4) = (/ 'vertex  ', 'edge    ', 'face    ', 'centre  ' /)
+#ifdef HAVE_PE
+    TYPE(tParticleData), ALLOCATABLE :: particles(:)
+#endif
+
+    IF (.NOT.el_bed_window_audit) RETURN
+    IF (el_bed_audit_freq.LE.0) RETURN
+    IF (MOD(ABS(istep), el_bed_audit_freq).NE.0) RETURN
+    nan = EL_BED_UNAVAILABLE()
+    zmin = el_domain_box(5)
+    DO k = 1, NWIN
+      CALL EL_BED_WINDOW_BOUNDS(k, zmin, last_z99, last_rmean, zl(k), zh(k))
+    END DO
+    IF (last_step.NE.istep) THEN
+      zl = nan
+      zh = nan
+    END IF
+
+    ! per window: 1 mesh volume, 2 int -dp/dz, 3 solid volume, 4..13 particle sums (count, eps,
+    ! slip x y z, drag z, pressure z, viscous z, radius, rho_p); then the vertex-mode sums
+    loc = 0.0d0
+#ifdef HAVE_PE
+    nloc = numLocalParticles()
+    ALLOCATE(particles(MAX(nloc, 0)))
+    IF (nloc.GT.0) CALL getAllParticles(particles)
+#endif
+    DO k = 1, NWIN
+      j0 = NPW*(k - 1)
+      IF (.NOT.(zh(k).GT.zl(k))) CYCLE
+      CALL EL_WINDOW_GRADIENT_LOCAL(mesh, ilev, pressure, zl(k), zh(k), loc(j0+1), loc(j0+2))
+#ifdef HAVE_PE
+      DO i = 1, nloc
+        loc(j0+3) = loc(j0+3) + EL_SPHERE_SLAB_VOLUME(particles(i)%position(3), &
+                                                      particles(i)%radius, zl(k), zh(k))
+      END DO
+#endif
+      DO ib = 1, NBINS
+        zb = zmin + (DBLE(ib) - 0.5d0)*(el_domain_box(6) - zmin)/DBLE(NBINS)
+        IF (zb.LT.zl(k) .OR. zb.GT.zh(k)) CYCLE
+        loc(j0+4) = loc(j0+4) + sample_bins(3, ib)
+        loc(j0+5) = loc(j0+5) + sample_bins(1, ib)
+        loc(j0+6) = loc(j0+6) + force_bins(1, ib)
+        loc(j0+7) = loc(j0+7) + force_bins(2, ib)
+        loc(j0+8) = loc(j0+8) + sample_bins(2, ib)
+        loc(j0+9:j0+13) = loc(j0+9:j0+13) + force_bins(3:7, ib)
+      END DO
+    END DO
+#ifdef HAVE_PE
+    DEALLOCATE(particles)
+#endif
+    loc(NPW*NWIN+1:NPW*NWIN+12) = RESHAPE(vm_sum, (/12/))
+    CALL MPI_Allreduce(loc, glob, NPW*NWIN + 12, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
+    CALL MPI_Allreduce(vm_min, vmin, 4, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_SUBS, ierr)
+    CALL MPI_Allreduce(vm_max, vmax, 4, MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_SUBS, ierr)
+    IF (myid.NE.showid) RETURN
+
+    DO k = 1, 4
+      vm_mean(k) = nan
+      vm_std(k) = nan
+      cnt = glob(NPW*NWIN + 3*(k-1) + 1)
+      IF (cnt.GT.0.0d0) THEN
+        vm_mean(k) = glob(NPW*NWIN + 3*(k-1) + 2)/cnt
+        vm_std(k) = SQRT(MAX(0.0d0, glob(NPW*NWIN + 3*(k-1) + 3)/cnt - vm_mean(k)**2))
+      ELSE
+        vmin(k) = nan
+        vmax(k) = nan
+      END IF
+    END DO
+
+    DO k = 1, NWIN
+      j0 = NPW*(k - 1)
+      gz = nan
+      IF (glob(j0+1).GT.0.0d0) gz = glob(j0+2)/glob(j0+1)
+      eps_geo = nan
+      IF (zh(k).GT.zl(k) .AND. last_area.GT.0.0d0) eps_geo = 1.0d0 - glob(j0+3)/(last_area*(zh(k) - zl(k)))
+      cnt = glob(j0+4)
+      mean_eps = nan
+      slip = nan
+      fm = nan
+      bm = nan
+      IF (cnt.GT.0.0d0) THEN
+        mean_eps = glob(j0+5)/cnt
+        slip = glob(j0+6:j0+8)/cnt
+        rmean_w = glob(j0+12)/cnt
+        rho_w = glob(j0+13)/cnt
+        ! one particle of mean radius and density at rest in the mean slip: B(<eps>, |<s>|) <s>
+        state = 0.0d0
+        state(7) = rmean_w
+        state(8) = rho_w
+        CALL EL_DRAG_CLOSURE(state, slip, density, viscosity, mean_eps, fm, bm)
+        fm = EL_MM_DRAG_SCALE(mean_eps)*fm
+      END IF
+      CALL WRITE_WINDOW(6)
+      CALL WRITE_WINDOW(mfile)
+    END DO
+    CALL WRITE_VMODE(6)
+    CALL WRITE_VMODE(mfile)
+
+  CONTAINS
+
+    SUBROUTINE WRITE_WINDOW(unit)
+      INTEGER, INTENT(IN) :: unit
+      REAL*8 :: per(4)
+      per = nan
+      IF (cnt.GT.0.0d0) per = glob(j0+9:j0+12)/cnt
+      WRITE(unit,'(A,ES16.8,A,I0,A,A,A,2ES16.8,A,ES16.8,A,I0,2(A,ES16.8),A,3ES16.8,4(A,ES16.8))') &
+        'EL_BED_WINDOW t= ', time, ' step= ', istep, ' win= ', TRIM(win_name(k)), &
+        ' z_lo_hi= ', zl(k), zh(k), ' gradz= ', gz, ' n= ', NINT(cnt), ' eps_geo= ', eps_geo, &
+        ' eps_kern= ', mean_eps, ' slip= ', slip, ' drag_mean= ', per(1), ' drag_of_means= ', fm(3), &
+        ' pres_mean= ', per(2), ' visc_mean= ', per(3)
+    END SUBROUTINE WRITE_WINDOW
+
+    SUBROUTINE WRITE_VMODE(unit)
+      INTEGER, INTENT(IN) :: unit
+      INTEGER :: c
+      WRITE(unit,'(A,ES16.8,A,I0,A,2ES16.8,4(A,A,5ES16.8))') 'EL_BED_VERTEX_MODE t= ', time, &
+        ' step= ', istep, ' z_lo_hi= ', zmin + BW_VM_LO, zmin + BW_VM_HI, &
+        (' '//TRIM(cname(c))//'= ', '', glob(NPW*NWIN + 3*(c-1) + 1), vm_mean(c), vm_std(c), &
+         vmin(c), vmax(c), c = 1, 4)
+    END SUBROUTINE WRITE_VMODE
+
+  END SUBROUTINE EL_WRITE_BED_WINDOWS
 
   SUBROUTINE EL_BED_AUDIT_RECORD_SAMPLE(z, eps, slip_z)
     REAL*8, INTENT(IN) :: z, eps, slip_z

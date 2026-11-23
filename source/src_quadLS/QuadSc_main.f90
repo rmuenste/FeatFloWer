@@ -27,7 +27,8 @@ use EL_CONFIG, only: el_apply_fluid_feedback, el_prescribed_field, el_shear_rate
                      el_prescribed_umax, el_cylinder_center, el_cylinder_radius, &
                      el_cylinder_axis, el_initial_field
 use EL_CONFIG, only: el_write_diagnostics, el_fluid_gravity, el_meso_filter
-use EL_CONFIG, only: el_bed_audit_freq, el_velocity_audit_freq, el_drag_hrz, &
+use EL_CONFIG, only: el_bed_window_audit
+use EL_CONFIG, only: el_bed_audit_freq, el_velocity_audit_freq, el_drag_hrz, el_drag_hrz_sampled, &
                      EL_DRAG_HRZ_RUNTIME_CHECK, EL_FLUID_SOLVE_ACTIVE
 use EL_BED_AUDIT, only: EL_WRITE_BED_AUDIT
 use EL_VELOCITY_AUDIT, only: EL_WRITE_VELOCITY_AUDIT
@@ -490,6 +491,8 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
     ! plane pressures after the fluid solve of this step, bed weight, heights, porosity.
     IF (el_bed_audit_freq.GT.0) CALL EL_WRITE_BED_AUDIT(LinSc%valP(NLMAX)%x, timens, tstep, &
       mfile, itns, mg_mesh, NLMAX, Properties%Density(1), Properties%Gravity)
+    ! Window audit (SimPar@ELBedWindowAudit; collective over the workers on bed-audit steps)
+    IF (el_bed_window_audit) CALL EL_Bed_Window_Audit(mfile, itns)
     ! Velocity audit (SimPar@ELVelocityAuditFreq > 0, deck-only guard; collective over the
     ! workers): where the fastest fluid dof sits and the porosity there.
     IF (el_velocity_audit_freq.GT.0) THEN
@@ -693,7 +696,8 @@ IF (myid.ne.master) THEN
    ! aborts every rank (EL_CONFIG:EL_DRAG_HRZ_RUNTIME_CHECK).
    IF (el_drag_hrz) THEN
      CALL EL_DRAG_HRZ_RUNTIME_CHECK(bNonNewtonian, myMatrixRenewal%S)
-     CALL EL_APPLY_DRAG_SPLIT_PARTNER(QuadSc%defU, QuadSc%defV, &
+     ! (not under the diagnostic control ELDragHrzPartner = sampled, whose partner is deposited)
+     IF (.NOT.el_drag_hrz_sampled) CALL EL_APPLY_DRAG_SPLIT_PARTNER(QuadSc%defU, QuadSc%defV, &
        QuadSc%defW, QuadSc%valU, QuadSc%valV, QuadSc%valW, tstep)
    END IF
  END IF
@@ -1085,6 +1089,10 @@ include 'QuadSc_el_mm.f90'
 !
 !=========================================================================
 include 'QuadSc_el_mombal.f90'
+!=========================================================================
+!
+!=========================================================================
+include 'QuadSc_el_bedwin.f90'
 !=========================================================================
 ! 
 !=========================================================================
