@@ -63,6 +63,14 @@ The interface layer (`libs/pe/src/interface/c2f_interface.cpp`) provides multipl
 | `commf2c_creep_` | Creep flow | `setupCreep[Serial]()` |
 | `commf2c_dkt_` | Draft-Kiss-Tumble | `setupDraftKissTumb[Serial]()` |
 
+`commf2c_dkt_` (DKT pair and the D3.2 settling clouds, applications `q2p1_dkt` and
+`q2p1_viscometer`) takes six additional `double` arguments after `remoteRank`: the global
+extents of the CFD mesh, `xmin, xmax, ymin, ymax, zmin, zmax`, obtained from
+`global_mesh_extents` (module `mesh_extents`, `source/src_util/mesh_extents.f90`). In
+parallel PE mode the setup decomposes exactly this box into the `processesX_/Y_/Z_` grid
+of `example.json`, which must be the Cartesian partition the mesh was cut with; the serial
+setup ignores the extents. The EL entry points `commf2c_el_*` follow the same convention.
+
 The interface layer has **conditional compilation** based on PE mode:
 
 #### Parallel PE Mode (HAVE_MPI)

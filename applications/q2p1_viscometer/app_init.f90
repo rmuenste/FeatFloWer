@@ -158,6 +158,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE Parametrization, ONLY: ParametrizeQ2Nodes
  USE cinterface 
  USE param_parser, ONLY: GDATNEW
+ USE mesh_extents, ONLY: global_mesh_extents
 
  IMPLICIT NONE
  ! -------------- workspace -------------------
@@ -192,6 +193,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  logical :: bwait = .true.
 
  integer, dimension(1) :: processRanks
+ real*8 :: dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax
  integer :: MPI_W0, MPI_EX0
  integer :: MPI_Comm_EX0
  integer :: error_indicator
@@ -489,11 +491,16 @@ DO ILEV=NLMIN+1,NLMAX
  !=======================================================================
  !     Set up the rigid body C++ library
  !=======================================================================
+ ! The global extents of the CFD mesh are handed to the PE setup: in
+ ! parallel PE mode the PE domain decomposition covers exactly this box
+ ! (pe/interface/setup/dkt.h); the serial setup ignores them.
+ call global_mesh_extents(dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax)
 #ifdef PE_SERIAL_MODE
  ! Serial PE mode: Each CFD domain runs independent serial PE instance
  ! No MPI communicators needed - PE runs purely serial
  if (myid .ne. 0) then
-   call commf2c_dkt(0, 0, myid)  ! Dummy MPI communicator arguments
+   call commf2c_dkt(0, 0, myid, dom_xmin, dom_xmax, dom_ymin, dom_ymax, &
+                    dom_zmin, dom_zmax)  ! Dummy MPI communicator arguments
  end if
    ! Set lubrication threshold based on mesh size
    call set_lubrication_threshold_from_mesh(myid)
@@ -506,7 +513,8 @@ DO ILEV=NLMIN+1,NLMAX
 
 #ifdef HAVE_PE
  if (myid .ne. 0) then
-   call commf2c_dkt(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
+   call commf2c_dkt(MPI_COMM_WORLD, MPI_Comm_Ex0, myid, &
+                    dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax)
  end if
 #endif
 #endif
