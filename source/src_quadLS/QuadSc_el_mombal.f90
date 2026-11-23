@@ -20,7 +20,7 @@
 !                      corrector passes done): u^{n+1}, p^{n+1}, q = p^{n+1} - p^n, the boundary
 !                      planes, then the collective write over the workers
 ! Read-only: the solver arrays are operands only; products are formed in local scratch arrays with
-! the solver's own kernels (B_Mul_U, LAX17, EL_MM_PHI_OPERATORS). No global state (ILEV, matrix
+! the own kernels of the solver (B_Mul_U, LAX17, EL_MM_PHI_OPERATORS). No global state (ILEV, matrix
 ! pointers, communication) is touched. The scheme the split assumes (backward Euler, Newtonian,
 ! matrix M + dt (D + K + B)) is enforced at start-up (app_init).
 !=========================================================================

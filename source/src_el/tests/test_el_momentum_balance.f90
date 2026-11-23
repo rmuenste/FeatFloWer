@@ -7,7 +7,7 @@
 !     coefficient rho_eps: area 1, momentum flux int rho_eps u (u.n) dS and viscous traction
 !     int c (grad u) n dS against the closed forms (integrands of degree <= 2: exact)
 !   3 an interior plane (z = 1/2) is found from both sides: the two outward normals give fluxes
-!     and tractions of opposite sign (each side's sum equals the closed form)
+!     and tractions of opposite sign (the sum of each side equals the closed form)
 !   4 a plane between element layers that no element face lies in is not picked up
 !=========================================================================
 PROGRAM TEST_EL_MOMENTUM_BALANCE
