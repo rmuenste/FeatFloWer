@@ -453,6 +453,8 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
         el_field_data%epsilon_f)
     END IF
     CALL Transport_q2p1_UxyzP_fluid_core(mfile,inl_u,itns,.FALSE.)
+    ! Momentum-balance audit (SimPar@ELMomentumBalanceAudit; collective over the workers)
+    CALL EL_MomBal_End(mfile, itns)
     ! Mesoscale lane-mode filter (periodic settling boxes): applied inside
     ! the audited window so its (near-zero) momentum residue lands in the
     ! EL_FLUID_PAIR mismatch and is nulled by the ELMomentumFix deadbeat.
@@ -656,6 +658,9 @@ IF (myid.ne.master) THEN
 
  CALL ZTIME(tttt0)
 
+ ! Momentum-balance audit (SimPar@ELMomentumBalanceAudit; no-op otherwise): u^n, p^n
+ CALL EL_MomBal_Begin()
+
  ! Assemble the right hand side
  CALL Matdef_General_QuadScalar(QuadSc,1)
 
@@ -697,6 +702,9 @@ IF (myid.ne.master) THEN
  IF (.NOT.enable_fbm) THEN
    IF (EL_MM_OPERATOR_FORM()) CALL EL_MM_Add_Operator_Terms()
  END IF
+
+ ! Momentum-balance audit: the complete right-hand side before its Dirichlet rows are zeroed
+ CALL EL_MomBal_Rhs()
 
  ! Set dirichlet boundary conditions on the defect
  CALL Boundary_QuadScalar_Def()
@@ -774,6 +782,9 @@ IF (myid.ne.master) THEN
 
  ! Assemble the defect vector and fine level matrix
  CALL Matdef_General_QuadScalar(QuadSc,-1)
+
+ ! Momentum-balance audit: defect of this iterate before its Dirichlet rows are zeroed
+ CALL EL_MomBal_Defect()
 
  ! Set dirichlet boundary conditions on the defect
  CALL Boundary_QuadScalar_Def()
@@ -1070,6 +1081,10 @@ include 'QuadSc_el_va.f90'
 !
 !=========================================================================
 include 'QuadSc_el_mm.f90'
+!=========================================================================
+!
+!=========================================================================
+include 'QuadSc_el_mombal.f90'
 !=========================================================================
 ! 
 !=========================================================================

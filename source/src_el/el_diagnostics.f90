@@ -14,6 +14,7 @@ MODULE EL_DIAGNOSTICS
                        el_shear_rate, el_wall_stress_diag, el_bed_audit_freq
   USE EL_GEOMETRY, ONLY: el_domain_box, el_domain_box_set
   USE EL_MOMENTUM_MODEL, ONLY: EL_MM_WEIGHTED_INERTIA
+  USE EL_MOMENTUM_BALANCE, ONLY: EL_MOMBAL_RECORD_PARTICLE_DP
   USE def_FEAT, ONLY: NITNS
 #ifdef HAVE_PE
   USE DEM_QUERY, ONLY: numLocalParticles, getAllParticles, &
@@ -657,6 +658,8 @@ CONTAINS
       el_pair_last_dp = p_after - el_pair_momentum_before
       el_pair_last_expected = expected_impulse
     END IF
+    ! momentum-balance audit (SimPar@ELMomentumBalanceAudit; no-op otherwise)
+    CALL EL_MOMBAL_RECORD_PARTICLE_DP(istep, p_after - el_pair_momentum_before, expected_impulse)
     IF (MOD(ABS(istep), el_momentum_audit_freq).NE.0) RETURN
 
     ! Momentum absorbed by the z-walls this macro step (wall lubrication +
