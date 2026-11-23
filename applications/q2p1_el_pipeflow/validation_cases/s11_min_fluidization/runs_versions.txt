@@ -278,3 +278,7 @@ job     run                      binary     result
 165373  pin-bump gate: D_s6, G_tier2, VB40, E2w5, R_off400, R_id400 (runs/pinbump_2026-11-23/gate/*__5b775bcc-pe619d43c) bitwise against the b9e8f410-pece2a7f7 runs, the __base runs, R_smoke_r1 and R_id400_new (pc_compare_5b775bcc-pe619d43c.txt)
 165374  unit tests of build-el-5b775bcc: 15 of 15 pass
 165368 / 165375 / 165376  DNS tree build-twin-5b775bcc, twins twin_m5b775bcc_e4l3 and _dkt: bitwise with the certified heads (logs/m2_compare_twins.txt)
+165440  build-el-df99f3b1 (new tree, build id pinned): binary runs/pinbump_2026-11-23/bin/q2p1_el_pipeflow.df99f3b1-pebe152e2 md5 2443e7f1  FF df99f3b1 = pin be152e2 (pe master with pull requests #59 + #60)
+165441  pin-bump gate be152e2: the six runs runs/pinbump_2026-11-23/gate/*__df99f3b1-pebe152e2 bitwise against the 5b775bcc-pe619d43c runs and the original references (pc_compare_df99f3b1-pebe152e2.txt)
+165442  unit tests of build-el-df99f3b1: 15 of 15 pass
+165439 / 165443 / 165444  DNS tree build-twin-df99f3b1, twins twin_mdf99f3b1_e4l3 and _dkt: bitwise with the certified heads (logs/m3_compare_twins.txt)

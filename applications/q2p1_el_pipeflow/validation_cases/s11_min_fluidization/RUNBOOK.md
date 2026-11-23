@@ -3,7 +3,7 @@
 Record of 2026-11-19 (preparation and cost probes; the protocol has NOT been run). Spec and reference
 (peer session, read-only): `liggghts-dem/LIGGGHTS-PUBLIC/md_docs/case_specs/11_min_fluidization/SPEC.md`,
 `reference/umf_reference.py`, `reference/inlet_table.py`. Origin: MFiX PIC07 / NETL experiment.
-Branch `feature/el-min-fluidization` (worktree `FeatFloWer-fluid11`), pe pin 619d43c (pe master with pull request #59; section 14; the runs of sections 1-13 used the binaries named there). Design note of the
+Branch `feature/el-min-fluidization` (worktree `FeatFloWer-fluid11`), pe pin be152e2 (pe master with pull requests #59 and #60; section 14; the runs of sections 1-13 used the binaries named there). Design note of the
 code: `docs/md_docs/el_min_fluidization_prep_2026-11-19.md`. Runs: `/data/warehouse17/rmuenste/runs/fluid11`.
 
 Marks: **[V]** verified here (code read, unit test, run output), **[I]** inferred or computed, not verified
@@ -661,6 +661,28 @@ Note for twin builds through Slurm: a tree configured on a compute node without 
 node's flags (`-march=native` on nx) and the DKT twin is then not bitwise with the certified head
 (e4_l3 is); the build id has to be pinned (first attempt of the finalize certification, jobs 165356/165360).
 
+
+### Second bump the same day: pe pin be152e2 (pull request #60)
+
+The owner merged pe pull request #60 (a mesh with an inverted DistanceMap takes the bounding box of the
+map's grid; parallel ATC setup on slabs of the CFD partition) after its branch had been brought up to master
+and one commit added (946ff27: the parallel `setupATC` refuses a restitution request like every other
+setup). pe master be152e2; its tree is the one tested before the merge (pe CI on the branch head, MPI + CGAL
+tree locally; evidence `runs/pinbump_2026-11-23/pe_pr60`). No Fortran-facing entry point changes; in builds
+without CGAL (all DNS and EL trees) the object code differs in `TriangleMesh`, `DistanceMap` and the
+parallel ATC setup only [review of the pull request, object comparison job 165389].
+
+Pin 619d43c -> be152e2 (df99f3b1), gates as above with new trees [V]:
+
+| gate | job | result |
+|---|---|---|
+| EL default paths D_s6, G_tier2, VB40, E2w5 (binary `df99f3b1-pebe152e2`, build job 165440) | 165441 | bitwise against the runs of the 619d43c pin and the `__base` runs (18455, 962, 1681, 10181 `EL_` lines) |
+| case 11, 400 steps, restitution keys absent / restitution on | 165441 | bitwise: 12677 / 13077 `EL_` lines, 800 solver lines, 27 particle logs each |
+| EL / pco unit tests | 165442 | 15 of 15 pass |
+| DNS twins e4_l3 and DKT (tree `build-twin-df99f3b1`, build job 165439) | 165443, 165444 | bitwise with the certified heads (ca98e7af225b / 89abce88b675; 82411f64f661 / cfb8b42d0969) |
+
+Not covered by these gates: FeatFloWer cases that use triangle meshes with a DistanceMap (ATC, die
+geometries; they need CGAL builds), which are the cases pull request #60 changes; the Fritz half.
 
 ## 15. Budget of the F1 deficit and the F3 excess (2026-11-23)
 

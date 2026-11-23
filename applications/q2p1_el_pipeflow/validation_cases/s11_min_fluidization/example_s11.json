@@ -43,7 +43,7 @@
   0.0,
   0.0
  ],
- "config_string": "min_fluidization: spec 11 (MFiX PIC07 / NETL), laterally periodic column 15 x 15 x 100 mm (bed R; 25 x 25 for bed A), d 0.87 mm, rho_p 860, gas rho 1.0 mu 1.8e-5; floor = z wall of pe with uniform gas inflow through it (Inflow975), top z wall at the column top (fluid outlet there, never reached by particles); periodic x/y; restitution 0.9 applied through restitutionEnabled_ (post-pass scheme, rest velocity restitutionThreshold_ 0.01 m/s, sweep budget 48; keys of pe pull request #59, in the pin 619d43c of this branch: an older pe does not know them and runs inelastic, then the start-up line EL_CONTACT_PARAMS is missing and the post tool says so; record run RUNBOOK section 13), friction 0.15 per material = 0.3 per contact (pe adds the coefficients of the two materials in contact)",
+ "config_string": "min_fluidization: spec 11 (MFiX PIC07 / NETL), laterally periodic column 15 x 15 x 100 mm (bed R; 25 x 25 for bed A), d 0.87 mm, rho_p 860, gas rho 1.0 mu 1.8e-5; floor = z wall of pe with uniform gas inflow through it (Inflow975), top z wall at the column top (fluid outlet there, never reached by particles); periodic x/y; restitution 0.9 applied through restitutionEnabled_ (post-pass scheme, rest velocity restitutionThreshold_ 0.01 m/s, sweep budget 48; keys of pe pull request #59, in the pe pin of this branch since 619d43c: an older pe does not know them and runs inelastic, then the start-up line EL_CONTACT_PARAMS is missing and the post tool says so; record run RUNBOOK section 13), friction 0.15 per material = 0.3 per contact (pe adds the coefficients of the two materials in contact)",
  "zWallsEnabled_": true,
  "zWallVelocityTop_": 0.0,
  "zWallVelocityBottom_": 0.0
