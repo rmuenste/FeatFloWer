@@ -105,9 +105,24 @@ def series(steps):
     s['B.area_in'] = vec(b, 'area_in_out', 0)
     for key in ('dpA', 'flux_in', 'flux_out', 'trac_in', 'trac_out'):
         s['B.' + key] = vec(b, key)
+    # fields of later binaries (E2): inlet / outlet gas fraction, inlet-row reaction by dof class
+    if all('eps_in_out' in steps[k][b] for k in ks):
+        s['B.eps_in'] = vec(b, 'eps_in_out', 0)
+        s['B.eps_out'] = vec(b, 'eps_in_out', 1)
+        for i, c in enumerate(('vertex', 'edge', 'face')):
+            s['B.fbD_' + c] = vec(b, 'fbD_class', i)
     for key in ('res_gas_F', 'defect_F', 'gas_roundoff', 'proj_F', 'proj_D', 'jd', 'jd_check',
                 'hydro_dpA', 'rec_sum') + REC:
         s['C.' + key] = vec('EL_MOM_BALANCE_C', key)
+    if 'B.eps_in' in s:
+        # split of the pressure pair rec_pB + rec_pfp with the inlet-plane gas fraction (continuous
+        # identity -sum_all fp(p) = -P_p + p_in (1 - eps_in) A):
+        #   press_samp  = P_p + mmp_end(A) - p_in (1 - eps_in) A: particle pressure force against the
+        #                 solid-fraction pressure term of the gas (model-A sampling / consistency)
+        #   press_inlet = the rest = -[pgrad_end + mmp_end](D) + pgrad_end(A) - (eps_in p_in - p_out) A:
+        #                 inlet-row representation of the eps-weighted pressure force against its plane value
+        s['C.press_samp'] = s['P.pressure'] + s['A.mmp_end'] - s['B.p_in']*(1.0 - s['B.eps_in'])*s['B.area_in']
+        s['C.press_inlet'] = s['C.rec_pB'] + s['C.rec_pfp'] - s['C.press_samp']
     return s
 
 
@@ -184,6 +199,14 @@ def report(s, mask, W, label, out=sys.stdout):
           f'+ [-mmp_end(D)] {pc(-m["D.mmp_end"]): .4f}', file=out)
     print(f'  rec_pB + rec_pfp = gas pressure term on free rows (pgrad_end + mmp_end, F) + particle pressure '
           f'force - dpA: {pc(m["C.rec_pB"] + m["C.rec_pfp"]): .4f}', file=out)
+    if 'C.press_samp' in m:
+        print(f'  pressure pair = press_samp {pc(m["C.press_samp"]): .4f} (particle pressure force vs the gas solid-fraction '
+              f'pressure term) + press_inlet {pc(m["C.press_inlet"]): .4f} (inlet rows vs eps_in p_in A; eps_in '
+              f'{m["B.eps_in"]:.5f})', file=out)
+        print(f'  fbD by inlet dof class (z, %W): vertex {pc(-m["B.fbD_vertex"]): .4f} edge {pc(-m["B.fbD_edge"]): .4f} '
+              f'face {pc(-m["B.fbD_face"]): .4f}', file=out)
+    print(f'  coupling terms together rec_fbD + rec_hrz + rec_dep {pc(m["C.rec_fbD"] + m["C.rec_hrz"] + m["C.rec_dep"]): .4f} '
+          f'(under ELDragHrzPartner = sampled the deposited partner moves between them)', file=out)
     print(f'  hrz increment: before projection A {pc(m["A.hrz_pred"]): .4f} F {pc(m["F.hrz_pred"]): .4f}; '
           f'end of step A {pc(m["A.hrz_end"]): .4f} F {pc(m["F.hrz_end"]): .4f}', file=out)
     return m

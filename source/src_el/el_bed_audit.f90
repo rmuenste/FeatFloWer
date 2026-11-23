@@ -470,7 +470,7 @@ CONTAINS
 
   ! The window lines of this step (see the header). Collective over the workers; called by every
   ! worker on the audit steps when SimPar@ELBedWindowAudit = Yes, after EL_WRITE_BED_AUDIT of the
-  ! step. vm_sum(3,4) / vm_min(4) / vm_max(4): this rank's vertex-mode sums (sum 1/m, sum w/m,
+  ! step. vm_sum(3,4) / vm_min(4) / vm_max(4): the vertex-mode sums of this rank (sum 1/m, sum w/m,
   ! sum w^2/m), minima and maxima per dof class (vertex, edge, face, centre), formed by the caller.
   SUBROUTINE EL_WRITE_BED_WINDOWS(pressure, time, mfile, istep, mesh, ilev, density, viscosity, &
                                   vm_sum, vm_min, vm_max)
