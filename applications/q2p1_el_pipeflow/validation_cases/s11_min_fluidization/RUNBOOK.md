@@ -661,3 +661,50 @@ Note for twin builds through Slurm: a tree configured on a compute node without 
 node's flags (`-march=native` on nx) and the DKT twin is then not bitwise with the certified head
 (e4_l3 is); the build id has to be pinned (first attempt of the finalize certification, jobs 165356/165360).
 
+
+## 15. Budget of the F1 deficit and the F3 excess (2026-11-23)
+
+Read-only investigation of the existing runs (external reviewer, brief and report in
+`runs/fluid11/analysis_f1f3`); no new simulation. [V] = recomputed here from the `EL_BED_AUDIT` lines,
+[R] = reviewer's number, not recomputed.
+
+**F1, record run `R_r5_rest`**, seven evaluation windows 0.70-1.00 s ... 3.70-4.00 s (121 audits each), in
+percent of the buoyant bed weight: deficit 1 - dp* = floor share - particle inertia + residual.
+
+| U (m/s) | dp* [V] | deficit [V] | floor share [V] | audits with no floor load [V] | inertia [R] | residual [R] |
+|---|---|---|---|---|---|---|
+| 0.30 | 0.97165 | 2.835 | 1.910 | 37 % | -0.151 | 1.075 |
+| 0.28 | 0.96766 | 3.234 | 1.983 | 34 % | +0.397 | 0.855 |
+| 0.26 | 0.97318 | 2.682 | 1.707 | 31 % | +0.097 | 0.878 |
+| 0.24 | 0.97463 | 2.537 | 1.880 | 29 % | -0.022 | 0.679 |
+| 0.22 | 0.97741 | 2.259 | 1.618 | 37 % | +0.148 | 0.493 |
+| 0.20 | 0.98606 | 1.394 | 1.693 | 28 % | -0.429 | 0.130 |
+| 0.18 | 0.99360 | 0.640 | 0.693 | 2 % | -0.130 | 0.077 |
+| mean | 0.97774 | 2.226 | 1.640 | | -0.013 | 0.598 |
+
+- The floor carries 1.5-1.6 % of the weight on time average in every run [V: 1.640 record, 1.480
+  friction only, 1.489 first split]; at 0.30 m/s it is loaded when the bed is low and unloaded when it is
+  high [R: 3.74 % in the lowest quartile of the bed-median height, 0.03 % in the highest]: slug landings.
+- The residual is the difference between the hydrodynamic force the particles receive and the pressure
+  force between inlet and outlet. It recurs: 0.60-0.66 % in the four runs with the consistent `hrz` split,
+  0.31 % with the first split [R; V for the sum floor + residual]; it falls with the inlet velocity and
+  vanishes in the fixed bed. Particle inertia over the window averages out (-0.013 %) [R]. Leading
+  candidate, not measured: the implicit drag increment of the `hrz` predictor, -theta sum_i B_i (u~_i - u_i^n),
+  acts on the gas and has no partner on the particles [R; listed as open in section 12].
+- Sliding the 0.3 s window through the hold moves F1 between 0.9758 and 0.9813; the whole flat part of the
+  holds gives 0.9771: the window scatters the value, it does not bias it [R].
+- Not supported by the data: a drag deficit of the lowest layers from the kernel at the floor (the mapped
+  gas fraction of the first cell is lower than the geometric one, 0.379 against 0.382 at 0.04 m/s) [R].
+
+**F3** [R]: rebuilding the fixed branch from its parts, about 3 of the 5 points of the ratio follow from the
+core-gradient deficit of F2 (correcting only the core gives 1.018), 0.4 from fitting steps of slightly
+different packing, the rest from the pressure drop outside the core window. Of the 3.5 % of F2, 1.4 points
+are a lower mean slip at the particle positions than U / eps (0.987), present with both drag splits; the
+remainder is not attributed. Including the 0.14 m/s step changes the ratio by 0.0007 only. The earlier
+comparison "2.4 % with the first split, 3.5 % with the consistent one" mixes two audit windows; at a common
+window the two splits differ by about 0.003 [R].
+
+Standing: F1 is a small repeatable shortfall (all runs with the consistent split 0.9777-0.9787), F3 is
+indeterminate at the gate (miss 0.0004, range of three realisations 0.0035). Next measurement, proposed, not
+done: momentum balance of the open column over the first 1.0 s with per-step accumulators (applied particle
+impulse, floor impulse, boundary fluxes and reactions, the implicit increment before projection).
