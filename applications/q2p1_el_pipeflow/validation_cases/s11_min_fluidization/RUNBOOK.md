@@ -730,3 +730,47 @@ Standing: F1 is a small repeatable shortfall (all runs with the consistent split
 indeterminate at the gate (miss 0.0004, range of three realisations 0.0035). Next measurement, proposed, not
 done: momentum balance of the open column over the first 1.0 s with per-step accumulators (applied particle
 impulse, floor impulse, boundary fluxes and reactions, the implicit increment before projection).
+
+## 16. Momentum-balance measurement of the F1 residual (2026-11-23)
+
+Experiment 1 of section 15: where does the residual between the hydrodynamic force on the particles and
+the inlet-outlet pressure force go. Diagnostic `SimPar@ELMomentumBalanceAudit` (default off; branch
+`diag/el-momentum-balance`, worktree `FeatFloWer-fl11diag`, commits eaef558a, 7ec509e9, 2fd7440b; **not
+on this branch, not pushed, not reviewed**), brief and evidence in
+`/data/warehouse17/rmuenste/runs/fluid11/momdiag` (`brief_e1.md`, `E1_evidence.txt`,
+`E1_mombal_table.txt`, `E1_mombal_series.csv`).
+
+- Gates of the diagnostic binary `7ec509e9-momdiag` [implementer, comparison files read]: key off, the six
+  gate runs bitwise against the runs of the be152e2 pin (job 165498); key on, both case-11 400-step runs
+  bitwise in every pre-existing stream (job 165499); 16 of 16 unit tests (job 165496); global sums
+  independent of the partition (18 against 36 workers, identical before the pressure solve).
+- Replay of the first 1.0 s of `R_r5_rest` (job 165502, 4000 steps, 37 ranks): bitwise with the record in
+  every `EL_` stream, 8000 solver lines and 27 particle logs (the tail-average fields differ because their
+  window follows `MaxNumStep`).
+- Window 0.70-1.00 s (1200 steps), z components in per cent of the bed weight [V, recomputed from the
+  per-step series]:
+
+| term | % of W |
+|---|---|
+| hydrodynamic force on the particles H_p | 98.261 |
+| inlet-outlet pressure force dp A | 97.189 |
+| **residual R = H_p - dp A** | **1.072** |
+| particle reaction deposited on the constrained (Dirichlet) inlet rows | +0.512 |
+| pressure terms: free-row gas pressure operators + particle pressure force against dp A | +0.471 |
+| convective momentum flux of the gas | +0.077 |
+| implicit hrz increment, free rows, before the projection | +0.010 |
+| viscous, gas inertia, solver residual, deposit closure, body forces | each below 0.003 |
+
+- The implicit increment of the hrz predictor, the candidate named in section 15, is **not** the carrier
+  (0.010 %).
+- Half of the residual is particle drag reaction that the kernel deposits on velocity rows of the inlet
+  plane. These rows are replaced by the inlet condition, so the gas never receives that share and the
+  pressure drop is lower by it. It is present with and without floor load (0.43 / 0.57 % on unloaded /
+  loaded steps).
+- The other half is a pressure mismatch that appears only while particles load the floor (0.83 % on
+  loaded steps, -0.04 % on unloaded ones; correlation with the floor force 0.72 per step) [the split into
+  loaded and unloaded steps recomputed with a threshold of 0.1 % of W]. Its two printed parts (-1.64 and
+  +2.11 %) are not physically separate; whether it is the model-A pressure force at the floor or the
+  weighted pressure term in the inlet element layer is **not resolved**.
+- Both carriers sit in the first element layer above the inlet. Consequence for the gates: **not yet
+  measured** (experiment 2 runs the same audit in the fixed bed). No repair exists.
