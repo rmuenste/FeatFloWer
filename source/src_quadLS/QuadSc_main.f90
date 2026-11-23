@@ -492,7 +492,7 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
     IF (el_bed_audit_freq.GT.0) CALL EL_WRITE_BED_AUDIT(LinSc%valP(NLMAX)%x, timens, tstep, &
       mfile, itns, mg_mesh, NLMAX, Properties%Density(1), Properties%Gravity)
     ! Window audit (SimPar@ELBedWindowAudit; collective over the workers on bed-audit steps)
-    IF (el_bed_window_audit) CALL EL_Bed_Window_Audit(mfile, itns)
+    IF (el_bed_window_audit) CALL EL_BedWin_Adapter(mfile, itns)
     ! Velocity audit (SimPar@ELVelocityAuditFreq > 0, deck-only guard; collective over the
     ! workers): where the fastest fluid dof sits and the porosity there.
     IF (el_velocity_audit_freq.GT.0) THEN

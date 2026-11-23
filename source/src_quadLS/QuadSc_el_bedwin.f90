@@ -12,7 +12,7 @@
 ! number of its copies (a parallel sum of ones on the finest level, formed once per run on every
 ! worker alike). Read-only.
 !=========================================================================
-SUBROUTINE EL_Bed_Window_Audit(mfile, istep)
+SUBROUTINE EL_BedWin_Adapter(mfile, istep)
 
   USE EL_BED_AUDIT, ONLY: EL_WRITE_BED_WINDOWS, BW_VM_LO, BW_VM_HI
   USE EL_GEOMETRY, ONLY: el_domain_box
@@ -77,4 +77,4 @@ SUBROUTINE EL_Bed_Window_Audit(mfile, istep)
   CALL EL_WRITE_BED_WINDOWS(LinSc%valP(NLMAX)%x, timens, mfile, istep, mg_mesh, NLMAX, &
     Properties%Density(1), EL_CLOSURE_VISCOSITY(Properties%Viscosity(1)), vm_sum, vm_min, vm_max)
 
-END SUBROUTINE EL_Bed_Window_Audit
+END SUBROUTINE EL_BedWin_Adapter
