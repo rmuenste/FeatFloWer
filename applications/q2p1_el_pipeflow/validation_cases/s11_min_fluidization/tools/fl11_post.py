@@ -20,8 +20,14 @@ domain there is no official verdict; a witnessed FAIL (F5 count change, F5 heigh
 spec's lowest hold) is kept only when the run fails nothing but "finished" (an unfinished or still running
 spec-11 run), otherwise it is printed as a measurement.
 
-Gates (spec section 5, amended 2026-11-20): F1 plateau dp* (> 0.95) mean 1 +- 0.02; F2 fixed-branch
-(dp* < 0.8 of the plateau; a fluidised step is never fixed) window gradient against the closure at the mapped
+Gates (spec section 5, amended 2026-11-20; F1 amended 2026-11-24, after the 80-row result had been seen):
+F1 plateau = mean dp* over the measured steps with U above the run's own measured U_mf (the F3 crossing of
+the fixed-branch fit with dp* = 1), 1 +- 0.02; the sets come from an iteration (branch_sets: start from the
+steps with dp* > 0.95, fixed = dp* < 0.8 of the plateau and not in the fluidised set, fit, U_mf, fluidised
+= U > U_mf, until both sets are unchanged; no F1-F3 verdict when they do not settle or contradict each
+other); the mean over the steps with dp* > 0.95 is a reported cross-check; a plateau within the scatter of
+its step means (Spec.AT_GATE: standard error or standard deviation) of the nearer limit is annotated
+"at the gate" next to the PASS / FAIL. F2 fixed-branch window gradient against the closure at the mapped
 gas fraction +- 5 %, window margin max(2 d, support); F3 U_mf of the fit dp* = a U + b U^2 (two distinct
 nonzero fixed velocities, full rank) against the closure U_mf at the whole-bed porosity +- 5 %; F4
 reported; F5 count constant over the run, height: no centre above zmin + Lz/2 in the lowest hold.
@@ -46,12 +52,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from fl11_closures import CLOSURES, closure_grad, closure_umf   # noqa: E402
 import make_inlet_table                                           # noqa: E402
 
-EVAL_VERSION = 'fl11_post r7 2026-11-22'   # part of the movie cache signature
+EVAL_VERSION = 'fl11_post r8 2026-11-24'   # part of the movie cache signature
 NAN = float('nan')
 INF = float('inf')
 GATES = ('F1', 'F2', 'F3', 'F5 height', 'F5 count')
 NOT_OFFICIAL = 'not a verdict (outside the supported domain)'
 OUTSIDE = ' (outside the supported domain)'
+AT_GATE_NOTE = ' (at the gate)'            # F1 annotation of the verdict line (the verdict stays PASS / FAIL)
 FINISH = 'PP3D_LES has successfully finished'
 BANNER = 'Parellel Q2/P1 FEM Fluid Dynamics code'
 
@@ -170,8 +177,10 @@ class Spec:
     FIRST_LEN, FIRST_LONG = Fraction(1, 2), Fraction(3, 5)   # the first hold: its last 0.5 s when longer than 0.6 s
     SUB = (Fraction(1, 5), Fraction(7, 20), Fraction(1, 2))  # sub-windows 0.2-0.35-0.5 s after the step start
     MIN_SAMPLES, MIN_SUB = 10, 5    # expected audit rows in a window / in a sub-window
-    FLU, FIX = 0.95, 0.8            # fluidised: dp* > FLU; fixed: dp* < FIX x plateau (and not fluidised)
+    FLU, FIX = 0.95, 0.8            # start set of the iteration: dp* > FLU; fixed: dp* < FIX x plateau (and not fluidised)
+    ROUNDS = 10                     # branch_sets: the sets must settle within this many rounds
     TOL_F1, TOL_F2, TOL_F3 = 0.02, 0.05, 0.05
+    AT_GATE = 'stderr'              # F1 'at the gate' scatter: 'stderr' = s / sqrt(n) or 'stdev' = s (s: sample std, n - 1)
     UMF_MEASURED = 0.182            # m/s, NETL measurement (F4, reported)
     FLAG = 0.02                     # sub-window difference flagged in the step table (display)
     REL_DET = 1e-6                  # F3: smallest relative determinant of the normal equations
@@ -909,24 +918,85 @@ def eval_step(ev, s):
     return x
 
 
+def branch_sets(steps, spec):
+    """the fluidised set (F1) and the fixed set (F2, F3) of the MEASURED steps, by the rule of the spec amendment
+    of 2026-11-24 (F1 = the steps with U above the run's own measured U_mf):
+      start    S_1 = measured steps with dp* > FLU; P_r = mean dp* over S_r;
+      round r  X_r = measured steps not in S_r with dp* < FIX x P_r (the fixed set); the F3 fit dp* = a U + b U^2
+               over X_r (fixed_fit, the code path of F3); U_mf,r = its crossing with dp* = 1 (smallest positive
+               root); S_(r+1) = measured steps with U > U_mf,r (strictly: a step at U_mf is not above);
+      settled  S_(r+1) = S_r (X and U_mf follow from S, so both sets are unchanged): the sets are S_r, X_r, U_mf,r,
+               P_r; every other measured step is intermediate.
+    Returns dict(flu, fixed, plateau, umf, rounds, start, reason). reason '' means settled, consistent sets; any
+    other reason means the sets are NOT determined (no F1-F3 verdict, the caller prints the reason; there is no
+    fallback to the threshold rule): no start set; in a round an empty fixed set, a fit that is not identified,
+    a fit without a positive crossing, or no measured step above U_mf; a cycle of sets, or no settlement within
+    ROUNDS rounds; at the settled state a step above U_mf with dp* < FIX x P (fluidised by U, fixed by dp*: the
+    branches contradict each other)."""
+    meas = [x for x in steps if x['measured']]
+    start = [x for x in meas if x['dps'] > spec.FLU]
+    out = dict(flu=[], fixed=[], plateau=NAN, umf=NAN, rounds=0, start=start, reason='')
+    if not start:
+        out['reason'] = f'no step with dp* > {spec.FLU} (no measured plateau to start the U_mf iteration from)'
+        return out
+    flu, seen = start, [frozenset(x['k'] for x in start)]
+    for r in range(1, spec.ROUNDS + 1):
+        out['rounds'] = r
+        plateau = mean([x['dps'] for x in flu])
+        fixed = [x for x in meas if x['k'] not in seen[-1] and x['dps'] < spec.FIX * plateau]
+        if not fixed:
+            out['reason'] = (f'round {r} of the U_mf iteration: no fixed-branch step (dp* < {spec.FIX} of the plateau '
+                             f'{plateau:.4f}, outside the fluidised set): no fit, no U_mf')
+            return out
+        fit = fixed_fit(fixed, spec)
+        umf = fit['cross'](1.0) if not fit['why'] else NAN
+        if fit['why'] or not finite(umf):
+            out['reason'] = (f"round {r} of the U_mf iteration: {fit['why']}" if fit['why'] else
+                             f"round {r} of the U_mf iteration: the fit dp* = {fit['a']:.4f} U + {fit['b']:.4f} U^2 of "
+                             f"{len(fixed)} fixed steps has no positive crossing with dp* = 1 (no U_mf)")
+            return out
+        new = [x for x in meas if x['U'] > umf]
+        if not new:
+            out['reason'] = f'round {r} of the U_mf iteration: no measured step above U_mf {umf:.4f} m/s'
+            return out
+        keys = frozenset(x['k'] for x in new)
+        if keys == seen[-1]:
+            out.update(flu=flu, fixed=fixed, plateau=plateau, umf=umf)
+            bad = [x for x in flu if x['dps'] < spec.FIX * plateau]
+            if bad:
+                out['reason'] = ('the branches contradict each other: ' + '; '.join(
+                    f"step {x['k']} (U {x['U']:.3f}) lies above U_mf {umf:.4f} m/s with dp* {x['dps']:.4f} < {spec.FIX} x "
+                    f"the plateau {plateau:.4f}" for x in bad))
+            return out
+        if keys in seen:
+            j = seen.index(keys) + 1
+            out['reason'] = (f'the U_mf iteration does not settle: round {r} returns to the fluidised set of round {j} '
+                             f'(a cycle of {r + 1 - j} sets)')
+            return out
+        seen.append(keys)
+        flu = new
+    out['reason'] = f'the U_mf iteration did not settle within {spec.ROUNDS} rounds'
+    return out
+
+
 def branches(ev):
-    """the plateau and the branch of every step, once (gates and display): fluidised (dp* > FLU), fixed (dp* <
-    FIX x plateau and not fluidised), intermediate, unclassified (no measured plateau), unmeasurable"""
-    spec, steps = ev['spec'], ev['steps']
-    flu = [x for x in steps if x['measured'] and x['dps'] > spec.FLU]
-    ev['plateau'] = mean([x['dps'] for x in flu]) if flu else NAN
-    for x in steps:
+    """the sets of branch_sets and the branch of every step, once (gates and display): fluidised (U above the
+    measured U_mf), fixed, intermediate, unclassified (sets not determined), unmeasurable"""
+    S = ev['sets'] = branch_sets(ev['steps'], ev['spec'])
+    ev['plateau'] = S['plateau'] if not S['reason'] else NAN
+    flu, fixed = {x['k'] for x in S['flu']}, {x['k'] for x in S['fixed']}
+    for x in ev['steps']:
         if not x['measured']:
             x['branch'] = 'unmeasurable'
-        elif x['dps'] > spec.FLU:
-            x['branch'] = 'fluidised'
-        elif not finite(ev['plateau']):
+        elif S['reason']:
             x['branch'] = 'unclassified'
-        elif x['dps'] < spec.FIX * ev['plateau']:
+        elif x['k'] in flu:
+            x['branch'] = 'fluidised'
+        elif x['k'] in fixed:
             x['branch'] = 'fixed'
         else:
             x['branch'] = 'intermediate'
-    ev['classes'] = [x['branch'] for x in steps]
+    ev['classes'] = [x['branch'] for x in ev['steps']]
 
 
 def linfit(x, y):
@@ -1006,7 +1076,8 @@ def report(ev, a):
     V['F5 count'] = gate_f5_count(ev, official)
     qual = setup_checks(ev)
     print(f"verdicts [{'set-up met' if not qual else 'set-up: ' + '; '.join(qual)}]: "
-          + ' | '.join(f"{g} {V[g]}" for g in GATES) + ('' if official else OUTSIDE))
+          + ' | '.join(f"{g} {V[g]}" + (AT_GATE_NOTE if g == 'F1' and ev['f1_at_gate'] else '') for g in GATES)
+          + ('' if official else OUTSIDE))
     return V
 
 
@@ -1130,35 +1201,61 @@ def rec_tok(raw, key):
 def gates_f1_f3(ev, official):
     spec, res = ev['spec'], ev['steps']
     V = dict(F1='unavailable', F2='unavailable', F3='unavailable')
+    ev['f1_at_gate'] = False
     bad = [x for x in res if not x['measured']]
     if len(res) < 3:
         print(f'\nF1, F2, F3 unavailable: {len(res)} protocol step(s), three needed')
         return V
+    S = ev['sets']
+    thr = S['start']
+    xcheck = (f"mean over the {len(thr)} steps with dp* > {spec.FLU}: {mean([x['dps'] for x in thr]):.6f} (reported, not gated)"
+              if thr else f'no measured step with dp* > {spec.FLU}')
     if bad:
+        # the dp* of an unmeasurable step is unknown, so its membership is undetermined in every set: in the start
+        # set (dp* > FLU), at or below U_mf in the fixed set (dp* < FIX x plateau: it moves the fit, U_mf and with it
+        # the F1 set), above U_mf in the F1 set; each one blocks F1, F2 and F3
         why = '; '.join(f"step {x['k']} (U {x['U']:.3f}): {x['why']}" for x in bad[:3]) + (' ...' if len(bad) > 3 else '')
-        flu = [x for x in res if x['branch'] == 'fluidised']
-        sub = (f"mean dp* over the {len(flu)} measured steps with dp* > {spec.FLU}: {mean([x['dps'] for x in flu]):.6f}"
-               if flu else f'no measured step with dp* > {spec.FLU}')
+        sub = (f"mean dp* over the {len(S['flu'])} measured steps above the U_mf {S['umf']:.4f} m/s of the measured "
+               f"steps: {S['plateau']:.6f}" if not S['reason'] else f"sets of the measured steps not determined ({S['reason']})")
         print(f"\nF1, F2, F3 unavailable ({len(bad)} protocol step(s) unmeasurable, each could belong to the set of a "
               f"gate: {why})")
         print(f"   measured, not a verdict: {sub}")
+        print(f"   cross-check, measured: {xcheck}")
         return V
-    flu = [x for x in res if x['branch'] == 'fluidised']
-    if not flu:
-        print(f'\nF1, F2, F3 unavailable: no step with dp* > {spec.FLU} (no measured plateau; the fixed branch is dp* < '
-              f'{spec.FIX} of the measured plateau)')
+    if S['reason']:
+        print(f"\nF1, F2, F3 unavailable: {S['reason']}")
+        if thr:
+            print(f"   cross-check, measured: {xcheck}")
         return V
-    plateau = ev['plateau']
+    flu, fixed, plateau = S['flu'], S['fixed'], S['plateau']
     v1 = 'PASS' if abs(plateau - 1) <= spec.TOL_F1 else 'FAIL'
     if official:
         V['F1'] = v1
-    print(f"\nF1 plateau: mean dp* over {len(flu)} steps with dp* > 0.95 (U {min(x['U'] for x in flu):.2f} .. "
-          f"{max(x['U'] for x in flu):.2f}): {plateau:.6f}   (gate 1 +- 0.02: {word(v1, official)}); "
+    n, dist = len(flu), spec.TOL_F1 - abs(plateau - 1)            # dist >= 0: inside the gate (PASS)
+    note, s = '', NAN
+    if n >= 3:
+        s = math.sqrt(sum((x['dps'] - plateau) ** 2 for x in flu) / (n - 1))
+        measures = {'stderr': ('standard error', s / math.sqrt(n)), 'stdev': ('standard deviation', s)}
+        if spec.AT_GATE not in measures:
+            raise ValueError(f"Spec.AT_GATE {spec.AT_GATE!r}: 'stderr' or 'stdev'")
+        mname, mval = measures[spec.AT_GATE]
+        if abs(dist) <= mval:
+            note = (f", at the gate ({'inside' if dist >= 0 else 'outside'} by {abs(dist):.4f}; {mname} of the {n} step "
+                    f"means {mval:.4f})")
+            ev['f1_at_gate'] = official
+    print(f"\nF1 plateau: mean dp* over the {n} steps above U_mf {S['umf']:.4f} m/s (U {min(x['U'] for x in flu):.2f} .. "
+          f"{max(x['U'] for x in flu):.2f}): {plateau:.6f}   (gate 1 +- 0.02: {word(v1, official)}{note}); "
           f"dp* + floor/W over these {sum(x['dps'] + x['fl'] for x in flu)/len(flu):.4f}")
-    fixed = [x for x in res if x['branch'] == 'fixed']
-    if not fixed:
-        print('F2, F3 unavailable: no fixed-branch step (dp* < 0.8 of the plateau)')
-        return V
+    if n >= 3:
+        print(f"   scatter of the {n} step means: sample standard deviation {s:.4f}, standard error {s / math.sqrt(n):.4f}; "
+              f"distance to the nearer limit {dist:+.4f} ({'inside' if dist >= 0 else 'outside'}); at the gate when within "
+              f"the {mname}: {'yes' if note else 'no'}")
+    else:
+        print(f"   no 'at the gate' annotation: {n} step(s) in the set, a scatter needs three")
+    rest = [x for x in res if x['branch'] == 'intermediate']
+    print(f"   sets settled in round {S['rounds']} of the U_mf iteration (start: the {len(thr)} steps with dp* > {spec.FLU})"
+          + ('; in neither set: ' + ', '.join(f"U {x['U']:.2f} (dp* {x['dps']:.4f})" for x in rest) if rest else ''))
+    print(f"   cross-check: {xcheck}")
     v3 = f3_block(ev, fixed, plateau, official)
     v2 = gate_f2(ev, fixed, official)
     if official:
@@ -1166,25 +1263,20 @@ def gates_f1_f3(ev, official):
     return V
 
 
-def f3_block(ev, fixed, plateau, official):
-    P = ev['spec']
-    vp = math.pi * P.d ** 3 / 6
-    if not all(finite(x['H']) and finite(pos(x['A'])) and finite(x['n']) for x in fixed):
-        print("F3 unavailable: bed height, area or particle count not finite on every fixed step")
-        return 'unavailable'
-    efix = mean([x['eps'] for x in fixed])
-    uc = closure_umf(efix, P.d, P.rhop, P.rhof, P.mu, P.g, P.drag)
-    ebed = sum(1 - div(x['n'] * vp, x['A'] * x['H']) for x in fixed) / len(fixed)
-    ub = closure_umf(ebed, P.d, P.rhop, P.rhof, P.mu, P.g, P.drag)
+def fixed_fit(fixed, P):
+    """the F3 fit dp* = a U + b U^2 through the origin over the fixed steps (least squares, normal equations):
+    dict(a, b, cross, why); why is the reason when the fit is not identified (fewer than two distinct nonzero
+    velocities or a relative determinant not above REL_DET), else ''; cross(level) is the smallest positive U of
+    the fit at dp* = level (NaN when there is none). Used by the U_mf iteration (branch_sets) and by F3."""
     su2 = sum(x['U']**2 for x in fixed); su3 = sum(x['U']**3 for x in fixed); su4 = sum(x['U']**4 for x in fixed)
     sy1 = sum(x['U']*x['dps'] for x in fixed); sy2 = sum(x['U']**2*x['dps'] for x in fixed)
     det = su2*su4 - su3*su3
     distinct = sorted({x['U'] for x in fixed if x['U'] != 0})
     rel = det / (su2 * su4) if su2 > 0 and su4 > 0 else 0.0
     if len(distinct) < 2 or not rel > P.REL_DET:
-        print(f"F3 unavailable: the fit dp* = a U + b U^2 is not identified (rank-deficient: {len(distinct)} distinct "
-              f"nonzero fixed velocit{'y' if len(distinct) == 1 else 'ies'}, relative determinant {rel:.3g})")
-        return 'unavailable'
+        return dict(a=NAN, b=NAN, cross=lambda level: NAN,
+                    why=(f"the fit dp* = a U + b U^2 is not identified (rank-deficient: {len(distinct)} distinct "
+                         f"nonzero fixed velocit{'y' if len(distinct) == 1 else 'ies'}, relative determinant {rel:.3g})"))
     ca = (sy1*su4 - sy2*su3)/det
     cb = (su2*sy2 - su3*sy1)/det
 
@@ -1197,6 +1289,24 @@ def f3_block(ev, fixed, plateau, official):
         q = -0.5 * (ca + math.copysign(math.sqrt(disc), ca))
         roots = [x for x in ((q / cb) if q != 0 else NAN, (-level / q) if q != 0 else NAN) if finite(x) and x > 0]
         return min(roots) if roots else NAN
+    return dict(a=ca, b=cb, cross=cross, why='')
+
+
+def f3_block(ev, fixed, plateau, official):
+    P = ev['spec']
+    vp = math.pi * P.d ** 3 / 6
+    if not all(finite(x['H']) and finite(pos(x['A'])) and finite(x['n']) for x in fixed):
+        print("F3 unavailable: bed height, area or particle count not finite on every fixed step")
+        return 'unavailable'
+    efix = mean([x['eps'] for x in fixed])
+    uc = closure_umf(efix, P.d, P.rhop, P.rhof, P.mu, P.g, P.drag)
+    ebed = sum(1 - div(x['n'] * vp, x['A'] * x['H']) for x in fixed) / len(fixed)
+    ub = closure_umf(ebed, P.d, P.rhop, P.rhof, P.mu, P.g, P.drag)
+    fit = fixed_fit(fixed, P)
+    if fit['why']:
+        print(f"F3 unavailable: {fit['why']}")
+        return 'unavailable'
+    ca, cb, cross = fit['a'], fit['b'], fit['cross']
     u1 = cross(1.0); up = cross(plateau)
     r3 = div(u1, ub)
     v = ('PASS' if abs(r3 - 1) <= P.TOL_F3 else 'FAIL') if finite(r3) else 'unavailable'
@@ -1697,11 +1807,32 @@ def _time_line(l, t_new, dt_new=None):
                                                      _d(dt), _d(dt), _d(dt))
 
 
+P14 = [(0.5 + 0.5 * i, round(0.30 - 0.02 * i, 2)) for i in range(14)]           # 0.30 .. 0.04 m/s, the spec's velocities
+P5 = [(0.5, 0.30), (1.0, 0.25), (1.5, 0.20), (2.0, 0.10), (2.5, 0.05)]
+P5b = [(0.5, 0.30), (1.0, 0.20), (1.5, 0.16), (2.0, 0.10), (2.5, 0.05)]
+P7 = [(0.5, 0.30), (1.0, 0.25), (1.5, 0.20), (2.0, 0.18), (2.5, 0.14), (3.0, 0.10), (3.5, 0.05)]
+CYCLE = [1.0, 1.0, 1.0, 0.90, 0.79, 0.10 / 0.19, 0.05 / 0.19]   # with 0.14 fixed U_mf 0.1722, without 0.19 (exact)
+Z80 = [0.9853, 0.9729, 0.9765, 0.9805, 0.9784, 0.9831, 0.9892, 0.9582, 0.8274, 0.6996, 0.5748, 0.4534, 0.3354, 0.2209]
+R5 = [0.9716, 0.9677, 0.9732, 0.9746, 0.9774, 0.9861, 0.9936, 0.9147, 0.7905, 0.6688, 0.5499, 0.4338, 0.3210, 0.2115]
+PEER = {  # per-step dp* of the peer codes, U 0.30 .. 0.04 m/s (spec 11 brief of 2026-11-24)
+    'CFDEM 40': [0.9643, 0.9587, 0.9501, 0.9558, 0.9481, 0.9529, 0.9357, 0.8212, 0.7089, 0.5991, 0.4921, 0.3879, 0.2864, 0.1880],
+    'CFDEM 80': [0.9752, 0.9786, 0.9805, 0.9696, 0.9675, 0.9819, 0.9804, 0.9506, 0.8193, 0.6922, 0.5709, 0.4478, 0.3307, 0.2169],
+    'DPMFoam': [0.9441, 0.9452, 0.9412, 0.9421, 0.9551, 0.9434, 0.9000, 0.8090, 0.7059, 0.6011, 0.4970, 0.3940, 0.2932, 0.1934],
+    'MFiX': [0.9888, 0.9991, 0.9928, 0.9883, 1.0053, 0.9970, 0.9926, 0.9173, 0.7904, 0.6669, 0.5469, 0.4304, 0.3177, 0.2081]}
+
+
+def _by_u(values, protocol=None):
+    """dps_fn: the given dp* on the holds of the protocol (P14 by default), _dps(u) in the ramps"""
+    table = {round(u, 3): v for (_, u), v in zip(protocol or P14, values)}
+    return lambda u: table.get(round(u, 3), _dps(u))
+
+
 def self_test_cases():
     """(name, writer keywords, expected verdicts, strings that must appear, strings that must not, the answer of
     an earlier tool where it differed). Keyword '_spec': the fixture spec ('base' = the four-step fixture with
     the default physics, a dict = replacements of the derived one; default: derived from the writer keywords).
-    The fixtures test the machinery with a fixture spec, not spec 11."""
+    Keyword '_set': gate constants of that fixture spec (e.g. AT_GATE, ROUNDS). The fixtures test the machinery with a
+    fixture spec, not spec 11."""
     hi_after = lambda t: 0.060 if t > 2.3 else 0.0241       # noqa: E731
     REF = {'F1': 'PASS', 'F2': 'FAIL', 'F3': 'PASS', 'F5 height': 'PASS', 'F5 count': 'PASS'}
     U = 'unavailable'
@@ -1800,8 +1931,9 @@ def self_test_cases():
         ('Reload_SimPar resets the time from 1.75 to 1.25 s, unchanged dt, 60 mm late',
          dict(clock_fn=reset, t_end=3.0, zmax_fn=lambda t: 0.06 if t > 2.0 else 0.0241), ALLU, ['the time line of step'], [],
          'r5: F5 height PASS at 0.10 m/s'),
-        ('repeated fixed velocity 0.30 -> 0.10 -> 0.30 -> 0.10 -> 0', dict(protocol=rep_proto), {'F3': U, 'F1': 'PASS'},
-         ['not identified (rank-deficient: 1 distinct nonzero fixed velocity'], [], 'r5: U_mf from one velocity'),
+        ('repeated fixed velocity 0.30 -> 0.10 -> 0.30 -> 0.10 -> 0', dict(protocol=rep_proto), {'F3': U, 'F1': U, 'F2': U},
+         ['not identified (rank-deficient: 1 distinct nonzero fixed velocity'], [],
+         'r5: U_mf from one velocity; r7: F1 PASS (r8: no U_mf, so no F1 set)'),
         ('no fluidised step (0.14 .. 0.08 m/s)', dict(protocol=nofl_proto), {'F1': U, 'F2': U, 'F3': U},
          ['no step with dp* > 0.95 (no measured plateau'], [], 'r5: F2 FAIL, F3 PASS from the nominal plateau'),
         ('centre 0.05000002 m (inside the print band)', dict(zmax_fn=lambda t: 0.05000002 if t > 2.3 else 0.0241),
@@ -1849,7 +1981,9 @@ def self_test_cases():
         ('r6: last knot at 1e6 s, 2.5 s observed (arithmetic coverage)', dict(table=base_tab[:-1] + [(1.0e6, 0.05)]), ALLU,
          ['before the last table row'], ['Traceback'], 'f8fb7fd8: MemoryError under a 96 MiB limit'),
         ('r6: fluidised 1.80 and 0.99, plateau 1.395 (branch precedence)', dict(dps_fn=lambda u: overlap.get(round(u, 3), _dps(u))),
-         {'F1': 'FAIL'}, ['F3 fixed branch 2 steps'], [], 'f8fb7fd8: the fit used 3 steps, the display 2'),
+         {'F1': 'FAIL'}, ['F3 fixed branch 3 steps (U 0.050 .. 0.200)', 'over the 1 steps above U_mf 0.2018 m/s',
+                          'sets settled in round 2'], [],
+         'f8fb7fd8: the fit used 3 steps, the display 2; r7: fixed 2 steps (r8: 0.20 m/s leaves the F1 set, joins the fixed set)'),
         ('r6: gradz_win_dyn of one fixed row changed', dict(mutate=_add_field(1.85, 'gradz_win_dyn', 0, 500.0)),
          {'F2': U, 'F1': U}, ['gradient identity gradz_win_dyn = gradz_win - dp_hydro / Lz violated'], [],
          'f8fb7fd8: F2 from the edited row'),
@@ -1890,8 +2024,9 @@ def self_test_cases():
         ('r7: gravity (1, 0, -9.81)', dict(gravity=(1.0, 0.0, -9.81)), ALLU, ['gravity component x of the run'], [],
          '77914cfa: official verdicts'),
         ('r7: one measured fixed step (F2 without the F3 fit)', dict(protocol=[(0.5, 0.30), (1.0, 0.25), (1.5, 0.20), (2.0, 0.10)]),
-         {'F2': 'FAIL', 'F3': U}, ['F2 worst |ratio_k - 1|', 'rank-deficient: 1 distinct nonzero fixed velocity'], [],
-         '77914cfa: F2 and F3 unavailable (two fixed steps needed)'),
+         {'F1': U, 'F2': U, 'F3': U}, ['round 1 of the U_mf iteration: the fit dp* = a U + b U^2 is not identified '
+                                       '(rank-deficient: 1 distinct nonzero fixed velocity'], ['F2 worst |ratio_k - 1|'],
+         '77914cfa: F2 and F3 unavailable (two fixed steps needed); r7: F2 FAIL (r8: no U_mf, so no sets)'),
         ('r7: contact rows before 0.2 s missing, 1.2 % at 0.07 s unseen',
          dict(overlap_fn=lambda t: 1.044e-5 if abs(t - 0.07) < 1e-9 else 3.8e-7,
               mutate=lambda L: [l for l in L if not (l.startswith('EL_CONTACT_STATS') and float(l.split()[2]) < 0.2)]),
@@ -1909,6 +2044,62 @@ def self_test_cases():
          ALLU, ['start-up echo EL fluid viscosity appears 2 times'], [], ''),
         ('r7: domain extents twice', dict(mutate=lambda L: [l for x in L for l in ([x, x] if 'Global CFD domain extents' in x else [x])]),
          ALLU, ['start-up echo Global CFD domain extents appears 2 times'], [], ''),
+        # ---- round 8: F1 over the steps above the measured U_mf (spec amendment 2026-11-24) -----------------
+        # per-step dp* of 14-step protocols 0.30 .. 0.04 m/s: the two runs (4 digits of post_r7.txt) and the peer series;
+        # expected numbers from an independent iteration (numpy lstsq; unit/post_r8/indep.py) and the peer's
+        ('r8: 80-row run values: 0.16 m/s at 0.9582 below U_mf, at the gate inside', dict(protocol=P14, dps_fn=_by_u(Z80)),
+         {'F1': 'PASS'}, ['over the 7 steps above U_mf 0.1663 m/s (U 0.18 .. 0.30): 0.980843',
+                          'PASS, at the gate (inside by 0.0008; standard error of the 7 step means 0.0021)',
+                          'sample standard deviation 0.0055, standard error 0.0021', 'sets settled in round 2',
+                          'in neither set: U 0.16 (dp* 0.9582)', 'mean over the 8 steps with dp* > 0.95: 0.97801',
+                          '(reported, not gated)', ': F1 PASS (at the gate) | F2 '], [],
+         'r7: F1 0.978013 over 8 steps FAIL'),
+        ('r8: 40-row record values, at the gate outside', dict(protocol=P14, dps_fn=_by_u(R5)), {'F1': 'FAIL'},
+         ['over the 7 steps above U_mf 0.1733 m/s (U 0.18 .. 0.30): 0.977743',
+          'FAIL, at the gate (outside by 0.0023; standard error of the 7 step means 0.0034)', 'sets settled in round 1',
+          ': F1 FAIL (at the gate) | F2 '], [], ''),
+        ('r8: peer CFDEM 80 rows (stderr): plain FAIL', dict(protocol=P14, dps_fn=_by_u(PEER['CFDEM 80'])), {'F1': 'FAIL'},
+         ['over the 7 steps above U_mf 0.1672 m/s (U 0.18 .. 0.30): 0.976243   (gate 1 +- 0.02: FAIL); ',
+          'distance to the nearer limit -0.0038 (outside); at the gate when within the standard error: no',
+          'mean over the 8 steps with dp* > 0.95: 0.97303'], [AT_GATE_NOTE, ', at the gate ('], 'peer: 7 steps, 0.9762, 0.1672 m/s'),
+        ('r8: peer CFDEM 80 rows (stdev): at the gate outside', dict(protocol=P14, dps_fn=_by_u(PEER['CFDEM 80']), _set=dict(AT_GATE='stdev')),
+         {'F1': 'FAIL'}, ['FAIL, at the gate (outside by 0.0038; standard deviation of the 7 step means 0.0057)',
+                          'at the gate when within the standard deviation: yes', ': F1 FAIL (at the gate) | F2 '], [],
+         'stderr: plain FAIL (the boundary between the two measures)'),
+        ('r8: peer CFDEM 40 rows: plateau deficit, all 6 steps above U_mf', dict(protocol=P14, dps_fn=_by_u(PEER['CFDEM 40'])),
+         {'F1': 'FAIL'}, ['over the 6 steps above U_mf 0.1906 m/s (U 0.20 .. 0.30): 0.954983   (gate 1 +- 0.02: FAIL); ',
+                          'mean over the 5 steps with dp* > 0.95: 0.956360', 'in neither set: U 0.18 (dp* 0.9357)'],
+         [AT_GATE_NOTE], 'peer: 6 steps, 0.9550, 0.1906 m/s; r7: 5 steps'),
+        ('r8: peer DPMFoam: plateau 0.945, 1 of 6 steps above 0.95', dict(protocol=P14, dps_fn=_by_u(PEER['DPMFoam'])), {'F1': 'FAIL'},
+         ['over the 6 steps above U_mf 0.1941 m/s (U 0.20 .. 0.30): 0.945183', 'mean over the 1 steps with dp* > 0.95: 0.955100'],
+         [AT_GATE_NOTE], 'peer: 6 steps, 0.9452, 0.1941 m/s; r7: 1 step'),
+        ('r8: peer MFiX: plain PASS', dict(protocol=P14, dps_fn=_by_u(PEER['MFiX'])), {'F1': 'PASS'},
+         ['over the 7 steps above U_mf 0.1727 m/s (U 0.18 .. 0.30): 0.994843   (gate 1 +- 0.02: PASS); ', 'sets settled in round 1'],
+         [AT_GATE_NOTE], 'peer: 7 steps, 0.9948, 0.1727 m/s'),
+        ('r8: two steps above U_mf, 0.0025 outside: no scatter, plain FAIL', dict(dps_fn=_by_u([0.985, 0.97, 0.52, 0.26], PROTO)),
+         {'F1': 'FAIL'}, ["no 'at the gate' annotation: 2 step(s) in the set, a scatter needs three",
+                          'over the 2 steps above U_mf 0.1923 m/s (U 0.20 .. 0.30): 0.977500   (gate 1 +- 0.02: FAIL); '],
+         [AT_GATE_NOTE], ''),
+        ('r8: a step above U_mf with dp* < 0.8 x plateau (contradiction)',
+         dict(protocol=P5, dps_fn=_by_u([1.5, 1.5, 0.99, 0.52, 0.26], P5)), {'F1': U, 'F2': U, 'F3': U},
+         ['F1, F2, F3 unavailable: the branches contradict each other: step 2 (U 0.200) lies above U_mf 0.1923 m/s with '
+          'dp* 0.9900 < 0.8 x the plateau 1.3300', 'cross-check, measured: mean over the 3 steps'], [], ''),
+        ('r8: every step above 0.95 (empty fixed set)', dict(dps_fn=_by_u([1.0, 0.99, 0.97, 0.96], PROTO)), {'F1': U, 'F2': U, 'F3': U},
+         ['F1, F2, F3 unavailable: round 1 of the U_mf iteration: no fixed-branch step'], [], 'r7: F1 PASS, F2 / F3 unavailable'),
+        ('r8: fixed-branch fit without a crossing of dp* = 1', dict(dps_fn=_by_u([1.0, 1.0, 0.5, 0.45], PROTO)), {'F1': U, 'F2': U, 'F3': U},
+         ['has no positive crossing with dp* = 1 (no U_mf)'], [], 'r7: F1 PASS, F3 unavailable'),
+        ('r8: sets that cycle (0.14 m/s in and out of the fixed set)', dict(protocol=P7, dps_fn=_by_u(CYCLE, P7)), {'F1': U, 'F2': U, 'F3': U},
+         ['the U_mf iteration does not settle: round 2 returns to the fluidised set of round 1 (a cycle of 2 sets)'], [], ''),
+        ('r8: the iteration moves 0.16 m/s out of the F1 set, settles in round 2', dict(protocol=P5b, dps_fn=_by_u([0.99, 1.0, 0.96, 0.52, 0.26], P5b)),
+         {'F1': 'PASS'}, ['over the 2 steps above U_mf 0.1923 m/s (U 0.20 .. 0.30): 0.995000', 'sets settled in round 2',
+                          'in neither set: U 0.16 (dp* 0.9600)', 'mean over the 3 steps with dp* > 0.95: 0.983333'], [],
+         'r7: F1 0.983333 over 3 steps'),
+        ('r8: the same with ROUNDS = 1 (no settlement within the round limit)',
+         dict(protocol=P5b, dps_fn=_by_u([0.99, 1.0, 0.96, 0.52, 0.26], P5b), _set=dict(ROUNDS=1)), {'F1': U, 'F2': U, 'F3': U},
+         ['F1, F2, F3 unavailable: the U_mf iteration did not settle within 1 rounds'], [], ''),
+        ('r8: U_mf above every step (empty F1 set)', dict(dps_fn=_by_u([1.0, 0.97, 0.3, 0.15], PROTO)), {'F1': U, 'F2': U, 'F3': U},
+         ['F1, F2, F3 unavailable: round 1 of the U_mf iteration: no measured step above U_mf 0.3333 m/s'], [],
+         'r7: F1 0.985000 PASS'),
     ]
 
 
@@ -1931,7 +2122,7 @@ def verdicts_of(text):
         return {}
     V = {}
     for part in m.group(1).replace(OUTSIDE, '').split(' | '):
-        g, v = part.rsplit(' ', 1)
+        g, v = part[:-len(AT_GATE_NOTE)].rsplit(' ', 1) if part.endswith(AT_GATE_NOTE) else part.rsplit(' ', 1)
         V[g] = v
     return V
 
@@ -1969,7 +2160,10 @@ def self_test(keep=None):
         for i, (name, kw, expect, must, mustnot, note) in enumerate(cases):
             kw = dict(kw)
             sp = kw.pop('_spec', None)
+            attrs = kw.pop('_set', {})
             spec = _fixture_spec({}) if sp == 'base' else _fixture_spec(kw, sp)
+            for key, val in attrs.items():         # gate constants of this fixture spec (Spec class attributes)
+                setattr(spec, key, val)
             run = _write_run(os.path.join(tmp, 'run%02d' % i), **kw)
             out, err = _run_case(run, spec)
             text = out + err

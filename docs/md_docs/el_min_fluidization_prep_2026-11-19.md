@@ -556,6 +556,31 @@ path without `DynVisc` (no DynVisc echo and no conversion line) are refused alth
 them; a run with either is not gated. The paragraphs below describe the round-4 structure; where they
 differ, this paragraph holds.
 
+**F1 rule (round 8, `fl11_post r8 2026-11-24`).** The spec's F1 was amended on 2026-11-24, **after the
+80-row result had been seen** (R_z80_rest: the fixed step at 0.16 m/s has dp* 0.9582 > 0.95 although it
+lies below the run's U_mf 0.1663 m/s; the peer's CFDEM 40-row and DPMFoam series lose fluidised steps to
+the 0.95 threshold). Until round 7 the tool gated the mean over the steps with dp* > 0.95 and took the
+fixed branch as dp* < 0.8 of that plateau. Now the F1 set is "all steps with U above the code's measured
+U_mf (the F3 crossing of the fixed-branch fit with dp* = 1)", and the two sets are found by iteration over
+the measured steps (`branch_sets`): start S_1 = the steps with dp* > 0.95; in round r the fixed set X_r =
+the steps outside S_r with dp* < 0.8 x mean(S_r), the F3 fit dp* = a U + b U^2 through the origin over
+X_r (the same function as F3), U_mf,r its smallest positive crossing with dp* = 1, S_(r+1) = the steps
+with U > U_mf,r (strictly); settled when S_(r+1) = S_r, which leaves X and U_mf unchanged. Steps in
+neither set are intermediate. No F1-F3 verdict (reason printed, no fallback to the threshold rule) when:
+no step has dp* > 0.95; a round has an empty fixed set, a fit that is not identified (fewer than two
+distinct nonzero velocities or rank-deficient) or without a positive crossing, or no step above U_mf;
+the sets cycle or do not settle within 10 rounds (`Spec.ROUNDS`); at the settled state a step above U_mf
+has dp* < 0.8 x plateau (fluidised by U, fixed by dp*: the branches contradict each other). An
+unmeasurable step still blocks F1-F3: its dp* is unknown, so it could be in the start set, could be a
+fixed step below U_mf (moving the fit, U_mf and with it the F1 set) or could lie above U_mf in the F1 set.
+The F1 verdict stays PASS / FAIL at 1 +- 0.02; the mean over the steps with dp* > 0.95 is printed as a
+cross-check, not gated. A plateau whose distance to the nearer limit is within the scatter of its step
+means is annotated "at the gate" (side and distance on the F1 line, `F1 PASS (at the gate)` in the
+verdict line); the scatter is selected by one constant, `Spec.AT_GATE` = 'stderr' (s / sqrt(n), default)
+or 'stdev' (s), s the sample standard deviation (n - 1) of the per-step dp* of the F1 set; both numbers
+are printed; no annotation with fewer than three steps. The measure is the owner's choice (open as of
+2026-11-24). F2, F3 and F5 are unchanged; F3's "U_mf at the measured plateau" uses the F1 plateau.
+
 The fourth review showed verdict reversals on equivalent inputs (a redundant table knot moved F1 from
 0.978732 FAIL to PASS) and on degraded inputs (one dropped audit row: PASS from the remaining subset).
 The cause was structural: holds, coverage, statistics, branch membership and extrema came from

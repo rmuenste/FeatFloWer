@@ -33,9 +33,10 @@ u_of_t, div, finite), nothing is re-derived:
                  other source: the file _data/inlet_table.txt is not read)
   step mean      fl11_post.evaluate: the last 0.3 s of each hold of the spec-11 protocol, validated
                  audit rows; shown for measured steps only
-  state          the branch of fl11_post.branches for every step: fluidised (dp* > 0.95), fixed (dp* <
-                 0.8 of the measured plateau, never fluidised), intermediate, not classified (no measured
-                 plateau), unmeasurable; only the fixed set is called 'fixed bed' and shaded in the trace
+  state          the branch of fl11_post.branches for every step: fluidised (U above the measured U_mf,
+                 fl11_post r8), fixed (dp* < 0.8 of the plateau, never fluidised), intermediate, not
+                 classified (sets not determined), unmeasurable; only the fixed set is called 'fixed bed'
+                 and shaded in the trace
   trace end      the protocol end of the evaluation (the spec table end for a recognised table, else the
                  last echoed row or the end of a finished run when later)
   running mean   centred mean over RUNMEAN = 0.1 s of the audit series (41 lines); display only
