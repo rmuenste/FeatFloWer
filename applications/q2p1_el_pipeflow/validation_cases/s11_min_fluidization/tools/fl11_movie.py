@@ -22,6 +22,7 @@ OUTDIR   frame_%05d.png (2560 x 1440) and the cache fl11_movie_cache.npz (positi
          velocities (the minimum image is only a lower bound once |v| dt exceeds L / 2).
 --no-peer  leave the peer-reported per-step means (MFiX, CFDEM) out of the trace.
 environment FL11_MOVIE_NOTE: one more header line (e.g. the contact model of the run), passed on by sbatch.
+environment FL11_MOVIE_CFDEM: 40 (default) or 80, the mesh of the peer's CFDEM series shown as markers.
 
 Definitions. Everything that is a number of the evaluation comes from fl11_post.py (imported: evaluate,
 u_of_t, div, finite), nothing is re-derived:
@@ -92,10 +93,19 @@ LABEL = 'FeatFloWer + pe, Gidaspow, 9 789 particles, bed 15 x 15 mm periodic'
 # 2026-11-20. CFDEM: run fluid_C_gid_inlet2 with the uniform inlet (peer RUNBOOK, 2026-11-20/21); the
 # earlier top-driven CFDEM run (0.948 ... 0.159) is void (gas entered as jets) and is not shown.
 PEER_U = [0.30 - 0.02 * k for k in range(14)]
+# CFDEM on 80 rows: run fluid_C_gid_inlet_nz80 (peer message of 2026-11-24, means over the last 0.3 s of the
+# step like ours). The CFDEM series follows the mesh of the run shown: environment FL11_MOVIE_CFDEM = 40
+# (default, the common mesh 6 x 6 x 40) or 80 (a run on 6 x 6 x 80 cells); any other value stops the tool.
+PEER_CFDEM = {'40': ('CFDEM (run fluid_C_gid_inlet2)', [0.964, 0.959, 0.950, 0.956, 0.948, 0.953, 0.936,
+                                                        0.821, 0.709, 0.599, 0.492, 0.388, 0.286, 0.188]),
+              '80': ('CFDEM, 80 rows (run fluid_C_gid_inlet_nz80)', [0.975, 0.979, 0.981, 0.970, 0.968, 0.982, 0.980,
+                                                                    0.951, 0.819, 0.692, 0.571, 0.448, 0.331, 0.217])}
+_cfdem = os.environ.get('FL11_MOVIE_CFDEM', '40')
+if _cfdem not in PEER_CFDEM:
+    sys.exit(f'FL11_MOVIE_CFDEM = {_cfdem!r}: expected 40 or 80')
 PEER = (('MFiX-DEM (run F_none)', 'o', [0.989, 0.999, 0.993, 0.988, 1.005, 0.997, 0.993,
                                         0.917, 0.790, 0.667, 0.547, 0.430, 0.318, 0.208]),
-        ('CFDEM (run fluid_C_gid_inlet2)', 's', [0.964, 0.959, 0.950, 0.956, 0.948, 0.953, 0.936,
-                                                 0.821, 0.709, 0.599, 0.492, 0.388, 0.286, 0.188]))
+        (PEER_CFDEM[_cfdem][0], 's', PEER_CFDEM[_cfdem][1]))
 CACHE = os.path.join(out, 'fl11_movie_cache.npz')
 CACHE_FORMAT = 'fl11_movie cache 5'          # with fl11_post.EVAL_VERSION and the deck part of the signature
 
