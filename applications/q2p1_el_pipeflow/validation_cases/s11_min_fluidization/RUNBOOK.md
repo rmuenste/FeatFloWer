@@ -857,3 +857,55 @@ F3 <= 1.0465). **Not the record: the owner decides.** `fl11_post.py` r7 unchange
   residual between the particles' hydrodynamic force and the pressure force is 0.2 % or less (dp* + floor
   0.998).
 - F3 passes with a margin of 3.7 points; the peer's CFDEM on 80 rows gave 0.1672 m/s [P].
+
+## 18. Record of 2026-11-24: `R_z80_rest`, amended F1 rule, post tool round 8
+
+**Owner decisions of 2026-11-24** (in the session; quoted where short): the F1 ambiguity is put to the
+spec ("Do it, I am inclined to let it pass near/at gate with an explanation"); "1. standard error, 2. yes
+make it the record, 3. 80-row only, 4. push"; the diagnostics branch is pushed as an archive
+(`diag/el-momentum-balance`, head 08e0713b, no pull request); the pull request of this branch is opened
+after the other points are settled.
+
+**Spec amendment** (peer session, `SPEC.md` gate table and "F1 detail", dated 2026-11-24, **made after
+seeing the results**): F1 is the mean over all steps with U above the code's measured U_mf (the F3
+crossing of the fixed-branch fit with dp* = 1); the mean over the steps with ratio > 0.95 is a reported
+cross-check. The verdict stays PASS / FAIL by 1.00 +- 0.02 and is annotated "at the gate" when the
+distance of the plateau to the nearer limit is at most the standard error of the plateau mean (sample
+standard deviation of the per-step dp* over sqrt(n), at least three steps; F1 only). Our mesh is entered in
+the spec as a deviation from the common 6 x 6 x 40 mesh (80 rows in z, lateral unchanged; reason: section
+17).
+
+**Post tool round 8** (2e1e6d55, `EVAL_VERSION 'fl11_post r8 2026-11-24'`, implementer; design note
+section 7.4; evidence `/data/warehouse17/rmuenste/runs/fluid11/unit/post_r8`, brief
+`unit/brief_post_r8.md`): the two sets are found by iteration (start: steps with dp* > 0.95; fixed = steps
+outside with dp* < 0.8 x plateau; fit; U_mf; set = steps with U > U_mf; until settled); no F1-F3 verdict,
+with the reason printed, when a set is empty, the fit is not identified or has no crossing, the sets cycle
+or do not settle in 10 rounds, or a step above U_mf is fixed by its dp*. Self-test 109 of 109 (94 before;
+three expectations re-derived, 15 cases added, listed in the commit) [V, re-run]; `--self-test-real` 300
+variants x 3 seeds on both runs, 0 failures (job 165876) [implementer]; the peer's four series give the
+peer's step sets, plateaus and U_mf (CFDEM 40 rows 6 steps 0.9550 0.1906; CFDEM 80 rows 7 steps 0.9762
+0.1672; DPMFoam 6 steps 0.9452 0.1941; MFiX 7 steps 0.9948 0.1727) [implementer]. Not reviewed by a second
+model.
+
+**The record** (`post_r8.txt` in the run directories; both reports reproduced by me from the committed
+tool) [V]:
+
+| gate | `R_z80_rest`, 6 x 6 x 80 cells: **the record** | `R_r5_rest`, 6 x 6 x 40 cells: the run on the common mesh |
+|---|---|---|
+| F1 plateau over the steps above U_mf | 0.980844 (7 steps, U_mf 0.1663 m/s): PASS, at the gate (inside by 0.0008; standard error 0.0021) | 0.977740 (7 steps, U_mf 0.1733 m/s): FAIL, at the gate (outside by 0.0023; standard error 0.0034) |
+| cross-check, steps with dp* > 0.95 | 0.978013 (8 steps, with the fixed-bed step at 0.16 m/s) | 0.977740 (the same 7 steps) |
+| F2 | 0.63 %, PASS | 3.50 %, PASS |
+| F3 | 1.0130, PASS | 1.0504, FAIL |
+| F5 | PASS | PASS |
+| dp* + floor / W over the F1 steps | 0.9981 | 0.9941 |
+
+- The F1 pass of the record is a pass **at the gate under a rule amended after the result was known**;
+  the remaining deficit is weight resting on the floor during slug landings (1.4-2.0 % per step).
+- Older runs under the amended rule (reports in `unit/post_r8` and the run directories): `R_r1_proto`
+  0.9787 FAIL, `R_r2_rest` 0.9781 FAIL, `R_r3_rest` 0.9784 FAIL, `R_r1_oldsplit` 0.9826 PASS,
+  `R_proto_movie` (friction 0.6) 0.9801 PASS over 6 steps (its 0.18 m/s step lies below its U_mf 0.1813);
+  all seven runs carry the annotation.
+- Open on the record: one realisation; overlap 1.56 % of d in the preparation (set-up check); the Fritz
+  half of the pin gates; no second-model review of round 8.
+- Movie of the record: `runs/fluid11/movie/fluid11_R_z80_rest_particles.mp4` with the peer's CFDEM 80-row
+  markers (`FL11_MOVIE_CFDEM=80`, 01d1aa62) and the companion note beside it.
