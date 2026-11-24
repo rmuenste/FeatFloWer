@@ -774,3 +774,86 @@ on this branch, not pushed, not reviewed**), brief and evidence in
   weighted pressure term in the inlet element layer is **not resolved**.
 - Both carriers sit in the first element layer above the inlet. Consequence for the gates: **not yet
   measured** (experiment 2 runs the same audit in the fixed bed). No repair exists.
+
+## 17. Fixed-bed holds, layer profile and the mesh refined in z (2026-11-23/24)
+
+Experiment 2 of section 15 and what followed from it. Diagnostics on the unpushed, unreviewed branch
+`diag/el-momentum-balance` (commits 675d5d6a, be14e7ab, ac5ae403: `SimPar@ELDragHrzPartner = nodal|sampled`
+as a diagnostic control that restores the first hrz split, `SimPar@ELBedWindowAudit`, seed tool
+`fl11_seed.py`, `fl11_holds.py`); binary `be14e7ab-e2`, gates bitwise with the keys off and on, the
+`sampled` path bitwise against the archived first-split run `R_smoke_r1_oldhrz` (jobs 165537-165539)
+[implementer, comparison files read]. Evidence: `/data/warehouse17/rmuenste/runs/fluid11/momdiag`
+(`brief_e2.md`, `E2_evidence.txt`, `e2/`, `e3/`, `e4/`, layer tool `e4/layer_profile.py`).
+
+**Holds at 0.12 m/s from the record packing** (positions of `R_r5_rest` at 5.5 s, 0.20 s each, evaluation
+0.10-0.20 s; the re-seeded hold reproduces the record's own hold to 0.15 % in dp and window gradient)
+[V, window table recomputed from the raw lines]:
+
+| window | present split: gradient / closure at the mapped gas fraction | first split |
+|---|---|---|
+| 2 d margin | 0.9707 | 0.9714 |
+| 2.5 d margin (gate F2) | 0.9651 | 0.9661 |
+| interior 5-20 mm | 0.9994 | 1.0018 |
+
+- The 3.5 % of gate F2 is a window effect: the interior agrees with the closure, the deficit sits in the
+  parts of the window outside 5-20 mm. The drag split moves the ratio by 0.1-0.2 points although the first
+  split removes the vertex mode (standard deviation of w over the vertex dofs 0.116 against 0.007 m/s).
+- Fixed bed, momentum audit: the particle reaction on the inlet rows (0.49 % of dp A) is offset by the
+  inlet-row pressure term; hydrodynamic force minus dp A = 0.004 % of dp A. The loss of section 16 is
+  specific to the fluidised state.
+- Kernel width (holds `e3`, 0.12 and 0.16 m/s) [V]: dp* 0.6696 / 0.6703 / 0.6682 at 2.5 / 2.0 / 1.5 d,
+  0.9201 / 0.9210 / 0.9181 at 0.16 m/s. **The kernel width is not the cause** (a hypothesis of mine, refuted).
+
+**Layer profile** (vertex pressure and P0 gas fraction of the field output, last output of the hold,
+0.12 m/s) [V; the split between two neighbouring layers is smeared by the vertex averaging of the
+discontinuous pressure, sums over neighbours are reliable]:
+
+| mesh | layer holding the bed surface (23.8 mm) | gas fraction there | gradient there | layer below: gradient / closure |
+|---|---|---|---|---|
+| 40 rows (2.5 mm) | 22.5-25.0 mm | 0.709 | 157 Pa/m | 0.58 |
+| 80 rows (1.25 mm) | 22.5-23.75 and 23.75-25.0 mm | 0.517, 0.899 | 805, 19 Pa/m | 0.68 (21.25-22.5 mm) |
+
+The gas fraction is one value per cell. The cell that holds the bed surface is partly filled, the closure
+sees a loose bed there and the drag of the particles in and just below that cell collapses: on 40 rows the
+two top layers deliver 6.4 Pa where 3.8 mm of bed at the core gradient would give about 15 Pa, about 10 %
+of the fixed-bed pressure drop. The floor layer is not low (1.03-1.08 of the closure). The effect scales
+with the cell height, not with the kernel.
+
+**Mesh refined twofold in z** (coarse 3 x 3 x 40 cells of 5 x 5 x 2.5 mm, `MaxMeshLevel 2`: 6 x 6 x 80
+cells, 1.25 mm high; same partition rule; staged by hand after `stage_s11.sh`, which only writes cubic
+coarse cells) [V]:
+
+| quantity | 40 rows | 80 rows |
+|---|---|---|
+| hold dp* at 0.12 / 0.16 m/s | 0.6696 / 0.9201 | 0.6936 / 0.9532 |
+| two-point crossing dp* = 1 (Ergun form), ratio to 0.1650 m/s | 1.044 | 1.012 |
+| first second at 0.30 m/s, window 0.70-1.00 s: dp* | 0.9719 | 0.9853 |
+| the same window: residual hydrodynamic force - dp A, % of W | 1.07 | 0.34 |
+| of it on the inlet rows / pressure pair | 0.51 / 0.47 | 0.20 / 0.06 |
+
+**Candidate protocol run `R_z80_rest`** (job 165613, 8 h 15 min on 37 ranks; binary `df99f3b1-pebe152e2`
+= the gated binary of this branch at the pin be152e2; deck, bed, inlet table, json of `R_r5_rest`; only the
+mesh differs; declared in `versions.txt` before submission, with the planning margins F1 >= 0.981 and
+F3 <= 1.0465). **Not the record: the owner decides.** `fl11_post.py` r7 unchanged, `post_r7.txt` [V]:
+
+| gate | `R_r5_rest` (40 rows, record) | `R_z80_rest` (80 rows) |
+|---|---|---|
+| F1 plateau, rule of the tool (steps with dp* > 0.95) | 0.977740 over 7 steps, FAIL | 0.978013 over **8** steps, FAIL |
+| F2 worst deviation at the mapped gas fraction | 3.50 %, PASS | 0.63 %, PASS |
+| F3 U_mf / closure at the whole-bed porosity | 0.1733 / 0.1650 = 1.0504, FAIL | 0.1663 / 0.1642 = 1.0130, PASS |
+| F5 | PASS | PASS |
+| dp* + floor / W over the plateau steps | 0.9941 | 0.9985 |
+| overlap (set-up check, 1 % of d) | 1.26 % in the preparation, 0.76 % in the windows | 1.56 % in the preparation, 0.93 % in the windows |
+
+- **F1 and the selection rule.** The spec defines the plateau as "all steps above the code's measured U_mf
+  (steps with ratio > 0.95 ...)". On 80 rows the two halves of that sentence disagree: the step at 0.16 m/s
+  lies below the measured U_mf (0.1663 m/s) and is a fixed bed (standard deviation of dp* 0.0003, bed
+  height 23.80 mm), but its dp* is 0.9582 > 0.95, so the tool counts it. Over the seven steps above U_mf
+  (0.30-0.18 m/s) the mean is 0.98084, dp* + floor 0.9981. **The verdict of record of the tool is FAIL**;
+  0.98084 is 0.0008 inside the gate, less than the scatter of the plateau (section 15: 0.976-0.981 with the
+  window position) and less than the declared planning margin, so it is not a clean pass under either
+  reading. Which reading holds is a question for the spec owners; the tool is unchanged.
+- What is left of the F1 deficit on 80 rows is the weight resting on the floor (1.4-2.0 % per step); the
+  residual between the particles' hydrodynamic force and the pressure force is 0.2 % or less (dp* + floor
+  0.998).
+- F3 passes with a margin of 3.7 points; the peer's CFDEM on 80 rows gave 0.1672 m/s [P].
