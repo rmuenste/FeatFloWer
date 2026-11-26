@@ -282,3 +282,7 @@ job     run                      binary     result
 165441  pin-bump gate be152e2: the six runs runs/pinbump_2026-11-23/gate/*__df99f3b1-pebe152e2 bitwise against the 5b775bcc-pe619d43c runs and the original references (pc_compare_df99f3b1-pebe152e2.txt)
 165442  unit tests of build-el-df99f3b1: 15 of 15 pass
 165439 / 165443 / 165444  DNS tree build-twin-df99f3b1, twins twin_mdf99f3b1_e4l3 and _dkt: bitwise with the certified heads (logs/m3_compare_twins.txt)
+166362  build-el-490cf7c6 (new tree in the worktree FeatFloWer-pin3c290b1, build id pinned): binary runs/pinbump_2026-11-23/bin/q2p1_el_pipeflow.490cf7c6-pe3c290b1 md5 a8862ad6  FF 490cf7c6 = pin 3c290b1 (pe master with pull request #61)
+166363  pin-bump gate 3c290b1: the six runs runs/pinbump_2026-11-23/gate/*__490cf7c6-pe3c290b1 bitwise against the df99f3b1-pebe152e2 runs (pc_compare_490cf7c6-pe3c290b1.txt)
+166364  unit tests of build-el-490cf7c6: 15 of 15 pass
+166361 / 166365 / 166366  DNS tree build-twin-490cf7c6, twins twin_m490cf7c6_e4l3 and _dkt: bitwise with the certified heads (logs/m4_compare_twins.txt)

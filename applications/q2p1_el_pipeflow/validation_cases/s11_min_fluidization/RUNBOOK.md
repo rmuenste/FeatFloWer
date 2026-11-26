@@ -684,6 +684,33 @@ Pin 619d43c -> be152e2 (df99f3b1), gates as above with new trees [V]:
 Not covered by these gates: FeatFloWer cases that use triangle meshes with a DistanceMap (ATC, die
 geometries; they need CGAL builds), which are the cases pull request #60 changes; the Fritz half.
 
+### Third bump: pe pin 3c290b1 (pull request #61, 2026-11-25)
+
+The owner merged pe pull request #61 (typed C++ coupling API `pe::coupling::Engine` for the FEAT3 coupling
+layer, plus six core fixes); pe master 3c290b1, all four CI jobs green on the merge commit. Nothing in
+FeatFloWer calls the new API. Of the core fixes, one could reach our runs by reading: in builds without MPI
+(pe serial mode, all DNS twin trees) global bodies now draw their system id from the counter of the local
+bodies, so the ids of walls and particles no longer overlap. The others concern the quaternion comparison in
+the vertex caches of meshes, the bounding boxes of ellipsoids and of restored / shadow boxes, capsules,
+cylinders and ellipsoids, a POV-Ray symbol, and constants plus a print switch (default on) in the three
+hard-contact solvers [reading of the diff be152e2..3c290b1].
+
+Pin be152e2 -> 3c290b1 (490cf7c6; gated on a trial worktree `FeatFloWer-pin3c290b1`, then fast-forwarded),
+owner decision of 2026-11-26 ("yes, move the pin, record and push"); gates as above with new trees [V]:
+
+| gate | job | result |
+|---|---|---|
+| EL default paths D_s6, G_tier2, VB40, E2w5 (binary `490cf7c6-pe3c290b1`, md5 a8862ad6, build job 166362) | 166363 | bitwise against the runs of the be152e2 pin (18455, 962, 1681, 10181 `EL_` lines) |
+| case 11, 400 steps, restitution keys absent / restitution on | 166363 | bitwise: 12677 / 13077 `EL_` lines, 800 solver lines, 27 particle logs each |
+| EL / pco unit tests | 166364 | 15 of 15 pass |
+| DNS twins e4_l3 and DKT (tree `build-twin-490cf7c6`, build job 166361) | 166365, 166366 | bitwise with the certified heads (ca98e7af225b / 89abce88b675; 82411f64f661 / cfb8b42d0969) |
+
+The record run `R_z80_rest` (section 18) was computed with the binary of the be152e2 pin; it is covered by
+these gates, not re-run. Not covered: the coupling API itself (pe's own 41 `pe-coupling-*` tests), cases
+with triangle meshes or non-spherical bodies, DNS runs in parallel pe mode, the Fritz half. A new worktree
+needs `git submodule update --init libs/pe FullC0ntact` and, inside `FullC0ntact`, `libs/eigen` and
+`libs/ode-cmake` before the certified build recipes configure and compile.
+
 ## 15. Budget of the F1 deficit and the F3 excess (2026-11-23)
 
 Read-only investigation of the existing runs (external reviewer, brief and report in
