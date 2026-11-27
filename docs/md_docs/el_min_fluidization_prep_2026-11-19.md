@@ -585,18 +585,29 @@ Round 9 (2026-11-27, review of round 8 by GPT-6 Astra, high: both record reports
 recomputation, no wrong verdict on the record; two boundary findings and one cleanup):
 - A step velocity at U_mf. With a fixed branch dp* = 5 U the crossing is 0.20 m/s, a step velocity; round 8
   computed 0.19999999999999896, put the step into the F1 set and turned a PASS (0.982 over 5 steps) into a
-  FAIL (0.976667 over 6). The log cannot resolve such a case either: dp* is the logged pressure drop over the
-  logged weight per area, and the weight is printed with seven significant digits (relative up to 5e-7, common
-  to all steps, and so in U_mf). A measured step whose velocity lies within `Spec.UMF_TIE` = 1e-6 (relative) of
-  U_mf in any round therefore leaves the sets not determined: no F1-F3 verdict, the reason names the step. A
-  mathematically exact tie is not separated from a near tie; from a log of finite precision it cannot be.
+  FAIL (0.976667 over 6). A measured step whose velocity lies within `Spec.UMF_TIE` = 1e-6 (relative) of U_mf
+  in any round now leaves the sets not determined: no F1-F3 verdict, the reason names the step. The spec
+  carries the same rule since 2026-11-27 ("Tie"). An exact tie is not separated from a near one: dp* =
+  dp A / W is formed from logged decimals (area and weight seven significant digits, pressures nine), and
+  from such a log the two cannot be told apart.
 - A plateau on a gate limit. The gate is evaluated by one function, `f1_gate`, against the two explicit limits
-  `Spec.F1_LIMITS` = (0.98, 1.02) with the exactly rounded mean (`exact_mean`): a plateau on a limit passes with
-  distance 0 and is annotated. Round 8 summed seven values 0.98 to 0.9800000000000002 and printed a PASS
-  without the annotation.
+  `Spec.F1_LIMITS` = (0.98, 1.02); the plateau and the window means of the logged pressures are exactly rounded
+  means (`exact_mean`), so a pressure that is constant in the log is its own mean. A plateau on a limit passes
+  with distance 0 and is annotated. Round 8 summed seven values 0.98 to 0.9800000000000002 and printed a PASS
+  without the annotation; with a constant logged pressure of 128.93616 Pa (dp* = 1.02 in the logged decimals)
+  the plain window mean gave 1.0200000000000007 and a FAIL (verification review).
+- Limit that remains (verification review, finding 2, not fixed): the band of the tie rule is a fixed number,
+  not a propagated uncertainty. A fit that crosses dp* = 1 at a shallow slope amplifies the print error of the
+  weight: with fixed values on dp* = 9.9 U - 24.5 U^2 (crossing exactly 0.20 m/s, slope there 0.1 per m/s
+  instead of about 5) the crossing of the logged values is 0.2000010, outside the band, and the 0.20 m/s step
+  is decided. Closing this needs the print uncertainty of area, weight and pressures propagated through the
+  fit and the crossing, and the same treatment of every other threshold; it is recorded, not built. The
+  crossings of the recorded runs are 0.1663 and 0.1733 m/s against steps at 0.16 and 0.18 m/s (relative
+  distance 4e-2), with slopes of 6.7 and 6.4 per m/s.
 - The alternative measure 'stdev' and its selector are removed.
-Self-test 115 of 115 (107 fixture logs, 8 unit checks); the reports of all seven runs are byte-identical to
-round 8 (the tool version is not printed in a report).
+Self-test 117 of 117 (109 fixture logs, 8 unit checks); the reports of all seven runs are byte-identical to
+round 8 (the tool version is not printed in a report). Reviews: `runs/fluid11/unit/post_r8/astra_review_r8.md`,
+`runs/fluid11/unit/post_r9/astra_review_r9.md`; both confirm the two record reports by recomputation.
 
 The fourth review showed verdict reversals on equivalent inputs (a redundant table knot moved F1 from
 0.978732 FAIL to PASS) and on degraded inputs (one dropped audit row: PASS from the remaining subset).

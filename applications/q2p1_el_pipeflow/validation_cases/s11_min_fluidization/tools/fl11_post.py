@@ -187,10 +187,11 @@ class Spec:
     ROUNDS = 10                     # branch_sets: the sets must settle within this many rounds
     F1_LIMITS = (0.98, 1.02)        # F1: the gate 1 +- 0.02 as its two limits (a plateau on a limit passes)
     TOL_F2, TOL_F3 = 0.05, 0.05
-    # branch_sets: a step velocity within this relative distance of U_mf is neither above nor not above it. dp* is
-    # the logged pressure drop over the logged weight per area; the audit line prints the weight with seven
-    # significant digits (relative up to 5e-7, common to all steps, and so in U_mf) and the pressures with nine.
-    # The band is twice that bound. Round-off of the fit (1e-15) is far inside it.
+    # branch_sets: a step velocity within this relative distance of U_mf is in neither set (tie rule of the spec,
+    # 2026-11-27: no F1-F3 verdict). The band is of the order of the log's resolution of dp* = dp A / W (the audit
+    # line prints area and weight with seven significant digits, the pressures with nine); round-off of the fit
+    # (1e-15) is far inside it. It is NOT a bound on the uncertainty of U_mf: a fit that crosses dp* = 1 at a
+    # shallow slope amplifies the print error (design note 7.4, round 9).
     UMF_TIE = 1e-6
     UMF_MEASURED = 0.182            # m/s, NETL measurement (F4, reported)
     FLAG = 0.02                     # sub-window difference flagged in the step table (display)
@@ -907,7 +908,7 @@ def eval_step(ev, s):
         v = [r[key] for r in clock.window(lo, hi, open_end)]
         if not v:
             return NAN, NAN
-        m = sum(v) / len(v)
+        m = exact_mean(v)           # correctly rounded: a constant logged value is its own mean (gate limits, r9)
         return m, math.sqrt(sum((y - m) ** 2 for y in v) / len(v))
 
     def sub(lo, hi, open_end):
@@ -1848,6 +1849,25 @@ def _tie(slope):
 
 
 TIE5 = _tie(5.0)                # review of r8: U_mf = 0.20 exactly, the velocity of step 5
+
+
+def _on_limit(level):
+    """mutation of a 14-step fixture log: the weight printed as 2.844180E-02 (W/A = 126.408 Pa with the fixture
+    area) and the pressure of every audit line set to the exact decimal 126.408 x dp*, dp* = level in the holds
+    from 0.18 m/s up and 6 U below (review of r9: a plateau that is a gate limit in the logged decimals)"""
+    def f(L):
+        out = []
+        for l in L:
+            if l.lstrip().startswith('EL_BED_AUDIT'):
+                t = float(l.split('t=')[1].split()[0])
+                u = P14[min(13, max(0, math.ceil(t / 0.5 - 1e-9) - 2))][1]      # hold i ends at 1.0 + 0.5 i s (0.5 s preparation)
+                dp = _e(float(Decimal('126.408') * (Decimal(str(level)) if u >= 0.18 else 6 * Decimal(str(u)))), 16, 8)
+                l = _set_tok(l, 'weight_z_floor_z', 0, '-2.844180E-02')
+                for key, idx in (('p_in_out', 0), ('dp_hydro_dyn', 0), ('dp_hydro_dyn', 2)):
+                    l = _set_tok(l, key, idx, dp)
+            out.append(l)
+        return out
+    return f
 Z80 = [0.9853, 0.9729, 0.9765, 0.9805, 0.9784, 0.9831, 0.9892, 0.9582, 0.8274, 0.6996, 0.5748, 0.4534, 0.3354, 0.2209]
 R5 = [0.9716, 0.9677, 0.9732, 0.9746, 0.9774, 0.9861, 0.9936, 0.9147, 0.7905, 0.6688, 0.5499, 0.4338, 0.3210, 0.2115]
 PEER = {  # per-step dp* of the peer codes, U 0.30 .. 0.04 m/s (spec 11 brief of 2026-11-24)
@@ -2141,6 +2161,14 @@ def self_test_cases():
          {'F1': 'FAIL'}, ['over the 6 steps above U_mf 0.2000 m/s (U 0.20 .. 0.30): 0.976667', 'sets settled in round 2'], [], ''),
         ('r9: the same with dp* = 4.999 U (U_mf 0.20004): the 0.20 m/s step is not above', dict(protocol=P14, dps_fn=_by_u(_tie(4.999))),
          {'F1': 'PASS'}, ['over the 5 steps above U_mf 0.2000 m/s (U 0.22 .. 0.30): 0.982000', 'sets settled in round 1'], [], ''),
+        ('r9: plateau 1.02 in the logged decimals (constant pressure 128.93616 Pa): PASS, at the gate',
+         dict(protocol=P14, dps_fn=_by_u([1.02] * 7 + [6 * u for _, u in P14[7:]]), mutate=_on_limit('1.02')), {'F1': 'PASS'},
+         ['(U 0.18 .. 0.30): 1.020000   (gate 1 +- 0.02: PASS, at the gate (inside by 0.0000; standard error of the 7 step means 0.0000))',
+          ': F1 PASS (at the gate) | F2 '], [], 'da3913ed: step means 1.0200000000000007, F1 FAIL without the annotation'),
+        ('r9: plateau 0.98 in the logged decimals (constant pressure 123.87984 Pa): PASS, at the gate',
+         dict(protocol=P14, dps_fn=_by_u([0.98] * 7 + [6 * u for _, u in P14[7:]]), mutate=_on_limit('0.98')), {'F1': 'PASS'},
+         ['(U 0.18 .. 0.30): 0.980000   (gate 1 +- 0.02: PASS, at the gate (inside by 0.0000; standard error of the 7 step means 0.0000))',
+          ': F1 PASS (at the gate) | F2 '], [], 'da3913ed: step means 0.9800000000000003, PASS without the annotation'),
     ]
 
 
