@@ -711,6 +711,28 @@ with triangle meshes or non-spherical bodies, DNS runs in parallel pe mode, the 
 needs `git submodule update --init libs/pe FullC0ntact` and, inside `FullC0ntact`, `libs/eigen` and
 `libs/ode-cmake` before the certified build recipes configure and compile.
 
+### Fourth bump: pe pin b6b2344 (pull request #62, 2026-11-27)
+
+pe pull request #62 (the coupling API of #61 on a domain-decomposed world) was merged on 2026-11-27; pe master
+b6b2344, CI green on the merge commit. Outside the coupling API one core change: `HalfSpace::opposite()`, used
+by `decomposeDomainPlaneSlabs` so that two slabs share exactly the points of their dividing plane. In
+FeatFloWer only the ATC setup calls that decomposition; the EL setups use `decomposeDomain` and the DNS twins
+none [reading of the diff 3c290b1..b6b2344]. Owner decision of 2026-11-27 ("yes, steps 1 and 2 as proposed,
+then open the PR"; step 1 = this pin, taken as the last one before the pull request).
+
+Pin 3c290b1 -> b6b2344 (9c568e3d; gated as 08eeb540 = the same change on 9ad4a6fd in the worktree
+`FeatFloWer-pin3c290b1`; the two commits between change the Python post tool and the design note only) [V]:
+
+| gate | job | result |
+|---|---|---|
+| EL default paths D_s6, G_tier2, VB40, E2w5 (binary `08eeb540-peb6b2344`, md5 c4214167, build job 167301) | 167302 | bitwise against the runs of the 3c290b1 pin (18455, 962, 1681, 10181 `EL_` lines) |
+| case 11, 400 steps, restitution keys absent / restitution on | 167302 | bitwise: 12677 / 13077 `EL_` lines, 800 solver lines, 27 particle logs each |
+| EL / pco unit tests | 167303 | 15 of 15 pass |
+| DNS twins e4_l3 and DKT (tree `build-twin-08eeb540`, build job 167300) | 167325, 167326 | bitwise with the certified heads (ca98e7af225b / 89abce88b675; 82411f64f661 / cfb8b42d0969) |
+
+Not covered: as for the third bump, and the ATC setup (plane-slab decomposition, CGAL builds), which is the
+FeatFloWer path the core change of #62 reaches.
+
 ## 15. Budget of the F1 deficit and the F3 excess (2026-11-23)
 
 Read-only investigation of the existing runs (external reviewer, brief and report in
@@ -936,3 +958,23 @@ tool) [V]:
   half of the pin gates; no second-model review of round 8.
 - Movie of the record: `runs/fluid11/movie/fluid11_R_z80_rest_particles.mp4` with the peer's CFDEM 80-row
   markers (`FL11_MOVIE_CFDEM=80`, 01d1aa62) and the companion note beside it.
+
+### Post tool round 9 and its two reviews (2026-11-27)
+
+Second-model review of round 8 (GPT-6 Astra, high; brief and text in
+`/data/warehouse17/rmuenste/runs/fluid11/unit/post_r8/review_brief_r8.md`, `astra_review_r8.md`) and a
+verification review of the fixes (`unit/post_r9/review_brief_r9.md`, `astra_review_r9.md`). Both recomputed
+the two record reports independently (raw audit lines, own iteration, own closure crossing) and agree with
+every printed digit: `R_z80_rest` plateau 0.980844, standard error 0.002094, U_mf 0.166346 m/s, ratio 1.012996;
+`R_r5_rest` 0.977740, 0.003416, 0.173349 m/s, 1.050428. No finding concerns a recorded run.
+
+| finding | state |
+|---|---|
+| r8 P1: a step velocity equal to U_mf was decided by round-off (constructed: PASS turned into FAIL) | fixed, da3913ed: within 1e-6 (relative) of U_mf the sets are not determined, no F1-F3 verdict; the spec carries the same tie rule since 2026-11-27 |
+| r8 P2: a plateau exactly on a gate limit lost the annotation | fixed, da3913ed + 36ec8372: `f1_gate` against the explicit limits, exactly rounded means of the plateau and of the logged window pressures; complete-log tests at both limits |
+| r8 P3: unused 'stdev' measure | removed, da3913ed |
+| r9 P1 (2): the fixed tie band is not a bound on the uncertainty of U_mf; a fit crossing dp* = 1 at a slope of 0.1 per m/s (ours: 6.7 and 6.4) lets an exact tie escape the band | **open**, recorded as a limit in the design note (section 7.4, round 9); the tool follows the spec's fixed band |
+
+Evidence [V]: self-test 117 of 117; `--self-test-real` 300 variants x 3 seeds on both runs, 0 failures (job
+167323 on 36ec8372; job 167316 on da3913ed likewise); the reports of all seven runs byte-identical to round 8
+(`post_r9_final.txt` beside the `post_r8.txt`). The fixes of the verification review were not reviewed again.

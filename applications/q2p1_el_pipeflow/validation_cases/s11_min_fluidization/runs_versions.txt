@@ -286,3 +286,8 @@ job     run                      binary     result
 166363  pin-bump gate 3c290b1: the six runs runs/pinbump_2026-11-23/gate/*__490cf7c6-pe3c290b1 bitwise against the df99f3b1-pebe152e2 runs (pc_compare_490cf7c6-pe3c290b1.txt)
 166364  unit tests of build-el-490cf7c6: 15 of 15 pass
 166361 / 166365 / 166366  DNS tree build-twin-490cf7c6, twins twin_m490cf7c6_e4l3 and _dkt: bitwise with the certified heads (logs/m4_compare_twins.txt)
+167301  build-el-08eeb540 (new tree in the worktree FeatFloWer-pin3c290b1, build id pinned): binary runs/pinbump_2026-11-23/bin/q2p1_el_pipeflow.08eeb540-peb6b2344 md5 c4214167  FF 08eeb540 = 9ad4a6fd + pin b6b2344 (pe master with pull request #62); on the branch the pin is 9c568e3d
+167302  pin-bump gate b6b2344: the six runs runs/pinbump_2026-11-23/gate/*__08eeb540-peb6b2344 bitwise against the 490cf7c6-pe3c290b1 runs (pc_compare_08eeb540-peb6b2344.txt)
+167303  unit tests of build-el-08eeb540: 15 of 15 pass
+167300 / 167325 / 167326  DNS tree build-twin-08eeb540, twins twin_m08eeb540_e4l3 and _dkt: bitwise with the certified heads (logs/m5_compare_twins.txt)
+167316 / 167323  fl11_post r9 (da3913ed / 36ec8372): self-test 115 / 117, --self-test-real 300 variants x 3 seeds on R_r5_rest and R_z80_rest 0 failures, reports of the seven runs byte-identical to post_r8 (runs/fluid11/unit/post_r9)
