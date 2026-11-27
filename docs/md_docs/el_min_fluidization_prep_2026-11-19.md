@@ -574,12 +574,29 @@ has dp* < 0.8 x plateau (fluidised by U, fixed by dp*: the branches contradict e
 unmeasurable step still blocks F1-F3: its dp* is unknown, so it could be in the start set, could be a
 fixed step below U_mf (moving the fit, U_mf and with it the F1 set) or could lie above U_mf in the F1 set.
 The F1 verdict stays PASS / FAIL at 1 +- 0.02; the mean over the steps with dp* > 0.95 is printed as a
-cross-check, not gated. A plateau whose distance to the nearer limit is within the scatter of its step
-means is annotated "at the gate" (side and distance on the F1 line, `F1 PASS (at the gate)` in the
-verdict line); the scatter is selected by one constant, `Spec.AT_GATE` = 'stderr' (s / sqrt(n), default)
-or 'stdev' (s), s the sample standard deviation (n - 1) of the per-step dp* of the F1 set; both numbers
-are printed; no annotation with fewer than three steps. The measure is the owner's choice (open as of
-2026-11-24). F2, F3 and F5 are unchanged; F3's "U_mf at the measured plateau" uses the F1 plateau.
+cross-check, not gated. A plateau whose distance to the nearer limit is at most the standard error of
+its mean is annotated "at the gate" (side and distance on the F1 line, `F1 PASS (at the gate)` in the
+verdict line): standard error s / sqrt(n), s the sample standard deviation (n - 1) of the per-step dp* of
+the F1 set; both numbers are printed; no annotation with fewer than three steps. The standard error is the
+owner's decision of 2026-11-24 and the wording of the spec. F2, F3 and F5 are unchanged; F3's "U_mf at the
+measured plateau" uses the F1 plateau.
+
+Round 9 (2026-11-27, review of round 8 by GPT-6 Astra, high: both record reports confirmed by an independent
+recomputation, no wrong verdict on the record; two boundary findings and one cleanup):
+- A step velocity at U_mf. With a fixed branch dp* = 5 U the crossing is 0.20 m/s, a step velocity; round 8
+  computed 0.19999999999999896, put the step into the F1 set and turned a PASS (0.982 over 5 steps) into a
+  FAIL (0.976667 over 6). The log cannot resolve such a case either: dp* is the logged pressure drop over the
+  logged weight per area, and the weight is printed with seven significant digits (relative up to 5e-7, common
+  to all steps, and so in U_mf). A measured step whose velocity lies within `Spec.UMF_TIE` = 1e-6 (relative) of
+  U_mf in any round therefore leaves the sets not determined: no F1-F3 verdict, the reason names the step. A
+  mathematically exact tie is not separated from a near tie; from a log of finite precision it cannot be.
+- A plateau on a gate limit. The gate is evaluated by one function, `f1_gate`, against the two explicit limits
+  `Spec.F1_LIMITS` = (0.98, 1.02) with the exactly rounded mean (`exact_mean`): a plateau on a limit passes with
+  distance 0 and is annotated. Round 8 summed seven values 0.98 to 0.9800000000000002 and printed a PASS
+  without the annotation.
+- The alternative measure 'stdev' and its selector are removed.
+Self-test 115 of 115 (107 fixture logs, 8 unit checks); the reports of all seven runs are byte-identical to
+round 8 (the tool version is not printed in a report).
 
 The fourth review showed verdict reversals on equivalent inputs (a redundant table knot moved F1 from
 0.978732 FAIL to PASS) and on degraded inputs (one dropped audit row: PASS from the remaining subset).

@@ -25,9 +25,10 @@ F1 plateau = mean dp* over the measured steps with U above the run's own measure
 the fixed-branch fit with dp* = 1), 1 +- 0.02; the sets come from an iteration (branch_sets: start from the
 steps with dp* > 0.95, fixed = dp* < 0.8 of the plateau and not in the fluidised set, fit, U_mf, fluidised
 = U > U_mf, until both sets are unchanged; no F1-F3 verdict when they do not settle or contradict each
-other); the mean over the steps with dp* > 0.95 is a reported cross-check; a plateau within the scatter of
-its step means (Spec.AT_GATE: standard error or standard deviation) of the nearer limit is annotated
-"at the gate" next to the PASS / FAIL. F2 fixed-branch window gradient against the closure at the mapped
+other, or when a step velocity coincides with U_mf within the resolution of the log); the mean over the
+steps with dp* > 0.95 is a reported cross-check; a plateau within the standard error of its mean (sample
+standard deviation of the step means over sqrt(n), n >= 3) of the nearer limit is annotated "at the gate"
+next to the PASS / FAIL (f1_gate). F2 fixed-branch window gradient against the closure at the mapped
 gas fraction +- 5 %, window margin max(2 d, support); F3 U_mf of the fit dp* = a U + b U^2 (two distinct
 nonzero fixed velocities, full rank) against the closure U_mf at the whole-bed porosity +- 5 %; F4
 reported; F5 count constant over the run, height: no centre above zmin + Lz/2 in the lowest hold.
@@ -52,7 +53,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from fl11_closures import CLOSURES, closure_grad, closure_umf   # noqa: E402
 import make_inlet_table                                           # noqa: E402
 
-EVAL_VERSION = 'fl11_post r8 2026-11-24'   # part of the movie cache signature
+EVAL_VERSION = 'fl11_post r9 2026-11-27'   # part of the movie cache signature
 NAN = float('nan')
 INF = float('inf')
 GATES = ('F1', 'F2', 'F3', 'F5 height', 'F5 count')
@@ -85,6 +86,11 @@ def es_prec(x, digits=6):
 
 def mean(v):
     return sum(v) / len(v) if v else NAN
+
+
+def exact_mean(v):
+    """the correctly rounded mean of finite floats (exact rational sum): equal values give that value"""
+    return float(sum(map(Fraction, v)) / len(v)) if v and all(finite(x) for x in v) else NAN
 
 
 def _fmin(v):
@@ -179,8 +185,13 @@ class Spec:
     MIN_SAMPLES, MIN_SUB = 10, 5    # expected audit rows in a window / in a sub-window
     FLU, FIX = 0.95, 0.8            # start set of the iteration: dp* > FLU; fixed: dp* < FIX x plateau (and not fluidised)
     ROUNDS = 10                     # branch_sets: the sets must settle within this many rounds
-    TOL_F1, TOL_F2, TOL_F3 = 0.02, 0.05, 0.05
-    AT_GATE = 'stderr'              # F1 'at the gate' scatter: 'stderr' = s / sqrt(n) or 'stdev' = s (s: sample std, n - 1)
+    F1_LIMITS = (0.98, 1.02)        # F1: the gate 1 +- 0.02 as its two limits (a plateau on a limit passes)
+    TOL_F2, TOL_F3 = 0.05, 0.05
+    # branch_sets: a step velocity within this relative distance of U_mf is neither above nor not above it. dp* is
+    # the logged pressure drop over the logged weight per area; the audit line prints the weight with seven
+    # significant digits (relative up to 5e-7, common to all steps, and so in U_mf) and the pressures with nine.
+    # The band is twice that bound. Round-off of the fit (1e-15) is far inside it.
+    UMF_TIE = 1e-6
     UMF_MEASURED = 0.182            # m/s, NETL measurement (F4, reported)
     FLAG = 0.02                     # sub-window difference flagged in the step table (display)
     REL_DET = 1e-6                  # F3: smallest relative determinant of the normal equations
@@ -930,7 +941,9 @@ def branch_sets(steps, spec):
     Returns dict(flu, fixed, plateau, umf, rounds, start, reason). reason '' means settled, consistent sets; any
     other reason means the sets are NOT determined (no F1-F3 verdict, the caller prints the reason; there is no
     fallback to the threshold rule): no start set; in a round an empty fixed set, a fit that is not identified,
-    a fit without a positive crossing, or no measured step above U_mf; a cycle of sets, or no settlement within
+    a fit without a positive crossing, a measured step whose velocity coincides with U_mf within UMF_TIE (the
+    log does not resolve on which side it lies, and round-off must not decide it), or no measured step above
+    U_mf; a cycle of sets, or no settlement within
     ROUNDS rounds; at the settled state a step above U_mf with dp* < FIX x P (fluidised by U, fixed by dp*: the
     branches contradict each other)."""
     meas = [x for x in steps if x['measured']]
@@ -942,7 +955,7 @@ def branch_sets(steps, spec):
     flu, seen = start, [frozenset(x['k'] for x in start)]
     for r in range(1, spec.ROUNDS + 1):
         out['rounds'] = r
-        plateau = mean([x['dps'] for x in flu])
+        plateau = exact_mean([x['dps'] for x in flu])
         fixed = [x for x in meas if x['k'] not in seen[-1] and x['dps'] < spec.FIX * plateau]
         if not fixed:
             out['reason'] = (f'round {r} of the U_mf iteration: no fixed-branch step (dp* < {spec.FIX} of the plateau '
@@ -954,6 +967,12 @@ def branch_sets(steps, spec):
             out['reason'] = (f"round {r} of the U_mf iteration: {fit['why']}" if fit['why'] else
                              f"round {r} of the U_mf iteration: the fit dp* = {fit['a']:.4f} U + {fit['b']:.4f} U^2 of "
                              f"{len(fixed)} fixed steps has no positive crossing with dp* = 1 (no U_mf)")
+            return out
+        tie = [x for x in meas if abs(x['U'] - umf) <= spec.UMF_TIE * umf]
+        if tie:
+            out['reason'] = (f"round {r} of the U_mf iteration: " + ', '.join(f"step {x['k']} (U {x['U']:.3f})" for x in tie)
+                             + f" coincides with U_mf {umf:.6f} m/s within the resolution of the logged pressures (relative "
+                             f"{spec.UMF_TIE:g}): whether it lies above U_mf is not determined")
             return out
         new = [x for x in meas if x['U'] > umf]
         if not new:
@@ -1228,28 +1247,22 @@ def gates_f1_f3(ev, official):
             print(f"   cross-check, measured: {xcheck}")
         return V
     flu, fixed, plateau = S['flu'], S['fixed'], S['plateau']
-    v1 = 'PASS' if abs(plateau - 1) <= spec.TOL_F1 else 'FAIL'
+    G = f1_gate([x['dps'] for x in flu], spec)                    # its plateau is S['plateau'] (the same exact mean)
+    v1, n, dist, s, se = G['verdict'], G['n'], G['dist'], G['s'], G['se']
     if official:
         V['F1'] = v1
-    n, dist = len(flu), spec.TOL_F1 - abs(plateau - 1)            # dist >= 0: inside the gate (PASS)
-    note, s = '', NAN
-    if n >= 3:
-        s = math.sqrt(sum((x['dps'] - plateau) ** 2 for x in flu) / (n - 1))
-        measures = {'stderr': ('standard error', s / math.sqrt(n)), 'stdev': ('standard deviation', s)}
-        if spec.AT_GATE not in measures:
-            raise ValueError(f"Spec.AT_GATE {spec.AT_GATE!r}: 'stderr' or 'stdev'")
-        mname, mval = measures[spec.AT_GATE]
-        if abs(dist) <= mval:
-            note = (f", at the gate ({'inside' if dist >= 0 else 'outside'} by {abs(dist):.4f}; {mname} of the {n} step "
-                    f"means {mval:.4f})")
-            ev['f1_at_gate'] = official
+    note = ''
+    if G['at_gate']:
+        note = (f", at the gate ({'inside' if dist >= 0 else 'outside'} by {abs(dist):.4f}; standard error of the {n} step "
+                f"means {se:.4f})")
+        ev['f1_at_gate'] = official
     print(f"\nF1 plateau: mean dp* over the {n} steps above U_mf {S['umf']:.4f} m/s (U {min(x['U'] for x in flu):.2f} .. "
           f"{max(x['U'] for x in flu):.2f}): {plateau:.6f}   (gate 1 +- 0.02: {word(v1, official)}{note}); "
           f"dp* + floor/W over these {sum(x['dps'] + x['fl'] for x in flu)/len(flu):.4f}")
     if n >= 3:
-        print(f"   scatter of the {n} step means: sample standard deviation {s:.4f}, standard error {s / math.sqrt(n):.4f}; "
+        print(f"   scatter of the {n} step means: sample standard deviation {s:.4f}, standard error {se:.4f}; "
               f"distance to the nearer limit {dist:+.4f} ({'inside' if dist >= 0 else 'outside'}); at the gate when within "
-              f"the {mname}: {'yes' if note else 'no'}")
+              f"the standard error: {'yes' if note else 'no'}")
     else:
         print(f"   no 'at the gate' annotation: {n} step(s) in the set, a scatter needs three")
     rest = [x for x in res if x['branch'] == 'intermediate']
@@ -1261,6 +1274,22 @@ def gates_f1_f3(ev, official):
     if official:
         V['F3'], V['F2'] = v3, v2
     return V
+
+
+def f1_gate(dps, spec):
+    """gate F1 of the step means dps of the F1 set: dict(plateau, verdict, dist, n, s, se, at_gate). dist is the
+    distance of the plateau to the nearer of the two limits F1_LIMITS, >= 0 inside the gate (PASS; a plateau on a
+    limit passes with dist 0), < 0 outside (FAIL). s is the sample standard deviation (n - 1) of the step means,
+    se = s / sqrt(n) the standard error of the plateau; at_gate (the annotation of the spec amendment of
+    2026-11-24, it never changes the verdict): n >= 3 and |dist| <= se. With fewer than three steps s and se are
+    NaN and at_gate is False."""
+    lo, hi = spec.F1_LIMITS
+    n, plateau = len(dps), exact_mean(dps)
+    dist = min(plateau - lo, hi - plateau)
+    s = math.sqrt(sum((x - plateau) ** 2 for x in dps) / (n - 1)) if n >= 3 else NAN
+    se = s / math.sqrt(n) if n >= 3 else NAN
+    return dict(plateau=plateau, verdict='PASS' if dist >= 0 else 'FAIL', dist=dist, n=n, s=s, se=se,
+                at_gate=n >= 3 and abs(dist) <= se)
 
 
 def fixed_fit(fixed, P):
@@ -1812,6 +1841,13 @@ P5 = [(0.5, 0.30), (1.0, 0.25), (1.5, 0.20), (2.0, 0.10), (2.5, 0.05)]
 P5b = [(0.5, 0.30), (1.0, 0.20), (1.5, 0.16), (2.0, 0.10), (2.5, 0.05)]
 P7 = [(0.5, 0.30), (1.0, 0.25), (1.5, 0.20), (2.0, 0.18), (2.5, 0.14), (3.0, 0.10), (3.5, 0.05)]
 CYCLE = [1.0, 1.0, 1.0, 0.90, 0.79, 0.10 / 0.19, 0.05 / 0.19]   # with 0.14 fixed U_mf 0.1722, without 0.19 (exact)
+def _tie(slope):
+    """per-step dp* of the 14-step protocol: plateau 0.982 above 0.20 m/s, 0.95 / 0.90 / 0.80 at 0.20 / 0.18 / 0.16,
+    fixed branch slope x U from 0.14 m/s down (U_mf = 1 / slope)"""
+    return [0.982] * 5 + [0.95, 0.90, 0.80] + [slope * round(0.14 - 0.02 * i, 2) for i in range(6)]
+
+
+TIE5 = _tie(5.0)                # review of r8: U_mf = 0.20 exactly, the velocity of step 5
 Z80 = [0.9853, 0.9729, 0.9765, 0.9805, 0.9784, 0.9831, 0.9892, 0.9582, 0.8274, 0.6996, 0.5748, 0.4534, 0.3354, 0.2209]
 R5 = [0.9716, 0.9677, 0.9732, 0.9746, 0.9774, 0.9861, 0.9936, 0.9147, 0.7905, 0.6688, 0.5499, 0.4338, 0.3210, 0.2115]
 PEER = {  # per-step dp* of the peer codes, U 0.30 .. 0.04 m/s (spec 11 brief of 2026-11-24)
@@ -1831,7 +1867,7 @@ def self_test_cases():
     """(name, writer keywords, expected verdicts, strings that must appear, strings that must not, the answer of
     an earlier tool where it differed). Keyword '_spec': the fixture spec ('base' = the four-step fixture with
     the default physics, a dict = replacements of the derived one; default: derived from the writer keywords).
-    Keyword '_set': gate constants of that fixture spec (e.g. AT_GATE, ROUNDS). The fixtures test the machinery with a
+    Keyword '_set': gate constants of that fixture spec (e.g. ROUNDS). The fixtures test the machinery with a
     fixture spec, not spec 11."""
     hi_after = lambda t: 0.060 if t > 2.3 else 0.0241       # noqa: E731
     REF = {'F1': 'PASS', 'F2': 'FAIL', 'F3': 'PASS', 'F5 height': 'PASS', 'F5 count': 'PASS'}
@@ -2062,10 +2098,6 @@ def self_test_cases():
          ['over the 7 steps above U_mf 0.1672 m/s (U 0.18 .. 0.30): 0.976243   (gate 1 +- 0.02: FAIL); ',
           'distance to the nearer limit -0.0038 (outside); at the gate when within the standard error: no',
           'mean over the 8 steps with dp* > 0.95: 0.97303'], [AT_GATE_NOTE, ', at the gate ('], 'peer: 7 steps, 0.9762, 0.1672 m/s'),
-        ('r8: peer CFDEM 80 rows (stdev): at the gate outside', dict(protocol=P14, dps_fn=_by_u(PEER['CFDEM 80']), _set=dict(AT_GATE='stdev')),
-         {'F1': 'FAIL'}, ['FAIL, at the gate (outside by 0.0038; standard deviation of the 7 step means 0.0057)',
-                          'at the gate when within the standard deviation: yes', ': F1 FAIL (at the gate) | F2 '], [],
-         'stderr: plain FAIL (the boundary between the two measures)'),
         ('r8: peer CFDEM 40 rows: plateau deficit, all 6 steps above U_mf', dict(protocol=P14, dps_fn=_by_u(PEER['CFDEM 40'])),
          {'F1': 'FAIL'}, ['over the 6 steps above U_mf 0.1906 m/s (U 0.20 .. 0.30): 0.954983   (gate 1 +- 0.02: FAIL); ',
                           'mean over the 5 steps with dp* > 0.95: 0.956360', 'in neither set: U 0.18 (dp* 0.9357)'],
@@ -2100,6 +2132,15 @@ def self_test_cases():
         ('r8: U_mf above every step (empty F1 set)', dict(dps_fn=_by_u([1.0, 0.97, 0.3, 0.15], PROTO)), {'F1': U, 'F2': U, 'F3': U},
          ['F1, F2, F3 unavailable: round 1 of the U_mf iteration: no measured step above U_mf 0.3333 m/s'], [],
          'r7: F1 0.985000 PASS'),
+        # ---- round 9 (review of r8): a step velocity at U_mf is not decided by round-off -----------------------
+        ('r9: fixed branch dp* = 5 U, U_mf = 0.20 = a step velocity: not determined', dict(protocol=P14, dps_fn=_by_u(TIE5)),
+         {'F1': U, 'F2': U, 'F3': U}, ['F1, F2, F3 unavailable: round 1 of the U_mf iteration: step 5 (U 0.200) coincides with U_mf 0.200000 m/s',
+                                       'whether it lies above U_mf is not determined'], [],
+         'r8: U_mf 0.19999999999999896, the 0.20 step in the set, 0.976667 FAIL (strict rule: 5 steps, 0.982 PASS)'),
+        ('r9: the same with dp* = 5.001 U (U_mf 0.19996): the 0.20 m/s step is above', dict(protocol=P14, dps_fn=_by_u(_tie(5.001))),
+         {'F1': 'FAIL'}, ['over the 6 steps above U_mf 0.2000 m/s (U 0.20 .. 0.30): 0.976667', 'sets settled in round 2'], [], ''),
+        ('r9: the same with dp* = 4.999 U (U_mf 0.20004): the 0.20 m/s step is not above', dict(protocol=P14, dps_fn=_by_u(_tie(4.999))),
+         {'F1': 'PASS'}, ['over the 5 steps above U_mf 0.2000 m/s (U 0.22 .. 0.30): 0.982000', 'sets settled in round 1'], [], ''),
     ]
 
 
@@ -2144,6 +2185,22 @@ def _unit_checks():
     bad = [(a, b) for a, b, want in pe if print_equal(a, Decimal(b)) != want]
     out.append(('print_equal: a coarse token never stands for a finer reference (%d pairs)' % len(pe), not bad,
                 ('wrong: %s' % bad) if bad else "('0', 0.3), ('1', 0.9), ('0.0004', 0.000435) refused (77914cfa: accepted)"))
+    # round 9: gate F1 on a limit, and a step velocity at U_mf (review of r8)
+    on = [f1_gate([lim] * 7, SPEC11) for lim in SPEC11.F1_LIMITS]
+    out.append(('F1 of seven equal step means on either limit: PASS, distance 0, at the gate',
+                all(g['verdict'] == 'PASS' and g['dist'] == 0 and g['se'] == 0 and g['at_gate'] for g in on)
+                and exact_mean([0.98] * 7) == 0.98, f"plain sum: {sum([0.98] * 7) / 7!r} (r8: PASS without the annotation)"))
+    off = [f1_gate(v, SPEC11) for v in ([0.9799] * 7, [1.0201] * 7, [0.98, 0.98], [0.985, 0.975, 0.98])]
+    out.append(('F1 off a limit without scatter: FAIL, no annotation; two steps: none; three steps on the limit: annotated',
+                [(g['verdict'], g['at_gate']) for g in off] == [('FAIL', False), ('FAIL', False), ('PASS', False), ('PASS', True)], ''))
+    rows = lambda dps: [dict(k=i, U=u, dps=d, measured=True) for i, ((_, u), d) in enumerate(zip(P14, dps))]   # noqa: E731
+    quad = [0.982] * 5 + [0.95, 0.90, 0.80] + [4 * u + 5 * u * u for u in (0.14, 0.12, 0.10, 0.08, 0.06, 0.04)]
+    why = [branch_sets(rows(v), SPEC11)['reason'] for v in (TIE5, quad)]
+    out.append(('a step velocity at U_mf (fits 5 U and 4 U + 5 U^2, both crossing at 0.20): sets not determined',
+                all('coincides with U_mf' in w and 'step 5 ' in w for w in why), '; '.join(w[:44] for w in why)))
+    near = [branch_sets(rows(_tie(c)), SPEC11) for c in (5 * (1 + 3e-6), 5 * (1 - 3e-6))]
+    out.append(('three band widths either side of the tie: decided (6 steps with 0.20 m/s, 5 without)',
+                [(b['reason'], len(b['flu'])) for b in near] == [('', 6), ('', 5)], ''))
     s = SPEC11
     out.append(('spec 11: 28 rows from make_inlet_table, 14 holds, lowest 7.02-7.5 s at 0.04 m/s',
                 len(s.table) == 28 and len(s.holds) == 14 and (s.lowest['a'], s.lowest['b']) == (Fraction('7.02'), Fraction('7.5'))
