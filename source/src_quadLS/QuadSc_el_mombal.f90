@@ -22,12 +22,15 @@
 ! Read-only: the solver arrays are operands only; products are formed in local scratch arrays with
 ! the own kernels of the solver (B_Mul_U, LAX17, EL_MM_PHI_OPERATORS). No global state (ILEV, matrix
 ! pointers, communication) is touched. The scheme the split assumes (backward Euler, Newtonian,
-! matrix M + dt (D + K + B)) is enforced at start-up (app_init).
+! matrix M + dt (D + K + B)) is enforced at start-up (app_init) and again at the start of every
+! audited step (EL_CONFIG:EL_MOMBAL_RUNTIME_CHECK; a reload of the deck can change it).
 !=========================================================================
 SUBROUTINE EL_MomBal_Begin()
 
   USE EL_MOMENTUM_BALANCE, ONLY: EL_MOMBAL_ACTIVE, EL_MOMBAL_BEGIN_STEP, EL_MOMBAL_RECORD, &
                                  MB_MOM_START
+  USE EL_CONFIG, ONLY: EL_MOMBAL_RUNTIME_CHECK
+  USE def_FEAT, ONLY: THETA
   USE PP3D_MPI, ONLY: myid, master, MPI_COMM_SUBS
 
   LOGICAL, ALLOCATABLE :: mask(:,:)
@@ -36,6 +39,8 @@ SUBROUTINE EL_MomBal_Begin()
 
   IF (.NOT.EL_MOMBAL_ACTIVE()) RETURN
   IF (myid.EQ.master) RETURN
+  CALL EL_MOMBAL_RUNTIME_CHECK(THETA, bNonNewtonian, bViscoElastic, bNS_Stabilization, GAMMA, &
+    myMatrixRenewal%M, myMatrixRenewal%D, myMatrixRenewal%K)
 
   n = QuadSc%ndof
   ALLOCATE(mask(3,n), f(3,n))

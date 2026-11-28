@@ -66,8 +66,30 @@ def read_time(files, tk):
     return rows
 
 
+def min_image_gaps(pos, i, j, r, lx, ly):
+    """|x_i - x_j| - 2 r for the indices j (minimum image in x, y)"""
+    d = pos[j] - pos[i]
+    d[:, 0] -= lx*np.round(d[:, 0]/lx)
+    d[:, 1] -= ly*np.round(d[:, 1]/ly)
+    return np.sqrt((d*d).sum(axis=1)) - 2*r
+
+
+def min_pair_gap_all_pairs(pos, r, lx, ly):
+    """the smallest gap over all pairs, one row of the distance matrix at a time"""
+    best, pair = float('inf'), None
+    for i in range(len(pos) - 1):
+        j = np.arange(i + 1, len(pos))
+        g = min_image_gaps(pos, i, j, r, lx, ly)
+        m = int(np.argmin(g))
+        if g[m] < best:
+            best, pair = float(g[m]), (i, int(j[m]))
+    return best, pair
+
+
 def min_pair_gap(pos, r, lx, ly):
-    """Smallest |x_i - x_j| - 2 r (minimum image in x, y), cell list of width >= 2 r + slack."""
+    """Smallest |x_i - x_j| - 2 r (minimum image in x, y) and its pair. A cell list of width >= 4 r finds
+    every pair closer than 4 r between centres (a bed: all that matters); when its smallest gap is not below
+    2 r, a closer pair in cells that are not adjacent is not excluded and all pairs are searched."""
     n = len(pos)
     if n < 2:
         return float('inf'), None
@@ -94,14 +116,13 @@ def min_pair_gap(pos, r, lx, ly):
             j = nb[nb > i]
             if len(j) == 0:
                 continue
-            d = pos[j] - pos[i]
-            d[:, 0] -= lx*np.round(d[:, 0]/lx)
-            d[:, 1] -= ly*np.round(d[:, 1]/ly)
-            g = np.sqrt((d*d).sum(axis=1)) - 2*r
+            g = min_image_gaps(pos, i, j, r, lx, ly)
             m = int(np.argmin(g))
             if g[m] < best:
                 best, pair = float(g[m]), (i, int(j[m]))
-    return best, pair
+    if best < cut - 2*r:
+        return best, pair
+    return min_pair_gap_all_pairs(pos, r, lx, ly)
 
 
 def extract(rundir, tmax, out, count, r, lx, ly, zmin, zmax, report=sys.stdout):
@@ -178,6 +199,12 @@ def self_test():
         pos = np.array([[0.05, 1.0, 5.0], [1.95 - 0.8, 1.0, 5.0], [1.95, 1.0, 5.0]])
         gap, pair = min_pair_gap(pos, r, 2.0, 2.0)
         ok &= abs(gap - (0.1 - 0.8)) < 1e-9 and pair == (0, 2)
+        # a sparse configuration: the nearest pair lies in cells that are not adjacent
+        gap, pair = min_pair_gap(np.array([[0.0, 0.0, 0.0], [10.0, 0.0, 0.0], [50.0, 40.0, 3.0]]), 0.1, 100.0, 100.0)
+        ok &= abs(gap - 9.8) < 1e-9 and pair == (0, 1)
+        # ... and across the periodic boundary
+        gap, pair = min_pair_gap(np.array([[1.0, 0.0, 0.0], [95.0, 0.0, 0.0], [50.0, 40.0, 3.0]]), 0.1, 100.0, 100.0)
+        ok &= abs(gap - 5.8) < 1e-9 and pair == (0, 1)
     print('fl11_seed self-test', 'PASSED' if ok else 'FAILED')
     return 0 if ok else 1
 

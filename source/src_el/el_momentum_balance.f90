@@ -55,8 +55,9 @@
 !   drag_expl  closure drag at the start of the step (EL_FORCE_BUDGET convention)
 !   drag_impl  drag impulse/dt of the sub-cycled semi-implicit pe update as the CFD side computes it
 !              for the fluid (drag_force_eff, issue-D fix); this is the drag the particles are
-!              ARMED with; pe adds the contacts inside its sub-steps and does not report the drag
-!              it then applies per body: the difference appears in res_p
+!              ARMED with. pe integrates the drag sub-steps on a free-flight reference velocity
+!              (HardContactEulerLagrange.h), so contacts inside the sub-steps do not change the
+!              drag impulse a particle receives; pe does not report it per body
 !   pressure, viscous, lift    the other hydrodynamic forces armed in pe (model A: -V grad p, V div tau)
 !   weight     the buoyant weight (rho_p - rho_f) V g armed in pe
 !   hydro      drag_impl + pressure + viscous + lift  (H_p of the F1 budget, RUNBOOK section 15)
@@ -96,8 +97,9 @@
 !                + rhs_other]_D}: ROUND-OFF.
 !   res_p      = dp_dt - (hydro + weight + PE_WALL_RELAXATION wall_contact_raw + wall_lub_raw):
 !                the particle balance against the own wall impulse of pe. Holds only to the accuracy of
-!                that bookkeeping and of drag_impl as the applied drag (contacts inside the pe
-!                sub-steps change the drag pe applies); res_p_raw: the same with factor 1.
+!                that bookkeeping (the factor is the fold of a multi-process pe run; the application
+!                refuses the audit with a single worker, where pe applies the impulse in full);
+!                res_p_raw: the same with factor 1.
 !   Reconstruction of hydro - dpA (the F1 residual) from the free-row gas balance; the terms add
 !   up to it to round-off plus the solver residual (which is itself one of the terms):
 !     rec_pB     = pgrad_end_F - dpA              unweighted pressure term vs the plane pressures

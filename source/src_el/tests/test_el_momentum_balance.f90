@@ -9,12 +9,15 @@
 !   3 an interior plane (z = 1/2) is found from both sides: the two outward normals give fluxes
 !     and tractions of opposite sign (the sum of each side equals the closed form)
 !   4 a plane between element layers that no element face lies in is not picked up
+!   5 the solver settings the audit covers (EL_CONFIG:EL_MOMBAL_SOLVER_SUPPORTED): backward Euler,
+!     Newtonian, no stabilisation, every operator rebuilt; each single deviation is refused
 !=========================================================================
 PROGRAM TEST_EL_MOMENTUM_BALANCE
 
   USE MPI
   USE TYPES, ONLY: tMultiMesh
   USE EL_MOMENTUM_BALANCE, ONLY: EL_MOMBAL_SUMS, EL_MOMBAL_PLANE_LOCAL
+  USE EL_CONFIG, ONLY: EL_MOMBAL_SOLVER_SUPPORTED
   USE EL_TEST_HELPERS, ONLY: EL_TEST_INIT, EL_TEST_CHECK, EL_TEST_REPORT, &
                              EL_TEST_RELEASE_MESH, BUILD_STRUCTURED_MESH, &
                              BUILD_DOF_COORDINATES, nel, nvt, net, nat
@@ -31,11 +34,30 @@ PROGRAM TEST_EL_MOMENTUM_BALANCE
   failures = 0
   CALL test_sums(failures)
   CALL test_planes(failures)
+  CALL test_covered_settings(failures)
   CALL EL_TEST_REPORT(failures, rank, nproc, 'EL momentum balance')
   CALL MPI_Finalize(ierr)
   IF (failures.GT.0) STOP 1
 
 CONTAINS
+
+  SUBROUTINE test_covered_settings(failures)
+    INTEGER, INTENT(INOUT) :: failures
+    LOGICAL :: ok
+    ok = EL_MOMBAL_SOLVER_SUPPORTED(1.0d0, .FALSE., .FALSE., .FALSE., 0.0d0, 1, 1, 1) .AND. &
+         .NOT.EL_MOMBAL_SOLVER_SUPPORTED(0.5d0, .FALSE., .FALSE., .FALSE., 0.0d0, 1, 1, 1) .AND. &
+         .NOT.EL_MOMBAL_SOLVER_SUPPORTED(1.0d0, .TRUE., .FALSE., .FALSE., 0.0d0, 1, 1, 1) .AND. &
+         .NOT.EL_MOMBAL_SOLVER_SUPPORTED(1.0d0, .FALSE., .TRUE., .FALSE., 0.0d0, 1, 1, 1) .AND. &
+         .NOT.EL_MOMBAL_SOLVER_SUPPORTED(1.0d0, .FALSE., .FALSE., .TRUE., 0.0d0, 1, 1, 1) .AND. &
+         .NOT.EL_MOMBAL_SOLVER_SUPPORTED(1.0d0, .FALSE., .FALSE., .FALSE., 1.0d-3, 1, 1, 1) .AND. &
+         .NOT.EL_MOMBAL_SOLVER_SUPPORTED(1.0d0, .FALSE., .FALSE., .FALSE., 0.0d0, 0, 1, 1) .AND. &
+         .NOT.EL_MOMBAL_SOLVER_SUPPORTED(1.0d0, .FALSE., .FALSE., .FALSE., 0.0d0, 1, 0, 1) .AND. &
+         .NOT.EL_MOMBAL_SOLVER_SUPPORTED(1.0d0, .FALSE., .FALSE., .FALSE., 0.0d0, 1, 1, 0)
+    IF (.NOT.ok) THEN
+      failures = failures + 1
+      WRITE(*,'(A)') 'FAIL: EL_MOMBAL_SOLVER_SUPPORTED accepts an uncovered setting or refuses the covered one'
+    END IF
+  END SUBROUTINE test_covered_settings
 
   SUBROUTINE test_sums(nf)
     INTEGER, INTENT(INOUT) :: nf

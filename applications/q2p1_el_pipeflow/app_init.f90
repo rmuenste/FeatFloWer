@@ -722,6 +722,7 @@ END SUBROUTINE get_global_domain_extents
                         el_momentum_model, el_mm_pressure_operator, el_fluid_viscosity, &
                         el_periodic_kernel, el_periodic_wrap, &
                         el_drag_hrz, EL_DRAG_HRZ_DEFECT_SUPPORTED, EL_FLUID_SOLVE_ACTIVE, &
+                        EL_MOMBAL_SOLVER_SUPPORTED, &
                         EL_NOTE_KEY_SET, &
                         EL_VALIDATE_CONFIG, &
                         EL_PRINT_CONFIG
@@ -1177,12 +1178,19 @@ END SUBROUTINE get_global_domain_extents
    ! Newtonian path whose matrix is M_l + dt (D + K + B) only, with the fluid solved every step
    ! and no filter acting on the velocity after the projection. Deck-only, every rank alike.
    IF (el_momentum_balance_audit) THEN
-     IF (THETA.NE.1.0d0 .OR. bNonNewtonian .OR. bViscoElastic .OR. bNS_Stabilization .OR. &
-         GAMMA.NE.0.0d0 .OR. myMatrixRenewal%M.LT.1 .OR. myMatrixRenewal%D.LT.1 .OR. &
-         myMatrixRenewal%K.LT.1 .OR. el_meso_filter .OR. .NOT.EL_FLUID_SOLVE_ACTIVE()) THEN
+     IF (.NOT.EL_MOMBAL_SOLVER_SUPPORTED(THETA, bNonNewtonian, bViscoElastic, bNS_Stabilization, GAMMA, &
+           myMatrixRenewal%M, myMatrixRenewal%D, myMatrixRenewal%K) .OR. &
+         el_meso_filter .OR. .NOT.EL_FLUID_SOLVE_ACTIVE()) THEN
        WRITE(*,'(A)') 'ELMomentumBalanceAudit = Yes covers SimPar@TimeScheme = BE, FlowType = Newtonian '// &
          'without viscoelastic stress, NS stabilisation or GAMMA, MatrixRenewal M, D, K >= 1, no '// &
          'ELMesoFilter and a solved (not prescribed) fluid only.'
+       STOP 1
+     END IF
+     ! the particle closure res_p folds the wall-contact impulse with the under-relaxation pe
+     ! applies in a multi-process run; a single pe process applies the impulse in full
+     IF (subnodes.LT.2) THEN
+       WRITE(*,'(A)') 'ELMomentumBalanceAudit = Yes needs at least two workers (three MPI ranks): the '// &
+         'particle closure assumes the wall-contact relaxation of a multi-process pe run.'
        STOP 1
      END IF
    END IF
