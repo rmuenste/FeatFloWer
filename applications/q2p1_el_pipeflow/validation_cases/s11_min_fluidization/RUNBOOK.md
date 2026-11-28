@@ -1001,7 +1001,7 @@ one tree per toolchain: `build-el-master7c1a3040`, `build-twin-master7c1a3040`; 
 | EL default paths D_s6, G_tier2, VB40, E2w5 and the two 400-step case-11 runs (binary `master7c1a3040-peb6b2344`, md5 9568dc00, build job 167698) | 167699 | bitwise against the runs of the b6b2344 pin gate |
 | EL / pco unit tests | 167700 | 15 of 15 pass |
 | DNS twin e4_l3 (build job 167697) | 167701 | bitwise with the certified head (ca98e7af225b / 89abce88b675) |
-| DNS twin DKT | 167702 | **pending** (queued; the DNS datasheet rows follow with it) |
+| DNS twin DKT | 167702 | bitwise with the certified head (82411f64f661 / cfb8b42d0969); DNS datasheet row `master_7c1a3040_post_merge_twin` |
 
 **Diagnostics follow-up** (branch `feature/el-momentum-balance-audit` from master, worktree
 `FeatFloWer-mombal`): the momentum-balance audit of section 16 with its later extension (gas fraction on the
@@ -1035,4 +1035,4 @@ Gates of the follow-up, head 61ca8b55 (binary `61ca8b55-mombal`, md5 2550746c, t
 | key on (`ELMomentumBalanceAudit = Yes`), both 400-step case-11 runs | 167713 | every pre-existing stream bitwise with the key-off run (12677 / 13077 `EL_` lines, 800 solver lines, 27 particle logs); the 2000 `EL_MOM_BALANCE` lines of each run bitwise with the archive binary `be14e7ab-e2` (the binary of sections 16 and 17) |
 | EL / pco unit tests, with `el-momentum-balance-serial` | 167714 | 16 of 16 pass |
 | DNS twin e4_l3 (build job 167711) | 167715 | bitwise with the certified head |
-| DNS twin DKT | 167716 | **pending** (queued) |
+| DNS twin DKT | 167716 | bitwise with the certified head; DNS datasheet row `momentum_audit_61ca8b55_twin` |
