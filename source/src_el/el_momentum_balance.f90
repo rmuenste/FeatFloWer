@@ -76,6 +76,11 @@
 !              of the domain per unit time (the gas receives -flux)
 !   trac_in/out   sum over the plane faces of c (grad u) n dS (unweighted Laplacian form of D,
 !              c the operator viscosity): the viscous force the outside exerts on the gas
+!   eps_in_out area mean of the transport porosity eps_h on the plane (the Q1 field the model-A
+!              operator fp uses; 1 without that field): separates rec_pB from rec_pfp, since
+!              -sum_all fp(p) ~ -P_p + p_in (1 - eps_in) A in the continuous limit
+!   fbD_class  z part of feedback_D (the particle reaction on Dirichlet rows) on vertex, edge and
+!              face dofs (N; centre dofs never lie on a plane)
 ! The momentum values mom_start / mom_pred / mom_end (sum M u^n, sum M u~, sum M u^{n+1}, this
 ! lumped mass of the step) are in lines GA / GD.
 !
@@ -128,7 +133,7 @@ MODULE EL_MOMENTUM_BALANCE
 
   PUBLIC :: EL_MOMBAL_ACTIVE, EL_MOMBAL_BEGIN_STEP, EL_MOMBAL_SET_PREDICTOR, EL_MOMBAL_RECORD, &
             EL_MOMBAL_RECORD_PLANES, EL_MOMBAL_RECORD_PARTICLES, EL_MOMBAL_RECORD_PARTICLE_DP, &
-            EL_MOMBAL_WRITE, EL_MOMBAL_PLANE_LOCAL, EL_MOMBAL_SUMS
+            EL_MOMBAL_WRITE, EL_MOMBAL_PLANE_LOCAL, EL_MOMBAL_SUMS, EL_MOMBAL_RECORD_FBD_CLASS
   ! snapshots of the step (read by the adapter, written here only)
   PUBLIC :: mb_u_old, mb_u_pred, mb_p_old
 
@@ -147,8 +152,8 @@ MODULE EL_MOMENTUM_BALANCE
     'mmp_end      ' /)
 
   ! planes: 1 area_in, 2 int p in, 3 area_out, 4 int p out, 5:7 flux_in, 8:10 flux_out,
-  ! 11:13 trac_in, 14:16 trac_out
-  INTEGER, PARAMETER, PUBLIC :: MB_NPLANE = 16
+  ! 11:13 trac_in, 14:16 trac_out, 17 int eps_h in, 18 int eps_h out
+  INTEGER, PARAMETER, PUBLIC :: MB_NPLANE = 18
 
   ! pe folds every contact correction with this relaxation in a multi-process run; its wall
   ! contact diagnostics report the unrelaxed impulse (libs/pe HardContactEulerLagrange.h)
@@ -161,6 +166,8 @@ MODULE EL_MOMENTUM_BALANCE
   LOGICAL, SAVE :: gas_set(MB_NG) = .FALSE.
   REAL*8, SAVE :: plane_loc(MB_NPLANE) = 0.0d0
   LOGICAL, SAVE :: planes_set = .FALSE.
+  ! z of the particle reaction on Dirichlet rows by dof class (vertex, edge, face), rank-local
+  REAL*8, SAVE :: fbd_class(3) = 0.0d0
 
   ! particle values, already global (summed over the ranks by the caller of the recording routine)
   INTEGER, SAVE :: part_step = -1, dp_step = -1
@@ -202,6 +209,7 @@ CONTAINS
     gas_set = .FALSE.
     plane_loc = 0.0d0
     planes_set = .FALSE.
+    fbd_class = 0.0d0
   END SUBROUTINE EL_MOMBAL_BEGIN_STEP
 
   ! The converged predictor u~ (the adapter calls it with every nonlinear iterate; the last wins).
@@ -243,6 +251,11 @@ CONTAINS
     gas_set(term) = .TRUE.
   END SUBROUTINE EL_MOMBAL_RECORD
 
+  SUBROUTINE EL_MOMBAL_RECORD_FBD_CLASS(vals)
+    REAL*8, INTENT(IN) :: vals(3)
+    fbd_class = vals
+  END SUBROUTINE EL_MOMBAL_RECORD_FBD_CLASS
+
   SUBROUTINE EL_MOMBAL_RECORD_PLANES(vals)
     REAL*8, INTENT(IN) :: vals(MB_NPLANE)
     plane_loc = vals
@@ -282,18 +295,23 @@ CONTAINS
   ! sum c (grad u) n dS, n the outward normal of the element (the outward normal of the domain on a
   ! boundary plane). coor(3,*) the Q2 dof coordinates, coef_e(nel) the element coefficient of the
   ! convection operator, visc the operator viscosity c. Isoparametric Q2 map, 3 x 3 Gauss points.
+  ! eps_q2 / eps_int (optional, together): the integral over the faces of the nodal field eps_q2.
   SUBROUTINE EL_MOMBAL_PLANE_LOCAL(mesh, ilev, coor, val_u, val_v, val_w, coef_e, visc, zplane, &
-                                   tol, area, flux, traction)
+                                   tol, area, flux, traction, eps_q2, eps_int)
     TYPE(tMultiMesh), INTENT(IN) :: mesh
     INTEGER, INTENT(IN) :: ilev
     REAL*8, INTENT(IN) :: coor(:,:), val_u(:), val_v(:), val_w(:), coef_e(:), visc, zplane, tol
     REAL*8, INTENT(INOUT) :: area, flux(3), traction(3)
+    REAL*8, INTENT(IN), OPTIONAL :: eps_q2(:)
+    REAL*8, INTENT(INOUT), OPTIONAL :: eps_int
 
     INTEGER :: iel, f, p, l, k, dofs(NQ2)
     REAL*8 :: x(3,NQ2), u(3,NQ2), jac(3,3), inv(3,3), detj, det2, nds(3), uq(3), gu(3,3), dn(3)
-    LOGICAL :: on_plane
+    REAL*8 :: e(NQ2)
+    LOGICAL :: on_plane, with_eps
 
     IF (.NOT.tables%ready) CALL EL_VA_FLUX_TABLES(tables)
+    with_eps = PRESENT(eps_q2) .AND. PRESENT(eps_int)
     DO iel = 1, mesh%level(ilev)%nel
       CALL EL_VA_ELEMENT_DOFS(mesh, ilev, iel, dofs)
       DO l = 1, NQ2
@@ -309,6 +327,7 @@ CONTAINS
           u(1,l) = val_u(dofs(l))
           u(2,l) = val_v(dofs(l))
           u(3,l) = val_w(dofs(l))
+          IF (with_eps) e(l) = eps_q2(dofs(l))
         END DO
         DO p = 1, NGPF
           CALL EL_VA_FACE_GEOMETRY(tables, f, p, x, jac, detj, nds)
@@ -327,6 +346,7 @@ CONTAINS
             END DO
           END DO
           area = area + SQRT(SUM(nds*nds))
+          IF (with_eps) eps_int = eps_int + DOT_PRODUCT(e, tables%fval(:,p,f))*SQRT(SUM(nds*nds))
           flux = flux + coef_e(iel)*uq*DOT_PRODUCT(uq, nds)
           traction = traction + visc*MATMUL(gu, nds)
         END DO
@@ -339,12 +359,12 @@ CONTAINS
     REAL*8, INTENT(IN) :: time, dt
     INTEGER, INTENT(IN) :: istep, mfile
 
-    INTEGER, PARAMETER :: NBUF = 6*MB_NG + MB_NPLANE + 12
+    INTEGER, PARAMETER :: NBUF = 6*MB_NG + MB_NPLANE + 12 + 3
     REAL*8 :: loc(NBUF), glob(NBUF), wall(3,4), wtmp(3), nan
     REAL*8 :: ga(3, MB_NG), gd(3, MB_NG), gf(3, MB_NG), pl(MB_NPLANE)
     REAL*8 :: pp(3,8), hydro(3), floor_bal(3), dp_dt(3), expected_dt(3), wc(3), wl(3), res_p(3), &
               res_p_raw(3)
-    REAL*8 :: p_in, p_out, dpa(3), terms_f(3), inertia_f(3), res_gas(3), proj_f(3), jd(3), jdc(3)
+    REAL*8 :: p_in, p_out, eps_in, eps_out, fbdc(3), dpa(3), terms_f(3), inertia_f(3), res_gas(3), proj_f(3), jd(3), jdc(3)
     REAL*8 :: rec(3, 10), hydro_dpa(3), hrz_pred(3, 2), hrz_end(3, 2)
     INTEGER :: ierr, k, iw
     LOGICAL :: have_p, have_dp
@@ -364,12 +384,14 @@ CONTAINS
     loc(1:3*MB_NG) = RESHAPE(gas_sum(:,1,:), (/3*MB_NG/))
     loc(3*MB_NG+1:6*MB_NG) = RESHAPE(gas_sum(:,2,:), (/3*MB_NG/))
     loc(6*MB_NG+1:6*MB_NG+MB_NPLANE) = plane_loc
-    loc(6*MB_NG+MB_NPLANE+1:NBUF) = RESHAPE(wall, (/12/))
+    loc(6*MB_NG+MB_NPLANE+1:6*MB_NG+MB_NPLANE+12) = RESHAPE(wall, (/12/))
+    loc(NBUF-2:NBUF) = fbd_class
     CALL MPI_Allreduce(loc, glob, NBUF, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
     ga = RESHAPE(glob(1:3*MB_NG), (/3, MB_NG/))
     gd = RESHAPE(glob(3*MB_NG+1:6*MB_NG), (/3, MB_NG/))
     pl = glob(6*MB_NG+1:6*MB_NG+MB_NPLANE)
-    wall = RESHAPE(glob(6*MB_NG+MB_NPLANE+1:NBUF), (/3, 4/))
+    wall = RESHAPE(glob(6*MB_NG+MB_NPLANE+1:6*MB_NG+MB_NPLANE+12), (/3, 4/))
+    fbdc = glob(NBUF-2:NBUF)
     IF (myid.NE.showid) RETURN
 
     ! a term not recorded this step is printed as NaN (never as 0)
@@ -416,6 +438,11 @@ CONTAINS
     p_out = nan
     IF (pl(1).GT.0.0d0) p_in = pl(2)/pl(1)
     IF (pl(3).GT.0.0d0) p_out = pl(4)/pl(3)
+    eps_in = nan
+    eps_out = nan
+    IF (pl(1).GT.0.0d0) eps_in = pl(17)/pl(1)
+    IF (pl(3).GT.0.0d0) eps_out = pl(18)/pl(3)
+    IF (.NOT.gas_set(MB_FEEDBACK)) fbdc = nan
     dpa = 0.0d0
     dpa(3) = (p_in - p_out)*pl(1)
 
@@ -470,10 +497,11 @@ CONTAINS
       WRITE(unit,'(A,A,A,23(A,'//V//'))') 'EL_MOM_BALANCE_GD', TRIM(head), &
         ' unit= N(mom_*:kg_m/s)', (' '//TRIM(gas_names(j))//'= ', gd(:,j), j = 1, MB_NG), &
         ' hrz_pred= ', hrz_pred(:,2), ' hrz_end= ', hrz_end(:,2)
-      WRITE(unit,'(A,A,A,2ES24.15,A,2ES24.15,5(A,'//V//'))') 'EL_MOM_BALANCE_B', TRIM(head), &
+      WRITE(unit,'(A,A,A,2ES24.15,A,2ES24.15,5(A,'//V//'),A,2ES24.15,A,'//V//')') &
+        'EL_MOM_BALANCE_B', TRIM(head), &
         ' p_in_out= ', p_in, p_out, ' area_in_out= ', pl(1), pl(3), ' dpA= ', dpa, &
         ' flux_in= ', pl(5:7), ' flux_out= ', pl(8:10), ' trac_in= ', pl(11:13), &
-        ' trac_out= ', pl(14:16)
+        ' trac_out= ', pl(14:16), ' eps_in_out= ', eps_in, eps_out, ' fbD_class= ', fbdc
       WRITE(unit,'(A,A,19(A,'//V//'))') 'EL_MOM_BALANCE_C', TRIM(head), &
         ' res_gas_F= ', res_gas, ' defect_F= ', gf(:,MB_DEFECT), ' gas_roundoff= ', &
         res_gas + gf(:,MB_DEFECT), ' proj_F= ', proj_f, ' proj_D= ', gd(:,MB_INERTIA_PROJ), &
