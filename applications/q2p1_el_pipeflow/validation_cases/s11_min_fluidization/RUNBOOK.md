@@ -978,3 +978,12 @@ every printed digit: `R_z80_rest` plateau 0.980844, standard error 0.002094, U_m
 Evidence [V]: self-test 117 of 117; `--self-test-real` 300 variants x 3 seeds on both runs, 0 failures (job
 167323 on 36ec8372; job 167316 on da3913ed likewise); the reports of all seven runs byte-identical to round 8
 (`post_r9_final.txt` beside the `post_r8.txt`). The fixes of the verification review were not reviewed again.
+
+**Owner decision on the open finding (2026-11-28):** not processed at this stage; it is to be watched in the
+following studies ("I would not process that point at this stage, but have an eye on it in the following
+studies as we now know of the issue"). Check for every new evaluation with this tool, from the two numbers
+the report prints (F3 line: the fit dp* = a U + b U^2 and U_mf): the relative distance of U_mf to the nearest
+step velocity, and the relative slope of the fit at the crossing, r = a U_mf + 2 b U_mf^2. The print error
+of the logged weight (relative up to 5e-7) moves U_mf by about 5e-7 / r (relative). The verdicts F1-F3 of a run
+are to be questioned when the distance of U_mf to a step velocity is not at least ten times that. Recorded
+runs: distance 4e-2, r = 1.11 for both, so the margin is a factor of about 1e5.
