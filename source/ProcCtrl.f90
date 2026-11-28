@@ -50,6 +50,7 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
                           ValidateSolverTypes
  USE timestep_control, ONLY : SetSimulationTimeStep
  USE solution_io, ONLY : write_sol_to_file
+ USE EL_CONFIG, ONLY : EL_INLET_RELOAD_NOTICE
  IMPLICIT NONE
  INTEGER, INTENT(IN) :: MFILE, MTERM
  CHARACTER(len=200) :: string, line
@@ -219,6 +220,9 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
       CSimPar = "SimPar"
       CALL GDATNEW(CSimPar, 1)
       CALL SetSimulationTimeStep(TSTEP)
+      ! the SimPar@EL* keys are start-up settings (the generic parser reads none of them): an
+      ! inlet definition the reload file would change is reported, the run keeps its own
+      CALL EL_INLET_RELOAD_NOTICE(myDataFile, MFILE, MTERM, myid == showid)
     END IF
 
 ! -------------------------------------------------------------------------------

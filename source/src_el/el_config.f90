@@ -1,10 +1,63 @@
 MODULE EL_CONFIG
 
+  USE MPI, ONLY: MPI_COMM_WORLD
+  USE EL_INLET_TABLE, ONLY: tElInletTable, EL_INLET_TABLE_LOAD_SHARED, EL_INLET_TABLE_VALUE, &
+                            EL_INLET_TABLE_PATH
+
   IMPLICIT NONE
 
   CHARACTER(LEN=32) :: el_kernel = 'deen_poly'
   CHARACTER(LEN=32) :: el_drag_model = 'difelice'
+  ! ---- The drag closure table (SimPar@ELDragModel): the one place that names the closures --
+  ! Index = closure id. EL_FORCES:EL_DRAG_CLOSURE dispatches on the id (one function per closure
+  ! family, docs/md_docs/el_min_fluidization_prep_2026-11-19.md section 1), EL_VALIDATE_CONFIG
+  ! accepts exactly these names, and EL_RESOLVE_MOMENTUM_MODEL reads the porosity column. A
+  ! further closure is one entry here, one function and one CASE line in EL_DRAG_CLOSURE.
+  !   difelice          Di Felice, campaign voidage eps^(-chi) (no eps^2 on the squared slip)
+  !   difelice_std      Di Felice, standard form eps^(2-chi) (Kafui 2002, CFDEM DiFeliceDrag)
+  !   stokes            single sphere 3 pi mu d (no porosity)
+  !   schiller_naumann  single sphere with the Schiller-Naumann correction (no porosity)
+  !   gidaspow          Ergun for eps <= 0.8, Wen-Yu above (CFDEM GidaspowDrag, MFiX GIDASPOW)
+  !   wenyu             Wen-Yu at every porosity
+  !   ergun             Ergun at every porosity (no dilute limit: vanishes for eps -> 1 at Re 0)
+  ! Every closure returns the model-A per-particle coefficient V_p beta / (1 - eps) (EL_FORCES);
+  ! momentum model B divides it by eps (EL_MOMENTUM_MODEL:EL_MM_DRAG_SCALE).
+  INTEGER, PARAMETER :: EL_DRAG_DIFELICE = 0, EL_DRAG_DIFELICE_STD = 1, EL_DRAG_STOKES = 2, &
+                        EL_DRAG_SCHILLER_NAUMANN = 3, EL_DRAG_GIDASPOW = 4, &
+                        EL_DRAG_WENYU = 5, EL_DRAG_ERGUN = 6
+  CHARACTER(LEN=16), PARAMETER :: el_drag_names(0:6) = (/ 'difelice        ', &
+    'difelice_std    ', 'stokes          ', 'schiller_naumann', 'gidaspow        ', &
+    'wenyu           ', 'ergun           ' /)
+  ! the closure is a drag law in the standard porosity convention that the momentum models
+  ! assume (refused under a model otherwise); the single-sphere laws carry no porosity at all
+  LOGICAL, PARAMETER :: el_drag_standard_form(0:6) = (/ .FALSE., .TRUE., .TRUE., .TRUE., &
+    .TRUE., .TRUE., .TRUE. /)
+  ! Id of the selected closure, resolved once from el_drag_model by EL_RESOLVE_DRAG_CLOSURE
+  ! (EL_VALIDATE_CONFIG; a unit test that sets el_drag_model directly calls it as well). -1:
+  ! not resolved; EL_FORCES:EL_DRAG_CLOSURE stops the run on an id it does not dispatch.
+  INTEGER :: el_drag_closure_id = -1
   CHARACTER(LEN=32) :: el_drag_coupling = 'explicit'
+  ! SimPar@ELDragImplicitWeights = rowsum | hrz
+  !   Nodal weights of the implicit part of the semi-implicit drag (the coefficient B_i on the
+  !   diagonal of the fluid matrix and its split partner +B u_f on the explicit side; the drag
+  !   impulse itself and the other reactions keep the row-sum weights in both modes):
+  !   'rowsum' (default) w_i = int K phi_i / norm, the weights of every other deposit (campaign
+  !            behaviour, bitwise). With Q2 basis functions w_i is negative at the nodes that a
+  !            particle kernel reaches only with the negative lobes of phi_i: a node at the edge
+  !            of a sparse particle cloud can get B_i < 0, i.e. an anti-damping term. Harmless
+  !            while the fluid mass dominates (liquids); in a gas (case 11, rho_p/rho_f 860)
+  !            thstep |B_i| is comparable with the lumped fluid mass and the velocity at such a
+  !            node grows (spikes of 2-20 m/s in the first protocol run, job 163872).
+  !   'hrz'    diagonal-scaling (Hinton-Rock-Zienkiewicz) lumping per element:
+  !            w_i = int K phi_i^2 * (sum_j int K phi_j) / (sum_j int K phi_j^2) / norm >= 0, the
+  !            same total per particle and element as 'rowsum'. Needs ELDragCoupling =
+  !            semi_implicit (refused otherwise). docs/md_docs/el_min_fluidization_prep_2026-11-19.md
+  !            section 7. Also needs a momentum defect that carries the drag diagonal
+  !            (EL_DRAG_HRZ_DEFECT_SUPPORTED; refused at start-up by the application otherwise).
+  CHARACTER(LEN=32) :: el_drag_implicit_weights = 'rowsum'
+  CHARACTER(LEN=6), PARAMETER :: el_drag_iw_names(0:1) = (/ 'rowsum', 'hrz   ' /)
+  ! Resolved by EL_VALIDATE_CONFIG (deck-only, the same on every rank): 'hrz' selected.
+  LOGICAL :: el_drag_hrz = .FALSE.
   CHARACTER(LEN=32) :: el_lift_model = 'none'
   CHARACTER(LEN=32) :: el_inertial_lift = 'none'
   CHARACTER(LEN=32) :: el_prescribed_field = 'none'
@@ -276,6 +329,37 @@ MODULE EL_CONFIG
   REAL*8 :: el_inlet_u0 = 0.0d0
   REAL*8 :: el_inlet_u1 = 0.0d0
   REAL*8 :: el_inlet_tramp = 1.0d0
+  ! SimPar@ELInletVelocityTable = "<file>": piecewise-linear U(t) instead of the ramp (rows
+  ! "t U", superficial velocity; format and refusals in EL_INLET_TABLE). Mutually exclusive
+  ! with the three ramp keys (a deck that sets both is refused), an empty path is refused.
+  ! Loaded once by EL_VALIDATE_CONFIG (rank 0 reads, every rank receives the rows; a start-up
+  ! setting, not touched by Reload_SimPar); echoed by EL_PRINT_CONFIG. Unset (default): the
+  ! ramp, bitwise as before.
+  CHARACTER(LEN=256) :: el_inlet_table_file = ' '
+  TYPE(tElInletTable) :: el_inlet_table
+  ! The inlet definition (ramp keys or table) is a start-up setting: Reload_SimPar runs the
+  ! generic parser, which reads no SimPar@EL* key. At a reload EL_INLET_RELOAD_NOTICE compares
+  ! the definition the reload file asks for with the one of the run and reports a difference
+  ! (changed table path, table removed, table <-> ramp, changed ramp values); nothing changes.
+  TYPE tElInletDefinition
+    LOGICAL :: table = .FALSE.         ! ELInletVelocityTable given
+    CHARACTER(LEN=256) :: path = ' '   ! its file name (EL_INLET_TABLE_PATH of the value)
+    LOGICAL :: ramp_keys = .FALSE.     ! one of the three ramp keys given
+    REAL*8 :: u0 = 0.0d0, u1 = 0.0d0, tramp = 1.0d0   ! ramp values (the defaults when unset)
+    LOGICAL :: readable = .TRUE.       ! every ramp value of the file could be read
+  END TYPE tElInletDefinition
+  ! EL_VALIDATE_CONFIG has run (the application parsed and checked the EL keys); the reload
+  ! notice is silent in applications that never validate an EL configuration
+  LOGICAL :: el_config_validated = .FALSE.
+  ! SimPar@ELBedAuditFreq = N (default 0 = off): every N steps the EL_BED_AUDIT line (EL_BED_AUDIT
+  ! module: area-mean pressure on the inlet and outlet planes, their difference with and
+  ! without the hydrostatic part, buoyant bed weight, floor contact force, bed heights, porosity
+  ! of the bed window). Diagnostic only; no effect on the solution.
+  INTEGER :: el_bed_audit_freq = 0
+  ! SimPar@ELVelocityAuditFreq = N (default 0 = off): every N steps the EL_UMAX_AUDIT line
+  ! (EL_VELOCITY_AUDIT: location, components and local porosity of the fastest fluid dof,
+  ! smallest element porosity, inlet-plane porosity). Diagnostic only.
+  INTEGER :: el_velocity_audit_freq = 0
   ! Mesoscale lane-mode filter for periodic settling boxes: each step,
   ! subtract from u_z its zero-mean x-binned and y-binned plane averages
   ! (the gravest "lane" modes of the two-way-coupled concentration
@@ -295,6 +379,7 @@ CONTAINS
     CALL EL_LOWERCASE(el_kernel)
     CALL EL_LOWERCASE(el_drag_model)
     CALL EL_LOWERCASE(el_drag_coupling)
+    CALL EL_LOWERCASE(el_drag_implicit_weights)
     CALL EL_LOWERCASE(el_lift_model)
     CALL EL_LOWERCASE(el_inertial_lift)
     CALL EL_LOWERCASE(el_prescribed_field)
@@ -341,13 +426,11 @@ CONTAINS
       STOP 1
     END SELECT
 
-    SELECT CASE (TRIM(el_drag_model))
-    CASE ('difelice', 'difelice_std', 'stokes', 'schiller_naumann')
-      CONTINUE
-    CASE DEFAULT
+    CALL EL_RESOLVE_DRAG_CLOSURE()
+    IF (el_drag_closure_id.LT.0) THEN
       WRITE(*,'(A,A)') 'Invalid ELDragModel: ', TRIM(el_drag_model)
       STOP 1
-    END SELECT
+    END IF
 
     SELECT CASE (TRIM(el_drag_coupling))
     CASE ('explicit')
@@ -358,6 +441,16 @@ CONTAINS
       WRITE(*,'(A,A)') 'Invalid ELDragCoupling: ', TRIM(el_drag_coupling)
       STOP 1
     END SELECT
+
+    IF (.NOT.ANY(TRIM(el_drag_implicit_weights).EQ.el_drag_iw_names)) THEN
+      WRITE(*,'(A,A)') 'Invalid ELDragImplicitWeights (rowsum|hrz): ', TRIM(el_drag_implicit_weights)
+      STOP 1
+    END IF
+    el_drag_hrz = (TRIM(el_drag_implicit_weights).EQ.TRIM(el_drag_iw_names(1)))
+    IF (el_drag_hrz .AND. .NOT.el_drag_semi_implicit) THEN
+      WRITE(*,*) 'ELDragImplicitWeights = hrz needs ELDragCoupling = semi_implicit.'
+      STOP 1
+    END IF
 
     IF (el_drag_semi_implicit .AND. .NOT.el_apply_fluid_feedback) THEN
       WRITE(*,*) 'ELDragCoupling=semi_implicit requires ELApplyFluidFeedback=Yes.'
@@ -541,11 +634,29 @@ CONTAINS
       WRITE(*,*) 'ELInletRampTime must be positive.'
       STOP 1
     END IF
+    CALL EL_LOAD_INLET_TABLE()
+
+    IF (el_bed_audit_freq.LT.0) THEN
+      WRITE(*,*) 'ELBedAuditFreq must be >= 0 (0 = off).'
+      STOP 1
+    END IF
+    ! the audit planes and the bed window are the z planes of the domain box (EL_BED_AUDIT)
+    IF (el_bed_audit_freq.GT.0 .AND. TRIM(el_domain_type).NE.'box') THEN
+      WRITE(*,'(A,A,A)') 'ELBedAuditFreq > 0 needs ELDomainType = box (inlet / outlet planes and ', &
+        'the bed window are z planes of the domain box); ELDomainType = ', TRIM(el_domain_type)
+      STOP 1
+    END IF
+    IF (el_velocity_audit_freq.LT.0) THEN
+      WRITE(*,*) 'ELVelocityAuditFreq must be >= 0 (0 = off).'
+      STOP 1
+    END IF
 
     IF (el_tavg_window.LE.0.0d0 .OR. el_tavg_window.GT.1.0d0) THEN
       WRITE(*,*) 'ELTAvgWindow must be in (0,1].'
       STOP 1
     END IF
+
+    el_config_validated = .TRUE.
 
   END SUBROUTINE EL_VALIDATE_CONFIG
 
@@ -560,6 +671,7 @@ CONTAINS
     WRITE(mfile,'(A,ES14.6)') 'EL epsilon relaxation     = ', el_eps_f_relax
     WRITE(mfile,'(A,A)') 'EL drag model             = ', TRIM(el_drag_model)
     WRITE(mfile,'(A,A)') 'EL drag coupling          = ', TRIM(el_drag_coupling)
+    IF (el_drag_hrz) WRITE(mfile,'(A,A)') 'EL drag implicit weights  = ', TRIM(el_drag_implicit_weights)
     WRITE(mfile,'(A,L1)') 'EL pressure force         = ', el_pressure_force
     WRITE(mfile,'(A,L1)') 'EL pressure feedback      = ', el_pressure_feedback
     WRITE(mfile,'(A,A)') 'EL lift model             = ', TRIM(el_lift_model)
@@ -597,6 +709,11 @@ CONTAINS
     END DO
     WRITE(mfile,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
     WRITE(mfile,'(A,3ES14.6)') 'EL inlet u0 / u1 / ramp   = ', el_inlet_u0, el_inlet_u1, el_inlet_tramp
+    CALL EL_PRINT_INLET_DEFINITION(mfile)
+    IF (el_bed_audit_freq.GT.0) WRITE(mfile,'(A,I0)') 'EL bed audit freq         = ', &
+      el_bed_audit_freq
+    IF (el_velocity_audit_freq.GT.0) WRITE(mfile,'(A,I0)') 'EL velocity audit freq    = ', &
+      el_velocity_audit_freq
 
     IF (mterm.NE.mfile) THEN
       WRITE(mterm,'(A,A)') 'EL kernel                 = ', TRIM(el_kernel)
@@ -605,6 +722,7 @@ CONTAINS
       WRITE(mterm,'(A,ES14.6)') 'EL epsilon relaxation     = ', el_eps_f_relax
       WRITE(mterm,'(A,A)') 'EL drag model             = ', TRIM(el_drag_model)
       WRITE(mterm,'(A,A)') 'EL drag coupling          = ', TRIM(el_drag_coupling)
+      IF (el_drag_hrz) WRITE(mterm,'(A,A)') 'EL drag implicit weights  = ', TRIM(el_drag_implicit_weights)
       WRITE(mterm,'(A,L1)') 'EL pressure force         = ', el_pressure_force
       WRITE(mterm,'(A,L1)') 'EL pressure feedback      = ', el_pressure_feedback
       WRITE(mterm,'(A,A)') 'EL lift model             = ', TRIM(el_lift_model)
@@ -642,6 +760,11 @@ CONTAINS
       END DO
       WRITE(mterm,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
       WRITE(mterm,'(A,3ES14.6)') 'EL inlet u0 / u1 / ramp   = ', el_inlet_u0, el_inlet_u1, el_inlet_tramp
+      CALL EL_PRINT_INLET_DEFINITION(mterm)
+      IF (el_bed_audit_freq.GT.0) WRITE(mterm,'(A,I0)') 'EL bed audit freq         = ', &
+        el_bed_audit_freq
+      IF (el_velocity_audit_freq.GT.0) WRITE(mterm,'(A,I0)') 'EL velocity audit freq    = ', &
+        el_velocity_audit_freq
     END IF
 
   END SUBROUTINE EL_PRINT_CONFIG
@@ -681,17 +804,242 @@ CONTAINS
     EL_KERNEL_SUPPORT_RADIUS = 2.0d0*el_kernel_width_factor*particle_radius
   END FUNCTION EL_KERNEL_SUPPORT_RADIUS
 
-  ! Inlet velocity of boundary type Inflow975 at time t (end-of-step time of the caller).
+  ! ELDragImplicitWeights = hrz puts the explicit partner dt B_i u_i^n of the drag diagonal on
+  ! the right-hand side of the momentum equation (EL_FIELDS:EL_APPLY_DRAG_SPLIT_PARTNER); the
+  ! nonlinear defect of the momentum solve must then subtract the matching theta dt B_i u_i, or
+  ! the partner stays in the residual of an unchanged field. The defects built from the
+  ! assembled matrix (Newtonian path; non-Newtonian path with SimPar@MatrixRenewal S >= 1)
+  ! carry it through the matrix diagonal (QuadSc_def: drag_B_source). The hand-built
+  ! non-Newtonian defect of S = 0 (mass, convection, STRESS; QuadSc_def Matdef idef = -1) has no
+  ! drag term: that combination is not supported (review r2 finding 4; the missing defect term
+  ! is a follow-up, no test case exists).
+  ! The check concerns runs that execute the momentum solve: a prescribed field
+  ! (EL_FLUID_SOLVE_ACTIVE false) never reaches the defect, and the application accepts it.
+  PURE LOGICAL FUNCTION EL_DRAG_HRZ_DEFECT_SUPPORTED(non_newtonian, matrix_renewal_s)
+    LOGICAL, INTENT(IN) :: non_newtonian
+    INTEGER, INTENT(IN) :: matrix_renewal_s
+    EL_DRAG_HRZ_DEFECT_SUPPORTED = .NOT.(non_newtonian .AND. matrix_renewal_s.EQ.0)
+  END FUNCTION EL_DRAG_HRZ_DEFECT_SUPPORTED
+
+  ! Backstop in the momentum assembly of an hrz run (Transport_Q2P1, workers only): a FlowType or
+  ! MatrixRenewal changed by Reload_SimPar (the generic parser reads both) after the start-up check.
+  ! An unsupported combination aborts MPI_COMM_WORLD, so every rank, the master included, stops at
+  ! once whichever worker detects it (a STOP inside the workers-only block would leave the master
+  ! waiting in its next collective).
+  SUBROUTINE EL_DRAG_HRZ_RUNTIME_CHECK(non_newtonian, matrix_renewal_s)
+    LOGICAL, INTENT(IN) :: non_newtonian
+    INTEGER, INTENT(IN) :: matrix_renewal_s
+    INTEGER :: ierr
+    IF (EL_DRAG_HRZ_DEFECT_SUPPORTED(non_newtonian, matrix_renewal_s)) RETURN
+    WRITE(*,'(A)') 'Fatal: ELDragImplicitWeights = hrz with FlowType = non-Newtonian and MatrixRenewal S = 0 '// &
+      '(changed by Reload_SimPar?): the momentum defect has no drag diagonal; aborting all ranks.'
+    CALL MPI_Abort(MPI_COMM_WORLD, 917, ierr)
+  END SUBROUTINE EL_DRAG_HRZ_RUNTIME_CHECK
+
+  ! The fluid momentum solve runs: Transport_q2p1_UxyzP_el skips it for a prescribed field
+  ! (SimPar@ELPrescribedField /= none). The one definition for the transport, the start-up checks
+  ! that concern the solve and the solver terms of the velocity audit.
+  PURE LOGICAL FUNCTION EL_FLUID_SOLVE_ACTIVE()
+    EL_FLUID_SOLVE_ACTIVE = (TRIM(el_prescribed_field).EQ.'none')
+  END FUNCTION EL_FLUID_SOLVE_ACTIVE
+
+  ! Inlet velocity of boundary type Inflow975 at time t (end-of-step time of the caller): the
+  ! table when the deck names one, else the linear ramp (arithmetic unchanged).
   PURE REAL*8 FUNCTION EL_INLET_VELOCITY(t)
     REAL*8, INTENT(IN) :: t
-    EL_INLET_VELOCITY = el_inlet_u0 + (el_inlet_u1 - el_inlet_u0)* &
-                        MIN(1.0d0, MAX(0.0d0, t)/el_inlet_tramp)
+    IF (el_inlet_table%n.GT.0) THEN
+      EL_INLET_VELOCITY = EL_INLET_TABLE_VALUE(el_inlet_table, t)
+    ELSE
+      EL_INLET_VELOCITY = el_inlet_u0 + (el_inlet_u1 - el_inlet_u0)* &
+                          MIN(1.0d0, MAX(0.0d0, t)/el_inlet_tramp)
+    END IF
   END FUNCTION EL_INLET_VELOCITY
 
-  ! True when the deck configures the Inflow975 inlet (either velocity nonzero).
+  ! True when the deck configures the Inflow975 inlet (either ramp velocity nonzero, or a
+  ! table). Deck-only, the same on every rank.
   PURE LOGICAL FUNCTION EL_INLET_CONFIGURED()
-    EL_INLET_CONFIGURED = (el_inlet_u0.NE.0.0d0 .OR. el_inlet_u1.NE.0.0d0)
+    EL_INLET_CONFIGURED = (el_inlet_u0.NE.0.0d0 .OR. el_inlet_u1.NE.0.0d0) .OR. &
+                          (LEN_TRIM(el_inlet_table_file).GT.0)
   END FUNCTION EL_INLET_CONFIGURED
+
+  ! SimPar@ELInletVelocityTable: refuse an empty path and the table together with a ramp key
+  ! (deck-only, every rank alike), then load the file: rank 0 of MPI_COMM_WORLD reads one
+  ! snapshot, status and rows are broadcast (EL_INLET_TABLE_LOAD_SHARED; every rank parses the
+  ! deck, so every rank is here). A missing, unreadable, malformed, non-finite or unsorted table
+  ! stops every rank with the same message. Without the key nothing happens (no collective).
+  SUBROUTINE EL_LOAD_INLET_TABLE()
+    INTEGER :: ierr
+    CHARACTER(LEN=320) :: message
+
+    IF (LEN_TRIM(el_inlet_table_file).EQ.0) THEN
+      IF (EL_KEY_SET('ELInletVelocityTable')) THEN
+        WRITE(*,'(A)') 'ELInletVelocityTable: empty file name (remove the key for the ramp).'
+        STOP 1
+      END IF
+      RETURN
+    END IF
+    IF (EL_KEY_SET('ELInletVelocityStart') .OR. EL_KEY_SET('ELInletVelocityEnd') .OR. &
+        EL_KEY_SET('ELInletRampTime')) THEN
+      WRITE(*,'(A)') 'ELInletVelocityTable cannot be combined with ELInletVelocityStart / '// &
+        'ELInletVelocityEnd / ELInletRampTime (one inlet definition only).'
+      STOP 1
+    END IF
+    CALL EL_INLET_TABLE_LOAD_SHARED(el_inlet_table_file, el_inlet_table, ierr, message, &
+                                    MPI_COMM_WORLD)
+    IF (ierr.NE.0) THEN
+      WRITE(*,'(A)') TRIM(message)
+      STOP 1
+    END IF
+  END SUBROUTINE EL_LOAD_INLET_TABLE
+
+  ! Echo of the inlet definition after the ramp line of EL_PRINT_CONFIG: for a table the file,
+  ! the row count, the start-up notice and every row; for a configured ramp its start-up
+  ! notice; nothing without an inlet.
+  SUBROUTINE EL_PRINT_INLET_DEFINITION(unit)
+    INTEGER, INTENT(IN) :: unit
+    INTEGER :: i
+    IF (el_inlet_table%n.LE.0) THEN
+      IF (EL_INLET_CONFIGURED()) WRITE(unit,'(A)') 'EL inlet velocity ramp: start-up setting; '// &
+        'a reload of the parameter file (Reload_SimPar) does not change it'
+      RETURN
+    END IF
+    WRITE(unit,'(A,A,A,I0,A)') 'EL inlet velocity table   = ', TRIM(el_inlet_table_file), &
+      ' (', el_inlet_table%n, ' rows t / U; linear, constant beyond the ends)'
+    WRITE(unit,'(A)') 'EL inlet velocity table: start-up setting, read once here; a reload of '// &
+      'the parameter file (Reload_SimPar) neither re-reads nor replaces it'
+    DO i=1,el_inlet_table%n
+      WRITE(unit,'(A,2ES16.8)') '  EL_INLET_TABLE ', el_inlet_table%t(i), el_inlet_table%u(i)
+    END DO
+  END SUBROUTINE EL_PRINT_INLET_DEFINITION
+
+  ! The inlet definition the run uses (start-up values of the EL keys).
+  FUNCTION EL_INLET_STARTUP_DEFINITION() RESULT(def)
+    TYPE(tElInletDefinition) :: def
+    def%table = (LEN_TRIM(el_inlet_table_file).GT.0)
+    def%path = el_inlet_table_file
+    def%ramp_keys = EL_KEY_SET('ELInletVelocityStart') .OR. EL_KEY_SET('ELInletVelocityEnd') .OR. &
+                    EL_KEY_SET('ELInletRampTime')
+    def%u0 = el_inlet_u0
+    def%u1 = el_inlet_u1
+    def%tramp = el_inlet_tramp
+  END FUNCTION EL_INLET_STARTUP_DEFINITION
+
+  ! The inlet definition a parameter file asks for, read the way the application's deck parser
+  ! reads it (myGDATNEW: a line 'SimPar@<key> = <value>' with the last '@' and the last '=';
+  ! a later line overrides an earlier one; the table value through EL_INLET_TABLE_PATH, the
+  ! ramp values list-directed). ierr /= 0: the file cannot be opened (def is the default).
+  SUBROUTINE EL_INLET_DEFINITION_OF_FILE(filename, def, ierr)
+    CHARACTER(LEN=*), INTENT(IN) :: filename
+    TYPE(tElInletDefinition), INTENT(OUT) :: def
+    INTEGER, INTENT(OUT) :: ierr
+    CHARACTER(LEN=500) :: string
+    CHARACTER(LEN=7) :: cvar
+    CHARACTER(LEN=32) :: cpar
+    INTEGER :: iunit, ios, iat, ieq, i
+    REAL*8 :: val
+
+    OPEN(NEWUNIT=iunit, FILE=TRIM(filename), STATUS='OLD', ACTION='READ', IOSTAT=ierr)
+    IF (ierr.NE.0) RETURN
+    DO
+      READ(iunit, '(A500)', IOSTAT=ios) string
+      IF (ios.NE.0) EXIT
+      iat = 0
+      ieq = 0
+      DO i = 1, LEN(string)
+        IF (string(i:i).EQ.'@') iat = i
+        IF (string(i:i).EQ.'=') ieq = i
+      END DO
+      IF (iat.LE.1 .OR. ieq.LE.iat + 1) CYCLE
+      cvar = ' '
+      cpar = ' '
+      READ(string(1:iat-1), *, IOSTAT=ios) cvar
+      IF (ios.NE.0 .OR. TRIM(ADJUSTL(cvar)).NE.'SimPar') CYCLE
+      READ(string(iat+1:ieq-1), *, IOSTAT=ios) cpar
+      IF (ios.NE.0) CYCLE
+      SELECT CASE (TRIM(ADJUSTL(cpar)))
+      CASE ('ELInletVelocityTable')
+        def%table = .TRUE.
+        def%path = EL_INLET_TABLE_PATH(string(ieq+1:))
+      CASE ('ELInletVelocityStart', 'ELInletVelocityEnd', 'ELInletRampTime')
+        def%ramp_keys = .TRUE.
+        READ(string(ieq+1:), *, IOSTAT=ios) val
+        IF (ios.NE.0) THEN
+          def%readable = .FALSE.
+        ELSE IF (TRIM(ADJUSTL(cpar)).EQ.'ELInletVelocityStart') THEN
+          def%u0 = val
+        ELSE IF (TRIM(ADJUSTL(cpar)).EQ.'ELInletVelocityEnd') THEN
+          def%u1 = val
+        ELSE
+          def%tramp = val
+        END IF
+      END SELECT
+    END DO
+    CLOSE(iunit)
+    ierr = 0
+  END SUBROUTINE EL_INLET_DEFINITION_OF_FILE
+
+  ! How the requested inlet definition differs from the one of the run; blank when it does not.
+  FUNCTION EL_INLET_DEFINITION_CHANGE(run, requested) RESULT(text)
+    TYPE(tElInletDefinition), INTENT(IN) :: run, requested
+    CHARACTER(LEN=400) :: text
+    text = ' '
+    IF (requested%table .AND. requested%ramp_keys) THEN
+      text = 'the reload file sets ELInletVelocityTable together with ramp keys (refused at start-up)'
+    ELSE IF (run%table .AND. requested%table) THEN
+      IF (TRIM(run%path).NE.TRIM(requested%path)) text = 'table '//TRIM(run%path)// &
+        ' -> table '//TRIM(requested%path)
+    ELSE IF (run%table) THEN
+      IF (requested%ramp_keys) THEN
+        text = 'table '//TRIM(run%path)//' -> ramp keys'
+      ELSE
+        text = 'table '//TRIM(run%path)//' removed'
+      END IF
+    ELSE IF (requested%table) THEN
+      text = 'ramp -> table '//TRIM(requested%path)
+    ELSE IF (run%ramp_keys .AND. .NOT.requested%ramp_keys) THEN
+      text = 'ramp keys removed'
+    ELSE IF (.NOT.requested%readable) THEN
+      text = 'ramp keys with an unreadable value'
+    ELSE IF (run%u0.NE.requested%u0 .OR. run%u1.NE.requested%u1 .OR. &
+             run%tramp.NE.requested%tramp) THEN
+      text = 'ramp values changed'
+    END IF
+  END FUNCTION EL_INLET_DEFINITION_CHANGE
+
+  ! Reload_SimPar of filename (ProcCtrl): report on unit mfile and mterm (when tell) an inlet
+  ! definition of the file that differs from the one of the run, which is kept. Rank-local
+  ! (only the telling rank reads the file), no collective; silent without a validated EL
+  ! configuration (other applications) and when the file cannot be opened.
+  SUBROUTINE EL_INLET_RELOAD_NOTICE(filename, mfile, mterm, tell)
+    CHARACTER(LEN=*), INTENT(IN) :: filename
+    INTEGER, INTENT(IN) :: mfile, mterm
+    LOGICAL, INTENT(IN) :: tell
+    TYPE(tElInletDefinition) :: run, requested
+    CHARACTER(LEN=400) :: change
+    CHARACTER(LEN=300) :: kept
+    INTEGER :: ierr
+
+    IF (.NOT.(tell .AND. el_config_validated)) RETURN
+    CALL EL_INLET_DEFINITION_OF_FILE(filename, requested, ierr)
+    IF (ierr.NE.0) RETURN
+    run = EL_INLET_STARTUP_DEFINITION()
+    change = EL_INLET_DEFINITION_CHANGE(run, requested)
+    IF (LEN_TRIM(change).EQ.0) RETURN
+    IF (run%table) THEN
+      kept = 'the table '//TRIM(run%path)//' as read at start-up'
+    ELSE
+      WRITE(kept,'(A,3ES14.6)') 'the ramp u0 / u1 / ramp time ', run%u0, run%u1, run%tramp
+    END IF
+    CALL TELL_UNIT(mfile)
+    IF (mterm.NE.mfile) CALL TELL_UNIT(mterm)
+  CONTAINS
+    SUBROUTINE TELL_UNIT(unit)
+      INTEGER, INTENT(IN) :: unit
+      WRITE(unit,'(A,A,A,A)') 'WARNING: EL inlet definition of the reload file ', TRIM(filename), &
+        ' ignored: ', TRIM(change)
+      WRITE(unit,'(A,A)') '  the inlet is a start-up setting; the run keeps ', TRIM(kept)
+    END SUBROUTINE TELL_UNIT
+  END SUBROUTINE EL_INLET_RELOAD_NOTICE
 
   ! True when the inlet value has to be converted from superficial to interstitial velocity
   ! (deck-only: the same on every rank; decides the nodal-porosity collective of the transfer
@@ -771,9 +1119,12 @@ CONTAINS
     END IF
 
     ! settings a model cannot be combined with; every conflict is reported before the stop
-    IF (TRIM(el_drag_model).EQ.'difelice') CALL EL_MM_CONFLICT( &
-      'needs a drag law in the standard porosity convention; ELDragModel = difelice '// &
-      '(campaign form without eps^2) is refused, use difelice_std.')
+    ! (an unknown drag name is refused by the drag validation after this resolution)
+    IF (EL_DRAG_LOOKUP(el_drag_model).GE.0) THEN
+      IF (.NOT.el_drag_standard_form(EL_DRAG_LOOKUP(el_drag_model))) CALL EL_MM_CONFLICT( &
+        'needs a drag law in the standard porosity convention; ELDragModel = '// &
+        TRIM(el_drag_model)//' (campaign form without eps^2) is refused, use difelice_std.')
+    END IF
     IF (el_meso_filter) CALL EL_MM_CONFLICT('is not supported with ELMesoFilter = Yes.')
     IF (el_momentum_fix) CALL EL_MM_CONFLICT('is not supported with ELMomentumFix = Yes '// &
       '(the compensator acts on the unweighted fluid momentum).')
@@ -901,6 +1252,25 @@ CONTAINS
       IF (TRIM(name).EQ.TRIM(el_mm_names(i))) EL_MM_LOOKUP = i
     END DO
   END FUNCTION EL_MM_LOOKUP
+
+  ! Id of a (lower-case) drag closure name in the drag table, -1 if it is not a closure name.
+  PURE INTEGER FUNCTION EL_DRAG_LOOKUP(name)
+    CHARACTER(LEN=*), INTENT(IN) :: name
+    INTEGER :: i
+    EL_DRAG_LOOKUP = -1
+    DO i=LBOUND(el_drag_names,1),UBOUND(el_drag_names,1)
+      IF (TRIM(name).EQ.TRIM(el_drag_names(i))) THEN
+        EL_DRAG_LOOKUP = i
+        RETURN
+      END IF
+    END DO
+  END FUNCTION EL_DRAG_LOOKUP
+
+  ! Resolve the closure id of el_drag_model once (EL_VALIDATE_CONFIG refuses -1); the per-particle
+  ! dispatch reads el_drag_closure_id, never the name.
+  SUBROUTINE EL_RESOLVE_DRAG_CLOSURE()
+    el_drag_closure_id = EL_DRAG_LOOKUP(el_drag_model)
+  END SUBROUTINE EL_RESOLVE_DRAG_CLOSURE
 
   ! Record that the parameter file set the SimPar@EL* key `name` (called by the parser for
   ! every such key, before EL_VALIDATE_CONFIG).

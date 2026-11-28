@@ -25,6 +25,7 @@ MODULE EL_TRANSFER
                        el_apply_particle_forces, el_apply_fluid_feedback, &
                        el_write_diagnostics, el_momentum_audit_freq, &
                        el_drag_semi_implicit, el_pressure_feedback, el_prescribed_field, &
+                       el_drag_hrz, el_bed_audit_freq, &
                        EL_VA_CONSERVATIVE_FORM, EL_INLET_SUPERFICIAL
   USE EL_VA_FLUX, ONLY: EL_VA_RECONSTRUCT_EPS_LOCAL, EL_VA_EMBED_Q1_IN_Q2, &
                         EL_VA_CHECK_DOF_LAYOUT
@@ -37,7 +38,8 @@ MODULE EL_TRANSFER
                      EL_HALO_DOMAIN_BOX
   USE EL_MOMENTUM_MODEL, ONLY: EL_MM_VISCOUS_FORCE
   USE EL_VISCOUS, ONLY: EL_VISCOUS_LAPLACIAN, EL_VIS_SIZE
-  USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION
+  USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION, EL_SAMPLE_EPSILON_F
+  USE EL_BED_AUDIT, ONLY: EL_BED_AUDIT_BEGIN_SAMPLES, EL_BED_AUDIT_RECORD_SAMPLE
   ! the three coupling operations of a record on this rank (the record and, under
   ! SimPar@ELPeriodicKernel = wrap, its periodic images)
   USE EL_IMAGE_TRANSFER, ONLY: EL_SAMPLE_RECORD, EL_SAMPLE_RECORD_VISCOUS, EL_DEPOSIT_RECORD
@@ -226,6 +228,7 @@ CONTAINS
     IF (EL_PERIODIC_ACTIVE()) local_box = EL_HALO_LOCAL_BOX()
     ALLOCATE(local_samples(EL_SAMPLE_SIZE,n_records))
     ALLOCATE(owned_samples(EL_SAMPLE_SIZE,n_owned))
+    ! rows: 1 normalisation, 2:4 explicit feedback, 5 drag coefficient B
     ALLOCATE(owned_result(5,n_owned), record_result(5,n_records))
     local_samples = 0.0d0
     owned_samples = 0.0d0
@@ -293,6 +296,10 @@ CONTAINS
       CALL EL_REDUCE_TO_OWNERS(local_lap, owned_lap)
     END IF
 
+    ! bed audit (SimPar@ELBedAuditFreq > 0): the kernel-sampled porosity and slip of the
+    ! particles, recorded in the post-advance pass (the state the audit line of this step sees)
+    IF (el_bed_audit_freq.GT.0 .AND. .NOT.advance_history) CALL EL_BED_AUDIT_BEGIN_SAMPLES()
+
     DO i=1,n_owned
       IF (owned_samples(1,i).LE.0.0d0) THEN
         WRITE(*,'(A,I0,A,I0,A,3ES14.6)') 'Fatal E-L transfer error on rank ', &
@@ -311,6 +318,11 @@ CONTAINS
       END IF
       owned_result(1,i) = owned_samples(EL_SAMPLE_NORMALIZATION,i)
       owned_result(5,i) = force_result%drag_B
+      IF (el_bed_audit_freq.GT.0 .AND. .NOT.advance_history) &
+        CALL EL_BED_AUDIT_RECORD_SAMPLE(owned_particles(i)%position(3), &
+          MIN(1.0d0, MAX(el_eps_f_min, owned_samples(EL_SAMPLE_EPSILON_F,i)/ &
+          owned_samples(EL_SAMPLE_NORMALIZATION,i))), &
+          force_result%u_f(3) - owned_particles(i)%velocity(3))
       ! Default: the explicit feedback force (drag + lift, + the pressure reaction
       ! under ELPressureFeedback), used as deposited by the post-advance diagnostic
       ! pass and by the pre-advance pass when the particles are not advanced. The
@@ -327,8 +339,11 @@ CONTAINS
       ! -B u^{n+1} + B u_p around the sampled u_f. Without this term the fluid
       ! saw -B(2 u_f - u_p), twice the drag of a bed at rest (P4).
       ! EL_DEPOSIT_PARTICLE subtracts feedback_used, hence the minus sign.
+      ! Under ELDragImplicitWeights = hrz the partner is the nodal +B_i u_i^n that the
+      ! fluid forms itself (EL_FIELDS:EL_APPLY_DRAG_SPLIT_PARTNER; design note 7.1), so
+      ! nothing is added here.
       IF (el_drag_semi_implicit .AND. advance_history .AND. &
-          .NOT.el_apply_particle_forces) THEN
+          .NOT.el_apply_particle_forces .AND. .NOT.el_drag_hrz) THEN
         feedback_used = feedback_used - force_result%drag_B*force_result%u_f
       END IF
       local_drag = local_drag + force_result%drag
@@ -376,8 +391,17 @@ CONTAINS
           ! implicit correction of the split. EL_DEPOSIT_PARTICLE subtracts
           ! feedback_used, so pass
           !   feedback_used = drag_force_eff + feedback_nondrag - B*u_f.
-          feedback_used = drag_force_eff + feedback_nondrag - &
-            force_result%drag_B*force_result%u_f
+          ! Under ELDragImplicitWeights = hrz the partner is not -B u_f with kernel
+          ! weights but the nodal +B_i u_i^n with the same HRZ diagonal, formed by the
+          ! fluid (EL_FIELDS:EL_APPLY_DRAG_SPLIT_PARTNER), so that the split correction
+          ! vanishes node by node in a field that does not change over the step and the
+          ! fluid receives exactly minus the drag impulse PE applies (design note 7.1).
+          IF (el_drag_hrz) THEN
+            feedback_used = drag_force_eff + feedback_nondrag
+          ELSE
+            feedback_used = drag_force_eff + feedback_nondrag - &
+              force_result%drag_B*force_result%u_f
+          END IF
         ELSE
           feedback_used = drag_force_eff + feedback_nondrag
         END IF
@@ -394,7 +418,7 @@ CONTAINS
     CALL EL_BROADCAST_FROM_OWNERS(owned_result, record_result)
     DO i=1,n_records
       CALL EL_DEPOSIT_RECORD(mesh, ilev, records(i), local_box, record_result(1,i), &
-        record_result(2:4,i), el_field_data, drag_b=record_result(5,i))
+        record_result(2:4,i), el_field_data, drag_b=record_result(5,i), hrz=el_drag_hrz)
     END DO
 
     local_rhs(1) = SUM(el_field_data%force_rhs(1,:))

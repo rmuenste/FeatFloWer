@@ -1,0 +1,293 @@
+Runs of case 11 (2026-11-19), directories under /data/warehouse17/rmuenste/runs/fluid11 (versions.txt and
+staged.txt in each). Binaries: copies in runs/fluid11/bin, built in FeatFloWer-fluid11/build-fluid11 on
+longhouse1a (recipe runs/fluid11/tools/build_fl.sh = runs/pcoarse/tools/build_pc.sh with paths changed),
+pe 43e8fb54 (rsync of the FeatFloWer-perkernel submodule tree, as pcoarse).
+
+binary                         md5                               source
+q2p1_el_pipeflow.c76ca927      933a62816934ba0c8697aaa7a6dc2a5a  c76ca927 (base of the branch)
+q2p1_el_pipeflow.7f05a069      2265a4fe988112cc8c07e03e35b882d9  7f05a069 (drag, inlet table, bed audit)
+q2p1_el_pipeflow.ab23bb6e      3d85ac8c68405f501b10a81b5c32f06c  ab23bb6e (+ NoOutflow kept under PeriodicAxis)
+q2p1_el_pipeflow.87474a41      ca5f0e69124a321502a62b40d1d5dc58  87474a41 (+ window gradient in the audit)
+q2p1_el_pipeflow.d3d23e4b      14024aff59d1e7c010f0cf4814f49ac6  d3d23e4b (+ EL_UMAX_AUDIT velocity audit)
+q2p1_el_pipeflow.77ffd070      5db6c471129220c1fe577d968f0f8771  77ffd070 (+ ELDragImplicitWeights = hrz)
+q2p1_el_pipeflow.c8541cfc      4d39efe3184ff6504753543f3c3d24b3  c8541cfc (+ floor_bal_z and kernel-sampled window means in the bed audit; after the merge of origin/master 85039031)
+
+job     run                      binary     result
+163801  unit (ctest)             build      drag test STOP 24 (test tolerance), el-transfer-mpi-8 slots: test fixed, 8 tasks
+163802  unit                     build      11/11 (combined inlet/bed test, before the split)
+163806  unit                     7f05a069   12/12
+163820  unit                     87474a41   12/12
+163807  gate/{D_s6,G_tier2,VB40,E2w5}__{base,new}  c76ca927 / 7f05a069  all bitwise
+163808  R_P30_dt25 (attempt 1)   7f05a069   refused at start (periodic box forced closed), see attempt1_7f05a069/
+163809  R_P10_dt25 (attempt 1)   7f05a069   same
+163812  R_P30_dt25               ab23bb6e   400 steps, U 0.30, rsa bed
+163813  R_P10_dt25               ab23bb6e   400 steps, U 0.10, lattice bed
+163817  R_P30L_dt25              ab23bb6e   2000 steps, U 0.30, rsa bed
+163821  A_P10_dt25               87474a41   200 steps, bed A, U 0.10, lattice bed
+163822  gate/{D_s6,G_tier2,E2w5}__final + R_P10w_dt25  87474a41  gate bitwise; R_P10w = R_P10 with the window gradient (force budget bitwise vs R_P10)
+163872  R_proto (orchestrator)   87474a41   protocol, NaN at step 11315 (velocity spikes from step 2618)
+163992  R_diag                   d3d23e4b   first 4800 steps of R_proto with EL_UMAX_AUDIT every step; bitwise with R_proto
+163998  unit                     77ffd070 tree  12/12 incl. the hrz weight test
+163999  gate/{D_s6,G_tier2,E2w5}__hrzbin + R_hrz  77ffd070  gate bitwise; R_hrz 5200 steps of the protocol with hrz, no spike
+164004  R_proto_hrz              77ffd070   full protocol with hrz: COMPLETED in 6 h 10 min, max |u| 1.05 m/s (RUNBOOK section 8)
+164099  gate/{D_s6,G_tier2,E2w5}__c8541cfc + hrzliquid/D_s6_200_{rowsum,hrz} + R_static (attempt 1)  c8541cfc  gate bitwise; liquid hrz effect; R_static refused at the seed-gap check
+164100  R_static                 c8541cfc   settled bed at 0.04 m/s, 400 steps: dp* + floor_bal 1.0002-1.0011
+
+Fix round 1 after the external review (2026-11-21, Fortran findings 2, 4, 6, 7, 8, 10, 11, 12, 14):
+binary                         md5                               source
+q2p1_el_pipeflow.627caf47      3f0b648cc210bffba97f5f30d2742b56  627caf47 (hrz partner B_i u_i^n from the fluid, audit fixes, inlet reader, closure ids);
+                                                                 built by runs/fluid11/tools/build_r1.sbatch on Slurm node nx-01 (job 164666), NOT on
+                                                                 longhouse1a (no access): Q2P1_BUILD_ID=epycmilan-linux-gcc-release pinned in the
+                                                                 build-fluid11 cache, i.e. the longhouse1a flags (-march=znver1); gates below bitwise
+
+job     run                      binary     result
+164663  unit/red_hrz (test_el_transfer only)  parent tree d2743338  steady non-uniform-field impulse test FAILS on the former hrz partner: residual B (u_f - sum h u) = -1.85 % of F_z
+164667  unit (ctest, 14 tests incl. el-periodic-mpi-4/8)  working tree of fix round 1 before its commits (job 16:58, checkout HEAD 43bf372b in the job header; the six fix commits 25eae528..627caf47 followed at 17:00-17:02; attribution to the 627caf47 tree is by that sequence, the log carries no tree hash; repeated on the committed tree with tree hashes in fix round 2, job 164950, 15/15)  14/14
+164668  gate/{D_s6,G_tier2,E2w5,VB40}__627caf47 vs __base (163807)  627caf47  all EL streams and XxX lines bitwise (pc_compare_627caf47.txt)
+164669  R_smoke_r1 (U 0.30 const, 400 steps, hrz, friction 0.15/material)  627caf47  completed; max |u| 2.21 m/s (step 390, bed top, B_i > 0); dp* 1.364, floor_bal/W 0.772 at step 400 (collapse transient)
+164670  R_smoke_r1_oldhrz (same deck)   c8541cfc   max |u| 1.00 m/s; dp* 1.366, floor_bal/W 0.643 at step 400
+164671  R_smoke_r1_rowsum (same deck, rowsum)  627caf47  max |u| 1.09 m/s; dp* 1.364, floor_bal/W 0.746 at step 400
+164673  R_smoke_r1_2000 (R_smoke_r1 for 2000 steps)  627caf47  completed; max |u| 1.57 m/s over steps 1000-2000 (R_hrz, former hrz: 0.87); dp* 0.96-1.02 (R_hrz 0.96-1.00); first 400 steps bitwise with R_smoke_r1
+
+Restitution in the EL contact solver (2026-11-21): pe feature/el-restitution 1d030e71 (base origin/master 6003b00, worktree
+pe-worktrees/el-restitution, NOT pushed) rsynced into libs/pe (git archive of the commit; libs/pe/.pin), Fortran = f088032c
+(= 627caf47 sources). json keys restitutionEnabled_ / restitutionThreshold_ / restitutionScheme_ / restitutionIterations_
+(absent = inelastic, bit for bit); start-up line EL_CONTACT_PARAMS (pair friction and restitution as the contacts use them).
+binary                                md5                               source
+q2p1_el_pipeflow.f088032c-pe1d030e7   b482c4aa874e50db9ef4089606e91072  f088032c + pe 1d030e7; build-fluid11 on Slurm node nx-04 (job 164692,
+                                                                         runs/fluid11/pe_restitution/build_ff.sbatch = build_r1.sbatch recipe,
+                                                                         build id epycmilan-linux-gcc-release pinned, target q2p1_el_pipeflow only)
+
+job     run                      binary     result
+164679  pe presets serial + mpi, origin/master 6003b00 export (baseline)  -  serial 46/46, mpi 19/19
+164689  pe presets serial + mpi, pe 1d030e7 tree  -  serial 48/48, mpi 20/20 (new: pe-el-restitution, -config, -mpi); outputs of all common tests as baseline
+164690  pe-el-restitution source against origin/master  -  FAILS 23 checks (inelastic); resting-pile state hash = the 1d030e7 hash (switch off and on)
+164697/164698  debug preset 1d030e7 / baseline: 44/48 / 42/46, the same 4 pre-existing debug aborts; cgal preset: GMP link error in both trees (not run)
+164693  gate/{D_s6,G_tier2,E2w5,VB40}__f088032c-pe1d030e7 vs __base (163807); R_rest_off400 (clone of R_smoke_r1, 400 steps) vs R_smoke_r1
+                                 f088032c-pe1d030e7  all common EL streams + XxX bitwise, particle logs 27/27 identical (gate/pc_compare_f088032c-pe1d030e7.txt);
+                                 the only new line is EL_CONTACT_PARAMS (restitution=off)
+164694  R_rest_on2000 (stage_s11.sh const:0.30, 2000 steps; deck, bed, mesh, inlet identical to R_smoke_r1_2000; staged json + restitutionEnabled_ true,
+        threshold 0, post-pass, 4 sweeps)  f088032c-pe1d030e7  completed; e = 0.9 / mu = 0.3 per pair (echo); steps 1000-2000 against R_smoke_r1_2000 (e = 0):
+        dp* mean 0.975 (0.982), floor_bal/W mean 0.023 (0.021), max overlap 7.4e-6 (6.0e-6), Tgran mean 1.37e-3 (1.09e-3, +26 %), contacts 7.6e3 (14.7e3);
+        largest sampled overlap of the run 1.36e-5 at step 350 (collapse transient; e = 0: 1.02e-5 at step 280), both above the spec limit 8.7e-6 only then;
+        0.514 s/step on nx-05 (R_smoke_r1_2000: 0.576 s/step on nx-01)
+
+Restitution fix round 1 (external review, 2026-11-21): pe feature/el-restitution 97563ed6 (11 commits on 1d030e71, NOT pushed;
+libs/pe/.pin): support contacts kept in the post-pass, pass converged to a tolerance (at most 100 sweeps), no sweep in a step
+without impacts, unloaded contacts lose their tangential impulse, mobile global bodies refused, in-solve keeps a positive gap,
+per-deck restitution keys, setups without support refuse restitutionEnabled_, EL_RESTITUTION_STATS per CFD step (switch on only).
+binary                                md5                               source
+q2p1_el_pipeflow.7670fa50-pe97563ed   071a9875bcf9ab0e578fb44b906067fc  7670fa50 (Fortran = 627caf47) + pe 97563ed; build-fluid11 on nx-05 (job 164712,
+                                                                         runs/fluid11/pe_restitution/build_ff.sbatch, build id epycmilan-linux-gcc-release pinned)
+
+job     run                      binary     result
+164703  pe presets with the new tests on the 1d030e7 library (failing-before)  -  serial 9 tests fail, mpi 1 fails
+164709  serial preset of every intermediate commit c4dcfdd..70018a1  -  all pass (50/50 .. 55/55)
+164710  pe presets serial + mpi, pe 97563ed  -  serial 55/55, mpi 20/20; common tests with origin/master print the same output
+        except pe-hcsits-restitution (flat landing 0.7998/0.0024 rad/s -> 0.8000/0.0000, restitution on) and tmp-path noise
+164707  alternate solver (HardContactAndFluid via CMAKE_CXX_FLAGS): pe-el-restitution-mpi compiles and skips (1d030e7: compile error);
+        PE_USE_JSON=OFF: deck tests not registered
+164713  gate/{D_s6,G_tier2,E2w5,VB40}__7670fa50-pe97563ed vs __base; R_rest2_off400 vs R_smoke_r1  7670fa50-pe97563ed  all common EL
+        streams + XxX bitwise, particle logs 27/27 (gate/pc_compare_7670fa50-pe97563ed.txt); no EL_RESTITUTION_STATS with the keys absent
+164714  R_rest2_on2000 (deck = R_rest_on2000 = R_smoke_r1_2000 + restitutionEnabled_)  7670fa50-pe97563ed  completed on nx-05;
+        steps 1000-2000 (R_rest_on2000 / R_smoke_r1_2000 e=0): dp* mean 0.974 (0.975 / 0.982), floor/W 0.023 (0.023 / 0.021),
+        max overlap 7.4e-6 (7.4e-6 / 6.0e-6), Tgran 1.41e-3 (1.37e-3 / 1.09e-3), contacts 6.9e3 (7.6e3 / 14.7e3); overall max
+        overlap 1.33e-5 at step 390 (collapse); 0.634 s/step (R_rest_on2000 0.514 on nx-05, R_smoke_r1_2000 0.576 on nx-01);
+        EL_RESTITUTION_STATS steps 1000-2000 per CFD step: impacting 8434, support 49304, sweeps_max 100 (the cap) in every step
+
+Restitution fix round 2 (external review, 2026-11-21): pe feature/el-restitution 45c9268 (5 commits on 97563ed6, NOT pushed;
+libs/pe/.pin): support rows relative to the post-compression state (undisturbed network = exact fixed point), friction on every
+affected row, stop rule on synchronised velocities (keys restitutionMaxIterations_/CheckInterval_/AbsTolerance_/RelTolerance_,
+defaults 24 / 4 / 1e-4 m/s / 1e-3, minimum restitutionIterations_ 4), only armed rows (candidate + compression) book restitution,
+refusal from the live body storage in both solvers, HCSITS exact shadow relay with restitution on, rejectRestitutionRequest()
+switches the solver off, EL_RESTITUTION_STATS round-2 format (pe_step + cfd_step, delivered, stop reasons, residuals).
+binary                                md5                               source
+q2p1_el_pipeflow.288aee16-pe45c9268   3b10e44c52c953dbf4f2f4067373e858  288aee16 (Fortran = 627caf47) + pe 45c9268; build-fluid11 on nx-05 (job 164864,
+                                                                         runs/fluid11/pe_restitution/build_ff.sbatch, build id epycmilan-linux-gcc-release pinned)
+
+job     run                      binary     result
+164861  pe presets serial + mpi, pe working tree = 45c9268  -  serial 60/60, mpi 21/21
+164862  round-2 tests on the 97563ed library (failing-before)  -  5 serial / 6 mpi targets need the new API (no compile); of the rest
+        support, support-plain, el-restitution, setup-inherit, hcsits-restitution-mpi fail (el-restitution-mpi: new API)
+164863  common tests on 97563ed vs 45c9268  -  serial 45/45 identical output, mpi 17/19 identical, 2 identical up to rank line order
+164865  gate/{D_s6,G_tier2,E2w5,VB40}__288aee16-pe45c9268 vs __base; R_rest3_off400 vs R_smoke_r1  288aee16-pe45c9268  all common EL
+        streams + XxX bitwise, particle logs 27/27 (gate/pc_compare_288aee16-pe45c9268.txt); no EL_RESTITUTION_STATS with the keys absent
+164866  R_rest3_on2000 (deck = R_rest2_on2000, threshold 0.01, stop-rule keys absent)  288aee16-pe45c9268  completed on nx-06; steps
+        1000-2000 (R_rest2 / R_rest / e=0): dp* 0.975 (0.974 / 0.975 / 0.982), floor/W 0.024 (0.023 / 0.023 / 0.021), max overlap 6.4e-6
+        (7.4e-6 / 7.4e-6 / 6.0e-6), Tgran 1.35e-3 (1.41e-3 / 1.37e-3 / 1.09e-3), contacts 10.9e3 (6.9e3 / 7.6e3 / 14.7e3); 0.560 s/step
+        (0.634 / 0.514 on nx-05, 0.576 on nx-01); per CFD step delivered 1266, sub-steps converged 5636 capped 4364 of 10000,
+        sweeps mean 21.5, residual max 4.7e-3 m/s
+164867  R_static_r2off (R_static inputs, friction 0.15 per material, keys absent)  288aee16-pe45c9268  dp* 0.2010, floor/W 0.799 (300-400),
+        max overlap 1.27e-7, Tgran 1.5e-9; 0.935 s/step on nx-05
+164868  R_static_r2on (same + restitution on, threshold 0.01)  288aee16-pe45c9268  dp* 0.2010, floor/W 0.799 (300-400), max overlap 1.74e-7
+        (1.13e-7 in 300-400), Tgran 1.6e-9; delivered 33 rebounds in 400 steps (5 in steps 300-400), approach max 0.024 m/s, support
+        closing after the inelastic solve up to 0.025 m/s; 0.890 s/step
+
+Restitution fix round 3 (external review, 2026-11-21): pe feature/el-restitution e0a4c69 (4 commits on 45c9268 + doc 10aaf83,
+NOT pushed; libs/pe/.pin): global-body registry rebuilt from live storage (both solvers), support rows stay affected once visited,
+armed rows demoted when their compression is withdrawn (ceiling on every booking), tangential residual (contact response) in the
+stop decision, owner<->shadow impact-scale exchange, walls carry no scale, trace broadcast, pair trace PE_RESTITUTION_PAIRS.
+binary                                md5                               source
+q2p1_el_pipeflow.2f06b232-pee0a4c69   26510369279fe158f2c202b4b41bac9a  2f06b232 (Fortran = 627caf47) + pe e0a4c69; build-fluid11 on nx-02 (job 164884)
+
+job     run                      binary     result
+164880  pe presets serial + mpi on the round-3 tree  -  serial 61/61, mpi 29/29
+164883  round-3 tests on the 45c9268 library  -  pass-unit (cases 1-5) and global-registry unfix (both solvers) fail at runtime
+164882  pe presets on origin/master 6003b00  -  common tests: serial 46/46 identical output, mpi 17/19 identical + 2 up to rank line order
+164885  gate/{D_s6,G_tier2,E2w5,VB40}__2f06b232-pee0a4c69 vs __base; R_rest4_off400 vs R_smoke_r1  -  all common streams + XxX bitwise,
+        particle logs 27/27 (gate/pc_compare_2f06b232-pee0a4c69.txt)
+164888-891  qualification study, deck of R_rest3_on2000 (v_rest 0.01), steps 1000-2000: R_q3_max24 dp* 0.9745 eps_bed 0.52072
+        capped 4579/10000 0.562 s/step nx-06; R_q3_max48 0.9740 0.52160 capped 308 0.567 nx-02; R_q3_max96 0.9742 0.52159 capped 33
+        0.580 nx-06; R_q3_e0 (keys absent) 0.9824 0.50793 0.568 nx-02 (audit lines identical to R_smoke_r1_2000)
+164886/887  R_static_r3on / r3off (R_static deck, friction 0.15): steps 300-400 dp* 0.2010 / 0.2010, floor/W 0.7991 / 0.7991;
+        on: 19 rebounds in 400 steps (2 in 300-400), pair trace PE_RESTITUTION_PAIRS=0.005; off audit lines identical to R_static_r2off
+
+Restitution fix round 4 (external review, 2026-11-22): pe feature/el-restitution b047e41 (5 commits on 10aaf83, NOT pushed;
+libs/pe/.pin): full withdrawal decided in the projection (exact release, immediate demotion, scalar normal ledger), idempotent
+global-body registry erasure (EL, HCSITS), trace settings per PE communicator lifetime, test and record corrections.
+binary                                md5                               source
+q2p1_el_pipeflow.43e7360e-peb047e41   24caa28b7038ea0c9c2f053d2d4e0d6d  43e7360e (Fortran = 627caf47) + pe b047e41; build-fluid11 on nx-01 (job 164916)
+
+job     run                      binary     result
+164915  pe presets serial + mpi on clean HEAD b047e41  -  serial 61/61, mpi 37/37; common tests vs origin/master 6003b00: serial 46/46
+        identical output, mpi 17/19 identical + 2 identical up to rank line order
+164912  assertion-enabled (Debug) MPI build of the registry test, b047e41  -  12/12; on 10aaf83 (164914) fixstepunfix[-iter] abort
+164913  round-4 tests on the 10aaf83 library  -  pass-unit cases 6, 7 fail; trace-comm hangs (timeout) in both solvers
+164917  gate/{D_s6,G_tier2,E2w5,VB40}__43e7360e-peb047e41 vs __base; R_rest5_off400 vs R_smoke_r1  -  all common streams + XxX
+        bitwise, particle logs 27/27 (gate/pc_compare_43e7360e-peb047e41.txt)
+164918  R_q4_max48 (deck of R_q3_max48) on nx-03  -  submitted, result not recorded here
+
+Restitution fix round 5 (external review, 2026-11-22): pe feature/el-restitution 4e4ad17 (4 commits on b047e41, NOT pushed;
+libs/pe/.pin): Coulomb radius from the post-visit load computed once (round-4 binary 43e7360e-peb047e41 used mu (lambda + 2d) in
+the sweep; R_q4_max48 carries that defect), clamp tally, integer trace range, registry test skip on other solvers.
+binary                                md5                               source
+q2p1_el_pipeflow.3dc21409-pe4e4ad17   49f3614a43223b375ce455b68bebefa4  3dc21409 (Fortran = 627caf47) + pe 4e4ad17; build-fluid11 on nx-06 (job 164924)
+jobs 164923 (presets, clean HEAD), 164925 (Debug suites), 164926 (gate), 164927 (R_q5_max48 smoke): submitted, results not recorded here
+
+Restitution fix round 6 (external review, 2026-11-22): pe feature/el-restitution ce2a7f7 (5 commits on 4e4ad17, NOT pushed;
+libs/pe/.pin): test infrastructure and the trace-range parser only (production diff to 4e4ad17: RestitutionPostPass.h parser).
+binary                                md5                               source
+q2p1_el_pipeflow.20867701-pece2a7f7   6f511ed551188a9fbfa440f590eaa0e3  20867701 (Fortran = 627caf47) + pe ce2a7f7; build-fluid11 on nx-04 (job 164939)
+R_q5_max48 (job 164927, binary 3dc21409-pe4e4ad17, nx-03): steps 1000-2000 dp* 0.9758, eps_bed 0.51952, floor/W 0.0233,
+        wall/W 0.0259, Tgran 1.348e-3, contacts 11020, delivered 1265.3/step, demoted 356, converged/capped 9634/366, 0.575 s/step
+jobs 164936 (presets), 164937 (Debug suites), 164938 (alternate solvers), 164940 (gate), 164941/164942 (restitution-on identity
+        R_id400_old on 3dc21409-pe4e4ad17 vs R_id400_new on 20867701-pece2a7f7): submitted, results not recorded here
+
+Fix round 2 (external review r2, 2026-11-22): FeatFloWer commits c0d71b65 (inlet reader tabs), 95e5923a (reload notice),
+729f77c9 (hrz refused on the non-Newtonian S0 defect), 3e801eab (velocity audit guards), d27a74fb (comment); pe unchanged
+(libs/pe ce2a7f7). Post tool 1fbb28e4, movie job 2cfeb048, design note section 7.2.
+binary                                md5                               source
+q2p1_el_pipeflow.d27a74fb-pece2a7f7   aa9b50dadff1582c96b6497799a6441a  d27a74fb + pe ce2a7f7; build-fluid11 on nx-06 (job 164949)
+job     run                      binary     result
+164948  failing before, finding 7 (check 47 against the unchanged module)  -  STOP 47
+164950  unit tests, ctest el-* / pco-* 1-15  d27a74fb  15/15 passed (checks 47-51, 90-92 new)
+164951  gate/{D_s6,G_tier2,E2w5,VB40}__d27a74fb-pece2a7f7 vs __base; R_fix2_off400 vs R_smoke_r1; R_fix2_id400 vs R_id400_new
+        -  all common streams + XxX bitwise, particle logs 27/27, every EL_ line bitwise against 20867701-pece2a7f7 and
+        R_id400_new (gate/pc_compare_d27a74fb-pece2a7f7.txt)
+164952  failing before / after, findings 4-6 (fb_r2/: old binary 20867701-pece2a7f7 vs d27a74fb-pece2a7f7)  -  hrz non-Newtonian
+        S0 accepted / refused; audit B with explicit drag 1.81e-3 / NaN, feedback off B fs printed / NaN NaN; reload of a table
+        deck over a ramp silent / WARNING
+164957-164959  movie render job: happy path on R_id400_new; injected worker failure stops the encode (exit 5)
+164960  fl11_post --self-test 12/12, closure identity, post_r2.txt of R_r1_proto (F1 0.978732 FAIL, F3 1.0474 PASS, F2 3.49 %
+        PASS, F5 PASS), R_r1_oldsplit and R_proto_movie (F2 unavailable: 2 d window inside the 2.5 d support)
+
+Fix round 3 (external review r3, 2026-11-22): FeatFloWer commits 46d06ce6 (hrz refusal only with an active fluid solve,
+reload backstop MPI_Abort), 70306954 + a45e9303 (post tool), b9e8f410 (movie tool, render job); pe unchanged (libs/pe ce2a7f7).
+Design note section 7.3.
+binary                                md5                               source
+q2p1_el_pipeflow.b9e8f410-pece2a7f7   d8bd1fa8d9d0a9011aae5bf20527e79b  b9e8f410 + pe ce2a7f7; build-fluid11 on nx-06 (job 164964)
+job     run                      binary     result
+164965  unit tests, ctest el-* / pco-* 1-15  b9e8f410  15/15 passed (check 93 new)
+164966  gate/{D_s6,G_tier2,E2w5,VB40}__b9e8f410-pece2a7f7 vs __base; R_fix3_off400 vs R_smoke_r1; R_fix3_id400 vs R_id400_new
+        -  all common streams + XxX bitwise, particle logs 27/27, every EL_ line bitwise against d27a74fb-pece2a7f7 and
+        R_id400_new (gate/pc_compare_b9e8f410-pece2a7f7.txt)
+164967  finding 8 (fb_r3/: d27a74fb vs b9e8f410)  -  prescribed-field hrz deck refused / runs 3 steps; active non-Newtonian
+        S0 refused by both; reload to non-Newtonian: ERROR STOP (workers) / MPI_ABORT on every rank
+164968, 164972  fl11_post --self-test 30/30; old_vs_new.txt (every case through 1fbb28e4 and the new tool); post_r3.txt of
+        R_r1_proto, R_r1_oldsplit, R_proto_movie: every gate number identical to post_r2.txt; fl11_movie --stats on R_id400_new
+164969  render job happy path on R_id400_new (check log and temporary movie in the job directory)
+
+Fix round 4 (external review r4, 2026-11-22): post tool only, no Fortran change (binary b9e8f410-pece2a7f7 stands).
+FeatFloWer commits d70850f8 (fl11_post.py rebuilt from record reader, protocol holds, step clock, per-step evaluation,
+tri-state verdicts), 616696cc (fl11_movie.py on fl11_post.evaluate, versioned cache; render stdout per job); design
+note section 7.4.
+job     run                      binary     result
+164976  fl11_post --self-test 52/52; old_vs_new4.txt (r4 cases and two real-log variants through 9984944d and the new
+        tool); --self-test-real R_r1_proto: 300 variants, 0 failures (100 equivalence byte-identical, 200 degrading without
+        a flipped verdict, 170 with a verdict unavailable); post_r4.txt of R_r1_proto, R_r1_oldsplit, R_proto_movie
+        (run dirs) and R_r2_rest (unit/post_r4/R_r2_rest.post_r4.txt): gate numbers and verdicts of post_r3.txt;
+        fl11_movie --stats on R_id400_new: both round-3 caches rebuilt
+
+Fix round 5 (external review r5, 2026-11-22): post tool, movie tool, render job and submit script only, no Fortran
+change (binary b9e8f410-pece2a7f7 stands). FeatFloWer commits 788ffbaf (fl11_post.py: supported domain = a complete,
+uninterrupted run of an echoed inlet protocol, fail-closed precondition, intended holds from the echo alone, run
+physics with provenance, F3 rank check, F5 print-precision band), 14874b5b (fl11_movie.py state / trace end from the
+evaluation, stale rank frames refused; render end check on the solver clock; fl11_submit.sh refuses a dir with rank
+logs); design note section 7.4 (first paragraph and round-5 evidence).
+job     run                      binary     result
+164979  fl11_post --self-test 66/66; old_vs_new5.txt (r5 cases and six R_r1_proto variants through 49e99566 and the
+        new tool); --self-test-real R_r1_proto 300 variants 0 failures; post_r5.txt of R_r1_proto, R_r1_oldsplit,
+        R_proto_movie (run dirs) and R_r2_rest (unit/post_r5): gate numbers and verdicts of post_r4.txt; verdict lines of
+        every run dir with a post*.txt (incl. R_r1_rest) unchanged; movie rtest/: stale rank frames refused, start-up
+        log runs, render refuses frames beyond the solver end, renders the intact copy; submit refusal exit 6.
+        (--self-test-real R_id400_new failed 11/60 there: the dt-changed transform doubled dt and lengthened the
+        constant-inlet run into a 0.3 m/s hold of its own; transform changed to dt / 2)
+164981  the final fl11_post.py (md5 90abf58d): --self-test 66/66; --self-test-real R_r1_proto and R_id400_new 300
+        variants each, 0 failures; the five recorded reports byte-identical to those of job 164979
+164982  round 5b (fl11_post.py md5 88c5493e): F5 height unavailable when the lowest hold begins at the protocol start (preparation); self-test 67/67 (case 66 constant inlet: 788ffbaf FAIL witnessed, now unavailable); dt-changed transform back to 2 dt; --self-test-real R_r1_proto and R_id400_new 300 variants each 0 failures; verdict lines of all recorded run dirs unchanged
+
+Fix round 6 (external review r6, 2026-11-22): the post tool recognises a spec-11 run; no Fortran change (binary
+b9e8f410-pece2a7f7 stands). FeatFloWer commits 5a56f9ba (fl11_post.py Spec object and recognition, fl11_closures.py
+crossing bracketed from zero, make_inlet_table.py DEFAULTS / deck_rows shared with the tool), 3e44616b (movie check
+with finished and the raw last frame, render predicates, submit lock and job-side rank-log check); design note 7.4.
+job     run                      binary     result
+164988  self-test 73/73; old_vs_new6.txt (every case through f8fb7fd8 and the new tool); --self-test-real R_r1_proto,
+        R_r1_oldsplit 300 variants 0 failures, seeds 892 / 4097 pass, R_id400_new 12 failures (knot transform on a
+        one-row table, fixed); post_r6.txt of R_r1_proto, R_r1_oldsplit, R_proto_movie (run dirs), R_r2_rest, R_r3_rest
+        (unit/post_r6): gate numbers and verdicts of post_r5.txt; every run dir under runs/fluid11: constant-inlet
+        smokes no official verdict; R_r5_rest (running) one reason (no finish marker); make_inlet_table output
+        identical; render refuses unfinished / stride-hidden / stale, renders intact; submit exits 6 / 7, job exits 6
+164993  final fl11_post.py (md5 32c77d78): self-test 73/73; --self-test-real 300 variants on R_r1_proto, R_r1_oldsplit,
+        R_id400_new and seeds 892 / 4097, 0 failures; the five reports byte-identical; R_r5_rest (finished meanwhile)
+        F1 0.977740 FAIL, F2 3.50 % PASS, F3 1.0504 FAIL, F5 23.90 mm PASS / 9789 PASS (unit/post_r6/rerun_R_r5_rest.txt)
+164999  round 6b (fl11_post.py md5 77708bb7, EVAL_VERSION r6b): set-up checks qualify the verdict line, --steps removed;
+        self-test 80/80; --self-test-real R_r1_proto, R_r1_oldsplit, R_id400_new 300 variants each, 0 failures;
+        post_r6.txt regenerated (R_r1_proto, R_r1_oldsplit, R_proto_movie in their run dirs; R_r2_rest, R_r3_rest,
+        R_r5_rest under unit/post_r6; round-6 copies in _trash/post_r6_round6_copies): only the set-up block and the
+        verdict-line qualifier changed, every gate number and verdict as before. Contacts not echoed (pre-#59 binary):
+        R_r1_proto, R_r1_oldsplit, R_proto_movie; met: R_r2_rest, R_r3_rest, R_r5_rest. Overlap exceeded during the
+        preparation only on all six (largest 1.168 / 1.192 / 1.302 / 1.411 / 1.336 / 1.255 % of d)
+164872  R_r2_rest (protocol, friction 0.3, e 0.9, budget 24)  288aee16-pe45c9268 (pe restitution review round 2; development)  completed 6 h 16 min; F1 0.978097 FAIL, F2 3.48 % PASS, F3 1.0469 PASS, F5 PASS (unit/post_r6/R_r2_rest.post_r6.txt)
+164910  R_r3_rest (protocol, friction 0.3, e 0.9, v_rest 0.01, budget 48)  2f06b232-pee0a4c69 (round 3; development)  completed 6 h 27 min; F1 0.978418 FAIL, F2 3.40 % PASS, F3 1.0488 PASS, F5 PASS (unit/post_r6/R_r3_rest.post_r6.txt)
+164919  R_r4_rest  43e7360e-peb047e41 (round 4)  CANCELLED after 7 min: the binary doubled the normal increment in the friction limit of the pass (CANCELLED.txt in the run directory)
+164928  R_r5_rest (protocol, friction 0.3, e 0.9, v_rest 0.01, budget 48) = RECORD RUN of RUNBOOK section 13  3dc21409-pe4e4ad17 (Fortran 627caf47; pe 4e4ad17 = pull request #59 up to trace parser, tests, docs)  completed 6 h 27 min; F1 0.977740 FAIL, F2 3.50 % PASS, F3 1.0504 FAIL, F5 PASS / PASS; contacts met, overlap 1.255 % of d at 0.090 s (preparation only); post_r6.txt in the run directory
+164994  analysis_r5/fast_particles (particle speeds at ten times, R_r5_rest and R_r1_proto)  tool runs/fluid11/analysis_r5/fast_particles.py  1-12 (with restitution) and 1-22 (without) of 9789 particles above 1 mm/s in the fixed bed, largest 0.024 / 0.022 m/s
+
+Fix round 7 (external review r7, 2026-11-22): post tool, movie, render job, submit script; no Fortran change (binary
+b9e8f410-pece2a7f7 stands); design note 7.4 paragraph (incl. the known false refusals: deck repeat notation
+1*0.00025d0, Prop@Viscosity without DynVisc).
+job     run                      binary     result
+165006  fl11_post.py md5 d7865281: self-test 94/94 (90 fixture logs, 4 unit checks; old_vs_new7.txt: the 13 r7 cases
+        through 77914cfa and the new tool); --self-test-real R_r1_proto, R_r1_oldsplit, R_id400_new 300 variants each,
+        0 failures; post_r7.txt of R_r1_proto, R_r1_oldsplit, R_proto_movie (run dirs), R_r2_rest, R_r3_rest, R_r5_rest
+        (unit/post_r7): 0 changed lines against post_r6.txt; render replays (rtest/): intact rendered, a record at
+        0.125 s, a frame at 0.100025 s and a start-up echo after the finish refused; R_static --check labelled 'all
+        0.040'; a scheduler-rejected sbatch releases the submit lock (exit 8)
+165013  final fl11_movie.py (md5 b93ebe07, decimal seconds in the refusal text): the four render_ok checks as in 165006
+165369  build-el-5b775bcc (new tree, build id pinned): binary runs/pinbump_2026-11-23/bin/q2p1_el_pipeflow.5b775bcc-pe619d43c md5 1fec1d02  FF 5b775bcc = master 9776a1da merged + pe pin 619d43c (pe master, pull request #59)
+165373  pin-bump gate: D_s6, G_tier2, VB40, E2w5, R_off400, R_id400 (runs/pinbump_2026-11-23/gate/*__5b775bcc-pe619d43c) bitwise against the b9e8f410-pece2a7f7 runs, the __base runs, R_smoke_r1 and R_id400_new (pc_compare_5b775bcc-pe619d43c.txt)
+165374  unit tests of build-el-5b775bcc: 15 of 15 pass
+165368 / 165375 / 165376  DNS tree build-twin-5b775bcc, twins twin_m5b775bcc_e4l3 and _dkt: bitwise with the certified heads (logs/m2_compare_twins.txt)
+165440  build-el-df99f3b1 (new tree, build id pinned): binary runs/pinbump_2026-11-23/bin/q2p1_el_pipeflow.df99f3b1-pebe152e2 md5 2443e7f1  FF df99f3b1 = pin be152e2 (pe master with pull requests #59 + #60)
+165441  pin-bump gate be152e2: the six runs runs/pinbump_2026-11-23/gate/*__df99f3b1-pebe152e2 bitwise against the 5b775bcc-pe619d43c runs and the original references (pc_compare_df99f3b1-pebe152e2.txt)
+165442  unit tests of build-el-df99f3b1: 15 of 15 pass
+165439 / 165443 / 165444  DNS tree build-twin-df99f3b1, twins twin_mdf99f3b1_e4l3 and _dkt: bitwise with the certified heads (logs/m3_compare_twins.txt)
+166362  build-el-490cf7c6 (new tree in the worktree FeatFloWer-pin3c290b1, build id pinned): binary runs/pinbump_2026-11-23/bin/q2p1_el_pipeflow.490cf7c6-pe3c290b1 md5 a8862ad6  FF 490cf7c6 = pin 3c290b1 (pe master with pull request #61)
+166363  pin-bump gate 3c290b1: the six runs runs/pinbump_2026-11-23/gate/*__490cf7c6-pe3c290b1 bitwise against the df99f3b1-pebe152e2 runs (pc_compare_490cf7c6-pe3c290b1.txt)
+166364  unit tests of build-el-490cf7c6: 15 of 15 pass
+166361 / 166365 / 166366  DNS tree build-twin-490cf7c6, twins twin_m490cf7c6_e4l3 and _dkt: bitwise with the certified heads (logs/m4_compare_twins.txt)
+167301  build-el-08eeb540 (new tree in the worktree FeatFloWer-pin3c290b1, build id pinned): binary runs/pinbump_2026-11-23/bin/q2p1_el_pipeflow.08eeb540-peb6b2344 md5 c4214167  FF 08eeb540 = 9ad4a6fd + pin b6b2344 (pe master with pull request #62); on the branch the pin is 9c568e3d
+167302  pin-bump gate b6b2344: the six runs runs/pinbump_2026-11-23/gate/*__08eeb540-peb6b2344 bitwise against the 490cf7c6-pe3c290b1 runs (pc_compare_08eeb540-peb6b2344.txt)
+167303  unit tests of build-el-08eeb540: 15 of 15 pass
+167300 / 167325 / 167326  DNS tree build-twin-08eeb540, twins twin_m08eeb540_e4l3 and _dkt: bitwise with the certified heads (logs/m5_compare_twins.txt)
+167316 / 167323  fl11_post r9 (da3913ed / 36ec8372): self-test 115 / 117, --self-test-real 300 variants x 3 seeds on R_r5_rest and R_z80_rest 0 failures, reports of the seven runs byte-identical to post_r8 (runs/fluid11/unit/post_r9)

@@ -699,7 +699,7 @@ END SUBROUTINE get_global_domain_extents
    USE param_parser, ONLY: parse_yes_no_param
 #ifdef BUILD_Q2P1_EL_PIPEFLOW
    USE EL_CONFIG, ONLY: el_kernel, el_kernel_width_factor, el_eps_f_min, &
-                        el_eps_f_relax, el_drag_model, el_drag_coupling, &
+                        el_eps_f_relax, el_drag_model, el_drag_coupling, el_drag_implicit_weights, &
                         el_pressure_force, el_pressure_feedback, el_lift_model, el_magnus, &
                         el_inertial_lift, el_inertial_lift_umax, &
                         el_prescribed_field, el_initial_field, el_shear_rate, &
@@ -716,13 +716,16 @@ END SUBROUTINE get_global_domain_extents
                         el_write_diagnostics, el_momentum_audit_freq, el_particle_log_freq, &
                         el_tavg_window, &
                         el_inlet_u0, el_inlet_u1, el_inlet_tramp, &
+                        el_inlet_table_file, el_bed_audit_freq, el_velocity_audit_freq, &
                         EL_INLET_SUPERFICIAL, &
                         el_momentum_model, el_mm_pressure_operator, el_fluid_viscosity, &
                         el_periodic_kernel, el_periodic_wrap, &
+                        el_drag_hrz, EL_DRAG_HRZ_DEFECT_SUPPORTED, EL_FLUID_SOLVE_ACTIVE, &
                         EL_NOTE_KEY_SET, &
                         EL_VALIDATE_CONFIG, &
                         EL_PRINT_CONFIG
    USE EL_PERIODIC, ONLY: EL_SET_PERIODIC_LATTICE
+   USE EL_INLET_TABLE, ONLY: EL_INLET_TABLE_PATH
 #endif
    USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,iCommSwitch,&
      nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
@@ -740,7 +743,7 @@ END SUBROUTINE get_global_domain_extents
    CHARACTER cParam*8,cParam2*20
    CHARACTER cPeriodicAxis*8
    LOGICAL bOK,bOutNMAX
-   LOGICAL bPeriodicAxisSet
+   LOGICAL bPeriodicAxisSet, bNoOutflowSet
    LOGICAL el_lattice_ok
    REAL*8 dPeriodicLength
    INTEGER, ALLOCATABLE :: iPos(:)
@@ -777,6 +780,7 @@ END SUBROUTINE get_global_domain_extents
    bOutNMAX = .FALSE.
    cPeriodicAxis = " "
    bPeriodicAxisSet = .FALSE.
+   bNoOutflowSet = .FALSE.
    dPeriodicLength = 1.0d0
 
    DO
@@ -870,6 +874,7 @@ END SUBROUTINE get_global_domain_extents
          bRefFrame = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("NoOutflow")
          bNoOutflow = parse_yes_no_param(string, iEq, cName, cPar)
+         bNoOutflowSet = .TRUE.
        CASE ("Periodic")
          ! q2p1_el_pipeflow: enable a fully periodic box by setting the periodic
          ! match length to the unit-box edge (dPeriodicity defaults to 1d9 = off).
@@ -904,6 +909,8 @@ END SUBROUTINE get_global_domain_extents
          READ(string(iEq+1:),*) el_drag_model
        CASE ("ELDragCoupling")
          READ(string(iEq+1:),*) el_drag_coupling
+       CASE ("ELDragImplicitWeights")
+         READ(string(iEq+1:),*) el_drag_implicit_weights
        CASE ("ELPressureForce")
          el_pressure_force = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("ELPressureFeedback")
@@ -991,6 +998,13 @@ END SUBROUTINE get_global_domain_extents
          READ(string(iEq+1:),*) el_inlet_u1
        CASE ("ELInletRampTime")
          READ(string(iEq+1:),*) el_inlet_tramp
+       CASE ("ELInletVelocityTable")
+         ! a path: not list-directed (a '/' would end the read); quotes optional
+         el_inlet_table_file = EL_INLET_TABLE_PATH(string(iEq+1:))
+       CASE ("ELBedAuditFreq")
+         READ(string(iEq+1:),*) el_bed_audit_freq
+       CASE ("ELVelocityAuditFreq")
+         READ(string(iEq+1:),*) el_velocity_audit_freq
 #endif
        CASE ("MinTimeAdapt")
          READ(string(iEq+1:),*) DTMIN
@@ -1098,7 +1112,10 @@ END SUBROUTINE get_global_domain_extents
        WRITE(*,'(A,A)') 'Invalid PeriodicAxis: ', TRIM(ADJUSTL(cPeriodicAxis))
        STOP 1
      END SELECT
-     bNoOutflow = .TRUE.
+     ! A periodic box is closed unless the deck says otherwise: an explicit SimPar@NoOutflow
+     ! (Yes, or No for a periodic column with an outlet, case 11) is kept; without the key the
+     ! box is closed as before (bNoOutflow is not read on that path: it has no initial value).
+     IF (.NOT.bNoOutflowSet) bNoOutflow = .TRUE.
    END IF
 
    CALL EL_VALIDATE_CONFIG()
@@ -1130,6 +1147,25 @@ END SUBROUTINE get_global_domain_extents
    IF (EL_VA_CONSERVATIVE_FORM() .AND. iCommSwitch.NE.3 .AND. iCommSwitch.NE.4) THEN
      WRITE(*,'(A,I0)') 'ELVAContinuityForm = conservative needs communication scheme 3 or 4, got ', &
        iCommSwitch
+     STOP 1
+   END IF
+   ! the solver values of the velocity audit are summed across ranks with E013Sum2 as well
+   IF (el_velocity_audit_freq.GT.0 .AND. iCommSwitch.NE.3 .AND. iCommSwitch.NE.4) THEN
+     WRITE(*,'(A,I0)') 'ELVelocityAuditFreq > 0 needs communication scheme 3 or 4 (the parallel dof sum '// &
+       'E013Sum2 of the audit), got ', iCommSwitch
+     STOP 1
+   END IF
+   ! ELDragImplicitWeights = hrz needs the drag diagonal in the nonlinear momentum defect; the
+   ! hand-built defect of the non-Newtonian path with MatrixRenewal S = 0 has none (EL_CONFIG:
+   ! EL_DRAG_HRZ_DEFECT_SUPPORTED). Only a run that executes the momentum solve reaches it: a
+   ! prescribed field (EL_FLUID_SOLVE_ACTIVE false, the predicate of the transport) is accepted.
+   ! Deck-only, every rank alike.
+   IF (el_drag_hrz .AND. EL_FLUID_SOLVE_ACTIVE() .AND. &
+       .NOT.EL_DRAG_HRZ_DEFECT_SUPPORTED(bNonNewtonian, myMatrixRenewal%S)) THEN
+     WRITE(*,'(A)') 'ELDragImplicitWeights = hrz is not available with SimPar@FlowType = non-Newtonian '// &
+       'and SimPar@MatrixRenewal S = 0 when the fluid is solved: that momentum defect has no drag diagonal, '// &
+       'the explicit partner dt B u^n would stay in the residual. Use FlowType = Newtonian or '// &
+       'MatrixRenewal S >= 1.'
      STOP 1
    END IF
    ! the superficial inlet sums its nodal porosity with the same routine

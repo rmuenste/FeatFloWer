@@ -1,0 +1,304 @@
+!=========================================================================
+! test_el_inlet_table - inlet velocity table of boundary type Inflow975 (EL_INLET_TABLE,
+! EL_CONFIG:EL_INLET_VELOCITY; SimPar@ELInletVelocityTable). Case 11; docs/md_docs/
+! el_min_fluidization_prep_2026-11-19.md.
+!
+! Checks (exit code = the failing check):
+!   10-16  table reading: comments, blank lines, commas, quotes in the deck value
+!   20-27  interpolation: rows exact, midpoints, constant beyond both ends, one-row table
+!   30-35  refusals (ierr, no stop): missing file, malformed row, non-finite value, equal and
+!          decreasing times, empty file
+!   36-39  refusals of the strict row parser (review finding 7): "0.5 /" (a list-directed read
+!          would accept it with the velocity of the row before), a non-numeric token, an
+!          overflowing value, a row too long for the buffer; accepted: comma, exponent letters
+!          e/d, text after the two numbers
+!   40-42  EL_INLET_VELOCITY: ramp unchanged without a table (same expression), table with one
+!   43-44  number tokens: accepted and refused spellings
+!   45-46  EL_INLET_TABLE_LOAD_SHARED (rank 0 reads, broadcast): the rows on every rank; a
+!          refusal reaches every rank with its message
+!   47     horizontal whitespace (review r2 finding 7): a tab-only line and blanks + tabs are
+!          blank lines, a tab-indented '#' / '!' line is a comment, tab-indented and
+!          tab-separated rows are data
+!   48-51  inlet definition at a reload (review r2 finding 6; start-up-only contract): the
+!          definition a parameter file asks for (table, ramp, commented key, unreadable value,
+!          missing file), the difference to the run (same, changed path, table removed,
+!          table <-> ramp, ramp values changed / removed, both, unreadable), the notice of
+!          EL_INLET_RELOAD_NOTICE (written on a difference only, silent without tell or a
+!          validated configuration), the start-up notice of a ramp-only deck
+!=========================================================================
+PROGRAM TEST_EL_INLET_TABLE
+
+  USE MPI
+  USE EL_INLET_TABLE, ONLY: tElInletTable, EL_INLET_TABLE_READ, EL_INLET_TABLE_VALUE, &
+                            EL_INLET_TABLE_PATH, EL_INLET_TABLE_IS_NUMBER, &
+                            EL_INLET_TABLE_LOAD_SHARED
+  USE EL_CONFIG, ONLY: el_inlet_u0, el_inlet_u1, el_inlet_tramp, el_inlet_table, &
+                       el_inlet_table_file, EL_INLET_VELOCITY, EL_INLET_CONFIGURED, &
+                       tElInletDefinition, EL_INLET_DEFINITION_OF_FILE, &
+                       EL_INLET_DEFINITION_CHANGE, EL_INLET_RELOAD_NOTICE, &
+                       EL_PRINT_INLET_DEFINITION, el_config_validated
+
+  IMPLICIT NONE
+
+  TYPE(tElInletTable) :: tab
+  TYPE(tElInletDefinition) :: def, run_t, run_r
+  INTEGER :: un
+  INTEGER :: ierr, i, mpierr, rank, nfail, nfail_all
+  CHARACTER(LEN=320) :: msg
+  CHARACTER(LEN=1100) :: longrow
+  REAL*8 :: v
+
+  CALL MPI_Init(mpierr)
+  CALL MPI_Comm_rank(MPI_COMM_WORLD, rank, mpierr)
+  ! the file checks write the tables: rank 0 only, the others wait
+  IF (rank.NE.0) GOTO 100
+
+  ! ---- 10-16: reading --------------------------------------------------------------------
+  CALL WRITE_FILE('tab_ok.txt', [CHARACTER(LEN=40) :: '# t U (protocol)', '', &
+    '0.0  0.30', '0.5, 0.30   ! end of preparation', '  0.52 0.28', '', '1.0 0.28'])
+  CALL EL_INLET_TABLE_READ('tab_ok.txt', tab, ierr, msg)
+  IF (ierr.NE.0) THEN
+    WRITE(*,*) TRIM(msg)
+    STOP 10
+  END IF
+  IF (tab%n.NE.4) STOP 11
+  IF (ANY(tab%t.NE.(/0.0d0, 0.5d0, 0.52d0, 1.0d0/))) STOP 12
+  IF (ANY(tab%u.NE.(/0.30d0, 0.30d0, 0.28d0, 0.28d0/))) STOP 13
+  IF (TRIM(EL_INLET_TABLE_PATH(' "runs/x/inlet table.txt" ! c')).NE.'runs/x/inlet table.txt') STOP 14
+  IF (TRIM(EL_INLET_TABLE_PATH(" 'a/b.txt'")).NE.'a/b.txt') STOP 15
+  IF (TRIM(EL_INLET_TABLE_PATH('  _data/inlet.txt  ')).NE.'_data/inlet.txt') STOP 16
+
+  ! ---- 20-27: interpolation ----------------------------------------------------------------
+  IF (EL_INLET_TABLE_VALUE(tab, 0.5d0).NE.0.30d0) STOP 20
+  IF (EL_INLET_TABLE_VALUE(tab, 0.52d0).NE.0.28d0) STOP 21
+  IF (ABS(EL_INLET_TABLE_VALUE(tab, 0.51d0) - 0.29d0).GT.1.0d-15) STOP 22
+  IF (ABS(EL_INLET_TABLE_VALUE(tab, 0.505d0) - 0.295d0).GT.1.0d-15) STOP 23
+  IF (EL_INLET_TABLE_VALUE(tab, -1.0d0).NE.0.30d0) STOP 24
+  IF (EL_INLET_TABLE_VALUE(tab, 7.5d0).NE.0.28d0) STOP 25
+  IF (EL_INLET_TABLE_VALUE(tab, 0.25d0).NE.0.30d0) STOP 26
+  CALL WRITE_FILE('tab_one.txt', [CHARACTER(LEN=40) :: '0.1 0.2'])
+  CALL EL_INLET_TABLE_READ('tab_one.txt', tab, ierr, msg)
+  IF (ierr.NE.0 .OR. tab%n.NE.1) STOP 27
+  IF (EL_INLET_TABLE_VALUE(tab, 0.0d0).NE.0.2d0 .OR. EL_INLET_TABLE_VALUE(tab, 9.0d0).NE.0.2d0) STOP 27
+
+  ! ---- 30-35: refusals -----------------------------------------------------------------------
+  CALL EL_INLET_TABLE_READ('no_such_table.txt', tab, ierr, msg)
+  CALL EXPECT_REFUSAL(ierr, tab, msg, 30)
+  CALL WRITE_FILE('tab_bad.txt', [CHARACTER(LEN=40) :: '0.0 0.3', '0.5'])
+  CALL EL_INLET_TABLE_READ('tab_bad.txt', tab, ierr, msg)
+  CALL EXPECT_REFUSAL(ierr, tab, msg, 31)
+  CALL WRITE_FILE('tab_nan.txt', [CHARACTER(LEN=40) :: '0.0 0.3', '0.5 NaN'])
+  CALL EL_INLET_TABLE_READ('tab_nan.txt', tab, ierr, msg)
+  CALL EXPECT_REFUSAL(ierr, tab, msg, 32)
+  CALL WRITE_FILE('tab_eq.txt', [CHARACTER(LEN=40) :: '0.0 0.3', '0.5 0.3', '0.5 0.28'])
+  CALL EL_INLET_TABLE_READ('tab_eq.txt', tab, ierr, msg)
+  CALL EXPECT_REFUSAL(ierr, tab, msg, 33)
+  CALL WRITE_FILE('tab_dec.txt', [CHARACTER(LEN=40) :: '0.0 0.3', '0.5 0.3', '0.4 0.28'])
+  CALL EL_INLET_TABLE_READ('tab_dec.txt', tab, ierr, msg)
+  CALL EXPECT_REFUSAL(ierr, tab, msg, 34)
+  CALL WRITE_FILE('tab_empty.txt', [CHARACTER(LEN=40) :: '# only a comment', ''])
+  CALL EL_INLET_TABLE_READ('tab_empty.txt', tab, ierr, msg)
+  CALL EXPECT_REFUSAL(ierr, tab, msg, 35)
+
+  ! ---- 36-39: strict row parser --------------------------------------------------------------
+  CALL WRITE_FILE('tab_slash.txt', [CHARACTER(LEN=40) :: '0.0 0.3', '0.5 /'])
+  CALL EL_INLET_TABLE_READ('tab_slash.txt', tab, ierr, msg)
+  CALL EXPECT_REFUSAL(ierr, tab, msg, 36)
+  CALL WRITE_FILE('tab_word.txt', [CHARACTER(LEN=40) :: '0.0 0.3', '0.5 fast'])
+  CALL EL_INLET_TABLE_READ('tab_word.txt', tab, ierr, msg)
+  CALL EXPECT_REFUSAL(ierr, tab, msg, 37)
+  CALL WRITE_FILE('tab_huge.txt', [CHARACTER(LEN=40) :: '0.0 0.3', '0.5 1e999'])
+  CALL EL_INLET_TABLE_READ('tab_huge.txt', tab, ierr, msg)
+  CALL EXPECT_REFUSAL(ierr, tab, msg, 38)
+  longrow = '0.5 0.3'
+  longrow(1090:1093) = '! x'
+  CALL WRITE_FILE('tab_long.txt', [CHARACTER(LEN=1100) :: '0.0 0.3', longrow])
+  CALL EL_INLET_TABLE_READ('tab_long.txt', tab, ierr, msg)
+  CALL EXPECT_REFUSAL(ierr, tab, msg, 39)
+  CALL WRITE_FILE('tab_forms.txt', [CHARACTER(LEN=40) :: '0.1, 0.2 extra words', &
+    '1.5d0 2.E-1', '+2 .25 ! comment'])
+  CALL EL_INLET_TABLE_READ('tab_forms.txt', tab, ierr, msg)
+  IF (ierr.NE.0 .OR. tab%n.NE.3) THEN
+    WRITE(*,*) TRIM(msg)
+    STOP 39
+  END IF
+  IF (ANY(tab%t.NE.(/0.1d0, 1.5d0, 2.0d0/)) .OR. ANY(tab%u.NE.(/0.2d0, 0.2d0, 0.25d0/))) STOP 39
+
+  ! ---- 47: tabs before the blank / comment test ----------------------------------------------
+  CALL WRITE_FILE('tab_tabs.txt', [CHARACTER(LEN=40) :: CHAR(9)//'# tab-indented comment', &
+    CHAR(9), CHAR(9)//CHAR(9)//'! tab-indented comment', '0.0'//CHAR(9)//'0.3', &
+    CHAR(9)//'0.5 0.3', ' '//CHAR(9)//' ', '1.0,'//CHAR(9)//'0.28'])
+  CALL EL_INLET_TABLE_READ('tab_tabs.txt', tab, ierr, msg)
+  IF (ierr.NE.0 .OR. tab%n.NE.3) THEN
+    WRITE(*,'(A,I0,A,A)') 'check 47: ierr ', ierr, ' ', TRIM(msg)
+    STOP 47
+  END IF
+  IF (ANY(tab%t.NE.(/0.0d0, 0.5d0, 1.0d0/)) .OR. ANY(tab%u.NE.(/0.3d0, 0.3d0, 0.28d0/))) STOP 47
+
+  ! ---- 40-42: EL_INLET_VELOCITY -------------------------------------------------------------
+  el_inlet_u0 = 0.002d0
+  el_inlet_u1 = 0.02d0
+  el_inlet_tramp = 0.4d0
+  IF (.NOT.EL_INLET_CONFIGURED()) STOP 40
+  DO i = 0, 10
+    v = 0.05d0*DBLE(i)
+    IF (EL_INLET_VELOCITY(v).NE.el_inlet_u0 + (el_inlet_u1 - el_inlet_u0)* &
+        MIN(1.0d0, MAX(0.0d0, v)/el_inlet_tramp)) STOP 41
+  END DO
+  el_inlet_u0 = 0.0d0
+  el_inlet_u1 = 0.0d0
+  el_inlet_table_file = 'tab_ok.txt'
+  IF (.NOT.EL_INLET_CONFIGURED()) STOP 42
+  CALL EL_INLET_TABLE_READ(el_inlet_table_file, el_inlet_table, ierr, msg)
+  IF (ierr.NE.0) STOP 42
+  IF (ABS(EL_INLET_VELOCITY(0.51d0) - 0.29d0).GT.1.0d-15) STOP 42
+
+  ! ---- 43-44: number tokens ------------------------------------------------------------------
+  IF (.NOT.(EL_INLET_TABLE_IS_NUMBER('1.') .AND. EL_INLET_TABLE_IS_NUMBER('.5') .AND. &
+            EL_INLET_TABLE_IS_NUMBER('-1e+3') .AND. EL_INLET_TABLE_IS_NUMBER('7') .AND. &
+            EL_INLET_TABLE_IS_NUMBER('2.5D-4'))) STOP 43
+  IF (EL_INLET_TABLE_IS_NUMBER('.') .OR. EL_INLET_TABLE_IS_NUMBER('e5') .OR. &
+      EL_INLET_TABLE_IS_NUMBER('1e') .OR. EL_INLET_TABLE_IS_NUMBER('1/2') .OR. &
+      EL_INLET_TABLE_IS_NUMBER('NaN') .OR. EL_INLET_TABLE_IS_NUMBER('inf') .OR. &
+      EL_INLET_TABLE_IS_NUMBER('/') .OR. EL_INLET_TABLE_IS_NUMBER('1.2.3') .OR. &
+      EL_INLET_TABLE_IS_NUMBER('')) STOP 44
+
+  ! ---- 48: the inlet definition a parameter file asks for --------------------------------------
+  CALL WRITE_FILE('deck_table.dat', [CHARACTER(LEN=60) :: 'SimPar@TimeStep = 0.00025d0', &
+    '# SimPar@ELInletVelocityStart = 9.0', 'SimPar@ELInletVelocityTable = "_data/inlet_table.txt"'])
+  CALL EL_INLET_DEFINITION_OF_FILE('deck_table.dat', def, ierr)
+  IF (ierr.NE.0 .OR. .NOT.def%table .OR. def%ramp_keys .OR. &
+      TRIM(def%path).NE.'_data/inlet_table.txt') STOP 48
+  CALL WRITE_FILE('deck_ramp.dat', [CHARACTER(LEN=60) :: 'SimPar@ELInletVelocityStart = 0.002d0', &
+    'SimPar@ELInletVelocityEnd = 0.02d0', 'SimPar@ELInletRampTime = 0.4d0'])
+  CALL EL_INLET_DEFINITION_OF_FILE('deck_ramp.dat', def, ierr)
+  IF (ierr.NE.0 .OR. def%table .OR. .NOT.def%ramp_keys .OR. .NOT.def%readable .OR. &
+      def%u0.NE.0.002d0 .OR. def%u1.NE.0.02d0 .OR. def%tramp.NE.0.4d0) STOP 48
+  CALL WRITE_FILE('deck_bad.dat', [CHARACTER(LEN=60) :: 'SimPar@ELInletVelocityEnd = fast'])
+  CALL EL_INLET_DEFINITION_OF_FILE('deck_bad.dat', def, ierr)
+  IF (ierr.NE.0 .OR. def%readable) STOP 48
+  CALL EL_INLET_DEFINITION_OF_FILE('no_such_deck.dat', def, ierr)
+  IF (ierr.EQ.0) STOP 48
+
+  ! ---- 49: the difference to the definition of the run ------------------------------------------
+  run_t = tElInletDefinition(table=.TRUE., path='a.txt')
+  run_r = tElInletDefinition(ramp_keys=.TRUE., u0=0.002d0, u1=0.02d0, tramp=0.4d0)
+  IF (LEN_TRIM(EL_INLET_DEFINITION_CHANGE(run_t, tElInletDefinition(table=.TRUE., path='a.txt'))).NE.0) STOP 49
+  IF (INDEX(EL_INLET_DEFINITION_CHANGE(run_t, tElInletDefinition(table=.TRUE., path='b.txt')), &
+            'a.txt -> table b.txt').EQ.0) STOP 49
+  IF (INDEX(EL_INLET_DEFINITION_CHANGE(run_t, tElInletDefinition()), 'removed').EQ.0) STOP 49
+  IF (INDEX(EL_INLET_DEFINITION_CHANGE(run_t, run_r), '-> ramp keys').EQ.0) STOP 49
+  IF (LEN_TRIM(EL_INLET_DEFINITION_CHANGE(run_r, run_r)).NE.0) STOP 49
+  IF (INDEX(EL_INLET_DEFINITION_CHANGE(run_r, tElInletDefinition(ramp_keys=.TRUE., u0=0.002d0, &
+            u1=0.03d0, tramp=0.4d0)), 'ramp values changed').EQ.0) STOP 49
+  IF (INDEX(EL_INLET_DEFINITION_CHANGE(run_r, run_t), 'ramp -> table a.txt').EQ.0) STOP 49
+  IF (INDEX(EL_INLET_DEFINITION_CHANGE(run_r, tElInletDefinition()), 'ramp keys removed').EQ.0) STOP 49
+  IF (INDEX(EL_INLET_DEFINITION_CHANGE(run_r, tElInletDefinition(table=.TRUE., path='a.txt', &
+            ramp_keys=.TRUE.)), 'together').EQ.0) STOP 49
+  IF (INDEX(EL_INLET_DEFINITION_CHANGE(run_r, tElInletDefinition(ramp_keys=.TRUE., &
+            readable=.FALSE.)), 'unreadable').EQ.0) STOP 49
+  IF (LEN_TRIM(EL_INLET_DEFINITION_CHANGE(tElInletDefinition(), tElInletDefinition())).NE.0) STOP 49
+
+  ! ---- 50: the notice (the run of checks 40-42: table tab_ok.txt) -------------------------------
+  CALL WRITE_FILE('deck_other.dat', [CHARACTER(LEN=60) :: 'SimPar@ELInletVelocityTable = other.txt'])
+  CALL WRITE_FILE('deck_same.dat', [CHARACTER(LEN=60) :: 'SimPar@ELInletVelocityTable = "tab_ok.txt"'])
+  el_config_validated = .FALSE.
+  CALL NOTICE_TO_FILE('deck_other.dat', .TRUE.)
+  IF (.NOT.FILE_EMPTY('notice.txt')) STOP 50
+  el_config_validated = .TRUE.
+  CALL NOTICE_TO_FILE('deck_other.dat', .FALSE.)
+  IF (.NOT.FILE_EMPTY('notice.txt')) STOP 50
+  CALL NOTICE_TO_FILE('deck_same.dat', .TRUE.)
+  IF (.NOT.FILE_EMPTY('notice.txt')) STOP 50
+  CALL NOTICE_TO_FILE('deck_other.dat', .TRUE.)
+  IF (.NOT.FILE_HAS('notice.txt', 'WARNING: EL inlet definition of the reload file deck_other.dat '// &
+      'ignored: table tab_ok.txt -> table other.txt')) STOP 50
+  IF (.NOT.FILE_HAS('notice.txt', 'the run keeps the table tab_ok.txt')) STOP 50
+
+  ! ---- 51: start-up notice of a ramp-only deck ---------------------------------------------------
+  el_inlet_table_file = ' '
+  el_inlet_table%n = 0
+  el_inlet_u1 = 0.02d0
+  OPEN(NEWUNIT=un, FILE='startup.txt', STATUS='REPLACE', ACTION='WRITE')
+  CALL EL_PRINT_INLET_DEFINITION(un)
+  CLOSE(un)
+  IF (.NOT.FILE_HAS('startup.txt', 'EL inlet velocity ramp: start-up setting')) STOP 51
+  el_inlet_u1 = 0.0d0
+  OPEN(NEWUNIT=un, FILE='startup.txt', STATUS='REPLACE', ACTION='WRITE')
+  CALL EL_PRINT_INLET_DEFINITION(un)
+  CLOSE(un)
+  IF (.NOT.FILE_EMPTY('startup.txt')) STOP 51
+
+100 CONTINUE
+  CALL MPI_Barrier(MPI_COMM_WORLD, mpierr)
+  ! ---- 45-46: shared load (every rank) -------------------------------------------------------
+  nfail = 0
+  CALL EL_INLET_TABLE_LOAD_SHARED('tab_ok.txt', tab, ierr, msg, MPI_COMM_WORLD)
+  IF (ierr.NE.0 .OR. tab%n.NE.4) nfail = 45
+  IF (nfail.EQ.0) THEN
+    IF (ANY(tab%t.NE.(/0.0d0, 0.5d0, 0.52d0, 1.0d0/)) .OR. &
+        ANY(tab%u.NE.(/0.30d0, 0.30d0, 0.28d0, 0.28d0/))) nfail = 45
+  END IF
+  CALL EL_INLET_TABLE_LOAD_SHARED('tab_slash.txt', tab, ierr, msg, MPI_COMM_WORLD)
+  IF (ierr.EQ.0 .OR. tab%n.NE.0 .OR. INDEX(msg, 'tab_slash.txt').EQ.0) nfail = 46
+  CALL MPI_Allreduce(nfail, nfail_all, 1, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, mpierr)
+  CALL MPI_Finalize(mpierr)
+  IF (nfail_all.NE.0) STOP 45
+
+  IF (rank.EQ.0) WRITE(*,'(A)') 'test_el_inlet_table: all checks passed'
+
+CONTAINS
+
+  SUBROUTINE WRITE_FILE(name, lines)
+    CHARACTER(LEN=*), INTENT(IN) :: name
+    CHARACTER(LEN=*), INTENT(IN) :: lines(:)
+    INTEGER :: u, k
+    OPEN(NEWUNIT=u, FILE=name, STATUS='REPLACE', ACTION='WRITE')
+    DO k = 1, SIZE(lines)
+      WRITE(u, '(A)') TRIM(lines(k))
+    END DO
+    CLOSE(u)
+  END SUBROUTINE WRITE_FILE
+
+  SUBROUTINE NOTICE_TO_FILE(deck, tell)
+    CHARACTER(LEN=*), INTENT(IN) :: deck
+    LOGICAL, INTENT(IN) :: tell
+    INTEGER :: u
+    OPEN(NEWUNIT=u, FILE='notice.txt', STATUS='REPLACE', ACTION='WRITE')
+    CALL EL_INLET_RELOAD_NOTICE(deck, u, u, tell)
+    CLOSE(u)
+  END SUBROUTINE NOTICE_TO_FILE
+
+  LOGICAL FUNCTION FILE_HAS(name, text)
+    CHARACTER(LEN=*), INTENT(IN) :: name, text
+    CHARACTER(LEN=500) :: line
+    INTEGER :: u, ios
+    FILE_HAS = .FALSE.
+    OPEN(NEWUNIT=u, FILE=name, STATUS='OLD', ACTION='READ')
+    DO
+      READ(u, '(A)', IOSTAT=ios) line
+      IF (ios.NE.0) EXIT
+      IF (INDEX(line, text).GT.0) FILE_HAS = .TRUE.
+    END DO
+    CLOSE(u)
+  END FUNCTION FILE_HAS
+
+  LOGICAL FUNCTION FILE_EMPTY(name)
+    CHARACTER(LEN=*), INTENT(IN) :: name
+    CHARACTER(LEN=500) :: line
+    INTEGER :: u, ios
+    OPEN(NEWUNIT=u, FILE=name, STATUS='OLD', ACTION='READ')
+    READ(u, '(A)', IOSTAT=ios) line
+    FILE_EMPTY = (ios.NE.0)
+    CLOSE(u)
+  END FUNCTION FILE_EMPTY
+
+  SUBROUTINE EXPECT_REFUSAL(ierr_in, table, message, code)
+    INTEGER, INTENT(IN) :: ierr_in, code
+    TYPE(tElInletTable), INTENT(IN) :: table
+    CHARACTER(LEN=*), INTENT(IN) :: message
+    WRITE(*,'(A,I0,A,A)') 'refusal ', code, ': ', TRIM(message)
+    IF (ierr_in.EQ.0 .OR. table%n.NE.0 .OR. LEN_TRIM(message).EQ.0) STOP code
+  END SUBROUTINE EXPECT_REFUSAL
+
+END PROGRAM TEST_EL_INLET_TABLE

@@ -1,0 +1,63 @@
+#!/bin/bash
+#SBATCH --job-name=fl11_movie
+#SBATCH --partition=short
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=12G
+#SBATCH --time=01:30:00
+#SBATCH --prefer=nx
+#SBATCH --exclude=worldgames,82ndalltheway,christmastruce,gottmituns,redbaron,soldierofheaven,steelcommanders,stormtroopers,wolfpack
+#SBATCH --output=/data/warehouse17/rmuenste/runs/fluid11/movie/render-%j.log
+# Particle movie of a case 11 run: check, render (4 workers), encode. Pattern of runs/batch10/movie/render_PL15_s1.sbatch.
+# usage: sbatch render_R_proto_movie.sbatch [RUN [T_END [STRIDE]]]
+#   RUN     run directory name under runs/fluid11 (default R_proto_movie)
+#   T_END   the time the movie must reach (default: the protocol end of the evaluation). The end check is the
+#           'check: render_ok' line of the SAME --check invocation, evaluated exactly by the tool: one finished
+#           invocation (fl11_post), solver end t0 + K dt and the last selected frame at or after T_END, no
+#           complete particle record beyond the solver end. A run in progress is refused.
+#   STRIDE  every STRIDE-th log frame (default 1 = one image per logged frame, no interpolation)
+# stdout goes to movie/render-<job id>.log (one file per job; pass --output=... to name it otherwise)
+# Every render writes into a fresh frame directory frames_<RUN>.<job id> (never into the frames of an
+# earlier render), waits for each worker and stops on the first failed one, and encodes only after
+# all n frames of this render exist (frame_00000 .. frame_<n-1>). The check log and the temporary mp4
+# live in the job-specific frame directory (the same filesystem as the movie, so the final mv is a
+# rename): concurrent renders of one run share no file but the final movie, which is replaced only by
+# a successful render; the status of that rename is the status of the job.
+RUN=${1:-R_proto_movie}; TEND=${2:-}; STRIDE=${3:-1}
+F=${FL11_RUNS:-/data/warehouse17/rmuenste/runs/fluid11}   # FL11_RUNS: another runs root (tests of this job)
+FR=$F/movie/frames_$RUN.${SLURM_JOB_ID:-$$}
+MP4=$F/movie/fluid11_${RUN}_particles.mp4
+TOOL="python3 /data/warehouse17/rmuenste/code/FF-EL/FeatFloWer-fluid11/applications/q2p1_el_pipeflow/validation_cases/s11_min_fluidization/tools/fl11_movie.py $F/$RUN $FR --stride $STRIDE"
+FFMPEG=/data/warehouse17/rmuenste/code/FF-EL/FeatFloWer/blender_viz/fac3d_movie/tools_bin/ffmpeg-static
+hostname; export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+[ -e $FR ] && { echo "frame directory $FR exists: not rendered"; exit 4; }
+mkdir -p $FR; echo "frames into $FR"
+# the check reads the logs once and writes the cache that the workers reuse
+CHECK=$FR/check.log
+$TOOL --check ${TEND:+--tend $TEND} > $CHECK || exit 1
+cat $CHECK
+n=$(awk '/^check: frames/{print $3}' $CHECK)
+# the predicate is evaluated by the tool, exactly (fl11_movie.py: finished as one invocation, solver end and last
+# selected frame at or after T_END, no complete particle record beyond the solver end)
+grep -q '^check: render_ok 1$' $CHECK || { echo "not rendered: $(grep '^check: render_ok' $CHECK)"; exit 3; }
+W=4; q=$(( (n + W - 1) / W )); pids=()
+for w in $(seq 0 $((W - 1))); do
+  $TOOL --frames $((w * q)) $(( (w + 1) * q - 1 )) > $FR/worker_$w.log 2>&1 &
+  pids+=($!)
+done
+fail=0
+for w in "${!pids[@]}"; do
+  if wait "${pids[$w]}"; then echo "worker $w ok"; else rc=$?; echo "worker $w (pid ${pids[$w]}) FAILED, exit $rc:"; tail -5 $FR/worker_$w.log; fail=1; fi
+done
+[ $fail = 0 ] || { echo "a worker failed: not encoded"; exit 5; }
+m=$(/bin/ls $FR | grep -c '^frame_.*\.png$'); echo "png frames $m (expected $n)"
+for ((i = 0; i < n; i++)); do [ -s $(printf "$FR/frame_%05d.png" $i) ] || { echo "frame $i missing or empty: not encoded"; exit 2; }; done
+[ "$m" = "$n" ] || { echo "$m frames in $FR, expected $n: not encoded"; exit 2; }
+TMP=$FR/movie.part.mp4
+$FFMPEG -y -loglevel error -framerate 30 -i $FR/frame_%05d.png -vf "tpad=stop_mode=clone:stop_duration=2" -c:v libx264 -crf 18 -profile:v high -pix_fmt yuv420p -movflags +faststart $TMP
+status=$?; echo "ffmpeg exit=$status"
+[ $status = 0 ] || exit $status
+mv -f $TMP $MP4; status=$?
+[ $status = 0 ] && echo "movie $MP4 (frames $FR)" || echo "rename of $TMP to $MP4 FAILED, exit $status"
+exit $status

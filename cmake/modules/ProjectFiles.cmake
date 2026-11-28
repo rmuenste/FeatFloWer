@@ -105,6 +105,7 @@ set(src_util
   ${CMAKE_SOURCE_DIR}/source/src_util/pressure_coarse_key.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/pressure_param_agreement.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/types.f90
+  ${CMAKE_SOURCE_DIR}/source/src_el/el_inlet_table.f90
   ${CMAKE_SOURCE_DIR}/source/src_el/el_config.f90
   ${CMAKE_SOURCE_DIR}/source/src_el/el_fields.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/prov_dump_config.f90
@@ -306,6 +307,8 @@ ${CMAKE_SOURCE_DIR}/source/src_el/el_periodic.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_halo.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_quadrature.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_diagnostics.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_bed_audit.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_velocity_audit.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_momentum_model.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_va_flux.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_viscous.f90
@@ -348,6 +351,8 @@ ${CMAKE_SOURCE_DIR}/source/src_el/el_periodic.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_halo.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_quadrature.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_diagnostics.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_bed_audit.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_velocity_audit.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_momentum_model.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_va_flux.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_viscous.f90
@@ -413,6 +418,33 @@ if(BUILD_TESTING)
   target_include_directories(test_el_kernel_forces PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
   target_compile_options(test_el_kernel_forces PRIVATE ${Fortran_FLAGS})
   add_test(NAME el-kernel-forces-restart COMMAND test_el_kernel_forces)
+
+  # Porosity drag closures of the drag table (gidaspow, wenyu, ergun; case 11): values against
+  # hand-computed numbers, zero-slip limit, the switch at eps 0.8, fixed-bed identity, U_mf.
+  add_executable(test_el_drag_closures
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_el_drag_closures.f90)
+  target_link_libraries(test_el_drag_closures ff_quadLS_app)
+  target_include_directories(test_el_drag_closures PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_el_drag_closures PRIVATE ${Fortran_FLAGS})
+  add_test(NAME el-drag-closures-serial COMMAND test_el_drag_closures)
+
+  # Inlet velocity table of boundary type Inflow975 (SimPar@ELInletVelocityTable): reading,
+  # refusals, piecewise-linear interpolation, the ramp path unchanged without a table.
+  add_executable(test_el_inlet_table
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_el_inlet_table.f90)
+  target_link_libraries(test_el_inlet_table ff_quadLS_app)
+  target_include_directories(test_el_inlet_table PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_el_inlet_table PRIVATE ${Fortran_FLAGS})
+  add_test(NAME el-inlet-table-serial COMMAND test_el_inlet_table)
+
+  # Helpers of the bed audit line (SimPar@ELBedAuditFreq): sphere-slab volume, histogram
+  # quantile, plane mean of the P1 pressure on the synthetic unit-cube mesh.
+  add_executable(test_el_bed_audit
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_el_bed_audit.f90)
+  target_link_libraries(test_el_bed_audit ff_quadLS_app el_test_helpers)
+  target_include_directories(test_el_bed_audit PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_el_bed_audit PRIVATE ${Fortran_FLAGS})
+  add_test(NAME el-bed-audit-serial COMMAND test_el_bed_audit)
 
   # Particle-mesh transfer conservation/interpolation suite. Runs the
   # assertable transfer math against a synthetic structured Q2/P1 mesh on

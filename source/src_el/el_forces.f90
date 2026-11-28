@@ -1,6 +1,10 @@
 MODULE EL_FORCES
 
+  USE MPI, ONLY: MPI_COMM_WORLD
   USE EL_CONFIG, ONLY: el_fluid_visc_dynamic, el_drag_model, el_eps_f_min, el_pressure_force, &
+                       el_drag_closure_id, EL_DRAG_DIFELICE, EL_DRAG_DIFELICE_STD, &
+                       EL_DRAG_STOKES, EL_DRAG_SCHILLER_NAUMANN, EL_DRAG_GIDASPOW, &
+                       EL_DRAG_WENYU, EL_DRAG_ERGUN, &
                        el_pressure_feedback, &
                        el_lift_model, el_inertial_lift, &
                        el_inertial_lift_umax, el_prescribed_umax, &
@@ -139,8 +143,9 @@ CONTAINS
     REAL*8, INTENT(IN) :: density, viscosity, epsilon_f
     REAL*8, INTENT(OUT) :: force(3), drag_B
 
-    REAL*8 :: diameter, slip(3), slip_norm, reynolds, reynolds_raw, correction
-    REAL*8 :: dynamic_viscosity, eps, cd, area, chi
+    REAL*8 :: diameter, slip(3), slip_norm, reynolds, reynolds_raw
+    REAL*8 :: dynamic_viscosity, eps
+    INTEGER :: closure, ierr
 
     force = 0.0d0
     drag_B = 0.0d0
@@ -154,53 +159,165 @@ CONTAINS
     reynolds_raw = density*diameter*slip_norm/dynamic_viscosity
     reynolds = MAX(1.0d-12,reynolds_raw)
 
-    SELECT CASE (TRIM(el_drag_model))
-    CASE ('difelice', 'difelice_std')
-      ! ----------------------------------------------------------------------
-      ! Di Felice drag is treated as one consistent closure package:
-      ! interstitial slip from the EL sampler, Re_p = rho_f eps_f d |u_rel|/mu,
-      ! Dallavalle-type Cd = (0.63 + 4.8/sqrt(Re_p))**2, and voidage factor
-      ! eps_f**(-chi). The older note that suggested dropping to 1-chi applies
-      ! to the Zhou set-A / Schiller-Naumann convention, not to the original
-      ! Di Felice form used here. Richardson-Zaki validation remains the
-      ! empirical arbiter for dense suspensions.
-      !
-      ! Since Cd(Re->0) = 23.04/Re, this closure's dilute low-Re drag is
-      ! 2.88*pi*mu*d rather than the Stokes 3*pi*mu*d, about 4% lower. The
-      ! zero-slip drag_B fallback is therefore the slip->0 limit
-      ! 2.88*pi*mu*d*eps_f**(-chi-1).
-      ! ----------------------------------------------------------------------
-      reynolds_raw = density*eps*diameter*slip_norm/dynamic_viscosity
-      reynolds = MAX(1.0d-12,reynolds_raw)
-      cd = (0.63d0 + 4.8d0/SQRT(reynolds))**2
-      chi = 3.7d0 - 0.65d0*EXP(-0.5d0*(1.5d0-LOG10(reynolds))**2)
-      area = ACOS(-1.0d0)*diameter*diameter/4.0d0
-      IF (reynolds_raw.GT.1.0d-12) THEN
-        drag_B = 0.5d0*density*cd*area*slip_norm*eps**(-chi)
-        ! 'difelice_std': the Kafui (2002) / Zhu et al. (2007) / CFDEM form
-        ! carries eps^2 on the squared slip, i.e. eps^(2-chi) overall;
-        ! 'difelice' (campaign form) is eps^(-chi). The two differ by eps^2.
-        IF (TRIM(el_drag_model).EQ.'difelice_std') drag_B = drag_B*eps*eps
-      ELSE
-        drag_B = 2.88d0*ACOS(-1.0d0)*dynamic_viscosity*diameter* &
-                 eps**(-chi-1.0d0)
-        IF (TRIM(el_drag_model).EQ.'difelice_std') drag_B = drag_B*eps*eps
-      END IF
+    ! Closure table: EL_CONFIG el_drag_names. Every closure returns the per-particle
+    ! coefficient drag_B of the model-A form (F_d = drag_B (u_f - v), see the header of
+    ! EL_DRAG_B_GIDASPOW); model B divides it by eps afterwards (EL_COMPUTE_PARTICLE_FORCES).
+    ! The id is resolved once from the deck name (EL_CONFIG:EL_RESOLVE_DRAG_CLOSURE); every
+    ! registered closure has its CASE, an id without one stops the run (a closure added to
+    ! the table but not here can never fall back to another law).
+    closure = el_drag_closure_id
+    SELECT CASE (closure)
+    CASE (EL_DRAG_DIFELICE, EL_DRAG_DIFELICE_STD)
+      drag_B = EL_DRAG_B_DIFELICE(density, dynamic_viscosity, diameter, slip_norm, eps, &
+                                  closure.EQ.EL_DRAG_DIFELICE_STD)
+    CASE (EL_DRAG_GIDASPOW)
+      drag_B = EL_DRAG_B_GIDASPOW(density, dynamic_viscosity, diameter, slip_norm, eps)
+    CASE (EL_DRAG_WENYU)
+      drag_B = EL_DRAG_B_WENYU(density, dynamic_viscosity, diameter, slip_norm, eps)
+    CASE (EL_DRAG_ERGUN)
+      drag_B = EL_DRAG_B_ERGUN(density, dynamic_viscosity, diameter, slip_norm, eps)
+    CASE (EL_DRAG_STOKES, EL_DRAG_SCHILLER_NAUMANN)
+      drag_B = EL_DRAG_B_SINGLE_SPHERE(dynamic_viscosity, diameter, reynolds, &
+                                       closure.EQ.EL_DRAG_SCHILLER_NAUMANN)
     CASE DEFAULT
-      correction = 1.0d0
-      IF (TRIM(el_drag_model).EQ.'schiller_naumann') THEN
-        IF (reynolds.LT.1000.0d0) THEN
-          correction = 1.0d0 + 0.15d0*reynolds**0.687d0
-        ELSE
-          correction = 0.44d0*reynolds/24.0d0
-        END IF
-      END IF
-      drag_B = 3.0d0*ACOS(-1.0d0)*dynamic_viscosity*diameter*correction
+      WRITE(*,'(A,I0,A,A,A)') 'Fatal: EL_DRAG_CLOSURE: closure id ', closure, ' (ELDragModel = ', &
+        TRIM(el_drag_model), ') has no dispatch case (unresolved or not implemented).'
+      CALL MPI_Abort(MPI_COMM_WORLD, 915, ierr)
     END SELECT
 
     force = drag_B*slip
 
   END SUBROUTINE EL_DRAG_CLOSURE
+
+  ! ----------------------------------------------------------------------
+  ! Di Felice drag is treated as one consistent closure package:
+  ! interstitial slip from the EL sampler, Re_p = rho_f eps_f d |u_rel|/mu,
+  ! Dallavalle-type Cd = (0.63 + 4.8/sqrt(Re_p))**2, and voidage factor
+  ! eps_f**(-chi). The older note that suggested dropping to 1-chi applies
+  ! to the Zhou set-A / Schiller-Naumann convention, not to the original
+  ! Di Felice form used here. Richardson-Zaki validation remains the
+  ! empirical arbiter for dense suspensions.
+  !
+  ! Since Cd(Re->0) = 23.04/Re, this closure's dilute low-Re drag is
+  ! 2.88*pi*mu*d rather than the Stokes 3*pi*mu*d, about 4% lower. The
+  ! zero-slip drag_B fallback is therefore the slip->0 limit
+  ! 2.88*pi*mu*d*eps_f**(-chi-1).
+  ! (Arithmetic moved verbatim from the former SELECT CASE of EL_DRAG_CLOSURE.)
+  ! ----------------------------------------------------------------------
+  PURE REAL*8 FUNCTION EL_DRAG_B_DIFELICE(density, dynamic_viscosity, diameter, slip_norm, &
+                                          eps, standard) RESULT(drag_B)
+    REAL*8, INTENT(IN) :: density, dynamic_viscosity, diameter, slip_norm, eps
+    LOGICAL, INTENT(IN) :: standard
+    REAL*8 :: reynolds_raw, reynolds, cd, chi, area
+
+    reynolds_raw = density*eps*diameter*slip_norm/dynamic_viscosity
+    reynolds = MAX(1.0d-12,reynolds_raw)
+    cd = (0.63d0 + 4.8d0/SQRT(reynolds))**2
+    chi = 3.7d0 - 0.65d0*EXP(-0.5d0*(1.5d0-LOG10(reynolds))**2)
+    area = ACOS(-1.0d0)*diameter*diameter/4.0d0
+    IF (reynolds_raw.GT.1.0d-12) THEN
+      drag_B = 0.5d0*density*cd*area*slip_norm*eps**(-chi)
+      ! 'difelice_std': the Kafui (2002) / Zhu et al. (2007) / CFDEM form
+      ! carries eps^2 on the squared slip, i.e. eps^(2-chi) overall;
+      ! 'difelice' (campaign form) is eps^(-chi). The two differ by eps^2.
+      IF (standard) drag_B = drag_B*eps*eps
+    ELSE
+      drag_B = 2.88d0*ACOS(-1.0d0)*dynamic_viscosity*diameter* &
+               eps**(-chi-1.0d0)
+      IF (standard) drag_B = drag_B*eps*eps
+    END IF
+  END FUNCTION EL_DRAG_B_DIFELICE
+
+  ! Single sphere without porosity: Stokes, or Schiller-Naumann with the single-particle
+  ! Reynolds number (arithmetic moved verbatim from the former CASE DEFAULT).
+  PURE REAL*8 FUNCTION EL_DRAG_B_SINGLE_SPHERE(dynamic_viscosity, diameter, reynolds, &
+                                               schiller_naumann) RESULT(drag_B)
+    REAL*8, INTENT(IN) :: dynamic_viscosity, diameter, reynolds
+    LOGICAL, INTENT(IN) :: schiller_naumann
+    REAL*8 :: correction
+
+    correction = 1.0d0
+    IF (schiller_naumann) THEN
+      IF (reynolds.LT.1000.0d0) THEN
+        correction = 1.0d0 + 0.15d0*reynolds**0.687d0
+      ELSE
+        correction = 0.44d0*reynolds/24.0d0
+      END IF
+    END IF
+    drag_B = 3.0d0*ACOS(-1.0d0)*dynamic_viscosity*diameter*correction
+  END FUNCTION EL_DRAG_B_SINGLE_SPHERE
+
+  ! ----------------------------------------------------------------------
+  ! Gidaspow (1994) drag: Ergun for eps <= 0.8, Wen-Yu above.
+  !
+  ! Convention. beta is the interphase momentum-exchange coefficient per unit mixture volume
+  ! of the two-fluid model A (Gidaspow): the particle phase receives beta (u - v) per unit
+  ! volume besides its share -(1 - eps) grad p of the pressure gradient, u - v the
+  ! INTERSTITIAL slip. With n = (1 - eps)/V_p particles per unit volume the per-particle
+  ! coefficient is
+  !     drag_B = V_p beta / (1 - eps),     F_d = drag_B (u_f - v),
+  ! the model-A form of every closure in this module (difelice_std is the same form). The
+  ! momentum models consume it as follows (EL_CONFIG model table, EL_MM_DRAG_SCALE):
+  !     A, Bfull : F_d as above; the particle also receives -V_p grad p (pressure force)
+  !     B        : F_d / eps, no pressure force (the whole interaction is in the drag)
+  !     none     : F_d as above, pressure force per the campaign keys
+  ! In a fixed bed at superficial velocity U the model-A drag per unit volume is
+  ! n F_d = beta U/eps and the pressure gradient carries the rest: n (F_d + V_p |grad p|) =
+  ! n F_d / eps = beta U/eps^2 = the Ergun gradient (unit test test_el_drag_closures).
+  !
+  ! Verified against the sources (2026-11-19, liggghts-dem tree, read-only):
+  !   CFDEM GidaspowDrag.C: betaP = beta/phiP (per particle volume), dragCoefficient = Vs betaP,
+  !     divided by voidfraction only for modelType "B"; dense branch for voidfraction <=
+  !     switchingVoidfraction (0.8), dilute (Wen-Yu, Schiller-Naumann C_d without a Re cap)
+  !     above.
+  !   MFiX drag_gs.f DRAG_GIDASPOW: lDgA = beta/(1-eps), Ergun for EPg <= 0.8, Wen-Yu with
+  !     C_d = 0.44 above Re 1000; des/drag_gp_des.f: F_gp = DgA PVOL (model A), / EP_g (model B).
+  !     MFiX returns zero drag at exactly zero slip (RE == 0); here the slip -> 0 limit is used.
+  ! Both codes therefore use exactly this per-particle form for model A and the 1/eps form for
+  ! model B. The switch: Ergun at eps = 0.8 itself, as in both codes. The two branches do not
+  ! join at 0.8 (Ergun/Wen-Yu = 1.153 at Re 0, 1.143 at slip 0.5 m/s for the case-11 particles).
+  ! ----------------------------------------------------------------------
+  PURE REAL*8 FUNCTION EL_DRAG_B_GIDASPOW(density, dynamic_viscosity, diameter, slip_norm, &
+                                          eps) RESULT(drag_B)
+    REAL*8, INTENT(IN) :: density, dynamic_viscosity, diameter, slip_norm, eps
+    REAL*8, PARAMETER :: EPS_SWITCH = 0.8d0
+    IF (eps.LE.EPS_SWITCH) THEN
+      drag_B = EL_DRAG_B_ERGUN(density, dynamic_viscosity, diameter, slip_norm, eps)
+    ELSE
+      drag_B = EL_DRAG_B_WENYU(density, dynamic_viscosity, diameter, slip_norm, eps)
+    END IF
+  END FUNCTION EL_DRAG_B_GIDASPOW
+
+  ! Ergun: beta = 150 (1-eps)^2 mu / (eps d^2) + 1.75 (1-eps) rho |u-v| / d, so
+  ! drag_B = V_p [150 (1-eps) mu / (eps d^2) + 1.75 rho |u-v| / d]. Finite at zero slip.
+  PURE REAL*8 FUNCTION EL_DRAG_B_ERGUN(density, dynamic_viscosity, diameter, slip_norm, &
+                                       eps) RESULT(drag_B)
+    REAL*8, INTENT(IN) :: density, dynamic_viscosity, diameter, slip_norm, eps
+    REAL*8 :: volume
+    volume = ACOS(-1.0d0)*diameter**3/6.0d0
+    drag_B = volume*(150.0d0*(1.0d0-eps)*dynamic_viscosity/(eps*diameter*diameter) + &
+                     1.75d0*density*slip_norm/diameter)
+  END FUNCTION EL_DRAG_B_ERGUN
+
+  ! Wen-Yu: beta = 3/4 C_d eps (1-eps) rho |u-v| / d eps^-2.65, C_d = 24/Re (1 + 0.15 Re^0.687)
+  ! for Re < 1000 and 0.44 above, Re = rho eps |u-v| d / mu; so
+  ! drag_B = V_p 3/4 (C_d |u-v|) rho eps eps^-2.65 / d. C_d |u-v| is formed without the
+  ! division by Re (24 mu/(rho eps d) (1 + 0.15 Re^0.687)), as in CFDEM: the zero-slip limit
+  ! 3 pi mu d eps^-2.65 is reached continuously, no special branch.
+  PURE REAL*8 FUNCTION EL_DRAG_B_WENYU(density, dynamic_viscosity, diameter, slip_norm, &
+                                       eps) RESULT(drag_B)
+    REAL*8, INTENT(IN) :: density, dynamic_viscosity, diameter, slip_norm, eps
+    REAL*8 :: volume, reynolds, cd_slip
+    volume = ACOS(-1.0d0)*diameter**3/6.0d0
+    reynolds = density*eps*slip_norm*diameter/dynamic_viscosity
+    IF (reynolds.LT.1000.0d0) THEN
+      cd_slip = 24.0d0*dynamic_viscosity/(density*eps*diameter)* &
+                (1.0d0 + 0.15d0*reynolds**0.687d0)
+    ELSE
+      cd_slip = 0.44d0*slip_norm
+    END IF
+    drag_B = volume*0.75d0*cd_slip*density*eps*eps**(-2.65d0)/diameter
+  END FUNCTION EL_DRAG_B_WENYU
 
   SUBROUTINE EL_LIFT_CLOSURE(state, carrier_velocity, grad_u, density, &
                              viscosity, epsilon_f, lift)
