@@ -44,6 +44,7 @@ MODULE EL_TRANSFER
   ! SimPar@ELPeriodicKernel = wrap, its periodic images)
   USE EL_IMAGE_TRANSFER, ONLY: EL_SAMPLE_RECORD, EL_SAMPLE_RECORD_VISCOUS, EL_DEPOSIT_RECORD
   USE EL_PERIODIC, ONLY: EL_PERIODIC_ACTIVE, EL_PERIODIC_MARKED_ON_PLANES
+  USE EL_MOMENTUM_BALANCE, ONLY: EL_MOMBAL_RECORD_PARTICLES
 
   IMPLICIT NONE
 
@@ -550,6 +551,9 @@ CONTAINS
       el_pair_expected_impulse = dt*(global_drag_impl + global_lift + &
         global_pressure + global_grav_buoy)
       IF (viscous_force) el_pair_expected_impulse = el_pair_expected_impulse + dt*global_viscous
+      ! momentum-balance audit (SimPar@ELMomentumBalanceAudit; no-op otherwise)
+      CALL EL_MOMBAL_RECORD_PARTICLES(ABS(istep), global_drag, global_drag_impl, global_pressure, &
+        global_viscous, global_lift, global_grav_buoy, global_feedback, global_rhs)
     END IF
 
     feedback_residual = global_rhs + global_feedback

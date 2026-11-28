@@ -987,3 +987,52 @@ step velocity, and the relative slope of the fit at the crossing, r = a U_mf + 2
 of the logged weight (relative up to 5e-7) moves U_mf by about 5e-7 / r (relative). The verdicts F1-F3 of a run
 are to be questioned when the distance of U_mf to a step velocity is not at least ten times that. Recorded
 runs: distance 4e-2, r = 1.11 for both, so the margin is a factor of about 1e5.
+
+## 19. After the merge: master certified, diagnostics follow-up (2026-11-28)
+
+Pull request #54 was merged by the owner on 2026-11-28 (master 7c1a3040, pe pin b6b2344).
+
+**Post-merge certification of master 7c1a3040** from a fresh checkout (worktree `FeatFloWer-master7c1a3040`,
+one tree per toolchain: `build-el-master7c1a3040`, `build-twin-master7c1a3040`; scripts and logs in
+`/data/warehouse17/rmuenste/runs/pinbump_2026-11-23`) [V]:
+
+| gate | job | result |
+|---|---|---|
+| EL default paths D_s6, G_tier2, VB40, E2w5 and the two 400-step case-11 runs (binary `master7c1a3040-peb6b2344`, md5 9568dc00, build job 167698) | 167699 | bitwise against the runs of the b6b2344 pin gate |
+| EL / pco unit tests | 167700 | 15 of 15 pass |
+| DNS twin e4_l3 (build job 167697) | 167701 | bitwise with the certified head (ca98e7af225b / 89abce88b675) |
+| DNS twin DKT | 167702 | bitwise with the certified head (82411f64f661 / cfb8b42d0969); DNS datasheet row `master_7c1a3040_post_merge_twin` |
+
+**Diagnostics follow-up** (branch `feature/el-momentum-balance-audit` from master, worktree
+`FeatFloWer-mombal`): the momentum-balance audit of section 16 with its later extension (gas fraction on the
+inlet / outlet plane, inlet-row reaction by dof class), `fl11_mombal.py`, `fl11_seed.py` and
+`fl11_layer_profile.py`; key, lines and coverage in the design note, section 10. Not taken over: the
+diagnostic control `ELDragHrzPartner`, the window audit `ELBedWindowAudit` and `fl11_holds.py` of section 17;
+they stay on the archive branch `diag/el-momentum-balance` (08e0713b). The statements "not on this branch,
+not pushed, not reviewed" in sections 16 and 17 describe the state of 2026-11-23/24.
+
+Review (GPT-6 Astra, high) of 7c1a3040..a2bb3dd6; brief and text in
+`/data/warehouse17/rmuenste/runs/fluid11/momdiag/review_pr` (`review_brief_mombal.md`,
+`astra_review_mombal.md`). No finding on the default path, the key-on solver state or the case-11 accounting
+("no P0 issue"); CHANGES REQUIRED for seven findings, all fixed in 61ca8b55; the fixes were not reviewed again.
+
+| finding | fix |
+|---|---|
+| P1: a deck reload could change time scheme, flow type or MatrixRenewal under the audit | the covered settings are one function, checked at start-up and at the start of every audited step (abort of all ranks); unit check. The run-time path is not exercised by a run |
+| P1: the particle closure assumes the wall-contact relaxation of a multi-process pe run | the audit is refused with fewer than two workers (not exercised by a run) |
+| P1: with `ELApplyParticleForces = No` evaluated forces were recorded as armed | refused at start-up; smoke job 167719: the run stops before the first step with the refusal line |
+| P2: `fl11_seed.py` found pairs closer than 4 r only | all pairs are searched when the cell search finds no gap below 2 r; two self-test cases |
+| P2 (two): `fl11_layer_profile.py` assumed equal layer heights and pooled the point pressures of all ranks (shared points counted several times) | area means over the cell faces, layers of any height, other meshes refused; self-test. On the holds `Z80_U12` / `Z80_U16` of section 17 the gradients move by at most 0.03 % (layer 1: 3015.8 -> 3016.3 Pa/m, G/Gcl 1.247 -> 1.248); the numbers of section 17 are those of the archived script |
+| P3: comment on the drag pe applies | corrected (pe integrates the drag sub-steps on a free-flight reference velocity) |
+
+Gates of the follow-up, head 61ca8b55 (binary `61ca8b55-mombal`, md5 2550746c, trees `build-el-61ca8b55`,
+`build-twin-61ca8b55`) [V]; the head before the review fixes, a2bb3dd6, gave the same results (jobs
+167703-167706, 167708):
+
+| gate | job | result |
+|---|---|---|
+| key off: D_s6, G_tier2, VB40, E2w5, case 11 with and without restitution | 167713 | bitwise against the runs of the b6b2344 pin gate |
+| key on (`ELMomentumBalanceAudit = Yes`), both 400-step case-11 runs | 167713 | every pre-existing stream bitwise with the key-off run (12677 / 13077 `EL_` lines, 800 solver lines, 27 particle logs); the 2000 `EL_MOM_BALANCE` lines of each run bitwise with the archive binary `be14e7ab-e2` (the binary of sections 16 and 17) |
+| EL / pco unit tests, with `el-momentum-balance-serial` | 167714 | 16 of 16 pass |
+| DNS twin e4_l3 (build job 167711) | 167715 | bitwise with the certified head |
+| DNS twin DKT | 167716 | bitwise with the certified head; DNS datasheet row `momentum_audit_61ca8b55_twin` |

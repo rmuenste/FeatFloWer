@@ -793,3 +793,40 @@ c8541cfc) and in the post tool as ratio_k. It removes factor (a) only; (c) is a 
 resolved flow (flow through the looser regions), (b) is +0.2 %. In R_static (0.04 m/s, settled bed) the
 code's own window mean of the sampled porosity is 0.37205 (the replication above gave 0.37220) and the
 sampled slip 0.1063 m/s (replication 0.1060): ratio_w 0.954, ratio_k 0.991.
+
+## 10. Momentum-balance audit (diagnostic, 2026-11-23; on master since the follow-up of 2026-11-28)
+
+`SimPar@ELMomentumBalanceAudit = Yes` (default No: no line, no storage, no collective, nothing else
+changes). Module `source/src_el/el_momentum_balance.f90` (accumulators, the meaning and sign of every
+term, the closures, the line format; its header is the reference), fluid-side adapter
+`source/src_quadLS/QuadSc_el_mombal.f90` (four calls in the fluid step, each a no-op without the key).
+Read-only: the solver arrays are operands, products are formed in scratch arrays; with the key set every
+pre-existing log stream stays bit for bit what it is without it.
+
+Every macro step five lines, mean forces over the step in N as vectors:
+
+| line | content |
+|---|---|
+| `EL_MOM_BALANCE_P` | particles: the hydrodynamic forces armed in pe, weight, measured dp/dt, floor force from the balance, the wall impulses pe reports |
+| `EL_MOM_BALANCE_GA` | every term of the discrete gas momentum equation summed over all velocity rows |
+| `EL_MOM_BALANCE_GD` | the same over the Dirichlet rows (free rows = GA - GD) |
+| `EL_MOM_BALANCE_B` | inlet and outlet plane: pressure, area, momentum flux, viscous traction, gas fraction, and the particle reaction on Dirichlet rows by dof class |
+| `EL_MOM_BALANCE_C` | closures: gas balance on the free rows (solver tolerance), projection identity and constraint impulse (round-off), particle balance |
+
+What it covers, and refuses otherwise (start-up; the solver settings again at the start of every audited
+step, because a reload of the deck reads them again): `ELDomainType = box` (the planes are the z planes of
+the box), backward Euler, Newtonian, no viscoelastic stress, stabilisation or GAMMA, MatrixRenewal M, D,
+K >= 1, no meso filter, a solved fluid, no slip boundaries, `ELApplyParticleForces = Yes`, at least two
+workers (the particle closure folds the wall-contact impulse with the relaxation of a multi-process pe
+run). The one definition of the covered solver settings is `EL_CONFIG:EL_MOMBAL_SOLVER_SUPPORTED`.
+
+Tools in the case directory: `fl11_mombal.py` (window and whole-log table of the lines in per cent of the
+bed weight, the reconstruction of the residual between the hydrodynamic force on the particles and the
+inlet-outlet pressure force by ten terms, csv of the per-step series; self-test), `fl11_seed.py` (particle
+positions of a run at a logged time as a pe seed file, with the smallest pair and wall gaps; self-test),
+`fl11_layer_profile.py` (gas fraction, pressure gradient and Ergun gradient per cell layer from the vtu
+output; self-test). What the audit measured in case 11: RUNBOOK sections 16 and 17.
+
+Not on master: the diagnostic control `ELDragHrzPartner = sampled` (the first hrz split, kept only to
+reproduce an archived run), the window audit `ELBedWindowAudit` and `fl11_holds.py`; they stay on the
+archive branch `diag/el-momentum-balance` (08e0713b).
